@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'theme.dart';
 import 'screens/auth/landing_screen.dart';
 import 'screens/auth/profile_setup_screen.dart';
@@ -13,25 +14,43 @@ void main() async {
   runApp(const GamearnApp());
 }
 
-class GamearnApp extends StatelessWidget {
+class GamearnApp extends StatefulWidget {
   const GamearnApp({super.key});
+
+  @override
+  State<GamearnApp> createState() => _GamearnAppState();
+}
+
+class _GamearnAppState extends State<GamearnApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Listen to ThemeNotifier so rebuilds happen on theme changes
+    ThemeNotifier.instance.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    ThemeNotifier.instance.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() => setState(() {});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Gamearn',
       debugShowCheckedModeBanner: false,
-      theme: kDarkTheme,
+      theme: kLightTheme,
+      darkTheme: kDarkTheme,
+      // Follows system unless user explicitly overrides in Settings
+      themeMode: ThemeNotifier.instance.themeMode,
       home: const _AuthGate(),
     );
   }
 }
 
-/// Watches Firebase Auth state.
-/// - null        → LandingScreen (splash + auth flow)
-/// - logged in, no Firestore profile → ProfileSetupScreen
-/// - logged in, has profile, isAdmin → AdminShell (unchanged from Phase 1)
-/// - logged in, has profile, not admin → Shell (Phase 2 user app)
 class _AuthGate extends StatelessWidget {
   const _AuthGate();
 
@@ -43,7 +62,6 @@ class _AuthGate extends StatelessWidget {
         if (authSnap.connectionState == ConnectionState.waiting) {
           return const _SplashLoader();
         }
-
         final user = authSnap.data;
         if (user == null) return const LandingScreen();
 
@@ -56,21 +74,14 @@ class _AuthGate extends StatelessWidget {
             if (userSnap.connectionState == ConnectionState.waiting) {
               return const _SplashLoader();
             }
-
             final exists = userSnap.data?.exists ?? false;
-            if (!exists) {
-              // New user — needs to set up profile
-              return const ProfileSetupScreen();
-            }
+            if (!exists) return const ProfileSetupScreen();
 
             final data = userSnap.data!.data() as Map<String, dynamic>;
             final isAdmin = data['isAdmin'] == true;
-
             if (isAdmin) {
-              // TODO: return const AdminShell();
-              return const Shell(); // fallback to user shell for now
+              return const Shell(); // swap for AdminShell when ready
             }
-
             return const Shell();
           },
         );

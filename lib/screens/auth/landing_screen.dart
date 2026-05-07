@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../theme.dart';
+import '../../services/social_auth_service.dart';
 import 'splash_screen.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 
-/// The first screen a user sees after the splash.
-/// Matches Figma: logo, "GAMEARN / Elite Gaming Tournaments",
-/// orange "Create Account" button, outlined "Log In", then 3 social buttons.
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
 
@@ -24,11 +25,88 @@ class _LandingScreenState extends State<LandingScreen> {
         onComplete: () => setState(() => _showSplash = false),
       );
     }
-    return _LandingBody();
+    return const _LandingBody();
   }
 }
 
-class _LandingBody extends StatelessWidget {
+class _LandingBody extends StatefulWidget {
+  const _LandingBody();
+
+  @override
+  State<_LandingBody> createState() => _LandingBodyState();
+}
+
+class _LandingBodyState extends State<_LandingBody> {
+  bool _googleLoading = false;
+  bool _facebookLoading = false;
+  bool _appleLoading = false;
+
+  // After social sign-in, check if Firestore profile exists.
+  // _AuthGate in main.dart will handle routing, so we just need
+  // to surface errors here.
+  Future<void> _handleSocialSignIn(String provider) async {
+    setState(() {
+      if (provider == 'google') _googleLoading = true;
+      if (provider == 'facebook') _facebookLoading = true;
+      if (provider == 'apple') _appleLoading = true;
+    });
+
+    try {
+      UserCredential cred;
+
+      switch (provider) {
+        case 'google':
+          cred = await SocialAuthService.instance.signInWithGoogle();
+          break;
+        case 'facebook':
+          cred = await SocialAuthService.instance.signInWithFacebook();
+          break;
+        case 'apple':
+          cred = await SocialAuthService.instance.signInWithApple();
+          break;
+        default:
+          return;
+      }
+
+      // For new social users, pre-populate display name if available
+      final user = cred.user;
+      if (user != null && cred.additionalUserInfo?.isNewUser == true) {
+        final displayName = user.displayName ?? '';
+        // _AuthGate will route to ProfileSetupScreen since no Firestore doc yet.
+        // Pre-set the displayName in Firebase Auth so ProfileSetupScreen can prefill.
+        if (displayName.isNotEmpty) {
+          await user.updateDisplayName(displayName);
+        }
+      }
+      // _AuthGate stream listener handles routing automatically — no Navigator needed.
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      _showError(e.message);
+    } catch (e) {
+      if (!mounted) return;
+      _showError('Something went wrong. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _googleLoading = false;
+          _facebookLoading = false;
+          _appleLoading = false;
+        });
+      }
+    }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -39,7 +117,8 @@ class _LandingBody extends StatelessWidget {
           child: Column(
             children: [
               const Spacer(flex: 2),
-              // Logo
+
+              // ── Logo ────────────────────────────────────────────────────────
               Container(
                 width: 96,
                 height: 96,
@@ -66,8 +145,10 @@ class _LandingBody extends StatelessWidget {
                 'Elite Gaming Tournaments',
                 style: TextStyle(color: kTextSec, fontSize: 15),
               ),
+
               const Spacer(flex: 3),
-              // Create Account (orange filled)
+
+              // ── Create Account ───────────────────────────────────────────────
               _LandingButton(
                 label: 'Create Account',
                 filled: true,
@@ -75,7 +156,8 @@ class _LandingBody extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => const RegisterScreen())),
               ),
               const SizedBox(height: 14),
-              // Log In (outlined)
+
+              // ── Log In ───────────────────────────────────────────────────────
               _LandingButton(
                 label: 'Log In',
                 filled: false,
@@ -83,7 +165,8 @@ class _LandingBody extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => const LoginScreen())),
               ),
               const SizedBox(height: 32),
-              // Or continue with divider
+
+              // ── Divider ──────────────────────────────────────────────────────
               Row(children: [
                 const Expanded(child: Divider(color: kBorder)),
                 Padding(
@@ -93,41 +176,45 @@ class _LandingBody extends StatelessWidget {
                 const Expanded(child: Divider(color: kBorder)),
               ]),
               const SizedBox(height: 20),
-              // Google + Apple
+
+              // ── Google + Apple row ───────────────────────────────────────────
               Row(children: [
                 Expanded(
                   child: _SocialButton(
                     label: 'Google',
-                    icon: Icons.g_mobiledata,
-                    onTap: () {}, // TODO: Google sign-in
+                    svgAsset: 'google',
+                    loading: _googleLoading,
+                    onTap: () => _handleSocialSignIn('google'),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _SocialButton(
                     label: 'Apple',
-                    icon: Icons.apple,
-                    onTap: () {}, // TODO: Apple sign-in
+                    svgAsset: 'apple',
+                    loading: _appleLoading,
+                    onTap: () => _handleSocialSignIn('apple'),
                   ),
                 ),
               ]),
               const SizedBox(height: 12),
-              // Facebook full width
+
+              // ── Facebook full width ──────────────────────────────────────────
               _SocialButton(
                 label: 'Facebook',
-                icon: Icons.facebook,
-                onTap: () {}, // TODO: Facebook sign-in
+                svgAsset: 'facebook',
+                loading: _facebookLoading,
+                onTap: () => _handleSocialSignIn('facebook'),
                 fullWidth: true,
               ),
+
               const SizedBox(height: 20),
-              // T&C
-              Text(
+
+              // ── T&C ─────────────────────────────────────────────────────────
+              const Text(
                 'By continuing, you agree to our Terms and Conditions\nand Privacy Policy',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: kTextMuted,
-                  fontSize: 11,
-                ),
+                style: TextStyle(color: kTextMuted, fontSize: 11),
               ),
               const SizedBox(height: 24),
             ],
@@ -138,11 +225,14 @@ class _LandingBody extends StatelessWidget {
   }
 }
 
+// ── Buttons ───────────────────────────────────────────────────────────────────
+
 class _LandingButton extends StatelessWidget {
   final String label;
   final bool filled;
   final VoidCallback onTap;
-  const _LandingButton({required this.label, required this.filled, required this.onTap});
+  const _LandingButton(
+      {required this.label, required this.filled, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -182,28 +272,73 @@ class _LandingButton extends StatelessWidget {
 
 class _SocialButton extends StatelessWidget {
   final String label;
-  final IconData icon;
+  final String svgAsset; // 'google' | 'apple' | 'facebook'
   final VoidCallback onTap;
   final bool fullWidth;
-  const _SocialButton(
-      {required this.label,
-      required this.icon,
-      required this.onTap,
-      this.fullWidth = false});
+  final bool loading;
+
+  const _SocialButton({
+    required this.label,
+    required this.svgAsset,
+    required this.onTap,
+    this.fullWidth = false,
+    this.loading = false,
+  });
+
+  IconData get _icon {
+    switch (svgAsset) {
+      case 'apple':
+        return Icons.apple;
+      case 'facebook':
+        return Icons.facebook;
+      default:
+        return Icons.g_mobiledata;
+    }
+  }
+
+  Color get _iconColor {
+    switch (svgAsset) {
+      case 'facebook':
+        return const Color(0xFF1877F2);
+      default:
+        return kTextSec;
+    }
+  }
+
+  Widget _buildContent() {
+    if (loading) {
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: kCyan,
+        ),
+      );
+    }
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(_icon, color: _iconColor, size: 22),
+        const SizedBox(width: 8),
+        Text(label,
+            style: const TextStyle(
+                color: kTextPri, fontWeight: FontWeight.w600, fontSize: 14)),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final btn = OutlinedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, color: kTextSec, size: 20),
-      label: Text(label,
-          style: const TextStyle(color: kTextPri, fontWeight: FontWeight.w600)),
+    final btn = OutlinedButton(
+      onPressed: loading ? null : onTap,
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 14),
-        side: const BorderSide(color: kBorder),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        side: BorderSide(color: loading ? kBorder.withOpacity(0.4) : kBorder),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
+      child: _buildContent(),
     );
     return fullWidth ? SizedBox(width: double.infinity, child: btn) : btn;
   }

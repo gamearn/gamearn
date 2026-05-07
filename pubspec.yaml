@@ -10,10 +10,20 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Firebase (keep existing Phase 1 setup)
+  # Firebase
   firebase_core: ^3.1.0
   firebase_auth: ^5.1.0
   cloud_firestore: ^5.1.0
+
+  # ── Phase 3: Social Login ─────────────────────────────────────────────────
+  google_sign_in: ^6.2.1
+  flutter_facebook_auth: ^7.0.1
+  sign_in_with_apple: ^6.1.1
+  # Required by sign_in_with_apple on Android/Web
+  crypto: ^3.0.3
+
+  # ── Image caching (fixes game thumbnail flicker) ──────────────────────────
+  cached_network_image: ^3.3.1
 
   # Formatting
   intl: ^0.19.0
@@ -25,3 +35,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/games/ludo.png
+    - assets/games/ayo.png
+    - assets/games/draughts.png
+    # Add more game assets here as needed

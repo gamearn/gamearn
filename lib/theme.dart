@@ -55,3 +55,34 @@ ThemeData get kDarkTheme => ThemeData(
   useMaterial3: true,
   fontFamily: 'Roboto',
 );
+
+ThemeData get kLightTheme => ThemeData(
+  brightness: Brightness.light,
+  scaffoldBackgroundColor: kLightBg,
+  colorScheme: const ColorScheme.light(
+    primary: kCyan,
+    secondary: kOrange,
+    surface: kLightCard,
+  ),
+  useMaterial3: true,
+  fontFamily: 'Roboto',
+);
+
+class ThemeNotifier extends ChangeNotifier {
+  ThemeNotifier._();
+  static final ThemeNotifier instance = ThemeNotifier._();
+
+  bool? _forceDark;
+
+  bool? get forceDark => _forceDark;
+
+  ThemeMode get themeMode {
+    if (_forceDark == null) return ThemeMode.system;
+    return _forceDark! ? ThemeMode.dark : ThemeMode.light;
+  }
+
+  void setTheme(bool? val) {
+    _forceDark = val;
+    notifyListeners();
+  }
+}
