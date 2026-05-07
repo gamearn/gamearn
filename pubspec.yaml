@@ -19,10 +19,9 @@ dependencies:
   google_sign_in: ^6.2.1
   flutter_facebook_auth: ^7.0.1
   sign_in_with_apple: ^6.1.1
-  # Required by sign_in_with_apple on Android/Web
   crypto: ^3.0.3
 
-  # ── Image caching (fixes game thumbnail flicker) ──────────────────────────
+  # Image caching
   cached_network_image: ^3.3.1
 
   # Formatting
@@ -32,12 +31,32 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.13.1
+
+# ── Launcher Icons Config ─────────────────────────────────────────────────────
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logos/logo_dark.png"
+  adaptive_icon_background: "#0A0E1A"
+  adaptive_icon_foreground: "assets/logos/logo_icon.png"
+  image_path_ios: "assets/logos/logo_dark.png"
+  web:
+    generate: true
+    image_path: "assets/logos/logo_dark.png"
+    background_color: "#0A0E1A"
+    theme_color: "#00E5FF"
 
 flutter:
   uses-material-design: true
 
   assets:
+    # Logos
+    - assets/logos/logo_dark.png
+    - assets/logos/logo_light.png
+    - assets/logos/logo_icon.png
+    - assets/logos/logo_horizontal.png
+    # Games
     - assets/games/ludo.png
     - assets/games/ayo.png
     - assets/games/draughts.png
-    # Add more game assets here as needed

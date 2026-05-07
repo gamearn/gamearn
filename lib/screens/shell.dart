@@ -38,19 +38,32 @@ class _ShellState extends State<Shell> {
   }
 }
 
+// ── Bottom Nav ────────────────────────────────────────────────────────────────
 class _GamearnBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
-
-  const _GamearnBottomNav({required this.currentIndex, required this.onTap});
+  const _GamearnBottomNav(
+      {required this.currentIndex, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     const items = [
-      _NavItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home'),
-      _NavItem(icon: Icons.emoji_events_outlined, activeIcon: Icons.emoji_events, label: 'Tour'),
-      _NavItem(icon: Icons.account_balance_wallet_outlined, activeIcon: Icons.account_balance_wallet, label: 'Wallet'),
-      _NavItem(icon: Icons.person_outline, activeIcon: Icons.person, label: 'Profile'),
+      _NavItem(
+          icon: Icons.home_outlined,
+          activeIcon: Icons.home_rounded,
+          label: 'Home'),
+      _NavItem(
+          icon: Icons.emoji_events_outlined,
+          activeIcon: Icons.emoji_events,
+          label: 'Tour'),
+      _NavItem(
+          icon: Icons.account_balance_wallet_outlined,
+          activeIcon: Icons.account_balance_wallet,
+          label: 'Wallet'),
+      _NavItem(
+          icon: Icons.person_outline,
+          activeIcon: Icons.person,
+          label: 'Profile'),
     ];
 
     return Container(
@@ -100,9 +113,45 @@ class _GamearnBottomNav extends StatelessWidget {
   }
 }
 
+// ── Logo Widget (reusable across the app) ─────────────────────────────────────
+/// Use this anywhere you need the Gamearn logo.
+/// Automatically picks dark/light variant based on current theme.
+class GamearnLogo extends StatelessWidget {
+  final double size;
+  final bool iconOnly; // true = logo_icon.png (no text), false = full logo
+
+  const GamearnLogo({
+    super.key,
+    this.size = 40,
+    this.iconOnly = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final String asset;
+    if (iconOnly) {
+      asset = 'assets/logos/logo_icon.png';
+    } else {
+      asset = isDark
+          ? 'assets/logos/logo_dark.png'
+          : 'assets/logos/logo_light.png';
+    }
+
+    return Image.asset(
+      asset,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+    );
+  }
+}
+
 class _NavItem {
   final IconData icon;
   final IconData activeIcon;
   final String label;
-  const _NavItem({required this.icon, required this.activeIcon, required this.label});
+  const _NavItem(
+      {required this.icon, required this.activeIcon, required this.label});
 }

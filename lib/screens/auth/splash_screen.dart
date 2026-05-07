@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 
-/// Full-screen animated splash shown during app load.
-/// Call [SplashScreen.show] to display it, then navigate away when ready.
 class SplashScreen extends StatefulWidget {
   final VoidCallback onComplete;
   const SplashScreen({super.key, required this.onComplete});
@@ -15,6 +13,7 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _progress;
+  late Animation<double> _fadeIn;
   String _statusText = 'INITIALIZING ARENA...';
 
   @override
@@ -26,6 +25,10 @@ class _SplashScreenState extends State<SplashScreen>
     );
     _progress = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+    _fadeIn = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+          parent: _ctrl, curve: const Interval(0, 0.4, curve: Curves.easeIn)),
     );
 
     _ctrl.addListener(() {
@@ -47,40 +50,49 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final logoAsset = isDark
+        ? 'assets/logos/logo_dark.png'
+        : 'assets/logos/logo_light.png';
+
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: isDark ? kBgDeep : kLightBg,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             children: [
               const Spacer(),
-              // Logo icon
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A2340),
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: const Center(
-                  child: Text('G⚡', style: TextStyle(fontSize: 40)),
-                ),
-              ),
-              const SizedBox(height: 28),
-              const Text(
-                'WELCOME TO\nGAMEARN',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: kTextPri,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                  height: 1.25,
+
+              // ── Logo ────────────────────────────────────────────────────
+              FadeTransition(
+                opacity: _fadeIn,
+                child: Image.asset(
+                  logoAsset,
+                  width: 180,
+                  height: 180,
+                  fit: BoxFit.contain,
                 ),
               ),
+
+              const SizedBox(height: 20),
+              FadeTransition(
+                opacity: _fadeIn,
+                child: Text(
+                  'WHERE SKILL BECOMES REWARD',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: isDark ? kTextSec : kLightSub,
+                    fontSize: 12,
+                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+
               const Spacer(),
-              // Progress section
+
+              // ── Progress ─────────────────────────────────────────────────
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -92,8 +104,8 @@ class _SplashScreenState extends State<SplashScreen>
                         child: Text(
                           _statusText,
                           key: ValueKey(_statusText),
-                          style: const TextStyle(
-                            color: kTextSec,
+                          style: TextStyle(
+                            color: isDark ? kTextSec : kLightSub,
                             fontSize: 11,
                             letterSpacing: 1.2,
                             fontWeight: FontWeight.w500,
@@ -128,16 +140,11 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Icon(Icons.wifi, color: kTextSec, size: 14),
-                      const SizedBox(width: 6),
-                      Text(
-                        'SECURE CONNECTION ESTABLISHED',
-                        style: kLabel,
-                      ),
-                    ],
-                  ),
+                  Row(children: [
+                    const Icon(Icons.wifi, color: kTextSec, size: 14),
+                    const SizedBox(width: 6),
+                    Text('SECURE CONNECTION ESTABLISHED', style: kLabel),
+                  ]),
                 ],
               ),
               const SizedBox(height: 40),

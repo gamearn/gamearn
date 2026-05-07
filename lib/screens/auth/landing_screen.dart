@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../theme.dart';
 import '../../services/social_auth_service.dart';
 import 'splash_screen.dart';
@@ -37,48 +34,29 @@ class _LandingBody extends StatefulWidget {
 }
 
 class _LandingBodyState extends State<_LandingBody> {
-  bool _googleLoading = false;
+  bool _googleLoading   = false;
   bool _facebookLoading = false;
-  bool _appleLoading = false;
+  bool _appleLoading    = false;
 
-  // After social sign-in, check if Firestore profile exists.
-  // _AuthGate in main.dart will handle routing, so we just need
-  // to surface errors here.
   Future<void> _handleSocialSignIn(String provider) async {
     setState(() {
-      if (provider == 'google') _googleLoading = true;
+      if (provider == 'google')   _googleLoading   = true;
       if (provider == 'facebook') _facebookLoading = true;
-      if (provider == 'apple') _appleLoading = true;
+      if (provider == 'apple')    _appleLoading    = true;
     });
 
     try {
-      UserCredential cred;
-
       switch (provider) {
         case 'google':
-          cred = await SocialAuthService.instance.signInWithGoogle();
+          await SocialAuthService.instance.signInWithGoogle();
           break;
         case 'facebook':
-          cred = await SocialAuthService.instance.signInWithFacebook();
+          await SocialAuthService.instance.signInWithFacebook();
           break;
         case 'apple':
-          cred = await SocialAuthService.instance.signInWithApple();
+          await SocialAuthService.instance.signInWithApple();
           break;
-        default:
-          return;
       }
-
-      // For new social users, pre-populate display name if available
-      final user = cred.user;
-      if (user != null && cred.additionalUserInfo?.isNewUser == true) {
-        final displayName = user.displayName ?? '';
-        // _AuthGate will route to ProfileSetupScreen since no Firestore doc yet.
-        // Pre-set the displayName in Firebase Auth so ProfileSetupScreen can prefill.
-        if (displayName.isNotEmpty) {
-          await user.updateDisplayName(displayName);
-        }
-      }
-      // _AuthGate stream listener handles routing automatically — no Navigator needed.
     } on AuthException catch (e) {
       if (!mounted) return;
       _showError(e.message);
@@ -88,9 +66,9 @@ class _LandingBodyState extends State<_LandingBody> {
     } finally {
       if (mounted) {
         setState(() {
-          _googleLoading = false;
+          _googleLoading   = false;
           _facebookLoading = false;
-          _appleLoading = false;
+          _appleLoading    = false;
         });
       }
     }
@@ -109,8 +87,13 @@ class _LandingBodyState extends State<_LandingBody> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final logoAsset = isDark
+        ? 'assets/logos/logo_dark.png'
+        : 'assets/logos/logo_light.png';
+
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: isDark ? kBgDeep : kLightBg,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -118,37 +101,16 @@ class _LandingBodyState extends State<_LandingBody> {
             children: [
               const Spacer(flex: 2),
 
-              // ── Logo ────────────────────────────────────────────────────────
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A2340),
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: const Center(
-                  child: Text('G⚡', style: TextStyle(fontSize: 40)),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'GAMEARN',
-                style: TextStyle(
-                  color: kTextPri,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Elite Gaming Tournaments',
-                style: TextStyle(color: kTextSec, fontSize: 15),
+              // ── Logo ────────────────────────────────────────────────────
+              Image.asset(
+                logoAsset,
+                width: 200,
+                height: 200,
+                fit: BoxFit.contain,
               ),
 
               const Spacer(flex: 3),
 
-              // ── Create Account ───────────────────────────────────────────────
               _LandingButton(
                 label: 'Create Account',
                 filled: true,
@@ -156,8 +118,6 @@ class _LandingBodyState extends State<_LandingBody> {
                     MaterialPageRoute(builder: (_) => const RegisterScreen())),
               ),
               const SizedBox(height: 14),
-
-              // ── Log In ───────────────────────────────────────────────────────
               _LandingButton(
                 label: 'Log In',
                 filled: false,
@@ -166,7 +126,6 @@ class _LandingBodyState extends State<_LandingBody> {
               ),
               const SizedBox(height: 32),
 
-              // ── Divider ──────────────────────────────────────────────────────
               Row(children: [
                 const Expanded(child: Divider(color: kBorder)),
                 Padding(
@@ -177,7 +136,6 @@ class _LandingBodyState extends State<_LandingBody> {
               ]),
               const SizedBox(height: 20),
 
-              // ── Google + Apple row ───────────────────────────────────────────
               Row(children: [
                 Expanded(
                   child: _SocialButton(
@@ -198,8 +156,6 @@ class _LandingBodyState extends State<_LandingBody> {
                 ),
               ]),
               const SizedBox(height: 12),
-
-              // ── Facebook full width ──────────────────────────────────────────
               _SocialButton(
                 label: 'Facebook',
                 svgAsset: 'facebook',
@@ -209,8 +165,6 @@ class _LandingBodyState extends State<_LandingBody> {
               ),
 
               const SizedBox(height: 20),
-
-              // ── T&C ─────────────────────────────────────────────────────────
               const Text(
                 'By continuing, you agree to our Terms and Conditions\nand Privacy Policy',
                 textAlign: TextAlign.center,
@@ -224,8 +178,6 @@ class _LandingBodyState extends State<_LandingBody> {
     );
   }
 }
-
-// ── Buttons ───────────────────────────────────────────────────────────────────
 
 class _LandingButton extends StatelessWidget {
   final String label;
@@ -272,7 +224,7 @@ class _LandingButton extends StatelessWidget {
 
 class _SocialButton extends StatelessWidget {
   final String label;
-  final String svgAsset; // 'google' | 'apple' | 'facebook'
+  final String svgAsset;
   final VoidCallback onTap;
   final bool fullWidth;
   final bool loading;
@@ -287,33 +239,24 @@ class _SocialButton extends StatelessWidget {
 
   IconData get _icon {
     switch (svgAsset) {
-      case 'apple':
-        return Icons.apple;
-      case 'facebook':
-        return Icons.facebook;
-      default:
-        return Icons.g_mobiledata;
+      case 'apple':    return Icons.apple;
+      case 'facebook': return Icons.facebook;
+      default:         return Icons.g_mobiledata;
     }
   }
 
   Color get _iconColor {
     switch (svgAsset) {
-      case 'facebook':
-        return const Color(0xFF1877F2);
-      default:
-        return kTextSec;
+      case 'facebook': return const Color(0xFF1877F2);
+      default:         return kTextSec;
     }
   }
 
   Widget _buildContent() {
     if (loading) {
       return const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          color: kCyan,
-        ),
+        width: 20, height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2, color: kCyan),
       );
     }
     return Row(
