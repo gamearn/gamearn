@@ -29,6 +29,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  String _formatNigerianNumber(String raw) {
+    raw = raw.replaceAll(RegExp(r'\s+'), '');
+    if (raw.startsWith('0')) return '+234${raw.substring(1)}';
+    if (raw.startsWith('+234')) return raw;
+    return '+234$raw';
+  }
+
   Future<void> _register() async {
     if (!_agreed) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -38,37 +45,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ));
       return;
     }
-    if (_emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) return;
+    
+    final email = _emailCtrl.text.trim();
+    final password = _passCtrl.text;
+    final name = _nameCtrl.text.trim();
+    final rawPhone = _phoneCtrl.text.trim();
 
-    setState(() => _loading = true);
-    try {
-      final cred = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(
-        email: _emailCtrl.text.trim(),
-        password: _passCtrl.text,
-      );
-
-      // Send email OTP / verification
-      await cred.user?.sendEmailVerification();
-
-      if (!mounted) return;
-      // Navigate to OTP screen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => OtpScreen(email: _emailCtrl.text.trim()),
-        ),
-      );
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e.message ?? 'Registration failed'),
+    if (email.isEmpty || password.isEmpty || name.isEmpty || rawPhone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please fill all fields'),
         backgroundColor: Colors.redAccent,
         behavior: SnackBarBehavior.floating,
       ));
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      return;
     }
+
+    final formattedPhone = _formatNigerianNumber(rawPhone);
+
+    setState(() => _loading = true);
+
+    await FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: formattedPhone,
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        // Automatic SMS resolution (mostly on Android)
+        // If this triggers, they are verified instantly!
+        try {
+          final userCred = await FirebaseAuth.instance.signInWithCredential(credential);
+          if (userCred.user != null) {
+            await userCred.user!.updateEmail(email);
+            await userCred.user!.updatePassword(password);
+          }
+          // AuthGate automatically handles redirect
+        } catch (e) {
+          debugPrint('Auto verification failed: $e');
+        }
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        if (!mounted) return;
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.message ?? 'Phone verification failed'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ));
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        if (!mounted) return;
+        setState(() => _loading = false);
+        // Navigate to OTP screen and pass all registration data
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OtpScreen(
+              verificationId: verificationId,
+              email: email,
+              password: password,
+              phone: formattedPhone,
+              name: name,
+            ),
+          ),
+        );
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        if (mounted) setState(() => _loading = false);
+      },
+      timeout: const Duration(seconds: 60),
+    );
   }
 
   @override
@@ -129,7 +171,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     keyboardType: TextInputType.emailAddress),
                 const SizedBox(height: 16),
 
-                // Phone with +234 prefix
+                // Phone with +234 prefix context
                 _Label('Phone Number'),
                 Row(children: [
                   Container(

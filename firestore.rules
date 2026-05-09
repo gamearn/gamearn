@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ───────────────────────────────────────────────────
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthed() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthed() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ── Users ──────────────────────────────────────────────────────────────
+    // Any authenticated user can read profiles (leaderboards, lobby names)
+    // Only the owner can write their own profile
+    match /users/{userId} {
+      allow read:   if isAuthed();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; // never delete user profiles from client
+    }
+
+    // ── Wallets ────────────────────────────────────────────────────────────
+    // Strictly private — only the owner can read or write their own wallet
+    match /wallets/{userId} {
+      allow read:   if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow delete: if false;
+
+      // Wallet transactions sub-collection
+      match /transactions/{txId} {
+        allow read:   if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if false; // transactions are immutable
+        allow delete: if false;
+      }
+    }
+
+    // ── Tournaments ────────────────────────────────────────────────────────
+    // Any authenticated user can read tournaments
+    // Authenticated users can update (needed for currentPlayers increment)
+    // Only admins can create or delete tournaments
+    // NOTE: Move currentPlayers increment to Cloud Function long-term
+    match /tournaments/{tournamentId} {
+      allow read:   if isAuthed();
+      allow create: if isAdmin();
+      allow update: if isAuthed(); // scoped further below — see lobby
+      allow delete: if isAdmin();
+
+      // ── Lobby sub-collection ─────────────────────────────────────────────
+      // Any authenticated user can read lobby (to see waiting players)
+      // Users can only write to their own lobby document (join/leave)
+      match /lobby/{userId} {
+        allow read:   if isAuthed();
+        allow create: if isOwner(userId); // join lobby
+        allow delete: if isOwner(userId); // leave lobby
+        allow update: if false; // lobby docs are set-once
+      }
+    }
+
+    // ── Arena (games catalogue) ────────────────────────────────────────────
+    // Read-only for all authenticated users
+    // Write only from Firebase Console / Admin SDK
+    match /arena/{gameId} {
+      allow read:  if isAuthed();
+      allow write: if false;
+    }
+
+    // ── Notifications ──────────────────────────────────────────────────────
+    // Users can only read and delete their own notifications
+    match /notifications/{userId}/items/{notifId} {
+      allow read:   if isOwner(userId);
+      allow delete: if isOwner(userId);
+      allow create: if false; // written by Cloud Functions only
+      allow update: if false;
+    }
+
+    // ── Catch-all: deny everything not explicitly matched ──────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -145,15 +145,17 @@ class _LandingBodyState extends State<_LandingBody> {
                     onTap: () => _handleSocialSignIn('google'),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _SocialButton(
-                    label: 'Apple',
-                    svgAsset: 'apple',
-                    loading: _appleLoading,
-                    onTap: () => _handleSocialSignIn('apple'),
+                if (Theme.of(context).platform == TargetPlatform.iOS) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _SocialButton(
+                      label: 'Apple',
+                      svgAsset: 'apple',
+                      loading: _appleLoading,
+                      onTap: () => _handleSocialSignIn('apple'),
+                    ),
                   ),
-                ),
+                ],
               ]),
               const SizedBox(height: 12),
               _SocialButton(
