@@ -58,6 +58,7 @@ flutter:
     - assets/logos/logo_icon.png
     - assets/logos/logo_horizontal.png
     # Games
+    - assets/games/whot.png
     - assets/games/ludo.png
     - assets/games/ayo.png
     - assets/games/draughts.png

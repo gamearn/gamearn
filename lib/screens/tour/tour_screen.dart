@@ -940,6 +940,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
   late AnimationController _pulse;
   Timer? _countdownTimer;
   Duration _remaining = Duration.zero;
+  final Map<String, Map<String, dynamic>> _userCache = {};
 
   @override
   void initState() {
@@ -1130,67 +1131,46 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
                   itemCount: docs.length,
                   itemBuilder: (_, i) {
                     final d = docs[i].data() as Map<String, dynamic>;
-                    final isMe = d['uid'] == uid;
+                    final uidData = d['uid'] as String;
+                    final isMe = uidData == uid;
+
+                    if (_userCache.containsKey(uidData)) {
+                      final user = _userCache[uidData];
+                      final username = user?['username'] ?? 'Player';
+                      final avatar = user?['avatar'] ?? 'BOT';
+                      final emoji = kAvatars.firstWhere(
+                              (a) => a['name'] == avatar,
+                              orElse: () => kAvatars[0])['emoji'] ?? '🤖';
+
+                      return _buildPlayerItem(username, emoji, isMe, i);
+                    }
+
                     return FutureBuilder<DocumentSnapshot>(
                       future: FirebaseFirestore.instance
                           .collection('users')
-                          .doc(d['uid'])
+                          .doc(uidData)
                           .get(),
                       builder: (ctx, uSnap) {
-                        final user =
-                            uSnap.data?.data() as Map<String, dynamic>?;
+                        if (uSnap.connectionState == ConnectionState.waiting) {
+                          return const SizedBox(height: 56);
+                        }
+                        
+                        final user = uSnap.data?.data() as Map<String, dynamic>?;
+                        if (user != null) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted && !_userCache.containsKey(uidData)) {
+                              setState(() => _userCache[uidData] = user);
+                            }
+                          });
+                        }
+
                         final username = user?['username'] ?? 'Player';
                         final avatar = user?['avatar'] ?? 'BOT';
                         final emoji = kAvatars.firstWhere(
                                 (a) => a['name'] == avatar,
-                                orElse: () => kAvatars[0])['emoji'] ??
-                            '🤖';
+                                orElse: () => kAvatars[0])['emoji'] ?? '🤖';
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isMe ? kCyan.withOpacity(0.08) : kBgCard,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                                color: isMe ? kCyan.withOpacity(0.3) : kBorder),
-                          ),
-                          child: Row(children: [
-                            Text(emoji, style: const TextStyle(fontSize: 22)),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                isMe ? '$username (You)' : username,
-                                style: TextStyle(
-                                    color: isMe ? kCyan : kTextPri,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14),
-                              ),
-                            ),
-                            if (i == 0)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: kOrange.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Text('FIRST IN',
-                                    style: TextStyle(
-                                        color: kOrange,
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w800)),
-                              ),
-                            Container(
-                              width: 8,
-                              height: 8,
-                              margin: const EdgeInsets.only(left: 8),
-                              decoration: const BoxDecoration(
-                                  color: kGreen, shape: BoxShape.circle),
-                            ),
-                          ]),
-                        );
+                        return _buildPlayerItem(username, emoji, isMe, i);
                       },
                     );
                   },
@@ -1227,6 +1207,50 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
     );
   }
 
+  Widget _buildPlayerItem(String username, String emoji, bool isMe, int index) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isMe ? kCyan.withOpacity(0.08) : kBgCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isMe ? kCyan.withOpacity(0.3) : kBorder),
+      ),
+      child: Row(children: [
+        Text(emoji, style: const TextStyle(fontSize: 22)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            isMe ? '$username (You)' : username,
+            style: TextStyle(
+                color: isMe ? kCyan : kTextPri,
+                fontWeight: FontWeight.w600,
+                fontSize: 14),
+          ),
+        ),
+        if (index == 0)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: kOrange.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text('FIRST IN',
+                style: TextStyle(
+                    color: kOrange,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800)),
+          ),
+        Container(
+          width: 8,
+          height: 8,
+          margin: const EdgeInsets.only(left: 8),
+          decoration: const BoxDecoration(color: kGreen, shape: BoxShape.circle),
+        ),
+      ]),
+    );
+  }
+
   void _confirmLeave(BuildContext context) {
     showDialog(
       context: context,
@@ -1249,16 +1273,30 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
             onPressed: () async {
               final uid = FirebaseAuth.instance.currentUser?.uid;
               if (uid != null) {
-                await FirebaseFirestore.instance
+                final fee = widget.data['fee'] != null 
+                    ? (widget.data['fee'] as num).toDouble() 
+                    : 0.0;
+                
+                final batch = FirebaseFirestore.instance.batch();
+
+                final lobbyRef = FirebaseFirestore.instance
                     .collection('tournaments')
                     .doc(widget.tournamentId)
                     .collection('lobby')
-                    .doc(uid)
-                    .delete();
-                await FirebaseFirestore.instance
+                    .doc(uid);
+                batch.delete(lobbyRef);
+
+                final tourRef = FirebaseFirestore.instance
                     .collection('tournaments')
-                    .doc(widget.tournamentId)
-                    .update({'currentPlayers': FieldValue.increment(-1)});
+                    .doc(widget.tournamentId);
+                batch.update(tourRef, {'currentPlayers': FieldValue.increment(-1)});
+
+                if (fee > 0) {
+                  final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+                  batch.update(userRef, {'walletBalance': FieldValue.increment(fee)});
+                }
+
+                await batch.commit();
               }
               if (context.mounted) {
                 Navigator.of(context).popUntil((r) => r.isFirst);

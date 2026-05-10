@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme.dart';
+import '../games/whot_game_screen.dart';
 
 // ── Game asset map ─────────────────────────────────────────────────────────────
 // Keys must match the 'assetKey' field in Firestore arena docs,
 // OR be matched against the game title (lowercase) as fallback.
 // Drop your images in assets/games/ with these exact names.
 const Map<String, String> kGameAssets = {
+  'whot':     'assets/games/whot.png',
   'ludo':     'assets/games/ludo.png',
   'ayo':      'assets/games/ayo.png',
   'draughts': 'assets/games/draughts.png',
@@ -288,6 +290,7 @@ class HomeScreen extends StatelessWidget {
   }
 
   List<Map<String, dynamic>> _mockGames() => [
+    {'title': 'WHOT',     'playCount': 2100, 'assetKey': 'whot'},
     {'title': 'Lúdò',     'playCount': 1200, 'assetKey': 'ludo'},
     {'title': 'Ayò Òpón', 'playCount': 850,  'assetKey': 'ayo'},
     {'title': 'Draughts', 'playCount': 420,  'assetKey': 'draughts'},
@@ -304,8 +307,22 @@ class _GameCard extends StatelessWidget {
     final title     = data['title'] ?? 'Game';
     final playCount = data['playCount'] ?? 0;
     final assetPath = _assetForGame(data);
+    final assetKey  = (data['assetKey'] as String?)?.toLowerCase() ?? '';
 
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        if (assetKey.contains('whot') || title.toLowerCase().contains('whot')) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const WhotSetupScreen()));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('$title — Coming Soon!'),
+            backgroundColor: kBgCard,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ));
+        }
+      },
+      child: Container(
       width: 150,
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
@@ -356,7 +373,7 @@ class _GameCard extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
