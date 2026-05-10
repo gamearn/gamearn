@@ -127,11 +127,15 @@ class _OtpScreenState extends State<OtpScreen> {
       final userCred = await FirebaseAuth.instance.signInWithCredential(credential);
       
       // 3. We now have a Phone Auth user.
-      // Attach the email & password securely so they can log in via LoginScreen later!
+      // Link email/password credential so they can also log in via LoginScreen later.
+      // One user, two providers (phone + email/password).
       if (userCred.user != null) {
         try {
-          await userCred.user!.updateEmail(widget.email);
-          await userCred.user!.updatePassword(widget.password);
+          final emailCred = EmailAuthProvider.credential(
+            email: widget.email,
+            password: widget.password,
+          );
+          await userCred.user!.linkWithCredential(emailCred);
         } catch (e) {
           debugPrint('Failed to link email/password: $e');
           // We can proceed even if it fails, they are still logged in via Phone!

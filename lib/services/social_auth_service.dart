@@ -49,8 +49,12 @@ class SocialAuthService {
         throw AuthException('Facebook sign-in failed: ${result.message}');
       }
 
-      final credential =
-          FacebookAuthProvider.credential(result.accessToken!.tokenString);
+      final token = result.accessToken?.tokenString;
+      if (token == null) {
+        throw AuthException('Facebook sign-in failed: no token received.');
+      }
+
+      final credential = FacebookAuthProvider.credential(token);
       return await _auth.signInWithCredential(credential);
     } on AuthException {
       rethrow;
