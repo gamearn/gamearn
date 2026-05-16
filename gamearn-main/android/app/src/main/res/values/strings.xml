@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- This is the most important one to stop the build error -->
+    <string name="app_name">Gamearn</string>
+    
+    <!-- Keep these as placeholders so the manifest doesn't break -->
+    <string name="facebook_app_id">000000000000</string>
+    <string name="fb_login_protocol_scheme">fb000000000000</string>
+    <string name="facebook_client_token">placeholder_token</string>
+</resources>

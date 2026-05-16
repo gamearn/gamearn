@@ -1,0 +1,88 @@
+name: 🚀 Release Build
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'   # triggers on tags like v1.0.0, v1.2.3, v2.0.0-beta
+
+permissions:
+  contents: write  # needed to create GitHub Releases
+
+jobs:
+  build-release:
+    name: Build & Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 🐦 Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.7'
+          channel: stable
+          cache: true
+
+      - name: 🔑 Inject google-services.json
+        run: echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
+
+
+      - name: 📦 Get dependencies
+        run: flutter pub get
+
+      - name: 🔑 Set up Signing
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=upload-keystore.jks" >> android/key.properties
+
+      - name: 🏗️ Build release APK (Signed)
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: ✏️ Rename APK with version tag
+        run: |
+          VERSION=${{ github.ref_name }}
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             build/app/outputs/flutter-apk/gamearn-${VERSION}.apk
+          echo "APK_PATH=build/app/outputs/flutter-apk/gamearn-${VERSION}.apk" >> $GITHUB_ENV
+          echo "APK_NAME=gamearn-${VERSION}.apk" >> $GITHUB_ENV
+
+      - name: 🎉 Create GitHub Release & upload APK
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Gamearn ${{ github.ref_name }}"
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ## 🎮 Gamearn ${{ github.ref_name }}
+
+            ### What's included
+            - ✅ Splash screen with arena initialization animation
+            - ✅ Full auth flow: Landing → Register → OTP → Profile Setup → Login
+            - ✅ Home dashboard: wallet balance, streak, tournaments, games, leaderboard
+            - ✅ Tour screen: live tournaments with status badges
+            - ✅ Wallet & Earnings: units system, transaction history
+            - ✅ Profile: avatar, stats, friends, performance, Go Premium
+            - ✅ Settings & Preferences
+
+            ### Install
+            1. Download `${{ env.APK_NAME }}` below
+            2. Enable **Install from unknown sources** on your Android device
+            3. Open the APK and install
+
+            > ⚠️ This is an **unsigned debug release** for client preview only.
+            > Production signing will be added before Play Store submission.
+
+            ---
+            Built from commit `${{ github.sha }}`
+          files: ${{ env.APK_PATH }}
+          draft: false
+          prerelease: false
