@@ -314,7 +314,7 @@ class _GameCard extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         if (assetKey.contains('whot') || title.toLowerCase().contains('whot')) {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => WhotSetupScreen()));
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const WhotGameScreen()));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('$title — Coming Soon!'),
