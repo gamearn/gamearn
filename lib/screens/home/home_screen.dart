@@ -28,8 +28,29 @@ String? _assetForGame(Map<String, dynamic> data) {
 }
 
 // ── HomeScreen ────────────────────────────────────────────────────────────────
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late String _welcomeMsg;
+
+  @override
+  void initState() {
+    super.initState();
+    final msgs = [
+      'Welcome back,',
+      'Ready to win today,',
+      'Let\'s play,',
+      'Time to shine,',
+      'Game on,',
+    ];
+    msgs.shuffle();
+    _welcomeMsg = msgs.first;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +133,7 @@ class HomeScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Welcome back, $username!',
+                        Text('$_welcomeMsg $username!',
                             style: TextStyle(
                                 color: context.txtPri,
                                 fontSize: 20,
@@ -242,18 +263,16 @@ class HomeScreen extends StatelessWidget {
                           .snapshots(),
                       builder: (ctx, snap) {
                         final docs = snap.data?.docs ?? [];
-                        if (docs.isEmpty) {
-                          return Center(
-                              child: Text('No games available yet.', style: kSub));
-                        }
+                        final gamesData = docs.isNotEmpty
+                            ? docs.map((d) => d.data() as Map<String, dynamic>).toList()
+                            : _mockGames();
 
                         return ListView.builder(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: docs.length,
+                          itemCount: gamesData.length,
                           itemBuilder: (_, i) {
-                            final data = docs[i].data() as Map<String, dynamic>;
-                            return _GameCard(data: data);
+                            return _GameCard(data: gamesData[i]);
                           },
                         );
                       },
