@@ -100,7 +100,7 @@ class _SplashScreenState extends State<SplashScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
+                        duration: const Duration(milliseconds: 500),
                         child: Text(
                           _statusText,
                           key: ValueKey(_statusText),

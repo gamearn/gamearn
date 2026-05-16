@@ -263,16 +263,18 @@ class _HomeScreenState extends State<HomeScreen> {
                           .snapshots(),
                       builder: (ctx, snap) {
                         final docs = snap.data?.docs ?? [];
-                        final gamesData = docs.isNotEmpty
-                            ? docs.map((d) => d.data() as Map<String, dynamic>).toList()
-                            : _mockGames();
+                        if (docs.isEmpty) {
+                          return Center(
+                              child: Text('No games available yet.', style: kSub));
+                        }
 
                         return ListView.builder(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: gamesData.length,
+                          itemCount: docs.length,
                           itemBuilder: (_, i) {
-                            return _GameCard(data: gamesData[i]);
+                            final data = docs[i].data() as Map<String, dynamic>;
+                            return _GameCard(data: data);
                           },
                         );
                       },
