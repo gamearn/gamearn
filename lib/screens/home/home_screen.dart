@@ -16,11 +16,13 @@ const Map<String, String> kGameAssets = {
 };
 
 String? _assetForGame(Map<String, dynamic> data) {
-  // Try explicit assetKey field first
-  final key = (data['assetKey'] as String?)?.toLowerCase();
-  if (key != null && kGameAssets.containsKey(key)) return kGameAssets[key];
-  // Fall back to matching title
-  final title = (data['title'] as String? ?? '').toLowerCase();
+  final key = (data['assetKey'] ?? data['id'] ?? data['gameId'])?.toString().toLowerCase();
+  if (key != null) {
+    for (final k in kGameAssets.keys) {
+      if (key.contains(k)) return kGameAssets[k];
+    }
+  }
+  final title = (data['title'] ?? data['name'] ?? data['game'] ?? '').toString().toLowerCase();
   for (final k in kGameAssets.keys) {
     if (title.contains(k)) return kGameAssets[k];
   }
@@ -327,10 +329,10 @@ class _GameCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title     = data['title'] ?? 'Game';
-    final playCount = data['playCount'] ?? 0;
+    final title     = data['title'] ?? data['name'] ?? data['game'] ?? 'Game';
+    final playCount = data['playCount'] ?? data['players'] ?? 0;
     final assetPath = _assetForGame(data);
-    final assetKey  = (data['assetKey'] as String?)?.toLowerCase() ?? '';
+    final assetKey  = (data['assetKey'] ?? data['id'] ?? '').toString().toLowerCase();
 
     return GestureDetector(
       onTap: () {
