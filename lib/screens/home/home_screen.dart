@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../theme.dart';
 import '../games/whot_game_screen.dart';
+import '../games/game_setup_screen.dart';
 import '../../data/welcome_messages.dart';
 
 // ── Game asset map ─────────────────────────────────────────────────────────────
@@ -10,10 +12,10 @@ import '../../data/welcome_messages.dart';
 // OR be matched against the game title (lowercase) as fallback.
 // Drop your images in assets/games/ with these exact names.
 const Map<String, String> kGameAssets = {
-  'whot':     'assets/games/whot.png',
-  'ludo':     'assets/games/ludo.png',
-  'ayo':      'assets/games/ayo.png',
-  'draughts': 'assets/games/draughts.png',
+  'whot':     'assets/svgs/WHOT GAME SECTION.svg',
+  'ludo':     'assets/svgs/LUDO GAME SECTION.svg',
+  'ayo':      'assets/svgs/AYO GAME SECTION.svg',
+  'draughts': 'assets/svgs/DRAFT GAME SECTION.svg',
 };
 
 String? _assetForGame(Map<String, dynamic> data) {
@@ -329,16 +331,32 @@ class _GameCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
+        Widget destinationScreen;
+        String setupTitle;
+
         if (assetKey.contains('whot') || title.toLowerCase().contains('whot')) {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const WhotGameScreen()));
+          setupTitle = 'Wọ́t Game Set-up';
+          destinationScreen = const WhotGameScreen();
+        } else if (assetKey.contains('ludo') || title.toLowerCase().contains('ludo')) {
+          setupTitle = 'Lúùdò Game Set-up';
+          destinationScreen = _ComingSoonScreen(title: title);
+        } else if (assetKey.contains('ayo') || title.toLowerCase().contains('ayo')) {
+          setupTitle = 'Ayò Ọ̀pọ́n Game Set-up';
+          destinationScreen = _ComingSoonScreen(title: title);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('$title — Coming Soon!'),
-            backgroundColor: kBgCard,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ));
+          setupTitle = 'Dráfù Game Set-up';
+          destinationScreen = _ComingSoonScreen(title: title);
         }
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => GameSetupScreen(
+              gameTitle: setupTitle,
+              gameScreen: destinationScreen,
+            ),
+          ),
+        );
       },
       child: Container(
       width: 150,
@@ -356,12 +374,10 @@ class _GameCard extends StatelessWidget {
           Expanded(
             flex: 3,
             child: assetPath != null
-                ? Image.asset(
+                ? SvgPicture.asset(
                     assetPath,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    // Graceful fallback if image file is missing
-                    errorBuilder: (_, __, ___) => _GamePlaceholder(title: title),
                   )
                 : _GamePlaceholder(title: title),
           ),
@@ -1014,6 +1030,33 @@ class _SettingsToggle extends StatelessWidget {
                 color: context.txtPri, fontWeight: FontWeight.w600)),
         subtitle: Text(sub, style: kSub.copyWith(fontSize: 11, color: context.txtSec)),
         trailing: Switch(value: value, onChanged: onChanged, activeColor: kCyan),
+      ),
+    );
+  }
+}
+
+class _ComingSoonScreen extends StatelessWidget {
+  final String title;
+  const _ComingSoonScreen({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kBgDeep,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Center(
+        child: Text(
+          '$title Game\nComing Soon!',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: kCyan, fontSize: 24, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }

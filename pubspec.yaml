@@ -27,6 +27,7 @@ dependencies:
   # Formatting
   intl: ^0.19.0
   pinput: ^6.0.2
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -62,3 +63,4 @@ flutter:
     - assets/games/ludo.png
     - assets/games/ayo.png
     - assets/games/draughts.png
+    - assets/svgs/
