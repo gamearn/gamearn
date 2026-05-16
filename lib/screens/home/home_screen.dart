@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme.dart';
 import '../games/whot_game_screen.dart';
+import '../../data/welcome_messages.dart';
 
 // ── Game asset map ─────────────────────────────────────────────────────────────
 // Keys must match the 'assetKey' field in Firestore arena docs,
@@ -43,13 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    final msgs = [
-      'Welcome back,',
-      'Ready to win today,',
-      'Let\'s play,',
-      'Time to shine,',
-      'Game on,',
-    ];
+    final msgs = List<String>.from(kWelcomeMessages);
     msgs.shuffle();
     _welcomeMsg = msgs.first;
   }
@@ -265,18 +260,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           .snapshots(),
                       builder: (ctx, snap) {
                         final docs = snap.data?.docs ?? [];
-                        if (docs.isEmpty) {
-                          return Center(
-                              child: Text('No games available yet.', style: kSub));
-                        }
+                        final gamesData = docs.isNotEmpty
+                            ? docs.map((d) => d.data() as Map<String, dynamic>).toList()
+                            : _mockGames();
 
                         return ListView.builder(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: docs.length,
+                          itemCount: gamesData.length,
                           itemBuilder: (_, i) {
-                            final data = docs[i].data() as Map<String, dynamic>;
-                            return _GameCard(data: data);
+                            return _GameCard(data: gamesData[i]);
                           },
                         );
                       },
