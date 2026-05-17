@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../theme.dart';
 import 'withdraw_screen.dart';
 import 'transaction_history_screen.dart';
+import 'buy_coins_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -196,8 +197,12 @@ class _WalletScreenState extends State<WalletScreen>
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: () =>
-                                _showComingSoon(context, 'Add Funds'),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const BuyCoinsScreen(),
+                              ),
+                            ),
                             icon: const Icon(Icons.add_circle_outline,
                                 size: 18),
                             label: const Text('Add Funds'),
@@ -336,13 +341,7 @@ class _WalletScreenState extends State<WalletScreen>
     );
   }
 
-  void _showComingSoon(BuildContext ctx, String label) {
-    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-      content: Text('$label — coming soon!'),
-      backgroundColor: kBgCard,
-      behavior: SnackBarBehavior.floating,
-    ));
-  }
+
 
   String _fmtDate(dynamic ts) {
     if (ts == null) return '';

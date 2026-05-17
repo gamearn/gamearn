@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme.dart';
+import 'account_security_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -69,7 +70,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 16),
                   _sectionCard(context, 'Account', [
                     _navTile(context, Icons.lock_outline, 'Account Security',
-                        () {}),
+                        () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AccountSecurityScreen(),
+                              ),
+                            )),
                     _divider(context),
                     _navTile(context, Icons.privacy_tip_outlined,
                         'Privacy & Security', () {}),

@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme.dart';
+import 'tournament_details_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TOUR SCREEN (list)
@@ -305,7 +306,7 @@ class _TourCard extends StatelessWidget {
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-            builder: (_) => TournamentDetailScreen(id: id, data: data)),
+            builder: (_) => TournamentDetailsScreen(tournamentId: id)),
       ),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -403,7 +404,7 @@ class _TourCard extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                       builder: (_) =>
-                          TournamentDetailScreen(id: id, data: data)),
+                          TournamentDetailsScreen(tournamentId: id)),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: active ? kGreen : kCyan,
