@@ -6,6 +6,9 @@ import '../../theme.dart';
 import '../games/whot_game_screen.dart';
 import '../games/game_setup_screen.dart';
 import '../../data/welcome_messages.dart';
+import 'notifications_screen.dart';
+import '../profile/settings_screen.dart';
+import '../profile/daily_streak_screen.dart';
 
 // ── Game asset map ─────────────────────────────────────────────────────────────
 // Keys must match the 'assetKey' field in Firestore arena docs,
@@ -24,11 +27,15 @@ String? _assetForGame(Map<String, dynamic> data) {
     for (final k in kGameAssets.keys) {
       if (key.contains(k)) return kGameAssets[k];
     }
+    // Handle 'draft' as alias for 'draughts' key
+    if (key.contains('draft')) return kGameAssets['draughts'];
   }
   final title = (data['title'] ?? data['name'] ?? data['game'] ?? '').toString().toLowerCase();
   for (final k in kGameAssets.keys) {
     if (title.contains(k)) return kGameAssets[k];
   }
+  // Handle 'draft' or 'drafu' in title to resolve to draughts asset
+  if (title.contains('draft') || title.contains('drafu')) return kGameAssets['draughts'];
   return null;
 }
 
@@ -111,14 +118,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           badge: true,
                           onTap: () => Navigator.push(context,
                               MaterialPageRoute(
-                                  builder: (_) => const _NotificationsScreen())),
+                                  builder: (_) => const NotificationsScreen())),
                         ),
                         const SizedBox(width: 8),
                         _IconBtn(
                           icon: Icons.settings_outlined,
                           onTap: () => Navigator.push(context,
                               MaterialPageRoute(
-                                  builder: (_) => const _SettingsScreen())),
+                                  builder: (_) => const SettingsScreen())),
                         ),
                       ],
                     ),
@@ -175,12 +182,19 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: _StatCard(
-                              icon: Icons.local_fire_department_outlined,
-                              label: 'Daily Streak',
-                              value: '$streak Days',
-                              sub: 'Next reward in 2 days',
-                              iconColor: kOrange,
+                            child: GestureDetector(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const DailyStreakScreen()),
+                              ),
+                              child: _StatCard(
+                                icon: Icons.local_fire_department_outlined,
+                                label: 'Daily Streak',
+                                value: '$streak Days',
+                                sub: 'Next reward in 2 days',
+                                iconColor: kOrange,
+                              ),
                             ),
                           ),
                         ]);

@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme.dart';
+import 'daily_streak_screen.dart';
+import 'invite_friends_screen.dart';
+import 'settings_screen.dart';
+import '../wallet/transaction_history_screen.dart';
+import '../home/global_leaderboard_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -37,16 +42,38 @@ class ProfileScreen extends StatelessWidget {
 
             return CustomScrollView(
               slivers: [
-                // ── Title ─────────────────────────────────────────────────
-                const SliverToBoxAdapter(
+                // ── Title & Settings Header ──────────────────────────────
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(16, 20, 16, 0),
-                    child: Text('My Profile',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: kOrange, // Use brand color for title to pop
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800)),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const SizedBox(width: 40), // spacer to center title
+                        const Text(
+                          'My Profile',
+                          style: TextStyle(
+                              color: kOrange,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                          ),
+                          child: Container(
+                            width: 40, height: 40,
+                            decoration: BoxDecoration(
+                              color: context.surface,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.settings_outlined,
+                                color: Colors.white, size: 20),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -147,7 +174,12 @@ class ProfileScreen extends StatelessWidget {
                             const SizedBox(width: 12),
                             Expanded(
                               child: OutlinedButton(
-                                onPressed: () {},
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const TransactionHistoryScreen()),
+                                ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: kTextPri,
                                   side: const BorderSide(color: kBorder),
@@ -179,11 +211,18 @@ class ProfileScreen extends StatelessWidget {
                         const SizedBox(width: 10),
                         _StatBox(value: _fmt(following), label: 'FOLLOWING'),
                         const SizedBox(width: 10),
-                        _StatBox(
-                          value: '$dayStreak',
-                          label: 'DAY STREAK',
-                          highlight: true,
-                          icon: Icons.local_fire_department,
+                        GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const DailyStreakScreen()),
+                          ),
+                          child: _StatBox(
+                            value: '$dayStreak',
+                            label: 'DAY STREAK',
+                            highlight: true,
+                            icon: Icons.local_fire_department,
+                          ),
                         ),
                       ],
                     ),
@@ -372,11 +411,18 @@ class ProfileScreen extends StatelessWidget {
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: _RankBox(
-                                  icon: Icons.emoji_events,
-                                  label: 'GLOBAL RANK',
-                                  rank: '#$globalRank',
-                                  color: kYellowDot,
+                                child: GestureDetector(
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => const GlobalLeaderboardScreen()),
+                                  ),
+                                  child: _RankBox(
+                                    icon: Icons.emoji_events,
+                                    label: 'GLOBAL RANK',
+                                    rank: '#$globalRank',
+                                    color: kYellowDot,
+                                  ),
                                 ),
                               ),
                             ],
@@ -546,7 +592,11 @@ class _FriendRow extends StatelessWidget {
             ),
             // Invite button
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const InviteFriendsScreen()),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: kOrange,
                 foregroundColor: Colors.white,

@@ -85,6 +85,13 @@ extension AppTheme on BuildContext {
   Color get txtPri => isDark ? kTextPri : kLightText;
   Color get txtSec => isDark ? kTextSec : kLightSub;
   Color get border => isDark ? kBorder : const Color(0xFFDDE1E7);
+
+  // Mappings for the new screens to maintain strict color safety
+  Color get surface => card;
+  Color get subText => txtSec;
+  Color get cyan => kCyan;
+  Color get orange => kOrange;
+  TextStyle get titleStyle => kTitle;
 }
 
 class ThemeNotifier extends ChangeNotifier {

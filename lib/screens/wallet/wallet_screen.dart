@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../theme.dart';
+import 'withdraw_screen.dart';
+import 'transaction_history_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -215,8 +217,11 @@ class _WalletScreenState extends State<WalletScreen>
                         const SizedBox(width: 12),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () =>
-                                _showComingSoon(context, 'Cash Out'),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const WithdrawScreen()),
+                            ),
                             icon: const Icon(
                                 Icons.account_balance_wallet_outlined,
                                 size: 18),
@@ -252,7 +257,12 @@ class _WalletScreenState extends State<WalletScreen>
                                 fontWeight: FontWeight.w800,
                                 fontSize: 16)),
                         TextButton(
-                          onPressed: () {},
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const TransactionHistoryScreen()),
+                          ),
                           child: const Text('View All',
                               style: TextStyle(color: kCyan)),
                         ),
