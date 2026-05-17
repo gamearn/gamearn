@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+
 import '../../theme.dart';
 import '../games/whot_game_screen.dart';
 import '../games/game_setup_screen.dart';
@@ -12,10 +12,10 @@ import '../../data/welcome_messages.dart';
 // OR be matched against the game title (lowercase) as fallback.
 // Drop your images in assets/games/ with these exact names.
 const Map<String, String> kGameAssets = {
-  'whot':     'assets/svgs/WHOT GAME SECTION.svg',
-  'ludo':     'assets/svgs/LUDO GAME SECTION.svg',
-  'ayo':      'assets/svgs/AYO GAME SECTION.svg',
-  'draughts': 'assets/svgs/DRAFT GAME SECTION.svg',
+  'whot':     'assets/games/whot.jpg',
+  'ludo':     'assets/games/ludo.png',
+  'ayo':      'assets/games/ayo.jpg',
+  'draughts': 'assets/games/draughts.jpg',
 };
 
 String? _assetForGame(Map<String, dynamic> data) {
@@ -374,10 +374,14 @@ class _GameCard extends StatelessWidget {
           Expanded(
             flex: 3,
             child: assetPath != null
-                ? SvgPicture.asset(
-                    assetPath,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
+                ? ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(14)),
+                    child: Image.asset(
+                      assetPath,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
                   )
                 : _GamePlaceholder(title: title),
           ),
