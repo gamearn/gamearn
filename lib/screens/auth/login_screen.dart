@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 import '../../widgets/brand_logo.dart';
+import '../../services/social_auth_service.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -198,7 +199,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   Expanded(
                     child: _SocialLoginBtn(
                       type: BrandType.google,
-                      onTap: () {}, // TODO: SocialAuthService
+                      onTap: () async {
+                        setState(() => _loading = true);
+                        try {
+                          await SocialAuthService.instance.signInWithGoogle();
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                          }
+                        } finally {
+                          if (mounted) setState(() => _loading = false);
+                        }
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -206,7 +218,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     Expanded(
                       child: _SocialLoginBtn(
                         type: BrandType.apple,
-                        onTap: () {},
+                        onTap: () async {
+                          setState(() => _loading = true);
+                          try {
+                            await SocialAuthService.instance.signInWithApple();
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                            }
+                          } finally {
+                            if (mounted) setState(() => _loading = false);
+                          }
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -214,7 +237,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   Expanded(
                     child: _SocialLoginBtn(
                       type: BrandType.facebook,
-                      onTap: () {},
+                      onTap: () async {
+                        setState(() => _loading = true);
+                        try {
+                          await SocialAuthService.instance.signInWithFacebook();
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                          }
+                        } finally {
+                          if (mounted) setState(() => _loading = false);
+                        }
+                      },
                     ),
                   ),
                 ]),

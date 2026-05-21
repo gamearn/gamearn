@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme.dart';
 import 'account_security_screen.dart';
 
@@ -31,7 +30,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   GestureDetector(
                     onTap: () => Navigator.maybePop(context),
                     child: Container(
-                      width: 40, height: 40,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: context.surface,
                         borderRadius: BorderRadius.circular(10),
@@ -51,25 +51,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
                   _sectionCard(context, 'Preferences', [
-                    _toggleTile(context, Icons.notifications_outlined,
-                        'Push Notifications', _notifications,
+                    _toggleTile(
+                        context,
+                        Icons.notifications_outlined,
+                        'Push Notifications',
+                        _notifications,
                         (v) => setState(() => _notifications = v)),
                     _divider(context),
-                    _toggleTile(context, Icons.volume_up_outlined,
-                        'Sound Effects', _soundEffects,
+                    _toggleTile(
+                        context,
+                        Icons.volume_up_outlined,
+                        'Sound Effects',
+                        _soundEffects,
                         (v) => setState(() => _soundEffects = v)),
                     _divider(context),
-                    _toggleTile(context, Icons.vibration_outlined,
-                        'Vibration', _vibration,
-                        (v) => setState(() => _vibration = v)),
+                    _toggleTile(context, Icons.vibration_outlined, 'Vibration',
+                        _vibration, (v) => setState(() => _vibration = v)),
                     _divider(context),
-                    _toggleTile(context, Icons.dark_mode_outlined,
-                        'Dark Mode', _darkMode,
-                        (v) => setState(() => _darkMode = v)),
+                    _toggleTile(context, Icons.dark_mode_outlined, 'Dark Mode',
+                        _darkMode, (v) => setState(() => _darkMode = v)),
                   ]),
                   const SizedBox(height: 16),
                   _sectionCard(context, 'Account', [
-                    _navTile(context, Icons.lock_outline, 'Account Security',
+                    _navTile(
+                        context,
+                        Icons.lock_outline,
+                        'Account Security',
                         () => Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -80,16 +87,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _navTile(context, Icons.privacy_tip_outlined,
                         'Privacy & Security', () {}),
                     _divider(context),
-                    _navTile(context, Icons.language_outlined,
-                        'Language', () {}),
+                    _navTile(
+                        context, Icons.language_outlined, 'Language', () {}),
                   ]),
                   const SizedBox(height: 16),
                   _sectionCard(context, 'Support', [
-                    _navTile(context, Icons.help_outline, 'Help & Support',
-                        () {}),
+                    _navTile(
+                        context, Icons.help_outline, 'Help & Support', () {}),
                     _divider(context),
-                    _navTile(context, Icons.question_answer_outlined,
-                        'FAQs', () {}),
+                    _navTile(
+                        context, Icons.question_answer_outlined, 'FAQs', () {}),
                   ]),
                   const SizedBox(height: 16),
                   // Sign out
@@ -102,8 +109,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       decoration: BoxDecoration(
                         color: context.orange.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: context.orange.withOpacity(0.3)),
+                        border:
+                            Border.all(color: context.orange.withOpacity(0.3)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -156,7 +163,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       bool value, ValueChanged<bool> onChanged) {
     return ListTile(
       leading: Container(
-        width: 40, height: 40,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
           color: context.cyan.withOpacity(0.12),
           borderRadius: BorderRadius.circular(8),
@@ -176,12 +184,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _navTile(BuildContext context, IconData icon, String label,
-      VoidCallback onTap) {
+  Widget _navTile(
+      BuildContext context, IconData icon, String label, VoidCallback onTap) {
     return ListTile(
       onTap: onTap,
       leading: Container(
-        width: 40, height: 40,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
           color: context.cyan.withOpacity(0.12),
           borderRadius: BorderRadius.circular(8),

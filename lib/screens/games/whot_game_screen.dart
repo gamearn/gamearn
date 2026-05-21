@@ -288,10 +288,25 @@ class _WhotGameScreenState extends State<WhotGameScreen>
             itemCount: _playerHand.length,
             itemBuilder: (context, i) {
               final isSelected = _selectedCardIndex == i;
+              final isValidPlay = _canPlayCard(_playerHand[i]);
+              
               return GestureDetector(
-                onTap: () => setState(() {
-                  _selectedCardIndex = isSelected ? -1 : i;
-                }),
+                onTap: () {
+                  if (!isValidPlay && !isSelected) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Invalid card! Must match shape or number.'),
+                        backgroundColor: Colors.redAccent,
+                        behavior: SnackBarBehavior.floating,
+                        duration: Duration(seconds: 1),
+                      )
+                    );
+                    return;
+                  }
+                  setState(() {
+                    _selectedCardIndex = isSelected ? -1 : i;
+                  });
+                },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
@@ -402,6 +417,14 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         ),
       ),
     );
+  }
+
+  bool _canPlayCard(WhotCard card) {
+    // A valid play: matching shape, matching number (cross-suit), or Whot card (id 20)
+    if (card.shape == WhotShape.whot || card.number == 20) return true;
+    if (card.shape == _topCard.shape) return true;
+    if (card.number == _topCard.number) return true;
+    return false;
   }
 
   void _playCard() {

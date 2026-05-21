@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../theme.dart';
+import '../games/game_lobby_screen.dart';
 import '../games/whot_game_screen.dart';
+import '../games/ludo_game_screen.dart';
+import '../games/ayo_game_screen.dart';
+import '../games/draughts_game_screen.dart';
 import '../games/game_setup_screen.dart';
+import '../games/game_info_screen.dart';
 import '../../data/welcome_messages.dart';
 import 'notifications_screen.dart';
 import '../profile/settings_screen.dart';
@@ -19,6 +25,14 @@ const Map<String, String> kGameAssets = {
   'ludo':     'assets/games/ludo.png',
   'ayo':      'assets/games/ayo.jpg',
   'draughts': 'assets/games/draughts.jpg',
+};
+
+// ── Game icon map (Figma uses game controller style icons) ────────
+const Map<String, IconData> kGameIcons = {
+  'whot':     Icons.style_rounded,        // card fan icon
+  'ludo':     Icons.casino_rounded,       // dice
+  'ayo':      Icons.circle_outlined,      // seeds/circles
+  'draughts': Icons.grid_on_rounded,      // board grid
 };
 
 String? _assetForGame(Map<String, dynamic> data) {
@@ -267,7 +281,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 // ── Games horizontal scroll ────────────────────────────────
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 180,
+                    height: 170, // Sized down to match the new shorter card layouts
                     child: StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('arena')
@@ -331,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 }
 
-// ── Game Card ─────────────────────────────────────────────────────────────────
+// ── Game Card (Icon Only - Drop-In Replacement) ───────────────────────────────
 class _GameCard extends StatelessWidget {
   final Map<String, dynamic> data;
   const _GameCard({required this.data});
@@ -340,116 +354,84 @@ class _GameCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final title     = data['title'] ?? data['name'] ?? data['game'] ?? 'Game';
     final playCount = data['playCount'] ?? data['players'] ?? 0;
-    final assetPath = _assetForGame(data);
     final assetKey  = (data['assetKey'] ?? data['id'] ?? '').toString().toLowerCase();
 
+    // Resolve game key
+    String gameKey = 'whot';
+    Widget gameScreen = const WhotGameScreen();
+
+    if (assetKey.contains('ludo') || title.toLowerCase().contains('ludo')) {
+      gameKey = 'ludo';
+      gameScreen = const LudoGameScreen();
+    } else if (assetKey.contains('ayo') || title.toLowerCase().contains('ayo')) {
+      gameKey = 'ayo';
+      gameScreen = const AyoGameScreen();
+    } else if (assetKey.contains('draft') || title.toLowerCase().contains('draft')) {
+      gameKey = 'draughts';
+      gameScreen = const DraughtsGameScreen();
+    }
+
+    final icon = kGameIcons[gameKey] ?? Icons.sports_esports_rounded;
+
     return GestureDetector(
-      onTap: () {
-        Widget destinationScreen;
-        String setupTitle;
-
-        if (assetKey.contains('whot') || title.toLowerCase().contains('whot')) {
-          setupTitle = 'Wọ́t Game Set-up';
-          destinationScreen = const WhotGameScreen();
-        } else if (assetKey.contains('ludo') || title.toLowerCase().contains('ludo')) {
-          setupTitle = 'Lúùdò Game Set-up';
-          destinationScreen = _ComingSoonScreen(title: title);
-        } else if (assetKey.contains('ayo') || title.toLowerCase().contains('ayo')) {
-          setupTitle = 'Ayò Ọ̀pọ́n Game Set-up';
-          destinationScreen = _ComingSoonScreen(title: title);
-        } else {
-          setupTitle = 'Dráfù Game Set-up';
-          destinationScreen = _ComingSoonScreen(title: title);
-        }
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => GameSetupScreen(
-              gameTitle: setupTitle,
-              gameScreen: destinationScreen,
-            ),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GameInfoScreen(
+            gameKey: gameKey,
+            gameScreen: gameScreen,
+            playCount: playCount is int ? playCount : 0,
           ),
-        );
-      },
-      child: Container(
-      width: 150,
-      margin: const EdgeInsets.only(right: 12),
-      decoration: BoxDecoration(
-        color: kBgCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kBorder),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Thumbnail ──────────────────────────────────────────────────
-          Expanded(
-            flex: 3,
-            child: assetPath != null
-                ? ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(14)),
-                    child: Image.asset(
-                      assetPath,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
-                  )
-                : _GamePlaceholder(title: title),
-          ),
-
-          // ── Info ───────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        color: kTextPri,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
-                Text(
-                  playCount >= 1000
-                      ? '${(playCount / 1000).toStringAsFixed(1)}k Playing'
-                      : '$playCount Playing',
-                  style: const TextStyle(color: kOrange, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ));
-  }
-}
-
-/// Shown when the image asset is missing — gradient with game initial.
-class _GamePlaceholder extends StatelessWidget {
-  final String title;
-  const _GamePlaceholder({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF1A2744), Color(0xFF0D2231)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
         ),
       ),
-      child: Center(
-        child: Text(
-          title.isNotEmpty ? title[0].toUpperCase() : '🎮',
-          style: const TextStyle(
-              color: kCyan, fontSize: 40, fontWeight: FontWeight.w900),
+      child: Container(
+        width: 130,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          color: kBgCard,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kBorder),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // ── Icon circle ───────────────────────────────────────
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: kCyan.withOpacity(0.08),
+                border: Border.all(color: kCyan.withOpacity(0.25), width: 1.5),
+              ),
+              child: Icon(icon, color: kCyan, size: 30),
+            ),
+            const SizedBox(height: 12),
+
+            // ── Title ─────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text(
+                title,
+                style: const TextStyle(
+                    color: kTextPri,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 4),
+
+            // ── Play count ────────────────────────────────────────
+            Text(
+              playCount >= 1000
+                  ? '${(playCount / 1000).toStringAsFixed(1)}k Playing'
+                  : '$playCount Playing',
+              style: const TextStyle(color: kOrange, fontSize: 11),
+            ),
+          ],
         ),
       ),
     );
@@ -824,7 +806,6 @@ class _SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<_SettingsScreen> {
-  // null = system default, true = dark, false = light
   bool? _forceDark = ThemeNotifier.instance.forceDark;
   bool _emailAlerts = false;
 
@@ -861,7 +842,6 @@ class _SettingsScreenState extends State<_SettingsScreen> {
           Text('GAME PREFERENCES', style: kLabel.copyWith(color: kCyan)),
           const SizedBox(height: 8),
 
-          // ── Theme toggle: System / Dark / Light ──────────────────────────
           Container(
             margin: const EdgeInsets.only(bottom: 8),
             decoration: BoxDecoration(
