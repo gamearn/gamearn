@@ -1,55 +1,232 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-// ─────────────────────────────────────────────────────────────────
-//  WHOT GAME SCREEN
-//  Matches Figma design: dark bg #0B0E1A, cyan glow #22D1EE,
-//  orange accent #FF5E00. Oval card table, player hands top/bottom,
-//  center pile, confirm indicator, action overlay.
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+//  WHOT GAME SCREEN  –  Gamearn
+//
+//  Matches Figma exactly:
+//    • Dark navy #0B0E1A bg with coin bokeh
+//    • White cards, navy shapes, double-border outline style
+//    • Face-down cards: navy bg with mirrored "Wọt" text
+//    • Arc-fan hand layout
+//    • Timer widget (avatar + countdown, cyan glow)
+//    • Tournament header (title + prize pool)
+//    • Orange DRAW / DISCARD PILE labelled button-cards
+//    • End Game (orange) + Rotate (teal) bottom bar
+//    • Landscape rotate mode (players on left/right sides)
+//
+//  Socket.io integration:
+//    • Plug in your socket_io_client package and call WhotGameScreen
+//      with a live [WhotSocketService] to go online.
+//    • All state changes that should be emitted are marked  // ← EMIT
+//    • All incoming event handlers are marked               // ← LISTEN
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ── Colors ────────────────────────────────────────────────────────
-const _bg = Color(0xFF0B0E1A);
+// ── Palette ──────────────────────────────────────────────────────────────────
+const _bg = Color(0xFF0A0D1C);
+const _navy = Color(0xFF0D1B4B);
+const _navyDeep = Color(0xFF060D2E);
 const _cyan = Color(0xFF22D1EE);
 const _orange = Color(0xFFFF5E00);
-const _surface = Color(0xFF1E293B);
+const _white = Color(0xFFFFFFFF);
+const _cardBg = Color(0xFFF4F6FF);
+const _shapeColor = Color(0xFF0D1B4B);
 const _textPrimary = Color(0xFFF1F5F9);
 const _textSub = Color(0xFF94A3B8);
-const _green = Color(0xFF2BEE79);
+const _green = Color(0xFF00E676);
+const _timerBg = Color(0xFF3D2B1F);
 
-// ── Whot Card Shapes ──────────────────────────────────────────────
-enum WhotShape { circle, triangle, cross, square, star, whot }
+// ── Whot shapes ───────────────────────────────────────────────────────────────
+enum WhotShape { cross, square, circle, triangle, star, whot }
 
-// ── Card Model ────────────────────────────────────────────────────
+extension WhotShapeExt on WhotShape {
+  String get label {
+    switch (this) {
+      case WhotShape.cross:
+        return '✛';
+      case WhotShape.square:
+        return '■';
+      case WhotShape.circle:
+        return '●';
+      case WhotShape.triangle:
+        return '▲';
+      case WhotShape.star:
+        return '★';
+      case WhotShape.whot:
+        return '*';
+    }
+  }
+
+  String get name {
+    switch (this) {
+      case WhotShape.cross:
+        return 'cross';
+      case WhotShape.square:
+        return 'square';
+      case WhotShape.circle:
+        return 'circle';
+      case WhotShape.triangle:
+        return 'triangle';
+      case WhotShape.star:
+        return 'star';
+      case WhotShape.whot:
+        return 'whot';
+    }
+  }
+}
+
+// ── Card model ────────────────────────────────────────────────────────────────
 class WhotCard {
   final WhotShape shape;
-  final int number; // 1–14, 20 = Whot
+  final int number; // 1–14 normal, 20 = Whot
   final bool isFaceDown;
+  final String? id; // server-assigned card id
 
   const WhotCard({
     required this.shape,
     required this.number,
     this.isFaceDown = false,
+    this.id,
   });
 
-  static WhotCard faceDown() =>
+  factory WhotCard.faceDown() =>
       const WhotCard(shape: WhotShape.circle, number: 0, isFaceDown: true);
+
+  /// Deserialize from server JSON: {"id":"c42","shape":"triangle","number":14}
+  factory WhotCard.fromJson(Map<String, dynamic> json) {
+    final shapeMap = {
+      'cross': WhotShape.cross,
+      'square': WhotShape.square,
+      'circle': WhotShape.circle,
+      'triangle': WhotShape.triangle,
+      'star': WhotShape.star,
+      'whot': WhotShape.whot,
+    };
+    return WhotCard(
+      shape: shapeMap[json['shape']] ?? WhotShape.circle,
+      number: (json['number'] as num).toInt(),
+      id: json['id']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'shape': shape.name,
+        'number': number,
+      };
+
+  bool get isWhot => shape == WhotShape.whot || number == 20;
 }
 
-// ── Game Screen ───────────────────────────────────────────────────
+// ── Socket service interface (plug in socket_io_client here) ──────────────────
+abstract class WhotSocketService {
+  /// Called once the screen is mounted. Connect your socket here.
+  void connect({
+    required String roomId,
+    required String playerId,
+    required WhotGameEventHandler handler,
+  });
+
+  /// Play a card. Server validates + broadcasts.
+  // ← EMIT  "play_card"  { roomId, playerId, cardId, chosenShape? }
+  void emitPlayCard(String roomId, String playerId, WhotCard card,
+      {WhotShape? chosenShape});
+
+  /// Draw a card from the pile.
+  // ← EMIT  "draw_card"  { roomId, playerId }
+  void emitDrawCard(String roomId, String playerId);
+
+  /// Call card (last card announcement).
+  // ← EMIT  "call_card"  { roomId, playerId }
+  void emitCallCard(String roomId, String playerId);
+
+  void disconnect();
+}
+
+/// Your screen registers one of these with the socket service.
+abstract class WhotGameEventHandler {
+  // ← LISTEN  "game_state"   – full state sync on join/reconnect
+  void onGameState(Map<String, dynamic> state);
+
+  // ← LISTEN  "card_played"  – opponent played a card
+  void onCardPlayed(Map<String, dynamic> data);
+
+  // ← LISTEN  "card_drawn"   – opponent drew a card (count only)
+  void onCardDrawn(Map<String, dynamic> data);
+
+  // ← LISTEN  "your_turn"    – server says it's your turn now
+  void onYourTurn();
+
+  // ← LISTEN  "opponent_turn"
+  void onOpponentTurn();
+
+  // ← LISTEN  "market"       – pick-two / pick-three penalty
+  void onMarket(int count);
+
+  // ← LISTEN  "suspension"   – suspension card played (skip turn)
+  void onSuspension();
+
+  // ← LISTEN  "general_market"  – general market (everyone draws)
+  void onGeneralMarket();
+
+  // ← LISTEN  "choose_shape"  – Whot card played, must choose shape
+  void onChooseShape();
+
+  // ← LISTEN  "call_card"    – opponent called card
+  void onCallCard(String playerId);
+
+  // ← LISTEN  "game_over"    – { winnerId, scores }
+  void onGameOver(Map<String, dynamic> data);
+
+  // ← LISTEN  "timer_tick"   – { seconds }
+  void onTimerTick(int seconds);
+
+  // ← LISTEN  "error"        – { message }
+  void onError(String message);
+}
+
+// ── Dummy socket (offline / bot mode) ────────────────────────────────────────
+class _DummySocketService extends WhotSocketService {
+  @override
+  void connect({required roomId, required playerId, required handler}) {}
+  @override
+  void emitPlayCard(roomId, playerId, card, {chosenShape}) {}
+  @override
+  void emitDrawCard(roomId, playerId) {}
+  @override
+  void emitCallCard(roomId, playerId) {}
+  @override
+  void disconnect() {}
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  WHOT GAME SCREEN
+// ═════════════════════════════════════════════════════════════════════════════
 class WhotGameScreen extends StatefulWidget {
-  final String opponentName;
-  final String opponentAvatar; // asset path or network url
+  final String roomId;
+  final String playerId;
   final String playerName;
-  final String playerAvatar;
+  final String playerAvatar; // network url or ''
+  final String opponentName;
+  final String opponentAvatar;
+  final String tournamentTitle;
+  final String prizePool; // e.g. "₦70,000"
+  final WhotSocketService? socketService;
   final VoidCallback? onBack;
 
   const WhotGameScreen({
     super.key,
-    this.opponentName = 'Opponent',
-    this.opponentAvatar = '',
+    required this.roomId,
+    required this.playerId,
     this.playerName = 'You',
     this.playerAvatar = '',
+    this.opponentName = 'Opponent',
+    this.opponentAvatar = '',
+    this.tournamentTitle = 'Wọt TOURNAMENT',
+    this.prizePool = '₦70,000',
+    this.socketService,
     this.onBack,
   });
 
@@ -58,330 +235,934 @@ class WhotGameScreen extends StatefulWidget {
 }
 
 class _WhotGameScreenState extends State<WhotGameScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _glowController;
-  late AnimationController _cardPlayController;
-  late Animation<double> _glowAnim;
+    with TickerProviderStateMixin
+    implements WhotGameEventHandler {
+  // ── Animation controllers ─────────────────────────────────────────────────
+  late AnimationController _bokeCtrl;
+  late AnimationController _timerGlowCtrl;
+  late Animation<double> _timerGlow;
 
-  // Dummy game state
-  final List<WhotCard> _playerHand = [
-    const WhotCard(shape: WhotShape.circle, number: 3),
-    const WhotCard(shape: WhotShape.triangle, number: 7),
-    const WhotCard(shape: WhotShape.cross, number: 5),
-    const WhotCard(shape: WhotShape.square, number: 2),
-    const WhotCard(shape: WhotShape.star, number: 8),
-    const WhotCard(shape: WhotShape.circle, number: 1),
+  // ── Game state ────────────────────────────────────────────────────────────
+  List<WhotCard> _playerHand = [
+    WhotCard(shape: WhotShape.cross, number: 2, id: 'c1'),
+    WhotCard(shape: WhotShape.square, number: 3, id: 'c2'),
+    WhotCard(shape: WhotShape.whot, number: 20, id: 'c3'),
+    WhotCard(shape: WhotShape.star, number: 8, id: 'c4'),
+    WhotCard(shape: WhotShape.circle, number: 10, id: 'c5'),
   ];
-
-  final List<WhotCard> _opponentHand = List.generate(
-    5,
-    (_) => WhotCard.faceDown(),
-  );
-
-  final WhotCard _topCard =
-      const WhotCard(shape: WhotShape.circle, number: 5);
-
-  int _selectedCardIndex = -1;
-  bool _isPlayerTurn = true;
   int _opponentCardCount = 5;
-  int _playerCardCount = 6;
-  bool _showCallCard = false;
+  WhotCard _topCard =
+      WhotCard(shape: WhotShape.triangle, number: 14, id: 'top');
+
+  bool _isMyTurn = true;
+  int _timerSeconds = 15;
+  Timer? _countdownTimer;
+
+  int _selectedIndex = -1;
+  bool _showShapeChooser = false;
+  bool _showCallCardOverlay = false;
+  bool _isLandscape = false;
+
+  late WhotSocketService _socket;
+
+  // ── Bokeh particles ───────────────────────────────────────────────────────
+  late List<_Bokeh> _bokehList;
+  final _rng = Random();
 
   @override
   void initState() {
     super.initState();
-    _glowController = AnimationController(
+    _socket = widget.socketService ?? _DummySocketService();
+
+    // Bokeh
+    _bokeCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 6),
     )..repeat(reverse: true);
-    _glowAnim = Tween<double>(begin: 0.4, end: 0.9).animate(
-      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
+
+    _bokehList = List.generate(
+      18,
+      (i) => _Bokeh(
+        x: _rng.nextDouble(),
+        y: _rng.nextDouble(),
+        radius: _rng.nextDouble() * 28 + 8,
+        opacity: _rng.nextDouble() * 0.18 + 0.04,
+        phase: _rng.nextDouble() * 2 * pi,
+      ),
     );
 
-    _cardPlayController = AnimationController(
+    // Timer glow
+    _timerGlowCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _timerGlow = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _timerGlowCtrl, curve: Curves.easeInOut),
     );
+
+    // Connect socket
+    _socket.connect(
+      roomId: widget.roomId,
+      playerId: widget.playerId,
+      handler: this,
+    );
+
+    // Start local countdown (server will sync via timer_tick)
+    _startCountdown();
   }
 
   @override
   void dispose() {
-    _glowController.dispose();
-    _cardPlayController.dispose();
+    _bokeCtrl.dispose();
+    _timerGlowCtrl.dispose();
+    _countdownTimer?.cancel();
+    _socket.disconnect();
     super.dispose();
   }
 
+  // ── Timer ─────────────────────────────────────────────────────────────────
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    _timerSeconds = 15;
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      setState(() {
+        if (_timerSeconds > 0) {
+          _timerSeconds--;
+        } else {
+          t.cancel();
+          if (_isMyTurn) _autoDrawOnTimeout();
+        }
+      });
+    });
+  }
+
+  void _autoDrawOnTimeout() {
+    _socket.emitDrawCard(widget.roomId, widget.playerId); // ← EMIT
+    _drawCard(fromServer: false);
+  }
+
+  // ── WhotGameEventHandler impl ─────────────────────────────────────────────
+
+  @override
+  void onGameState(Map<String, dynamic> state) {
+    if (!mounted) return;
+    setState(() {
+      _playerHand = (state['yourHand'] as List)
+          .map((c) => WhotCard.fromJson(c as Map<String, dynamic>))
+          .toList();
+      _opponentCardCount = (state['opponentCardCount'] as num).toInt();
+      _topCard =
+          WhotCard.fromJson(state['topCard'] as Map<String, dynamic>);
+      _isMyTurn = state['currentTurn'] == widget.playerId;
+    });
+    _startCountdown();
+  }
+
+  @override
+  void onCardPlayed(Map<String, dynamic> data) {
+    if (!mounted) return;
+    setState(() {
+      _topCard =
+          WhotCard.fromJson(data['card'] as Map<String, dynamic>);
+      _opponentCardCount = (data['opponentCardCount'] as num).toInt();
+      _isMyTurn = true;
+    });
+    _startCountdown();
+  }
+
+  @override
+  void onCardDrawn(Map<String, dynamic> data) {
+    if (!mounted) return;
+    setState(() {
+      _opponentCardCount = (data['opponentCardCount'] as num).toInt();
+      _isMyTurn = true;
+    });
+    _startCountdown();
+  }
+
+  @override
+  void onYourTurn() {
+    if (!mounted) return;
+    setState(() => _isMyTurn = true);
+    _startCountdown();
+  }
+
+  @override
+  void onOpponentTurn() {
+    if (!mounted) return;
+    setState(() => _isMyTurn = false);
+    _startCountdown();
+  }
+
+  @override
+  void onMarket(int count) {
+    if (!mounted) return;
+    // Add `count` face-down placeholders; server will send real cards via game_state
+    setState(() {
+      for (int i = 0; i < count; i++) {
+        _playerHand.add(WhotCard.faceDown());
+      }
+    });
+    _showToast('Pick $count! 😬');
+  }
+
+  @override
+  void onSuspension() {
+    if (!mounted) return;
+    setState(() => _isMyTurn = false);
+    _showToast('Suspension! Turn skipped.');
+  }
+
+  @override
+  void onGeneralMarket() {
+    if (!mounted) return;
+    setState(() {
+      _playerHand.add(WhotCard.faceDown());
+    });
+    _showToast('General Market! 😅');
+  }
+
+  @override
+  void onChooseShape() {
+    if (!mounted) return;
+    setState(() => _showShapeChooser = true);
+  }
+
+  @override
+  void onCallCard(String playerId) {
+    final who = playerId == widget.playerId ? 'You' : widget.opponentName;
+    _showToast('$who called card! 🔔');
+  }
+
+  @override
+  void onGameOver(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final winnerId = data['winnerId'];
+    final isWinner = winnerId == widget.playerId;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _GameOverDialog(
+        isWinner: isWinner,
+        prizePool: widget.prizePool,
+        onClose: widget.onBack ?? () => Navigator.maybePop(context),
+      ),
+    );
+  }
+
+  @override
+  void onTimerTick(int seconds) {
+    if (!mounted) return;
+    setState(() => _timerSeconds = seconds);
+  }
+
+  @override
+  void onError(String message) => _showToast(message);
+
+  // ── Game actions ──────────────────────────────────────────────────────────
+
+  bool _canPlay(WhotCard card) {
+    if (card.isWhot) return true;
+    if (card.shape == _topCard.shape) return true;
+    if (card.number == _topCard.number) return true;
+    return false;
+  }
+
+  void _playCard({WhotShape? chosenShape}) {
+    if (_selectedIndex < 0 || !_isMyTurn) return;
+    final card = _playerHand[_selectedIndex];
+    if (!_canPlay(card)) {
+      _showToast('Invalid card! Match shape or number.');
+      return;
+    }
+    if (card.isWhot && chosenShape == null) {
+      setState(() => _showShapeChooser = true);
+      return;
+    }
+    // ← EMIT
+    _socket.emitPlayCard(
+      widget.roomId,
+      widget.playerId,
+      card,
+      chosenShape: chosenShape,
+    );
+    setState(() {
+      _topCard = card;
+      _playerHand.removeAt(_selectedIndex);
+      _selectedIndex = -1;
+      _isMyTurn = false;
+      _showShapeChooser = false;
+    });
+    HapticFeedback.lightImpact();
+  }
+
+  void _drawCard({bool fromServer = true}) {
+    if (!_isMyTurn && fromServer) return;
+    if (!fromServer) {
+      // timeout auto-draw, already emitted
+    } else {
+      _socket.emitDrawCard(widget.roomId, widget.playerId); // ← EMIT
+    }
+    setState(() {
+      _playerHand.add(WhotCard.faceDown());
+      _isMyTurn = false;
+    });
+    HapticFeedback.selectionClick();
+  }
+
+  void _callCard() {
+    _socket.emitCallCard(widget.roomId, widget.playerId); // ← EMIT
+    setState(() => _showCallCardOverlay = false);
+    _showToast('Card called! 🔔');
+  }
+
+  void _showToast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg,
+          style: const TextStyle(
+              color: _textPrimary, fontWeight: FontWeight.w600)),
+      backgroundColor: _navy,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      duration: const Duration(seconds: 2),
+    ));
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bg,
-      body: Stack(
-        children: [
-          // Background glow
-          _BackgroundGlow(animation: _glowAnim),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: _bg,
+        body: Stack(
+          children: [
+            // Bokeh background
+            _BokehBackground(ctrl: _bokeCtrl, bokeh: _bokehList),
 
-          // Main layout
-          SafeArea(
-            child: Column(
-              children: [
-                _buildTopBar(),
-                _buildOpponentArea(),
-                Expanded(child: _buildTable()),
-                _buildPlayerArea(),
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
+            // Main portrait layout
+            if (!_isLandscape) _buildPortrait(),
 
-          // Call card overlay
-          if (_showCallCard) _buildCallCardOverlay(),
-        ],
-      ),
-    );
-  }
+            // Landscape layout
+            if (_isLandscape) _buildLandscape(),
 
-  // ── Top Bar ──────────────────────────────────────────────────────
-  Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: widget.onBack ?? () => Navigator.maybePop(context),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: _surface,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.arrow_back_ios_new,
-                  color: _textPrimary, size: 16),
-            ),
-          ),
-          const Spacer(),
-          Column(
-            children: [
-              const Text('WHOT',
-                  style: TextStyle(
-                      color: _cyan,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 3)),
-              Text(
-                _isPlayerTurn ? 'Your turn' : "${widget.opponentName}'s turn",
-                style: TextStyle(
-                  color: _isPlayerTurn ? _orange : _textSub,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          // Settings
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: _surface,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.more_vert, color: _textPrimary, size: 20),
-          ),
-        ],
-      ),
-    );
-  }
+            // Shape chooser overlay
+            if (_showShapeChooser) _buildShapeChooser(),
 
-  // ── Opponent Area ─────────────────────────────────────────────────
-  Widget _buildOpponentArea() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          _PlayerInfo(
-            name: widget.opponentName,
-            avatarUrl: widget.opponentAvatar,
-            cardCount: _opponentCardCount,
-            isActive: !_isPlayerTurn,
-          ),
-          const Spacer(),
-          // Opponent cards (face down fan)
-          SizedBox(
-            height: 60,
-            width: 130,
-            child: Stack(
-              children: List.generate(
-                min(_opponentCardCount, 5),
-                (i) => Positioned(
-                  left: i * 20.0,
-                  child: _WhotCardWidget(
-                    card: WhotCard.faceDown(),
-                    width: 44,
-                    height: 60,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Game Table ────────────────────────────────────────────────────
-  Widget _buildTable() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: CustomPaint(
-        painter: _TablePainter(),
-        child: Center(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Draw pile
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _WhotCardWidget(
-                    card: WhotCard.faceDown(),
-                    width: 64,
-                    height: 88,
-                  ),
-                  const SizedBox(height: 6),
-                  const Text('Draw', style: TextStyle(color: _textSub, fontSize: 11)),
-                ],
-              ),
-              const SizedBox(width: 32),
-              // Top of discard pile
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _WhotCardWidget(
-                    card: _topCard,
-                    width: 64,
-                    height: 88,
-                    isTop: true,
-                  ),
-                  const SizedBox(height: 6),
-                  const Text('Pile', style: TextStyle(color: _textSub, fontSize: 11)),
-                ],
-              ),
-            ],
-          ),
+            // Call card overlay
+            if (_showCallCardOverlay) _buildCallCardOverlay(),
+          ],
         ),
       ),
     );
   }
 
-  // ── Player Area ───────────────────────────────────────────────────
-  Widget _buildPlayerArea() {
+  // ══════════════════════════════════════════════════════════════════════════
+  //  PORTRAIT LAYOUT
+  // ══════════════════════════════════════════════════════════════════════════
+  Widget _buildPortrait() {
+    return SafeArea(
+      child: Column(
+        children: [
+          // Tournament header
+          _buildTournamentHeader(),
+
+          // Game arena (glass card)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  border:
+                      Border.all(color: Colors.white.withOpacity(0.08)),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withOpacity(0.04),
+                      Colors.white.withOpacity(0.01),
+                    ],
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    // Opponent info + face-down hand
+                    _buildOpponentSection(),
+                    const Spacer(),
+                    // Draw + Discard pile centre
+                    _buildCentreArea(),
+                    const Spacer(),
+                    // Player hand fan
+                    _buildPlayerHandFan(),
+                    const SizedBox(height: 8),
+                    // Timer + player info
+                    _buildPlayerTimerRow(),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Bottom bar
+          _buildBottomBar(),
+        ],
+      ),
+    );
+  }
+
+  // ── Tournament header ─────────────────────────────────────────────────────
+  Widget _buildTournamentHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      child: Column(
+        children: [
+          Text(
+            widget.tournamentTitle,
+            style: const TextStyle(
+              color: _orange,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Prize Pool: ${widget.prizePool}',
+            style: const TextStyle(
+              color: _orange,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Opponent section ──────────────────────────────────────────────────────
+  Widget _buildOpponentSection() {
     return Column(
       children: [
-        // Card hand
-        SizedBox(
-          height: 90,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _playerHand.length,
-            itemBuilder: (context, i) {
-              final isSelected = _selectedCardIndex == i;
-              final isValidPlay = _canPlayCard(_playerHand[i]);
-              
-              return GestureDetector(
-                onTap: () {
-                  if (!isValidPlay && !isSelected) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Invalid card! Must match shape or number.'),
-                        backgroundColor: Colors.redAccent,
-                        behavior: SnackBarBehavior.floating,
-                        duration: Duration(seconds: 1),
-                      )
-                    );
-                    return;
-                  }
-                  setState(() {
-                    _selectedCardIndex = isSelected ? -1 : i;
-                  });
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  margin: EdgeInsets.only(
-                    right: 8,
-                    bottom: isSelected ? 12 : 0,
-                  ),
-                  child: _WhotCardWidget(
-                    card: _playerHand[i],
-                    width: 56,
-                    height: 76,
-                    isSelected: isSelected,
-                  ),
-                ),
-              );
-            },
-          ),
+        // Avatar + name
+        _AvatarWidget(
+          name: widget.opponentName,
+          avatarUrl: widget.opponentAvatar,
+          isActive: !_isMyTurn,
+          size: 56,
+          showTimer: false,
         ),
-        const SizedBox(height: 12),
-        // Action row
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              _PlayerInfo(
-                name: widget.playerName,
-                avatarUrl: widget.playerAvatar,
-                cardCount: _playerCardCount,
-                isActive: _isPlayerTurn,
-                isPlayer: true,
+        const SizedBox(height: 4),
+        Text(
+          widget.opponentName,
+          style: const TextStyle(
+              color: _textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 10),
+        // Opponent face-down fan
+        _OpponentHandFan(count: _opponentCardCount),
+      ],
+    );
+  }
+
+  // ── Centre area: Draw pile + Discard pile ─────────────────────────────────
+  Widget _buildCentreArea() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Draw pile
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: _isMyTurn ? _drawCard : null,
+              child: _WhotCardWidget(
+                card: WhotCard.faceDown(),
+                width: 90,
+                height: 118,
               ),
-              const Spacer(),
-              // Action buttons
-              if (_selectedCardIndex >= 0)
-                _ActionButton(
-                  label: 'Play',
-                  color: _orange,
-                  onTap: _playCard,
-                )
-              else
-                _ActionButton(
-                  label: 'Draw',
-                  color: _surface,
-                  textColor: _textPrimary,
-                  onTap: _drawCard,
-                ),
-              const SizedBox(width: 8),
-              _ActionButton(
-                label: 'Call',
-                color: _green.withOpacity(0.15),
-                textColor: _green,
-                borderColor: _green,
-                onTap: () => setState(() => _showCallCard = true),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 6),
+            _PileLabel(label: 'DRAW', onTap: _isMyTurn ? _drawCard : null),
+          ],
+        ),
+        const SizedBox(width: 32),
+        // Discard pile
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _WhotCardWidget(
+              card: _topCard,
+              width: 90,
+              height: 118,
+              glowCyan: true,
+            ),
+            const SizedBox(height: 6),
+            const _PileLabel(label: 'DISCARD PILE'),
+          ],
         ),
       ],
     );
   }
 
-  // ── Call Card Overlay ─────────────────────────────────────────────
-  Widget _buildCallCardOverlay() {
+  // ── Player hand arc fan ───────────────────────────────────────────────────
+  Widget _buildPlayerHandFan() {
+    return SizedBox(
+      height: 140,
+      child: _ArcFanHand(
+        cards: _playerHand,
+        selectedIndex: _selectedIndex,
+        isMyTurn: _isMyTurn,
+        onCardTap: (i) {
+          if (!_isMyTurn) return;
+          setState(() => _selectedIndex = _selectedIndex == i ? -1 : i);
+        },
+      ),
+    );
+  }
+
+  // ── Player timer row ──────────────────────────────────────────────────────
+  Widget _buildPlayerTimerRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Timer widget
+          AnimatedBuilder(
+            animation: _timerGlow,
+            builder: (_, child) => Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: _isMyTurn
+                    ? [
+                        BoxShadow(
+                          color:
+                              _cyan.withOpacity(_timerGlow.value * 0.6),
+                          blurRadius: 20,
+                          spreadRadius: 4,
+                        )
+                      ]
+                    : [],
+              ),
+              child: child,
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Timer box
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: _timerBg,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: _isMyTurn
+                          ? _cyan
+                          : Colors.white.withOpacity(0.1),
+                      width: 2,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '$_timerSeconds',
+                        style: TextStyle(
+                          color: _timerSeconds <= 5 ? Colors.red : _cyan,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const Text(
+                        'Seconds',
+                        style: TextStyle(
+                            color: _textSub,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+                // Play button badge
+                Positioned(
+                  bottom: -6,
+                  right: -6,
+                  child: GestureDetector(
+                    onTap: _selectedIndex >= 0 ? _playCard : null,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: _selectedIndex >= 0 ? _cyan : _textSub,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.play_arrow,
+                          color: _navyDeep, size: 16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'YOU (${widget.playerName})',
+            style: const TextStyle(
+              color: _cyan,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Bottom bar ────────────────────────────────────────────────────────────
+  Widget _buildBottomBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Row(
+        children: [
+          // End Game
+          Expanded(
+            child: GestureDetector(
+              onTap: widget.onBack ?? () => Navigator.maybePop(context),
+              child: Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  color: _orange,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Center(
+                  child: Text(
+                    'End Game',
+                    style: TextStyle(
+                      color: _white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Rotate
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _isLandscape = !_isLandscape),
+              child: Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A3A4A),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                      color: _cyan.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.screen_rotation, color: _cyan, size: 18),
+                    SizedBox(width: 6),
+                    Text(
+                      'Rotate',
+                      style: TextStyle(
+                        color: _cyan,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  LANDSCAPE LAYOUT  (players on left / right sides)
+  // ══════════════════════════════════════════════════════════════════════════
+  Widget _buildLandscape() {
+    return SafeArea(
+      child: Stack(
+        children: [
+          // Close button
+          Positioned(
+            top: 12,
+            right: 12,
+            child: GestureDetector(
+              onTap: () => setState(() => _isLandscape = false),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _orange,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.close, color: _white),
+              ),
+            ),
+          ),
+
+          // Rotate buttons (right side)
+          Positioned(
+            right: 12,
+            bottom: 80,
+            child: Column(
+              children: [
+                _RotateIconBtn(
+                  icon: Icons.screen_rotation,
+                  onTap: () => setState(() => _isLandscape = false),
+                ),
+                const SizedBox(height: 10),
+                _RotateIconBtn(
+                  icon: Icons.refresh,
+                  onTap: () => setState(() {}),
+                ),
+              ],
+            ),
+          ),
+
+          // Opponent top (rotated)
+          Positioned(
+            top: 8,
+            left: 0,
+            right: 60,
+            child: Column(
+              children: [
+                _AvatarWidget(
+                  name: widget.opponentName,
+                  avatarUrl: widget.opponentAvatar,
+                  isActive: !_isMyTurn,
+                  size: 44,
+                  rotated: true,
+                  showTimer: false,
+                ),
+                Transform.rotate(
+                  angle: pi,
+                  child: Text(widget.opponentName,
+                      style: const TextStyle(
+                          color: _textPrimary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600)),
+                ),
+                const SizedBox(height: 4),
+                _OpponentHandFan(count: _opponentCardCount),
+              ],
+            ),
+          ),
+
+          // Draw + Discard centre
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _PileLabel(
+                        label: 'DRAW',
+                        onTap: _isMyTurn ? _drawCard : null),
+                    const SizedBox(width: 8),
+                    _WhotCardWidget(
+                        card: WhotCard.faceDown(), width: 64, height: 86),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const _PileLabel(label: 'DISCARD PILE'),
+                    const SizedBox(width: 8),
+                    _WhotCardWidget(
+                        card: _topCard,
+                        width: 64,
+                        height: 86,
+                        glowCyan: true),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Player left side (rotated 90°)
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: RotatedBox(
+              quarterTurns: 3,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _AvatarWidget(
+                        name: widget.playerName,
+                        avatarUrl: widget.playerAvatar,
+                        isActive: _isMyTurn,
+                        size: 40,
+                        showTimer: true,
+                        timerSeconds: _timerSeconds,
+                        timerGlow: _timerGlow,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'YOU (${widget.playerName})',
+                        style: const TextStyle(
+                            color: _cyan,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  _ArcFanHand(
+                    cards: _playerHand,
+                    selectedIndex: _selectedIndex,
+                    isMyTurn: _isMyTurn,
+                    onCardTap: (i) {
+                      if (!_isMyTurn) return;
+                      setState(
+                          () => _selectedIndex = _selectedIndex == i ? -1 : i);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Opponent right side (rotated)
+          Positioned(
+            right: 60,
+            top: 0,
+            bottom: 0,
+            child: RotatedBox(
+              quarterTurns: 1,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _AvatarWidget(
+                        name: widget.opponentName,
+                        avatarUrl: widget.opponentAvatar,
+                        isActive: !_isMyTurn,
+                        size: 40,
+                        showTimer: false,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        widget.opponentName,
+                        style: const TextStyle(
+                            color: _textPrimary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  _OpponentHandFan(count: _opponentCardCount),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Shape chooser overlay ─────────────────────────────────────────────────
+  Widget _buildShapeChooser() {
     return GestureDetector(
-      onTap: () => setState(() => _showCallCard = false),
+      onTap: () => setState(() => _showShapeChooser = false),
       child: Container(
-        color: Colors.black54,
+        color: Colors.black.withOpacity(0.7),
         child: Center(
           child: Container(
-            margin: const EdgeInsets.all(20),
-            padding: const EdgeInsets.all(20),
+            margin: const EdgeInsets.symmetric(horizontal: 32),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: _bg,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _cyan.withOpacity(0.2)),
+              color: _navy,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: _cyan.withOpacity(0.3)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Choose a Shape',
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  alignment: WrapAlignment.center,
+                  children: WhotShape.values
+                      .where((s) => s != WhotShape.whot)
+                      .map((s) => GestureDetector(
+                            onTap: () => _playCard(chosenShape: s),
+                            child: Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                color: _cardBg,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: _shapeColor.withOpacity(0.4)),
+                              ),
+                              child: CustomPaint(
+                                painter: _ShapeOnlyPainter(shape: s),
+                              ),
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Call card overlay ─────────────────────────────────────────────────────
+  Widget _buildCallCardOverlay() {
+    return GestureDetector(
+      onTap: () => setState(() => _showCallCardOverlay = false),
+      child: Container(
+        color: Colors.black.withOpacity(0.6),
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 32),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: _navy,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: _cyan.withOpacity(0.3)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -390,26 +1171,33 @@ class _WhotGameScreenState extends State<WhotGameScreen>
                     style: TextStyle(
                         color: _textPrimary,
                         fontSize: 18,
-                        fontWeight: FontWeight.w700)),
+                        fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
-                Text(
-                  'Declare your last card when you have 1 left',
-                  style:
-                      const TextStyle(color: _textSub, fontSize: 13),
+                const Text(
+                  'Announce when you have 1 card left or get penalised!',
                   textAlign: TextAlign.center,
+                  style: TextStyle(color: _textSub, fontSize: 13),
                 ),
                 const SizedBox(height: 20),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _orange,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    minimumSize: const Size(double.infinity, 48),
+                GestureDetector(
+                  onTap: _callCard,
+                  child: Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: _orange,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'CALL CARD! 🔔',
+                        style: TextStyle(
+                          color: _white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
                   ),
-                  onPressed: () => setState(() => _showCallCard = false),
-                  child: const Text('CALL CARD!',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
@@ -418,220 +1206,492 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       ),
     );
   }
-
-  bool _canPlayCard(WhotCard card) {
-    // A valid play: matching shape, matching number (cross-suit), or Whot card (id 20)
-    if (card.shape == WhotShape.whot || card.number == 20) return true;
-    if (card.shape == _topCard.shape) return true;
-    if (card.number == _topCard.number) return true;
-    return false;
-  }
-
-  void _playCard() {
-    if (_selectedCardIndex < 0) return;
-    setState(() {
-      _playerHand.removeAt(_selectedCardIndex);
-      _selectedCardIndex = -1;
-      _playerCardCount--;
-      _isPlayerTurn = false;
-    });
-    // Simulate opponent turn
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) setState(() => _isPlayerTurn = true);
-    });
-  }
-
-  void _drawCard() {
-    setState(() {
-      _playerHand.add(
-        const WhotCard(shape: WhotShape.triangle, number: 4),
-      );
-      _playerCardCount++;
-      _isPlayerTurn = false;
-    });
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) setState(() => _isPlayerTurn = true);
-    });
-  }
 }
 
-// ── Background Glow ───────────────────────────────────────────────
-class _BackgroundGlow extends StatelessWidget {
-  final Animation<double> animation;
-  const _BackgroundGlow({required this.animation});
+// ═════════════════════════════════════════════════════════════════════════════
+//  ARC FAN HAND  –  player hand curved like Figma
+// ═════════════════════════════════════════════════════════════════════════════
+class _ArcFanHand extends StatelessWidget {
+  final List<WhotCard> cards;
+  final int selectedIndex;
+  final bool isMyTurn;
+  final ValueChanged<int> onCardTap;
+
+  const _ArcFanHand({
+    required this.cards,
+    required this.selectedIndex,
+    required this.isMyTurn,
+    required this.onCardTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (_, __) => Positioned(
-        left: -55,
-        top: 172,
-        child: Container(
-          width: 500,
-          height: 500,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                _cyan.withOpacity(animation.value * 0.12),
-                Colors.transparent,
-              ],
+    final n = cards.length;
+    if (n == 0) return const SizedBox.shrink();
+
+    const cardW = 62.0;
+    const cardH = 88.0;
+    const fanSpreadDeg = 40.0; // total arc degrees
+    const maxCards = 9; // clamp fan spread for large hands
+
+    final effectiveN = min(n, maxCards);
+    final spreadDeg = fanSpreadDeg * min(1.0, n / 6);
+    final stepDeg = n > 1 ? spreadDeg / (n - 1) : 0.0;
+    final radius = 320.0;
+
+    return SizedBox(
+      height: 140,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: List.generate(n, (i) {
+          final angleDeg = -spreadDeg / 2 + i * stepDeg;
+          final angleRad = angleDeg * pi / 180;
+          // Arc position
+          final dx = radius * sin(angleRad);
+          final dy = -radius * (1 - cos(angleRad)) * 0.35;
+          final isSelected = selectedIndex == i;
+
+          return Positioned(
+            bottom: isSelected ? 20 : 0,
+            left: null,
+            child: Transform.translate(
+              offset: Offset(dx, dy),
+              child: Transform.rotate(
+                angle: angleRad * 0.8,
+                child: GestureDetector(
+                  onTap: () => onCardTap(i),
+                  child: _WhotCardWidget(
+                    card: cards[i],
+                    width: cardW,
+                    height: cardH,
+                    isSelected: isSelected,
+                    glowOrange: isSelected,
+                  ),
+                ),
+              ),
             ),
-          ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  OPPONENT HAND FAN  (face-down arc)
+// ═════════════════════════════════════════════════════════════════════════════
+class _OpponentHandFan extends StatelessWidget {
+  final int count;
+  const _OpponentHandFan({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final n = min(count, 7);
+    const cardW = 52.0;
+    const cardH = 72.0;
+    const spreadDeg = 36.0;
+    final stepDeg = n > 1 ? spreadDeg / (n - 1) : 0.0;
+    const radius = 280.0;
+
+    return SizedBox(
+      height: 80,
+      width: double.infinity,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: List.generate(n, (i) {
+          final angleDeg = -spreadDeg / 2 + i * stepDeg;
+          final angleRad = angleDeg * pi / 180;
+          final dx = radius * sin(angleRad);
+          final dy = radius * (1 - cos(angleRad)) * 0.25;
+
+          return Transform.translate(
+            offset: Offset(dx, dy),
+            child: Transform.rotate(
+              angle: angleRad * 0.8,
+              child: _WhotCardWidget(
+                card: WhotCard.faceDown(),
+                width: cardW,
+                height: cardH,
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  WHOT CARD WIDGET
+// ═════════════════════════════════════════════════════════════════════════════
+class _WhotCardWidget extends StatelessWidget {
+  final WhotCard card;
+  final double width;
+  final double height;
+  final bool isSelected;
+  final bool glowCyan;
+  final bool glowOrange;
+
+  const _WhotCardWidget({
+    required this.card,
+    required this.width,
+    required this.height,
+    this.isSelected = false,
+    this.glowCyan = false,
+    this.glowOrange = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          if (glowCyan)
+            BoxShadow(
+                color: _cyan.withOpacity(0.5),
+                blurRadius: 14,
+                spreadRadius: 2),
+          if (glowOrange)
+            BoxShadow(
+                color: _orange.withOpacity(0.6),
+                blurRadius: 14,
+                spreadRadius: 2),
+          BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 6,
+              offset: const Offset(0, 3)),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: CustomPaint(
+          painter: _CardFacePainter(card: card, isSelected: isSelected),
         ),
       ),
     );
   }
 }
 
-// ── Table Painter (oval green table) ─────────────────────────────
-class _TablePainter extends CustomPainter {
+// ═════════════════════════════════════════════════════════════════════════════
+//  CARD FACE PAINTER  –  white bg, navy shapes, double-border style
+// ═════════════════════════════════════════════════════════════════════════════
+class _CardFacePainter extends CustomPainter {
+  final WhotCard card;
+  final bool isSelected;
+  _CardFacePainter({required this.card, this.isSelected = false});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
-    final paint = Paint()
-      ..color = const Color(0xFF0F2A1A)
+    final w = size.width;
+    final h = size.height;
+
+    if (card.isFaceDown) {
+      _paintFaceDown(canvas, w, h);
+      return;
+    }
+
+    // White card background
+    final bg = Paint()..color = _cardBg;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, w, h),
+          const Radius.circular(10)),
+      bg,
+    );
+
+    // Orange selection border
+    if (isSelected) {
+      final sel = Paint()
+        ..color = _orange
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(1, 1, w - 2, h - 2), const Radius.circular(9)),
+        sel,
+      );
+    }
+
+    final shape = card.shape;
+    final number = card.number;
+
+    // ── Corner number + shape icon (top-left, bottom-right rotated) ──
+    _drawCorner(canvas, w, h, number, shape);
+
+    // ── Centre shape (large, double-border style) ──
+    final cx = w / 2;
+    final cy = h / 2 + 4;
+    final r = min(w, h) * 0.28;
+
+    if (shape == WhotShape.whot) {
+      _drawWhotCenter(canvas, cx, cy, w, h);
+    } else {
+      _drawShapeDoubleBorder(canvas, shape, cx, cy, r);
+    }
+  }
+
+  void _paintFaceDown(Canvas canvas, double w, double h) {
+    // Navy background
+    final bg = Paint()..color = _navy;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, w, h),
+          const Radius.circular(10)),
+      bg,
+    );
+
+    // Mirrored "Wọt" text (top-right side up, bottom-left upside down)
+    // Top
+    _drawFaceDownText(canvas, w, h, rotated: false);
+    // Bottom (rotated 180)
+    canvas.save();
+    canvas.translate(w, h);
+    canvas.rotate(pi);
+    _drawFaceDownText(canvas, w, h, rotated: false);
+    canvas.restore();
+  }
+
+  void _drawFaceDownText(
+      Canvas canvas, double w, double h, {required bool rotated}) {
+    final style = TextStyle(
+      color: _white,
+      fontSize: h * 0.16,
+      fontWeight: FontWeight.w900,
+      height: 1.1,
+    );
+    // "Wọt" on top line
+    final tp1 = TextPainter(
+      text: TextSpan(text: 'Wọt', style: style),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: w);
+    // "Wọt" mirrored on bottom line (upside-down effect via rotation at paint time)
+    final tp2 = TextPainter(
+      text: TextSpan(text: 'Ẉọt', style: style),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: w);
+
+    final left = (w - tp1.width) / 2;
+    tp1.paint(canvas, Offset(left, h * 0.12));
+    // Rotate bottom text 180 in place
+    canvas.save();
+    final x2 = (w - tp2.width) / 2;
+    final y2 = h * 0.38;
+    canvas.translate(x2 + tp2.width / 2, y2 + tp2.height / 2);
+    canvas.rotate(pi);
+    tp2.paint(canvas, Offset(-tp2.width / 2, -tp2.height / 2));
+    canvas.restore();
+  }
+
+  void _drawCorner(
+      Canvas canvas, double w, double h, int number, WhotShape shape) {
+    final numStr = number == 20 ? '20' : '$number';
+    final iconStr = shape.label;
+
+    final numStyle = TextStyle(
+      color: _shapeColor,
+      fontSize: w * 0.22,
+      fontWeight: FontWeight.w900,
+    );
+    final iconStyle = TextStyle(
+      color: _shapeColor,
+      fontSize: w * 0.14,
+    );
+
+    // Top-left
+    _paintText(canvas, numStr, numStyle, Offset(3, 1));
+    _paintText(canvas, iconStr, iconStyle, Offset(4, w * 0.22 + 1));
+
+    // Bottom-right (rotated 180)
+    canvas.save();
+    canvas.translate(w, h);
+    canvas.rotate(pi);
+    _paintText(canvas, numStr, numStyle, Offset(3, 1));
+    _paintText(canvas, iconStr, iconStyle, Offset(4, w * 0.22 + 1));
+    canvas.restore();
+  }
+
+  void _paintText(Canvas canvas, String text, TextStyle style, Offset offset) {
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, offset);
+  }
+
+  /// Double-border style: outer stroke → gap → filled inner shape
+  void _drawShapeDoubleBorder(
+      Canvas canvas, WhotShape shape, double cx, double cy, double r) {
+    // Outer stroke (navy, thick)
+    final outerPaint = Paint()
+      ..color = _shapeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = r * 0.22;
+
+    // Inner fill (navy solid)
+    final innerPaint = Paint()
+      ..color = _shapeColor
       ..style = PaintingStyle.fill;
 
-    final path = Path()
-      ..moveTo(size.width * 0.5, size.height)
-      ..arcToPoint(
-        Offset(size.width * 0.5, 0),
-        radius: Radius.elliptical(size.width * 0.6, size.height * 0.55),
-        clockwise: false,
-      )
-      ..arcToPoint(
-        Offset(size.width * 0.5, size.height),
-        radius: Radius.elliptical(size.width * 0.6, size.height * 0.55),
-        clockwise: false,
-      )
-      ..close();
+    // We draw the shape slightly smaller for inner fill
+    final rInner = r * 0.65;
 
-    canvas.drawPath(path, paint);
-
-    // Border
-    final borderPaint = Paint()
-      ..color = const Color(0xFF1E3A2A)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawPath(path, borderPaint);
+    switch (shape) {
+      case WhotShape.circle:
+        canvas.drawCircle(Offset(cx, cy), r, outerPaint);
+        canvas.drawCircle(Offset(cx, cy), rInner, innerPaint);
+        break;
+      case WhotShape.square:
+        final outer =
+            Rect.fromCenter(center: Offset(cx, cy), width: r * 2, height: r * 2);
+        final inner = Rect.fromCenter(
+            center: Offset(cx, cy),
+            width: rInner * 2,
+            height: rInner * 2);
+        canvas.drawRect(outer, outerPaint);
+        canvas.drawRect(inner, innerPaint);
+        break;
+      case WhotShape.triangle:
+        _drawTriangle(canvas, outerPaint, cx, cy, r);
+        _drawTriangle(canvas, innerPaint, cx, cy, rInner);
+        break;
+      case WhotShape.star:
+        _drawStar(canvas, outerPaint, cx, cy, r);
+        _drawStar(canvas, innerPaint, cx, cy, rInner);
+        break;
+      case WhotShape.cross:
+        _drawCross(canvas, outerPaint, cx, cy, r);
+        _drawCross(canvas, innerPaint, cx, cy, rInner);
+        break;
+      default:
+        break;
+    }
   }
 
-  @override
-  bool shouldRepaint(_TablePainter old) => false;
-}
-
-// ── Player Info Widget ────────────────────────────────────────────
-class _PlayerInfo extends StatelessWidget {
-  final String name;
-  final String avatarUrl;
-  final int cardCount;
-  final bool isActive;
-  final bool isPlayer;
-
-  const _PlayerInfo({
-    required this.name,
-    required this.avatarUrl,
-    required this.cardCount,
-    required this.isActive,
-    this.isPlayer = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isActive ? _orange : _surface,
-              width: 2,
-            ),
-            color: _surface,
-          ),
-          child: ClipOval(
-            child: avatarUrl.isNotEmpty
-                ? Image.network(avatarUrl, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _defaultAvatar())
-                : _defaultAvatar(),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              name,
-              style: const TextStyle(
-                  color: _textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600),
-            ),
-            Row(
-              children: [
-                const Icon(Icons.style, color: _textSub, size: 12),
-                const SizedBox(width: 3),
-                Text('$cardCount cards',
-                    style: const TextStyle(color: _textSub, fontSize: 11)),
-              ],
-            ),
-          ],
-        ),
-      ],
+  void _drawWhotCenter(Canvas canvas, double cx, double cy, double w, double h) {
+    final bg = Paint()..color = _navy;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.1, h * 0.28, w * 0.8, h * 0.38),
+        const Radius.circular(6),
+      ),
+      bg,
     );
+    // "Wọt" top
+    final style = TextStyle(
+      color: _white,
+      fontSize: w * 0.18,
+      fontWeight: FontWeight.w900,
+    );
+    _paintText(canvas, 'Wọt', style, Offset(cx - w * 0.18, h * 0.31));
+    // upside-down "Wọt" below
+    canvas.save();
+    canvas.translate(cx, h * 0.55);
+    canvas.rotate(pi);
+    _paintText(canvas, 'Wọt', style, Offset(-w * 0.18, -w * 0.2));
+    canvas.restore();
   }
 
-  Widget _defaultAvatar() => Center(
-        child: Text(
-          name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: const TextStyle(
-              color: _cyan, fontSize: 18, fontWeight: FontWeight.w700),
-        ),
-      );
+  void _drawTriangle(Canvas canvas, Paint paint, double cx, double cy, double r) {
+    final path = Path()
+      ..moveTo(cx, cy - r)
+      ..lineTo(cx + r, cy + r * 0.8)
+      ..lineTo(cx - r, cy + r * 0.8)
+      ..close();
+    if (paint.style == PaintingStyle.fill) {
+      canvas.drawPath(path, paint);
+    } else {
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  void _drawStar(Canvas canvas, Paint paint, double cx, double cy, double r) {
+    final path = Path();
+    final inner = r * 0.42;
+    for (int i = 0; i < 14; i++) {
+      final angle = (i * pi / 7) - pi / 2;
+      final rad = i.isEven ? r : inner;
+      final x = cx + rad * cos(angle);
+      final y = cy + rad * sin(angle);
+      if (i == 0) path.moveTo(x, y);
+      else path.lineTo(x, y);
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawCross(Canvas canvas, Paint paint, double cx, double cy, double r) {
+    final t = r * 0.38; // arm thickness
+    // Stepped cross (like Figma design – notched corners)
+    final path = Path()
+      ..moveTo(cx - t, cy - r)
+      ..lineTo(cx + t, cy - r)
+      ..lineTo(cx + t, cy - t)
+      ..lineTo(cx + r, cy - t)
+      ..lineTo(cx + r, cy + t)
+      ..lineTo(cx + t, cy + t)
+      ..lineTo(cx + t, cy + r)
+      ..lineTo(cx - t, cy + r)
+      ..lineTo(cx - t, cy + t)
+      ..lineTo(cx - r, cy + t)
+      ..lineTo(cx - r, cy - t)
+      ..lineTo(cx - t, cy - t)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_CardFacePainter old) =>
+      old.card != card || old.isSelected != isSelected;
 }
 
-// ── Action Button ─────────────────────────────────────────────────
-class _ActionButton extends StatelessWidget {
-  final String label;
-  final Color color;
-  final Color textColor;
-  final Color? borderColor;
-  final VoidCallback onTap;
+// ═════════════════════════════════════════════════════════════════════════════
+//  SHAPE-ONLY PAINTER  (for shape chooser buttons)
+// ═════════════════════════════════════════════════════════════════════════════
+class _ShapeOnlyPainter extends CustomPainter {
+  final WhotShape shape;
+  _ShapeOnlyPainter({required this.shape});
 
-  const _ActionButton({
-    required this.label,
-    required this.color,
-    this.textColor = Colors.white,
-    this.borderColor,
-    required this.onTap,
-  });
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final r = min(size.width, size.height) * 0.32;
+    final p = _CardFacePainter(card: WhotCard(shape: shape, number: 1));
+    p._drawShapeDoubleBorder(
+        canvas, shape, cx, cy, r);
+  }
+
+  @override
+  bool shouldRepaint(_ShapeOnlyPainter o) => o.shape != shape;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  PILE LABEL BUTTON
+// ═════════════════════════════════════════════════════════════════════════════
+class _PileLabel extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+  const _PileLabel({required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-          border: borderColor != null
-              ? Border.all(color: borderColor!, width: 1.5)
-              : null,
+          color: _orange,
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           label,
-          style: TextStyle(
-            color: textColor,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
+          style: const TextStyle(
+            color: _white,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
             letterSpacing: 0.5,
           ),
         ),
@@ -640,239 +1700,323 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-// ── Whot Card Widget ──────────────────────────────────────────────
-class _WhotCardWidget extends StatelessWidget {
-  final WhotCard card;
-  final double width;
-  final double height;
-  final bool isSelected;
-  final bool isTop;
+// ═════════════════════════════════════════════════════════════════════════════
+//  AVATAR WIDGET
+// ═════════════════════════════════════════════════════════════════════════════
+class _AvatarWidget extends StatelessWidget {
+  final String name;
+  final String avatarUrl;
+  final bool isActive;
+  final double size;
+  final bool rotated;
+  final bool showTimer;
+  final int timerSeconds;
+  final Animation<double>? timerGlow;
 
-  const _WhotCardWidget({
-    required this.card,
-    required this.width,
-    required this.height,
-    this.isSelected = false,
-    this.isTop = false,
+  const _AvatarWidget({
+    required this.name,
+    required this.avatarUrl,
+    required this.isActive,
+    this.size = 56,
+    this.rotated = false,
+    this.showTimer = false,
+    this.timerSeconds = 15,
+    this.timerGlow,
   });
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      width: width,
-      height: height,
+    Widget avatar = Container(
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: isSelected
-                ? _orange.withOpacity(0.5)
-                : isTop
-                    ? _cyan.withOpacity(0.3)
-                    : Colors.black.withOpacity(0.4),
-            blurRadius: isSelected ? 12 : 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(size * 0.22),
+        border: Border.all(
+          color: isActive ? _cyan : Colors.white.withOpacity(0.1),
+          width: 2,
+        ),
+        color: _navy,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: CustomPaint(
-          painter: _CardPainter(card: card, isSelected: isSelected),
+        borderRadius: BorderRadius.circular(size * 0.2),
+        child: avatarUrl.isNotEmpty
+            ? Image.network(avatarUrl, fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _initials())
+            : _initials(),
+      ),
+    );
+
+    if (rotated) {
+      avatar = Transform.rotate(angle: pi, child: avatar);
+    }
+
+    // Hourglass badge
+    Widget withBadge = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        Positioned(
+          bottom: -4,
+          right: -4,
+          child: Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: _navy,
+              shape: BoxShape.circle,
+              border: Border.all(color: _bg, width: 1.5),
+            ),
+            child: const Icon(Icons.hourglass_empty,
+                color: _textSub, size: 12),
+          ),
         ),
+      ],
+    );
+
+    return withBadge;
+  }
+
+  Widget _initials() => Center(
+        child: Text(
+          name.isNotEmpty ? name[0].toUpperCase() : '?',
+          style: TextStyle(
+              color: _cyan,
+              fontSize: size * 0.38,
+              fontWeight: FontWeight.w900),
+        ),
+      );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  BOKEH BACKGROUND
+// ═════════════════════════════════════════════════════════════════════════════
+class _Bokeh {
+  final double x, y, radius, opacity, phase;
+  const _Bokeh(
+      {required this.x,
+      required this.y,
+      required this.radius,
+      required this.opacity,
+      required this.phase});
+}
+
+class _BokehBackground extends StatelessWidget {
+  final AnimationController ctrl;
+  final List<_Bokeh> bokeh;
+  const _BokehBackground({required this.ctrl, required this.bokeh});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: ctrl,
+      builder: (_, __) => CustomPaint(
+        size: MediaQuery.of(context).size,
+        painter: _BokehPainter(bokeh: bokeh, t: ctrl.value),
       ),
     );
   }
 }
 
-// ── Card Painter ──────────────────────────────────────────────────
-class _CardPainter extends CustomPainter {
-  final WhotCard card;
-  final bool isSelected;
-
-  _CardPainter({required this.card, this.isSelected = false});
+class _BokehPainter extends CustomPainter {
+  final List<_Bokeh> bokeh;
+  final double t;
+  _BokehPainter({required this.bokeh, required this.t});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    if (card.isFaceDown) {
-      _paintFaceDown(canvas, size);
-      return;
-    }
-
-    // Card background
-    final bgPaint = Paint()..color = const Color(0xFFF8F9FA);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, w, h),
-        const Radius.circular(8),
-      ),
-      bgPaint,
+    // Background
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = _bg,
     );
 
-    // Border if selected
-    if (isSelected) {
-      final borderPaint = Paint()
-        ..color = _orange
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(1, 1, w - 2, h - 2),
-          const Radius.circular(7),
-        ),
-        borderPaint,
+    for (final b in bokeh) {
+      final pulse = (sin(t * 2 * pi + b.phase) + 1) / 2;
+      final r = b.radius * (0.85 + pulse * 0.3);
+      final opacity = b.opacity * (0.6 + pulse * 0.4);
+      final paint = Paint()
+        ..color = Colors.white.withOpacity(opacity)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+      canvas.drawCircle(
+        Offset(b.x * size.width, b.y * size.height),
+        r,
+        paint,
       );
     }
-
-    final shapeColor = _shapeColor(card.shape);
-    final paint = Paint()
-      ..color = shapeColor
-      ..style = PaintingStyle.fill;
-
-    // Number top-left
-    final tp = TextPainter(
-      text: TextSpan(
-        text: card.number == 20 ? 'W' : '${card.number}',
-        style: TextStyle(
-            color: shapeColor,
-            fontSize: w * 0.25,
-            fontWeight: FontWeight.w800),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset(4, 3));
-
-    // Shape center
-    final cx = w / 2;
-    final cy = h / 2 + 4;
-    final r = min(w, h) * 0.22;
-    _drawShape(canvas, paint, card.shape, cx, cy, r);
-  }
-
-  void _paintFaceDown(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    final bg = Paint()..color = const Color(0xFF1A2744);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, w, h), const Radius.circular(8)),
-      bg,
-    );
-
-    // Pattern
-    final patternPaint = Paint()
-      ..color = _cyan.withOpacity(0.12)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    for (double y = 0; y < h; y += 8) {
-      canvas.drawLine(Offset(0, y), Offset(w, y), patternPaint);
-    }
-
-    // Center logo
-    final logoPaint = Paint()
-      ..color = _cyan.withOpacity(0.4)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset(w / 2, h / 2), width: w * 0.5, height: h * 0.3),
-      logoPaint,
-    );
-  }
-
-  Color _shapeColor(WhotShape s) {
-    switch (s) {
-      case WhotShape.circle:
-        return const Color(0xFFE53935);
-      case WhotShape.triangle:
-        return const Color(0xFF1E88E5);
-      case WhotShape.cross:
-        return const Color(0xFF43A047);
-      case WhotShape.square:
-        return const Color(0xFFF4511E);
-      case WhotShape.star:
-        return const Color(0xFF8E24AA);
-      case WhotShape.whot:
-        return const Color(0xFFFF5E00);
-    }
-  }
-
-  void _drawShape(
-      Canvas canvas, Paint paint, WhotShape shape, double cx, double cy, double r) {
-    switch (shape) {
-      case WhotShape.circle:
-        canvas.drawCircle(Offset(cx, cy), r, paint);
-        break;
-      case WhotShape.triangle:
-        final path = Path()
-          ..moveTo(cx, cy - r)
-          ..lineTo(cx + r, cy + r)
-          ..lineTo(cx - r, cy + r)
-          ..close();
-        canvas.drawPath(path, paint);
-        break;
-      case WhotShape.cross:
-        final t = r * 0.35;
-        final cross = Path()
-          ..addRect(Rect.fromCenter(center: Offset(cx, cy), width: t * 2, height: r * 2))
-          ..addRect(Rect.fromCenter(center: Offset(cx, cy), width: r * 2, height: t * 2));
-        canvas.drawPath(cross, paint);
-        break;
-      case WhotShape.square:
-        canvas.drawRect(
-          Rect.fromCenter(center: Offset(cx, cy), width: r * 1.6, height: r * 1.6),
-          paint,
-        );
-        break;
-      case WhotShape.star:
-        _drawStar(canvas, paint, cx, cy, r);
-        break;
-      case WhotShape.whot:
-        final tp = TextPainter(
-          text: TextSpan(
-            text: 'WHOT',
-            style: TextStyle(
-                color: paint.color,
-                fontSize: r * 0.7,
-                fontWeight: FontWeight.w900),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
-        break;
-    }
-  }
-
-  void _drawStar(Canvas canvas, Paint paint, double cx, double cy, double r) {
-    final path = Path();
-    const points = 5;
-    final innerR = r * 0.45;
-    for (int i = 0; i < points * 2; i++) {
-      final angle = (i * pi / points) - pi / 2;
-      final radius = i.isEven ? r : innerR;
-      final x = cx + radius * cos(angle);
-      final y = cy + radius * sin(angle);
-      if (i == 0) path.moveTo(x, y);
-      else path.lineTo(x, y);
-    }
-    path.close();
-    canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(_CardPainter old) =>
-      old.card != card || old.isSelected != isSelected;
+  bool shouldRepaint(_BokehPainter old) => old.t != t;
 }
 
-// ─────────────────────────────────────────────────────────────────
-//  USAGE EXAMPLE
+// ═════════════════════════════════════════════════════════════════════════════
+//  ROTATE ICON BUTTON
+// ═════════════════════════════════════════════════════════════════════════════
+class _RotateIconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _RotateIconBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: _orange,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Icon(icon, color: _white, size: 22),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  GAME OVER DIALOG
+// ═════════════════════════════════════════════════════════════════════════════
+class _GameOverDialog extends StatelessWidget {
+  final bool isWinner;
+  final String prizePool;
+  final VoidCallback onClose;
+  const _GameOverDialog(
+      {required this.isWinner,
+      required this.prizePool,
+      required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: _navy,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(
+              color: isWinner
+                  ? _cyan.withOpacity(0.5)
+                  : _orange.withOpacity(0.4)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              isWinner ? '🏆 You Win!' : '💀 You Lost',
+              style: const TextStyle(
+                color: _textPrimary,
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (isWinner)
+              Text(
+                'Prize: $prizePool',
+                style: const TextStyle(
+                    color: _orange,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700),
+              ),
+            const SizedBox(height: 24),
+            GestureDetector(
+              onTap: onClose,
+              child: Container(
+                height: 50,
+                decoration: BoxDecoration(
+                  color: _orange,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Back to Lobby',
+                    style: TextStyle(
+                      color: _white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  USAGE
 //
+//  // Offline / bot mode (no socket needed):
 //  WhotGameScreen(
-//    opponentName: 'Chukwuemeka',
-//    playerName: 'Greatman',
-//    onBack: () => Navigator.pop(context),
+//    roomId: 'room_123',
+//    playerId: 'player_abc',
+//    playerName: 'Tolu',
+//    opponentName: 'Uche_Vibe',
+//    tournamentTitle: 'Wọt TOURNAMENT',
+//    prizePool: '₦70,000',
 //  )
-// ─────────────────────────────────────────────────────────────────
+//
+//  // Online with socket.io:
+//  WhotGameScreen(
+//    roomId: roomId,
+//    playerId: myId,
+//    playerName: myName,
+//    opponentName: opponentName,
+//    socketService: MySocketService(), // implements WhotSocketService
+//    tournamentTitle: 'Wọt TOURNAMENT',
+//    prizePool: '₦70,000',
+//  )
+//
+//  // MySocketService example (using socket_io_client):
+//  //
+//  // class MySocketService extends WhotSocketService {
+//  //   late IO.Socket _socket;
+//  //
+//  //   @override
+//  //   void connect({required roomId, required playerId, required handler}) {
+//  //     _socket = IO.io('https://gamearn-bot.onrender.com', <String, dynamic>{
+//  //       'transports': ['websocket'],
+//  //       'autoConnect': false,
+//  //     });
+//  //     _socket.connect();
+//  //     _socket.emit('join_room', {'roomId': roomId, 'playerId': playerId});
+//  //
+//  //     _socket.on('game_state',    (d) => handler.onGameState(d));
+//  //     _socket.on('card_played',   (d) => handler.onCardPlayed(d));
+//  //     _socket.on('card_drawn',    (d) => handler.onCardDrawn(d));
+//  //     _socket.on('your_turn',     (_) => handler.onYourTurn());
+//  //     _socket.on('opponent_turn', (_) => handler.onOpponentTurn());
+//  //     _socket.on('market',        (d) => handler.onMarket(d['count']));
+//  //     _socket.on('suspension',    (_) => handler.onSuspension());
+//  //     _socket.on('general_market',(_) => handler.onGeneralMarket());
+//  //     _socket.on('choose_shape',  (_) => handler.onChooseShape());
+//  //     _socket.on('call_card',     (d) => handler.onCallCard(d['playerId']));
+//  //     _socket.on('game_over',     (d) => handler.onGameOver(d));
+//  //     _socket.on('timer_tick',    (d) => handler.onTimerTick(d['seconds']));
+//  //     _socket.on('error',         (d) => handler.onError(d['message']));
+//  //   }
+//  //
+//  //   @override
+//  //   void emitPlayCard(roomId, playerId, card, {chosenShape}) =>
+//  //     _socket.emit('play_card', {
+//  //       'roomId': roomId, 'playerId': playerId,
+//  //       'cardId': card.id, 'chosenShape': chosenShape?.name,
+//  //     });
+//  //
+//  //   @override
+//  //   void emitDrawCard(roomId, playerId) =>
+//  //     _socket.emit('draw_card', {'roomId': roomId, 'playerId': playerId});
+//  //
+//  //   @override
+//  //   void emitCallCard(roomId, playerId) =>
+//  //     _socket.emit('call_card', {'roomId': roomId, 'playerId': playerId});
+//  //
+//  //   @override
+//  //   void disconnect() => _socket.disconnect();
+//  // }
+// ─────────────────────────────────────────────────────────────────────────────
