@@ -537,6 +537,9 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   bool _dealFailed = false; // true if deal failed and retry is available
   String? _dealErrorMessage; // specific error message for deal failure
 
+  // ── Bot concurrency guard (FIX BUG 3) ─────────────────────────────────────
+  bool _isBotThinking = false;
+
   // ── Bokeh particles ───────────────────────────────────────────────────────
   late List<_Bokeh> _bokehList;
   final _rng = Random();
@@ -675,6 +678,9 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     // Cancel current timer before triggering bot
     _countdownTimer?.cancel();
     
+    // Guard against concurrent bot execution (FIX BUG 3)
+    if (_isBotThinking) return;
+
     if (widget.socketService == null) {
       // In bot mode: trigger bot to play instead of just drawing
       setState(() => _isMyTurn = false); // Bot's turn now
@@ -1041,91 +1047,116 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     }
   }
 
-  /// Calls Gamearn Render bot, updates opponent state, hands turn back to player.
-  Future<void> _triggerBotLoop() async {
-    // Don't start countdown yet - wait for bot to finish first
-
-    while (mounted) {
-      final botAction = await _aiEngine
-          .fetchMctsMove([..._dealHistory, ..._actionHistory]);
-      if (!mounted) return;
-
-      if (botAction == null) {
-        // Bot failed to respond, give turn back to human
-        setState(() => _isMyTurn = true);
-        await _refreshLegalActions();
-        _startCountdown(); // Start human's timer now
-        return;
-      }
-
-      final preLegal = await _aiEngine.fetchLegalActions(_fullActionHistory);
-      _actionHistory.add(botAction);
-      if (preLegal != null &&
-          !preLegal.legalActions.contains(botAction)) {
-        debugPrint('Bot played illegal action $botAction');
-      }
-
-      // Suit nomination after a Whot card
-      if (botAction >= _kOpenSpielNominateBase &&
-          botAction < _kOpenSpielNominateBase + 5) {
-        final shape = _shapeFromOpenSpielSuit(botAction - _kOpenSpielNominateBase);
-        setState(() {
-          _topCard = WhotCard(
-            shape: shape,
-            number: _topCard.number,
-            id: _topCard.id,
-          );
-        });
-        _showToast('${widget.opponentName} chose ${shape.name}');
-        await _refreshLegalActions();
-        setState(() => _isMyTurn = true); // Give turn back to human
-        _startCountdown(); // Start human's timer now
-        return;
-      }
-
-      if (botAction == _kOpenSpielDraw) {
-        setState(() {
-          _opponentCardCount++;
-        });
-        await _refreshLegalActions();
-        setState(() => _isMyTurn = true); // Give turn back to human
-        _startCountdown(); // Start human's timer now
-        return;
-      }
-
-      // Bot played a card
-      final played = _cardFromOpenSpielAction(botAction);
-      setState(() {
-        _topCard = played;
-        if (_opponentCardCount > 0) _opponentCardCount--;
-      });
-
-      await _refreshLegalActions();
-
-      final humanTurn = _handleOpponentSpecial(played.number);
-      if (!humanTurn) {
-        await Future.delayed(const Duration(milliseconds: 600));
-        continue;
-      }
-
-      await _refreshLegalActions();
-      setState(() => _isMyTurn = true); // Give turn back to human
-      _startCountdown(); // Start human's timer now
-      return;
+  // ── Helper: draw valid cards from real OpenSpiel deck (FIX BUG 4) ─────────
+  WhotCard _getRandomCardFromDeck(Set<int> usedIndices) {
+    final availableIndices = List.generate(_kOpenSpielDeck.length, (i) => i)
+        .where((i) => !usedIndices.contains(i))
+        .toList();
+    if (availableIndices.isEmpty) {
+      // Fallback – should never happen in normal play
+      return const WhotCard(shape: WhotShape.circle, number: 1, id: '0');
     }
+    final randomIndex = availableIndices[_rng.nextInt(availableIndices.length)];
+    final (shape, number) = _kOpenSpielDeck[randomIndex];
+    return WhotCard(shape: shape, number: number, id: randomIndex.toString());
   }
 
   void _addDrawnCards(int count) {
-    final rng = Random();
-    for (var i = 0; i < count; i++) {
-      _playerHand.add(WhotCard(
-        shape: WhotShape.values[rng.nextInt(5)],
-        number: rng.nextInt(13) + 1,
-      ));
+    // Collect IDs already in hand to avoid duplicates (approximate the draw pile)
+    final usedIndices = <int>{};
+    for (final card in _playerHand) {
+      final id = int.tryParse(card.id ?? '');
+      if (id != null && id >= 0 && id < _kOpenSpielDeck.length) {
+        usedIndices.add(id);
+      }
+    }
+    for (int i = 0; i < count; i++) {
+      final newCard = _getRandomCardFromDeck(usedIndices);
+      usedIndices.add(int.parse(newCard.id!));
+      _playerHand.add(newCard);
     }
   }
 
-  Future<void> _drawCard({bool fromServer = true}) async {
+  /// Calls Gamearn Render bot, updates opponent state, hands turn back to player.
+  Future<void> _triggerBotLoop() async {
+    // Guard against concurrent bot execution (FIX BUG 3)
+    if (_isBotThinking) return;
+    _isBotThinking = true;
+    try {
+      while (mounted) {
+        final botAction = await _aiEngine
+            .fetchMctsMove([..._dealHistory, ..._actionHistory]);
+        if (!mounted) return;
+
+        if (botAction == null) {
+          // Bot failed to respond, give turn back to human
+          setState(() => _isMyTurn = true);
+          await _refreshLegalActions();
+          _startCountdown(); // Start human's timer now
+          return;
+        }
+
+        final preLegal = await _aiEngine.fetchLegalActions(_fullActionHistory);
+        _actionHistory.add(botAction);
+        if (preLegal != null &&
+            !preLegal.legalActions.contains(botAction)) {
+          debugPrint('Bot played illegal action $botAction');
+        }
+
+        // Suit nomination after a Whot card
+        if (botAction >= _kOpenSpielNominateBase &&
+            botAction < _kOpenSpielNominateBase + 5) {
+          final shape = _shapeFromOpenSpielSuit(botAction - _kOpenSpielNominateBase);
+          setState(() {
+            _topCard = WhotCard(
+              shape: shape,
+              number: _topCard.number,
+              id: _topCard.id,
+            );
+          });
+          _showToast('${widget.opponentName} chose ${shape.name}');
+          await _refreshLegalActions();
+          setState(() => _isMyTurn = true); // Give turn back to human
+          _startCountdown(); // Start human's timer now
+          return;
+        }
+
+        if (botAction == _kOpenSpielDraw) {
+          setState(() {
+            _opponentCardCount++;
+          });
+          await _refreshLegalActions();
+          setState(() => _isMyTurn = true); // Give turn back to human
+          _startCountdown(); // Start human's timer now
+          return;
+        }
+
+        // Bot played a card
+        final played = _cardFromOpenSpielAction(botAction);
+        setState(() {
+          _topCard = played;
+          if (_opponentCardCount > 0) _opponentCardCount--;
+        });
+
+        await _refreshLegalActions();
+
+        final humanTurn = _handleOpponentSpecial(played.number);
+        if (!humanTurn) {
+          await Future.delayed(const Duration(milliseconds: 600));
+          continue;
+        }
+
+        await _refreshLegalActions();
+        setState(() => _isMyTurn = true); // Give turn back to human
+        _startCountdown(); // Start human's timer now
+        return;
+      }
+    } finally {
+      _isBotThinking = false;
+    }
+  }
+
+  void _drawCard({bool fromServer = true}) async {
     if (!_isMyTurn && fromServer) return;
     if (!_canDrawNow) {
       _showToast('Draw is not allowed right now');
@@ -2721,76 +2752,3 @@ class _GameOverDialog extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  USAGE
-//
-//  // Offline / bot mode (no socket needed):
-//  WhotGameScreen(
-//    roomId: 'room_123',
-//    playerId: 'player_abc',
-//    playerName: 'Tolu',
-//    opponentName: 'Uche_Vibe',
-//    tournamentTitle: 'Wọt TOURNAMENT',
-//    prizePool: '₦70,000',
-//  )
-//
-//  // Online with socket.io:
-//  WhotGameScreen(
-//    roomId: roomId,
-//    playerId: myId,
-//    playerName: myName,
-//    opponentName: opponentName,
-//    socketService: MySocketService(), // implements WhotSocketService
-//    tournamentTitle: 'Wọt TOURNAMENT',
-//    prizePool: '₦70,000',
-//  )
-//
-//  // MySocketService example (using socket_io_client):
-//  //
-//  // class MySocketService extends WhotSocketService {
-//  //   late IO.Socket _socket;
-//  //
-//  //   @override
-//  //   void connect({required roomId, required playerId, required handler}) {
-//  //     _socket = IO.io('https://gamearn-bot.onrender.com', <String, dynamic>{
-//  //       'transports': ['websocket'],
-//  //       'autoConnect': false,
-//  //     });
-//  //     _socket.connect();
-//  //     _socket.emit('join_room', {'roomId': roomId, 'playerId': playerId});
-//  //
-//  //     _socket.on('game_state',    (d) => handler.onGameState(d));
-//  //     _socket.on('card_played',   (d) => handler.onCardPlayed(d));
-//  //     _socket.on('card_drawn',    (d) => handler.onCardDrawn(d));
-//  //     _socket.on('your_turn',     (_) => handler.onYourTurn());
-//  //     _socket.on('opponent_turn', (_) => handler.onOpponentTurn());
-//  //     _socket.on('market',        (d) => handler.onMarket(d['count']));
-//  //     _socket.on('suspension',    (_) => handler.onSuspension());
-//  //     _socket.on('general_market',(_) => handler.onGeneralMarket());
-//  //     _socket.on('choose_shape',  (_) => handler.onChooseShape());
-//  //     _socket.on('call_card',     (d) => handler.onCallCard(d['playerId']));
-//  //     _socket.on('game_over',     (d) => handler.onGameOver(d));
-//  //     _socket.on('timer_tick',    (d) => handler.onTimerTick(d['seconds']));
-//  //     _socket.on('error',         (d) => handler.onError(d['message']));
-//  //   }
-//  //
-//  //   @override
-//  //   void emitPlayCard(roomId, playerId, card, {chosenShape}) =>
-//  //     _socket.emit('play_card', {
-//  //       'roomId': roomId, 'playerId': playerId,
-//  //       'cardId': card.id, 'chosenShape': chosenShape?.name,
-//  //     });
-//  //
-//  //   @override
-//  //   void emitDrawCard(roomId, playerId) =>
-//  //     _socket.emit('draw_card', {'roomId': roomId, 'playerId': playerId});
-//  //
-//  //   @override
-//  //   void emitCallCard(roomId, playerId) =>
-//  //     _socket.emit('call_card', {'roomId': roomId, 'playerId': playerId});
-//  //
-//  //   @override
-//  //   void disconnect() => _socket.disconnect();
-//  // }
-// ─────────────────────────────────────────────────────────────────────────────
