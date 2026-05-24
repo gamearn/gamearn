@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:gamearn/config/api_config.dart';
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  WHOT GAME SCREEN  –  Gamearn
 //
@@ -156,6 +158,23 @@ WhotCard _cardFromOpenSpielAction(int action) {
   return WhotCard(shape: shape, number: number, id: action.toString());
 }
 
+WhotShape? _shapeFromSuitName(String name) {
+  switch (name) {
+    case 'circle':
+      return WhotShape.circle;
+    case 'triangle':
+      return WhotShape.triangle;
+    case 'cross':
+      return WhotShape.cross;
+    case 'square':
+      return WhotShape.square;
+    case 'star':
+      return WhotShape.star;
+    default:
+      return null;
+  }
+}
+
 WhotShape _shapeFromOpenSpielSuit(int suit) {
   switch (suit) {
     case 0:
@@ -267,12 +286,53 @@ abstract class WhotGameEventHandler {
   void onError(String message);
 }
 
-// ── Gamearn Bot AI Bridge (talks to Render instance) ─────────────────────────
-//  POST https://gamearn-bot.onrender.com/get_move
-//  body: { game_name, action_history, player_rating }
-//  resp: { action: int }   (OpenSpiel action index)
+// ── Legal actions from OpenSpiel (source of truth for UI gating) ─────────────
+class LegalActionsResult {
+  final int currentPlayer;
+  final bool isTerminal;
+  final List<int> legalActions;
+  final List<int> playableCardIds;
+  final bool canDraw;
+  final List<String> nominateSuits;
+  final int pendingDraw;
+
+  const LegalActionsResult({
+    required this.currentPlayer,
+    required this.isTerminal,
+    required this.legalActions,
+    required this.playableCardIds,
+    required this.canDraw,
+    required this.nominateSuits,
+    required this.pendingDraw,
+  });
+
+  factory LegalActionsResult.fromJson(Map<String, dynamic> json) {
+    return LegalActionsResult(
+      currentPlayer: (json['current_player'] as num).toInt(),
+      isTerminal: json['is_terminal'] as bool? ?? false,
+      legalActions: (json['legal_actions'] as List<dynamic>?)
+              ?.map((e) => (e as num).toInt())
+              .toList() ??
+          [],
+      playableCardIds: (json['playable_card_ids'] as List<dynamic>?)
+              ?.map((e) => (e as num).toInt())
+              .toList() ??
+          [],
+      canDraw: json['can_draw'] as bool? ?? false,
+      nominateSuits: (json['nominate_suits'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      pendingDraw: (json['pending_draw'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  bool get mustNominateSuit => nominateSuits.isNotEmpty;
+}
+
+// ── Gamearn Bot AI Bridge ────────────────────────────────────────────────────
 class _GamearnBotService {
-  static const _base = 'https://gamearn-bot.onrender.com';
+  static String get _base => ApiConfig.botBaseUrl;
 
   /// Called once on game start — deals real cards via OpenSpiel chance phase.
   Future<Map<String, dynamic>?> fetchStartGame() async {
@@ -308,6 +368,26 @@ class _GamearnBotService {
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
         return body['action'] as int?;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<LegalActionsResult?> fetchLegalActions(List<int> actionHistory) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_base/legal_actions'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'game_name': 'whot',
+              'action_history': actionHistory,
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        return LegalActionsResult.fromJson(
+            jsonDecode(res.body) as Map<String, dynamic>);
       }
     } catch (_) {}
     return null;
@@ -399,10 +479,10 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   // MCTS reconstructs the full game state including the deal phase.
   List<int> _dealHistory = [];
 
-  // OpenSpiel action sequence: card plays encoded as (shape.index * 20 + number),
-  // draw action = 0.  Replayed on every bot request so MCTS sees full history.
-  // Always send _dealHistory + _actionHistory to /get_move.
-  final List<int> _actionHistory = [];
+  // OpenSpiel action sequence. Always send _dealHistory + _actionHistory to API.
+  List<int> _actionHistory = [];
+
+  LegalActionsResult? _legalState;
 
   bool _isDealing = true; // true while /start_game is in flight
 
@@ -478,6 +558,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
           .map((e) => (e as num).toInt())
           .toList();
 
+      final legalJson = result['legal'] as Map<String, dynamic>?;
       setState(() {
         _dealHistory = dealHist;
         _playerHand = rawHand
@@ -486,12 +567,17 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         _topCard = WhotCard.fromJson(topCardJson);
         _opponentCardCount = (result['opponent_hand_count'] as num).toInt();
         _isDealing = false;
+        if (legalJson != null) {
+          _legalState = LegalActionsResult.fromJson(legalJson);
+          _isMyTurn = _legalState!.currentPlayer == 0;
+        }
       });
     } else {
       // Render cold-start failed — keep dummy hand, show toast
       setState(() => _isDealing = false);
       _showToast('Could not reach server — using practice cards');
     }
+    if (_legalState == null) await _refreshLegalActions();
     _startCountdown();
   }
 
@@ -526,6 +612,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   @override
   void onGameState(Map<String, dynamic> state) {
     if (!mounted) return;
+    final hist = state['action_history'] as List<dynamic>?;
     setState(() {
       _playerHand = (state['yourHand'] as List)
           .map((c) => WhotCard.fromJson(c as Map<String, dynamic>))
@@ -534,7 +621,14 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       _topCard =
           WhotCard.fromJson(state['topCard'] as Map<String, dynamic>);
       _isMyTurn = state['currentTurn'] == widget.playerId;
+      if (hist != null && hist.isNotEmpty) {
+        final full = hist.map((e) => (e as num).toInt()).toList();
+        if (full.length > _dealHistory.length) {
+          _actionHistory = full.sublist(_dealHistory.length);
+        }
+      }
     });
+    _refreshLegalActions();
     _startCountdown();
   }
 
@@ -564,13 +658,17 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   void onYourTurn() {
     if (!mounted) return;
     setState(() => _isMyTurn = true);
+    _refreshLegalActions();
     _startCountdown();
   }
 
   @override
   void onOpponentTurn() {
     if (!mounted) return;
-    setState(() => _isMyTurn = false);
+    setState(() {
+      _isMyTurn = false;
+      _selectedIndex = -1;
+    });
     _startCountdown();
   }
 
@@ -584,6 +682,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       }
     });
     _showToast('Pick $count! 😬');
+    _refreshLegalActions();
   }
 
   @override
@@ -600,6 +699,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       _playerHand.add(WhotCard.faceDown());
     });
     _showToast('General Market! 😅');
+    _refreshLegalActions();
   }
 
   @override
@@ -639,67 +739,194 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   @override
   void onError(String message) => _showToast(message);
 
-  // ── Game actions ──────────────────────────────────────────────────────────
+  // ── Legal actions (OpenSpiel) ─────────────────────────────────────────────
 
-  bool _canPlay(WhotCard card) {
+  List<int> get _fullActionHistory => [..._dealHistory, ..._actionHistory];
+
+  bool get _isHumanTurn =>
+      _legalState != null &&
+      !_legalState!.isTerminal &&
+      _legalState!.currentPlayer == 0;
+
+  Future<void> _refreshLegalActions() async {
+    if (_dealHistory.isEmpty) return;
+    final result = await _aiEngine.fetchLegalActions(_fullActionHistory);
+    if (!mounted || result == null) return;
+    setState(() {
+      _legalState = result;
+      if (!result.isTerminal) {
+        _isMyTurn = result.currentPlayer == 0;
+      }
+      if (result.mustNominateSuit && result.currentPlayer == 0) {
+        _showShapeChooser = true;
+      }
+    });
+  }
+
+  bool _isCardPlayable(WhotCard card) {
+    if (_legalState != null && _isHumanTurn) {
+      return _legalState!.playableCardIds.contains(_cardToOpenSpielAction(card));
+    }
+    return _canPlayHeuristic(card);
+  }
+
+  bool _canPlayHeuristic(WhotCard card) {
     if (card.isWhot) return true;
     if (card.shape == _topCard.shape) return true;
     if (card.number == _topCard.number) return true;
     return false;
   }
 
-  void _playCard({WhotShape? chosenShape}) {
-    if (_selectedIndex < 0 || !_isMyTurn) return;
-    final card = _playerHand[_selectedIndex];
-    if (!_canPlay(card)) {
-      _showToast('Invalid card! Match shape or number.');
+  bool get _canDrawNow {
+    if (_legalState != null && _isHumanTurn) return _legalState!.canDraw;
+    return _isMyTurn;
+  }
+
+  bool _isNominateLegal(WhotShape shape) {
+    if (_legalState == null) return shape != WhotShape.whot;
+    return _legalState!.nominateSuits.contains(shape.name);
+  }
+
+  Set<int>? _playableHandIndices() {
+    if (!_isMyTurn) return null;
+    if (_legalState == null || !_isHumanTurn) return null;
+    final ids = _legalState!.playableCardIds.toSet();
+    final out = <int>{};
+    for (var i = 0; i < _playerHand.length; i++) {
+      if (ids.contains(_cardToOpenSpielAction(_playerHand[i]))) out.add(i);
+    }
+    return out;
+  }
+
+  List<WhotShape> _legalNominateShapeOptions() {
+    if (_legalState != null && _legalState!.nominateSuits.isNotEmpty) {
+      return _legalState!.nominateSuits
+          .map(_shapeFromSuitName)
+          .whereType<WhotShape>()
+          .toList();
+    }
+    return WhotShape.values.where((s) => s != WhotShape.whot).toList();
+  }
+
+  void _toastPlayerSpecial(int rank) {
+    switch (rank) {
+      case 1:
+        _showToast('Hold On! You play again.');
+        break;
+      case 2:
+        _showToast('Pick Two!');
+        break;
+      case 5:
+        _showToast('Pick Three!');
+        break;
+      case 8:
+        _showToast('Suspension!');
+        break;
+      case 14:
+        _showToast('General Market!');
+        break;
+      case 20:
+        _showToast('Whot! Choose a shape.');
+        break;
+    }
+  }
+
+  // ── Game actions ──────────────────────────────────────────────────────────
+
+  Future<void> _playCard({WhotShape? chosenShape, bool nominateOnly = false}) async {
+    if (nominateOnly) {
+      if (chosenShape == null || !_isNominateLegal(chosenShape)) {
+        _showToast('Not a legal shape');
+        return;
+      }
+      _actionHistory.add(_kOpenSpielNominateBase + _openSpielSuitFromShape(chosenShape));
+      _socket.emitPlayCard(
+        widget.roomId,
+        widget.playerId,
+        _topCard,
+        chosenShape: chosenShape,
+      );
+      setState(() {
+        _topCard = WhotCard(
+          shape: chosenShape,
+          number: _topCard.number,
+          id: _topCard.id,
+        );
+        _showShapeChooser = false;
+        _isMyTurn = false;
+      });
+      HapticFeedback.lightImpact();
+      await _refreshLegalActions();
+      if (widget.socketService == null) _triggerBotLoop();
       return;
     }
+
+    if (_selectedIndex < 0 || !_isMyTurn) return;
+    final card = _playerHand[_selectedIndex];
+    if (!_isCardPlayable(card)) {
+      _showToast('Not a legal move');
+      return;
+    }
+
     if (card.isWhot && chosenShape == null) {
       setState(() => _showShapeChooser = true);
       return;
     }
-    // Encode action for OpenSpiel history replay
-    _actionHistory.add(_cardToOpenSpielAction(card));
+
+    final actionId = _cardToOpenSpielAction(card);
+    _actionHistory.add(actionId);
+
     if (card.isWhot && chosenShape != null) {
+      if (!_isNominateLegal(chosenShape)) {
+        _actionHistory.removeLast();
+        _showToast('Not a legal shape');
+        return;
+      }
       _actionHistory.add(_kOpenSpielNominateBase + _openSpielSuitFromShape(chosenShape));
     }
 
-    // ← EMIT
     _socket.emitPlayCard(
       widget.roomId,
       widget.playerId,
       card,
       chosenShape: chosenShape,
     );
+
+    final playedRank = card.number;
     setState(() {
       _topCard = chosenShape != null
-          ? WhotCard(
-              shape: chosenShape,
-              number: card.number,
-              id: card.id,
-            )
+          ? WhotCard(shape: chosenShape, number: card.number, id: card.id)
           : card;
       _playerHand.removeAt(_selectedIndex);
       _selectedIndex = -1;
-      _isMyTurn = false;
       _showShapeChooser = false;
     });
     HapticFeedback.lightImpact();
+    _toastPlayerSpecial(playedRank);
 
-    // Offline/bot mode → ask Render for bot response
+    await _refreshLegalActions();
+
+    if (_legalState != null &&
+        _legalState!.mustNominateSuit &&
+        _legalState!.currentPlayer == 0) {
+      setState(() => _showShapeChooser = true);
+      return;
+    }
+
+    setState(() => _isMyTurn = false);
     if (widget.socketService == null) _triggerBotLoop();
   }
 
   /// After opponent plays a special card, show UI. Returns true if it's now the
   /// human's turn; false if the bot plays again (Hold On / Suspension).
   bool _handleOpponentSpecial(int rank) {
+    final pick = _legalState?.pendingDraw ?? 0;
     switch (rank) {
       case 2:
-        onMarket(2);
+        onMarket(pick > 0 ? pick : 2);
         return true;
       case 5:
-        onMarket(3);
+        onMarket(pick > 0 ? pick : 3);
         return true;
       case 8:
         onSuspension();
@@ -728,12 +955,17 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       if (!mounted) return;
 
       if (botAction == null) {
-        setState(() => _isMyTurn = true);
+        await _refreshLegalActions();
         _startCountdown();
         return;
       }
 
+      final preLegal = await _aiEngine.fetchLegalActions(_fullActionHistory);
       _actionHistory.add(botAction);
+      if (preLegal != null &&
+          !preLegal.legalActions.contains(botAction)) {
+        debugPrint('Bot played illegal action $botAction');
+      }
 
       // Suit nomination after a Whot card
       if (botAction >= _kOpenSpielNominateBase &&
@@ -747,7 +979,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
           );
         });
         _showToast('${widget.opponentName} chose ${shape.name}');
-        setState(() => _isMyTurn = true);
+        await _refreshLegalActions();
         _startCountdown();
         return;
       }
@@ -755,8 +987,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       if (botAction == _kOpenSpielDraw) {
         setState(() {
           _opponentCardCount++;
-          _isMyTurn = true;
         });
+        await _refreshLegalActions();
         _startCountdown();
         return;
       }
@@ -768,35 +1000,53 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         if (_opponentCardCount > 0) _opponentCardCount--;
       });
 
+      await _refreshLegalActions();
+
       final humanTurn = _handleOpponentSpecial(played.number);
       if (!humanTurn) {
         await Future.delayed(const Duration(milliseconds: 600));
         continue;
       }
 
-      setState(() => _isMyTurn = true);
+      await _refreshLegalActions();
       _startCountdown();
       return;
     }
   }
 
-  void _drawCard({bool fromServer = true}) {
+  void _addDrawnCards(int count) {
+    final rng = Random();
+    for (var i = 0; i < count; i++) {
+      _playerHand.add(WhotCard(
+        shape: WhotShape.values[rng.nextInt(5)],
+        number: rng.nextInt(13) + 1,
+      ));
+    }
+  }
+
+  Future<void> _drawCard({bool fromServer = true}) async {
     if (!_isMyTurn && fromServer) return;
+    if (!_canDrawNow) {
+      _showToast('Draw is not allowed right now');
+      return;
+    }
     if (fromServer) {
       _socket.emitDrawCard(widget.roomId, widget.playerId); // ← EMIT
     }
+
+    final penalty = _legalState?.pendingDraw ?? 0;
+    final drawCount = penalty > 0 ? penalty : 1;
+
     _actionHistory.add(_kOpenSpielDraw);
 
-    // Add a real random card in offline mode (server sends real card online)
-    final rng = Random();
     setState(() {
-      _playerHand.add(WhotCard(
-        shape: WhotShape.values[rng.nextInt(5)], // exclude whot from draw
-        number: rng.nextInt(13) + 1,
-      ));
+      _addDrawnCards(drawCount);
+      _selectedIndex = -1;
       _isMyTurn = false;
     });
     HapticFeedback.selectionClick();
+
+    await _refreshLegalActions();
 
     if (widget.socketService == null) _triggerBotLoop();
   }
@@ -971,7 +1221,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             GestureDetector(
-              onTap: _isMyTurn ? _drawCard : null,
+              onTap: _canDrawNow ? () => _drawCard() : null,
               child: _WhotCardWidget(
                 card: WhotCard.faceDown(),
                 width: 90,
@@ -979,7 +1229,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
               ),
             ),
             const SizedBox(height: 6),
-            _PileLabel(label: 'DRAW', onTap: _isMyTurn ? _drawCard : null),
+            _PileLabel(
+                label: 'DRAW', onTap: _canDrawNow ? () => _drawCard() : null),
           ],
         ),
         const SizedBox(width: 32),
@@ -1009,8 +1260,14 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         cards: _playerHand,
         selectedIndex: _selectedIndex,
         isMyTurn: _isMyTurn,
+        playableIndices: _playableHandIndices(),
         onCardTap: (i) {
           if (!_isMyTurn) return;
+          final playable = _playableHandIndices();
+          if (playable != null && !playable.contains(i)) {
+            _showToast('Not a legal move');
+            return;
+          }
           setState(() => _selectedIndex = _selectedIndex == i ? -1 : i);
         },
       ),
@@ -1086,12 +1343,18 @@ class _WhotGameScreenState extends State<WhotGameScreen>
                   bottom: -6,
                   right: -6,
                   child: GestureDetector(
-                    onTap: _selectedIndex >= 0 ? _playCard : null,
+                    onTap: _selectedIndex >= 0 &&
+                            _isCardPlayable(_playerHand[_selectedIndex])
+                        ? () => _playCard()
+                        : null,
                     child: Container(
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: _selectedIndex >= 0 ? _cyan : _textSub,
+                        color: _selectedIndex >= 0 &&
+                                _isCardPlayable(_playerHand[_selectedIndex])
+                            ? _cyan
+                            : _textSub,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.play_arrow,
@@ -1265,7 +1528,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
                   children: [
                     _PileLabel(
                         label: 'DRAW',
-                        onTap: _isMyTurn ? _drawCard : null),
+                        onTap: _canDrawNow ? () => _drawCard() : null),
                     const SizedBox(width: 8),
                     _WhotCardWidget(
                         card: WhotCard.faceDown(), width: 64, height: 86),
@@ -1325,8 +1588,14 @@ class _WhotGameScreenState extends State<WhotGameScreen>
                     cards: _playerHand,
                     selectedIndex: _selectedIndex,
                     isMyTurn: _isMyTurn,
+                    playableIndices: _playableHandIndices(),
                     onCardTap: (i) {
                       if (!_isMyTurn) return;
+                      final playable = _playableHandIndices();
+                      if (playable != null && !playable.contains(i)) {
+                        _showToast('Not a legal move');
+                        return;
+                      }
                       setState(
                           () => _selectedIndex = _selectedIndex == i ? -1 : i);
                     },
@@ -1408,10 +1677,16 @@ class _WhotGameScreenState extends State<WhotGameScreen>
                   spacing: 16,
                   runSpacing: 16,
                   alignment: WrapAlignment.center,
-                  children: WhotShape.values
-                      .where((s) => s != WhotShape.whot)
+                  children: _legalNominateShapeOptions()
                       .map((s) => GestureDetector(
-                            onTap: () => _playCard(chosenShape: s),
+                            onTap: () {
+                              if (_legalState?.mustNominateSuit == true &&
+                                  _selectedIndex < 0) {
+                                _playCard(chosenShape: s, nominateOnly: true);
+                              } else {
+                                _playCard(chosenShape: s);
+                              }
+                            },
                             child: Container(
                               width: 64,
                               height: 64,
@@ -1502,12 +1777,14 @@ class _ArcFanHand extends StatelessWidget {
   final List<WhotCard> cards;
   final int selectedIndex;
   final bool isMyTurn;
+  final Set<int>? playableIndices;
   final ValueChanged<int> onCardTap;
 
   const _ArcFanHand({
     required this.cards,
     required this.selectedIndex,
     required this.isMyTurn,
+    this.playableIndices,
     required this.onCardTap,
   });
 
@@ -1537,6 +1814,9 @@ class _ArcFanHand extends StatelessWidget {
           final dx = radius * sin(angleRad);
           final dy = -radius * (1 - cos(angleRad)) * 0.35;
           final isSelected = selectedIndex == i;
+          final isPlayable = playableIndices == null ||
+              playableIndices!.contains(i) ||
+              !isMyTurn;
 
           return Positioned(
             bottom: isSelected ? 20 : 0,
@@ -1547,12 +1827,15 @@ class _ArcFanHand extends StatelessWidget {
                 angle: angleRad * 0.8,
                 child: GestureDetector(
                   onTap: () => onCardTap(i),
-                  child: _WhotCardWidget(
-                    card: cards[i],
-                    width: cardW,
-                    height: cardH,
-                    isSelected: isSelected,
-                    glowOrange: isSelected,
+                  child: Opacity(
+                    opacity: isPlayable ? 1.0 : 0.38,
+                    child: _WhotCardWidget(
+                      card: cards[i],
+                      width: cardW,
+                      height: cardH,
+                      isSelected: isSelected,
+                      glowOrange: isSelected && isPlayable,
+                    ),
                   ),
                 ),
               ),
