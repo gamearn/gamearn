@@ -842,4 +842,8 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
                 orElse: () => kAvatars[0])['emoji'] ??
         '🤖';
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 74bbe878c39ae0608f779aa022459037ddb2d512
