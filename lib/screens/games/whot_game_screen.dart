@@ -634,8 +634,11 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       });
       _showToast('Connection failed - tap Retry');
     }
-    if (_legalState == null) await _refreshLegalActions();
-    if (!_dealFailed) _startCountdown();
+    // Always refresh legal actions after deal, even if legalJson was null
+    if (!_dealFailed) {
+      await _refreshLegalActions();
+      _startCountdown();
+    }
   }
 
   /// Retry fetching the deal after user taps retry
@@ -669,9 +672,18 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   }
 
   void _autoDrawOnTimeout() {
-    _socket.emitDrawCard(widget.roomId, widget.playerId); // ← EMIT
-    // fromServer: false so we don't emit again inside _drawCard
-    _drawCard(fromServer: false);
+    // Cancel current timer before triggering bot
+    _countdownTimer?.cancel();
+    
+    if (widget.socketService == null) {
+      // In bot mode: trigger bot to play instead of just drawing
+      setState(() => _isMyTurn = false); // Bot's turn now
+      _triggerBotLoop();
+    } else {
+      // In socket mode: emit draw card event
+      _socket.emitDrawCard(widget.roomId, widget.playerId); // ← EMIT
+      _drawCard(fromServer: false);
+    }
   }
 
   // ── WhotGameEventHandler impl ─────────────────────────────────────────────
@@ -832,12 +844,25 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
   bool _isCardPlayable(WhotCard card) {
     if (_legalState != null && _isHumanTurn) {
-      return _legalState!.playableCardIds.contains(_cardToOpenSpielAction(card));
+      final action = _cardToOpenSpielAction(card);
+      final isPlayable = _legalState!.playableCardIds.contains(action);
+      debugPrint('Card ${card.shape.name}${card.number} legal check: $isPlayable (action: $action)');
+      return isPlayable;
     }
-    return _canPlayHeuristic(card);
+    // When legal state is not available, use heuristic to allow gameplay
+    final heuristic = _canPlayHeuristic(card);
+    debugPrint('Card ${card.shape.name}${card.number} heuristic: $heuristic (legalState: ${_legalState != null})');
+    return heuristic;
   }
 
   bool _canPlayHeuristic(WhotCard card) {
+    // When legal state is null, be more permissive to allow gameplay
+    if (_legalState == null) {
+      // Allow any card if legal state is unavailable (better UX than being stuck)
+      debugPrint('Legal state null - allowing card ${card.shape.name}${card.number} as fallback');
+      return true;
+    }
+    // Normal heuristic rules when legal state exists but it's not human turn
     if (card.isWhot) return true;
     if (card.shape == _topCard.shape) return true;
     if (card.number == _topCard.number) return true;
@@ -856,13 +881,17 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
   Set<int>? _playableHandIndices() {
     if (!_isMyTurn) return null;
-    if (_legalState == null || !_isHumanTurn) return null;
+    if (_legalState == null || !_isHumanTurn) {
+      // If legal state is not available yet, allow all cards to be selectable
+      // This provides better UX during initial load or API delays
+      return null; // null will allow card selection but won't highlight as "playable"
+    }
     final ids = _legalState!.playableCardIds.toSet();
     final out = <int>{};
     for (var i = 0; i < _playerHand.length; i++) {
       if (ids.contains(_cardToOpenSpielAction(_playerHand[i]))) out.add(i);
     }
-    return out;
+    return out.isEmpty ? null : out; // Return null if no playable cards (allow selection anyway)
   }
 
   List<WhotShape> _legalNominateShapeOptions() {
@@ -1014,7 +1043,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
   /// Calls Gamearn Render bot, updates opponent state, hands turn back to player.
   Future<void> _triggerBotLoop() async {
-    _startCountdown();
+    // Don't start countdown yet - wait for bot to finish first
 
     while (mounted) {
       final botAction = await _aiEngine
@@ -1022,8 +1051,10 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       if (!mounted) return;
 
       if (botAction == null) {
+        // Bot failed to respond, give turn back to human
+        setState(() => _isMyTurn = true);
         await _refreshLegalActions();
-        _startCountdown();
+        _startCountdown(); // Start human's timer now
         return;
       }
 
@@ -1047,7 +1078,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         });
         _showToast('${widget.opponentName} chose ${shape.name}');
         await _refreshLegalActions();
-        _startCountdown();
+        setState(() => _isMyTurn = true); // Give turn back to human
+        _startCountdown(); // Start human's timer now
         return;
       }
 
@@ -1056,7 +1088,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
           _opponentCardCount++;
         });
         await _refreshLegalActions();
-        _startCountdown();
+        setState(() => _isMyTurn = true); // Give turn back to human
+        _startCountdown(); // Start human's timer now
         return;
       }
 
@@ -1076,7 +1109,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       }
 
       await _refreshLegalActions();
-      _startCountdown();
+      setState(() => _isMyTurn = true); // Give turn back to human
+      _startCountdown(); // Start human's timer now
       return;
     }
   }
