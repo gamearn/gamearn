@@ -194,13 +194,31 @@ abstract class WhotGameEventHandler {
 //  body: { game_name, action_history, player_rating }
 //  resp: { action: int }   (OpenSpiel action index)
 class _GamearnBotService {
-  static const _endpoint = 'https://gamearn-bot.onrender.com/get_move';
+  static const _base = 'https://gamearn-bot.onrender.com';
 
+  /// Called once on game start — deals real cards via OpenSpiel chance phase.
+  Future<Map<String, dynamic>?> fetchStartGame() async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_base/start_game'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'game_name': 'whot', 'num_players': 2}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Get bot next move. action_history MUST include deal_history prefix.
   Future<int?> fetchMctsMove(List<int> actionHistory) async {
     try {
       final res = await http
           .post(
-            Uri.parse(_endpoint),
+            Uri.parse('$_base/get_move'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'game_name': 'whot',
@@ -209,14 +227,11 @@ class _GamearnBotService {
             }),
           )
           .timeout(const Duration(seconds: 10));
-
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
         return body['action'] as int?;
       }
-    } catch (_) {
-      // Network down or Render cold-start → fallback to local random below
-    }
+    } catch (_) {}
     return null;
   }
 }
@@ -302,9 +317,16 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   // ── Bot AI bridge (used when socketService == null → offline/bot mode) ────
   final _GamearnBotService _aiEngine = _GamearnBotService();
 
+  // Deal history from /start_game — prepended to every /get_move call so
+  // MCTS reconstructs the full game state including the deal phase.
+  List<int> _dealHistory = [];
+
   // OpenSpiel action sequence: card plays encoded as (shape.index * 20 + number),
   // draw action = 0.  Replayed on every bot request so MCTS sees full history.
+  // Always send _dealHistory + _actionHistory to /get_move.
   final List<int> _actionHistory = [];
+
+  bool _isDealing = true; // true while /start_game is in flight
 
   // ── Bokeh particles ───────────────────────────────────────────────────────
   late List<_Bokeh> _bokehList;
@@ -348,8 +370,13 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       handler: this,
     );
 
-    // Start local countdown (server will sync via timer_tick)
-    _startCountdown();
+    // In bot mode: fetch real dealt hand from OpenSpiel via /start_game
+    // In socket mode: server sends game_state event which calls onGameState()
+    if (widget.socketService == null) {
+      _fetchAndApplyDeal();
+    } else {
+      _startCountdown();
+    }
   }
 
   @override
@@ -359,6 +386,35 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     _countdownTimer?.cancel();
     _socket.disconnect();
     super.dispose();
+  }
+
+  // ── Deal from OpenSpiel ──────────────────────────────────────────────────────
+  Future<void> _fetchAndApplyDeal() async {
+    final result = await _aiEngine.fetchStartGame();
+    if (!mounted) return;
+
+    if (result != null) {
+      final rawHand = result['player_hand'] as List<dynamic>;
+      final topCardJson = result['top_card'] as Map<String, dynamic>;
+      final dealHist = (result['deal_history'] as List<dynamic>)
+          .map((e) => (e as num).toInt())
+          .toList();
+
+      setState(() {
+        _dealHistory = dealHist;
+        _playerHand = rawHand
+            .map((c) => WhotCard.fromJson(c as Map<String, dynamic>))
+            .toList();
+        _topCard = WhotCard.fromJson(topCardJson);
+        _opponentCardCount = (result['opponent_hand_count'] as num).toInt();
+        _isDealing = false;
+      });
+    } else {
+      // Render cold-start failed — keep dummy hand, show toast
+      setState(() => _isDealing = false);
+      _showToast('Could not reach server — using practice cards');
+    }
+    _startCountdown();
   }
 
   // ── Timer ─────────────────────────────────────────────────────────────────
@@ -551,7 +607,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   /// Calls Gamearn Render bot, updates opponent state, hands turn back to player.
   void _triggerBotLoop() async {
     _startCountdown();
-    final botAction = await _aiEngine.fetchMctsMove(List.from(_actionHistory));
+    // Prepend deal_history so MCTS sees the full game from card 1
+    final botAction = await _aiEngine.fetchMctsMove([..._dealHistory, ..._actionHistory]);
 
     if (!mounted) return;
 
