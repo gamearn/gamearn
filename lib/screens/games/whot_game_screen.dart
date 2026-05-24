@@ -122,6 +122,84 @@ class WhotCard {
   bool get isWhot => shape == WhotShape.whot || number == 20;
 }
 
+// OpenSpiel whot.cc kDeck order (action index = card id from /start_game).
+const _kOpenSpielDeck = <(WhotShape, int)>[
+  (WhotShape.circle, 1), (WhotShape.circle, 2), (WhotShape.circle, 3),
+  (WhotShape.circle, 4), (WhotShape.circle, 5), (WhotShape.circle, 7),
+  (WhotShape.circle, 8), (WhotShape.circle, 10), (WhotShape.circle, 11),
+  (WhotShape.circle, 12), (WhotShape.circle, 13), (WhotShape.circle, 14),
+  (WhotShape.triangle, 1), (WhotShape.triangle, 2), (WhotShape.triangle, 3),
+  (WhotShape.triangle, 4), (WhotShape.triangle, 5), (WhotShape.triangle, 7),
+  (WhotShape.triangle, 8), (WhotShape.triangle, 10), (WhotShape.triangle, 11),
+  (WhotShape.triangle, 12), (WhotShape.triangle, 13), (WhotShape.triangle, 14),
+  (WhotShape.cross, 1), (WhotShape.cross, 2), (WhotShape.cross, 3),
+  (WhotShape.cross, 5), (WhotShape.cross, 7), (WhotShape.cross, 10),
+  (WhotShape.cross, 11), (WhotShape.cross, 13), (WhotShape.cross, 14),
+  (WhotShape.square, 1), (WhotShape.square, 2), (WhotShape.square, 3),
+  (WhotShape.square, 5), (WhotShape.square, 7), (WhotShape.square, 10),
+  (WhotShape.square, 11), (WhotShape.square, 13), (WhotShape.square, 14),
+  (WhotShape.star, 1), (WhotShape.star, 2), (WhotShape.star, 3),
+  (WhotShape.star, 4), (WhotShape.star, 5), (WhotShape.star, 7),
+  (WhotShape.star, 8),
+  (WhotShape.whot, 20), (WhotShape.whot, 20), (WhotShape.whot, 20),
+  (WhotShape.whot, 20), (WhotShape.whot, 20),
+];
+
+const _kOpenSpielDraw = 54;
+const _kOpenSpielNominateBase = 55;
+
+WhotCard _cardFromOpenSpielAction(int action) {
+  if (action < 0 || action >= _kOpenSpielDeck.length) {
+    return const WhotCard(shape: WhotShape.circle, number: 1, id: '0');
+  }
+  final (shape, number) = _kOpenSpielDeck[action];
+  return WhotCard(shape: shape, number: number, id: action.toString());
+}
+
+WhotShape _shapeFromOpenSpielSuit(int suit) {
+  switch (suit) {
+    case 0:
+      return WhotShape.circle;
+    case 1:
+      return WhotShape.triangle;
+    case 2:
+      return WhotShape.cross;
+    case 3:
+      return WhotShape.square;
+    case 4:
+      return WhotShape.star;
+    default:
+      return WhotShape.circle;
+  }
+}
+
+int _openSpielSuitFromShape(WhotShape shape) {
+  switch (shape) {
+    case WhotShape.circle:
+      return 0;
+    case WhotShape.triangle:
+      return 1;
+    case WhotShape.cross:
+      return 2;
+    case WhotShape.square:
+      return 3;
+    case WhotShape.star:
+      return 4;
+    case WhotShape.whot:
+      return 0;
+  }
+}
+
+int _cardToOpenSpielAction(WhotCard card) {
+  final id = int.tryParse(card.id ?? '');
+  if (id != null && id >= 0 && id < _kOpenSpielDeck.length) return id;
+  for (var i = 0; i < _kOpenSpielDeck.length; i++) {
+    final (s, n) = _kOpenSpielDeck[i];
+    if (s == card.shape && n == card.number) return i;
+  }
+  return 0;
+}
+
 // ── Socket service interface (plug in socket_io_client here) ──────────────────
 abstract class WhotSocketService {
   /// Called once the screen is mounted. Connect your socket here.
@@ -582,7 +660,10 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       return;
     }
     // Encode action for OpenSpiel history replay
-    _actionHistory.add(card.shape.index * 20 + card.number);
+    _actionHistory.add(_cardToOpenSpielAction(card));
+    if (card.isWhot && chosenShape != null) {
+      _actionHistory.add(_kOpenSpielNominateBase + _openSpielSuitFromShape(chosenShape));
+    }
 
     // ← EMIT
     _socket.emitPlayCard(
@@ -592,7 +673,13 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       chosenShape: chosenShape,
     );
     setState(() {
-      _topCard = card;
+      _topCard = chosenShape != null
+          ? WhotCard(
+              shape: chosenShape,
+              number: card.number,
+              id: card.id,
+            )
+          : card;
       _playerHand.removeAt(_selectedIndex);
       _selectedIndex = -1;
       _isMyTurn = false;
@@ -604,33 +691,93 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     if (widget.socketService == null) _triggerBotLoop();
   }
 
-  /// Calls Gamearn Render bot, updates opponent state, hands turn back to player.
-  void _triggerBotLoop() async {
-    _startCountdown();
-    // Prepend deal_history so MCTS sees the full game from card 1
-    final botAction = await _aiEngine.fetchMctsMove([..._dealHistory, ..._actionHistory]);
-
-    if (!mounted) return;
-
-    if (botAction != null && botAction != 0) {
-      // Non-zero → bot played a card
-      _actionHistory.add(botAction);
-      final shape = WhotShape.values[botAction ~/ 20 % WhotShape.values.length];
-      final number = (botAction % 20).clamp(1, 14);
-      setState(() {
-        _topCard = WhotCard(shape: shape, number: number);
-        if (_opponentCardCount > 1) _opponentCardCount--;
-        _isMyTurn = true;
-      });
-    } else {
-      // 0 or null → bot drew a card
-      _actionHistory.add(0);
-      setState(() {
-        _opponentCardCount++;
-        _isMyTurn = true;
-      });
+  /// After opponent plays a special card, show UI. Returns true if it's now the
+  /// human's turn; false if the bot plays again (Hold On / Suspension).
+  bool _handleOpponentSpecial(int rank) {
+    switch (rank) {
+      case 2:
+        onMarket(2);
+        return true;
+      case 5:
+        onMarket(3);
+        return true;
+      case 8:
+        onSuspension();
+        return false;
+      case 14:
+        onGeneralMarket();
+        return true;
+      case 1:
+        _showToast('Hold On! ${widget.opponentName} plays again.');
+        return false;
+      case 20:
+        _showToast('Whot! ${widget.opponentName} picks a shape…');
+        return false;
+      default:
+        return true;
     }
+  }
+
+  /// Calls Gamearn Render bot, updates opponent state, hands turn back to player.
+  Future<void> _triggerBotLoop() async {
     _startCountdown();
+
+    while (mounted) {
+      final botAction = await _aiEngine
+          .fetchMctsMove([..._dealHistory, ..._actionHistory]);
+      if (!mounted) return;
+
+      if (botAction == null) {
+        setState(() => _isMyTurn = true);
+        _startCountdown();
+        return;
+      }
+
+      _actionHistory.add(botAction);
+
+      // Suit nomination after a Whot card
+      if (botAction >= _kOpenSpielNominateBase &&
+          botAction < _kOpenSpielNominateBase + 5) {
+        final shape = _shapeFromOpenSpielSuit(botAction - _kOpenSpielNominateBase);
+        setState(() {
+          _topCard = WhotCard(
+            shape: shape,
+            number: _topCard.number,
+            id: _topCard.id,
+          );
+        });
+        _showToast('${widget.opponentName} chose ${shape.name}');
+        setState(() => _isMyTurn = true);
+        _startCountdown();
+        return;
+      }
+
+      if (botAction == _kOpenSpielDraw) {
+        setState(() {
+          _opponentCardCount++;
+          _isMyTurn = true;
+        });
+        _startCountdown();
+        return;
+      }
+
+      // Bot played a card
+      final played = _cardFromOpenSpielAction(botAction);
+      setState(() {
+        _topCard = played;
+        if (_opponentCardCount > 0) _opponentCardCount--;
+      });
+
+      final humanTurn = _handleOpponentSpecial(played.number);
+      if (!humanTurn) {
+        await Future.delayed(const Duration(milliseconds: 600));
+        continue;
+      }
+
+      setState(() => _isMyTurn = true);
+      _startCountdown();
+      return;
+    }
   }
 
   void _drawCard({bool fromServer = true}) {
@@ -638,7 +785,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     if (fromServer) {
       _socket.emitDrawCard(widget.roomId, widget.playerId); // ← EMIT
     }
-    _actionHistory.add(0); // 0 = draw action in OpenSpiel encoding
+    _actionHistory.add(_kOpenSpielDraw);
 
     // Add a real random card in offline mode (server sends real card online)
     final rng = Random();
@@ -656,8 +803,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
   void _callCard() {
     _socket.emitCallCard(widget.roomId, widget.playerId); // ← EMIT
+    onCallCard(widget.playerId);
     setState(() => _showCallCardOverlay = false);
-    _showToast('Card called! 🔔');
   }
 
   void _showToast(String msg) {
