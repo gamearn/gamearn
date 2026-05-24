@@ -15,7 +15,7 @@ dependencies:
   firebase_auth: ^5.1.0
   cloud_firestore: ^5.1.0
 
-  # ── Phase 3: Social Login ─────────────────────────────────────────────────
+  # Phase 3: Social Login
   google_sign_in: ^6.2.1
   flutter_facebook_auth: ^7.0.1
   sign_in_with_apple: ^6.1.1
@@ -29,8 +29,8 @@ dependencies:
   pinput: ^6.0.2
   flutter_svg: ^2.3.0
    
-   #Networking to Backend
-   http: ^1.2.0
+  # Networking to Backend
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -38,7 +38,7 @@ dev_dependencies:
   flutter_lints: ^4.0.0
   flutter_launcher_icons: ^0.13.1
 
-# ── Launcher Icons Config ─────────────────────────────────────────────────────
+# Launcher Icons Config
 flutter_launcher_icons:
   android: true
   ios: true
