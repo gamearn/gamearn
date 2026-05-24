@@ -17,9 +17,6 @@ import '../profile/settings_screen.dart';
 import '../profile/daily_streak_screen.dart';
 
 // ── Game asset map ─────────────────────────────────────────────────────────────
-// Keys must match the 'assetKey' field in Firestore arena docs,
-// OR be matched against the game title (lowercase) as fallback.
-// Drop your images in assets/games/ with these exact names.
 const Map<String, String> kGameAssets = {
   'whot':     'assets/games/whot.jpg',
   'ludo':     'assets/games/ludo.png',
@@ -27,12 +24,12 @@ const Map<String, String> kGameAssets = {
   'draughts': 'assets/games/draughts.jpg',
 };
 
-// ── Game icon map (Figma uses game controller style icons) ────────
+// ── Game icon map ─────────────────────────────────────────────────────────────
 const Map<String, IconData> kGameIcons = {
-  'whot':     Icons.style_rounded,        // card fan icon
-  'ludo':     Icons.casino_rounded,       // dice
-  'ayo':      Icons.circle_outlined,      // seeds/circles
-  'draughts': Icons.grid_on_rounded,      // board grid
+  'whot':     Icons.style_rounded,        
+  'ludo':     Icons.casino_rounded,       
+  'ayo':      Icons.circle_outlined,      
+  'draughts': Icons.grid_on_rounded,      
 };
 
 String? _assetForGame(Map<String, dynamic> data) {
@@ -41,19 +38,16 @@ String? _assetForGame(Map<String, dynamic> data) {
     for (final k in kGameAssets.keys) {
       if (key.contains(k)) return kGameAssets[k];
     }
-    // Handle 'draft' as alias for 'draughts' key
     if (key.contains('draft')) return kGameAssets['draughts'];
   }
   final title = (data['title'] ?? data['name'] ?? data['game'] ?? '').toString().toLowerCase();
   for (final k in kGameAssets.keys) {
     if (title.contains(k)) return kGameAssets[k];
   }
-  // Handle 'draft' or 'drafu' in title to resolve to draughts asset
   if (title.contains('draft') || title.contains('drafu')) return kGameAssets['draughts'];
   return null;
 }
 
-// ── HomeScreen ────────────────────────────────────────────────────────────────
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -281,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 // ── Games horizontal scroll ────────────────────────────────
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 170, // Sized down to match the new shorter card layouts
+                    height: 170,
                     child: StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('arena')
@@ -299,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: gamesData.length,
                           itemBuilder: (_, i) {
-                            return _GameCard(data: gamesData[i]);
+                            return _GameCard(data: gamesData[i], currentUserId: uid ?? 'player_dev');
                           },
                         );
                       },
@@ -345,10 +339,10 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 }
 
-// ── Game Card (Icon Only - Drop-In Replacement) ───────────────────────────────
 class _GameCard extends StatelessWidget {
   final Map<String, dynamic> data;
-  const _GameCard({required this.data});
+  final String currentUserId;
+  const _GameCard({required this.data, required this.currentUserId});
 
   @override
   Widget build(BuildContext context) {
@@ -356,9 +350,13 @@ class _GameCard extends StatelessWidget {
     final playCount = data['playCount'] ?? data['players'] ?? 0;
     final assetKey  = (data['assetKey'] ?? data['id'] ?? '').toString().toLowerCase();
 
-    // Resolve game key
     String gameKey = 'whot';
-    Widget gameScreen = const WhotGameScreen();
+    Widget gameScreen = WhotGameScreen(
+      roomId: "single_player_ai_room",
+      playerId: currentUserId,
+      playerName: "You",
+      opponentName: "Gamearn Bot",
+    );
 
     if (assetKey.contains('ludo') || title.toLowerCase().contains('ludo')) {
       gameKey = 'ludo';
@@ -395,10 +393,8 @@ class _GameCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // ── Icon circle ───────────────────────────────────────
             Container(
-              width: 64,
-              height: 64,
+              width: 64, height: 64,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: kCyan.withOpacity(0.08),
@@ -407,653 +403,23 @@ class _GameCard extends StatelessWidget {
               child: Icon(icon, color: kCyan, size: 30),
             ),
             const SizedBox(height: 12),
-
-            // ── Title ─────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Text(
                 title,
                 style: const TextStyle(
-                    color: kTextPri,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13),
+                    color: kTextPri, fontWeight: FontWeight.w700, fontSize: 13),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(height: 4),
-
-            // ── Play count ────────────────────────────────────────
             Text(
-              playCount >= 1000
-                  ? '${(playCount / 1000).toStringAsFixed(1)}k Playing'
-                  : '$playCount Playing',
+              playCount >= 1000 ? '${(playCount / 1000).toStringAsFixed(1)}k Playing' : '$playCount Playing',
               style: const TextStyle(color: kOrange, fontSize: 11),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Stat Card ─────────────────────────────────────────────────────────────────
-class _StatCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final String sub;
-  final Color iconColor;
-
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.sub,
-    required this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: context.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Icon(icon, color: iconColor, size: 16),
-            const SizedBox(width: 6),
-            Text(label, style: kSub.copyWith(fontSize: 11)),
-          ]),
-          const SizedBox(height: 6),
-          Text(value,
-              style: TextStyle(
-                  color: context.txtPri, fontSize: 18, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 2),
-          Text(sub, style: kSub.copyWith(fontSize: 10, color: kGreen)),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Tournament Card ───────────────────────────────────────────────────────────
-class _TournamentCard extends StatelessWidget {
-  final Map<String, dynamic> data;
-  final bool active;
-  const _TournamentCard({required this.data, required this.active});
-
-  @override
-  Widget build(BuildContext context) {
-    final prize   = data['prize'] ?? data['total_pool'] ?? '0';
-    final players = data['maxPlayers'] ?? data['player_count'] ?? 0;
-    final title   = data['title'] ?? 'Tournament';
-
-    return Container(
-      width: 230,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: kBgTeal,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            if (active)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                    color: kGreen, borderRadius: BorderRadius.circular(20)),
-                child: const Text('Live Now',
-                    style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800)),
-              ),
-            const SizedBox(width: 8),
-            if (players > 0)
-              Row(children: [
-                const Icon(Icons.group, color: kTextSec, size: 12),
-                const SizedBox(width: 4),
-                Text('$players Players',
-                    style: const TextStyle(color: kTextSec, fontSize: 10)),
-              ]),
-          ]),
-          const SizedBox(height: 8),
-          Text(title,
-              style: const TextStyle(
-                  color: kTextPri, fontWeight: FontWeight.w800, fontSize: 14),
-              maxLines: 2),
-          const Spacer(),
-          const Text('Win Tournament',
-              style: TextStyle(color: kTextSec, fontSize: 11)),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Prize Pool',
-                  style: TextStyle(color: kTextSec, fontSize: 11)),
-              Text('\$$prize',
-                  style: const TextStyle(
-                      color: kCyan, fontWeight: FontWeight.w800, fontSize: 15)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Leaderboard ───────────────────────────────────────────────────────────────
-class _LeaderboardSection extends StatefulWidget {
-  @override
-  State<_LeaderboardSection> createState() => _LeaderboardSectionState();
-}
-
-class _LeaderboardSectionState extends State<_LeaderboardSection> {
-  int _period = 0;
-  static const periods = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
-
-  String get _sortField {
-    switch (_period) {
-      case 0: return 'dailyPoints';
-      case 1: return 'weeklyPoints';
-      case 2: return 'monthlyPoints';
-      default: return 'totalPoints';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Container(
-          height: 36,
-          decoration: BoxDecoration(
-              color: kBgCard, borderRadius: BorderRadius.circular(8)),
-          child: Row(
-            children: List.generate(periods.length, (i) {
-              final sel = i == _period;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _period = i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: sel ? kCyan : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(periods[i],
-                        style: TextStyle(
-                          color: sel ? kBgDeep : kTextSec,
-                          fontSize: 11,
-                          fontWeight:
-                              sel ? FontWeight.w800 : FontWeight.w400,
-                        )),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-      StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .orderBy(_sortField, descending: true)
-            .limit(10)
-            .snapshots(),
-        builder: (ctx, snap) {
-          final docs = snap.data?.docs ?? [];
-          if (docs.isEmpty) {
-            return Padding(
-              padding: const EdgeInsets.all(32),
-              child: Text('No rankings yet.', style: kSub),
-            );
-          }
-          return ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: docs.length,
-            itemBuilder: (_, i) {
-              final d = docs[i].data() as Map<String, dynamic>;
-              return _LeaderboardRow(
-                rank: i + 1,
-                data: d,
-                isMe: docs[i].id == FirebaseAuth.instance.currentUser?.uid,
-              );
-            },
-          );
-        },
-      ),
-    ]);
-  }
-}
-
-class _LeaderboardRow extends StatelessWidget {
-  final int rank;
-  final Map<String, dynamic> data;
-  final bool isMe;
-  const _LeaderboardRow(
-      {required this.rank, required this.data, required this.isMe});
-
-  @override
-  Widget build(BuildContext context) {
-    final rankColors = {
-      1: const Color(0xFFFFD700),
-      2: const Color(0xFFC0C0C0),
-      3: const Color(0xFFCD7F32)
-    };
-    final rankColor = rankColors[rank] ?? kTextSec;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: isMe ? kCyan.withOpacity(0.08) : kBgCard,
-        borderRadius: BorderRadius.circular(10),
-        border:
-            Border.all(color: isMe ? kCyan.withOpacity(0.3) : kBorder),
-      ),
-      child: Row(children: [
-        SizedBox(
-          width: 28,
-          child: Text('#$rank',
-              style: TextStyle(
-                  color: rankColor,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13)),
-        ),
-        const SizedBox(width: 8),
-        Text(data['avatar'] != null ? _emoji(data['avatar']) : '🤖',
-            style: const TextStyle(fontSize: 20)),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(data['username'] ?? 'Player',
-              style: TextStyle(
-                  color: isMe ? kCyan : kTextPri,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14)),
-        ),
-        Text('${data['totalPoints'] ?? 0} pts',
-            style: const TextStyle(
-                color: kOrange, fontWeight: FontWeight.w700, fontSize: 13)),
-      ]),
-    );
-  }
-
-  String _emoji(String avatar) {
-    return kAvatars
-            .firstWhere((a) => a['name'] == avatar,
-                orElse: () => kAvatars[0])['emoji'] ??
-        '🤖';
-  }
-}
-
-// ── Icon Button ───────────────────────────────────────────────────────────────
-class _IconBtn extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool badge;
-  const _IconBtn(
-      {required this.icon, required this.onTap, this.badge = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 38, height: 38,
-        decoration:
-            const BoxDecoration(color: kBgCard, shape: BoxShape.circle),
-        child: Stack(children: [
-          Center(child: Icon(icon, color: kTextSec, size: 20)),
-          if (badge)
-            Positioned(
-              top: 6, right: 6,
-              child: Container(
-                width: 8, height: 8,
-                decoration: const BoxDecoration(
-                    color: kOrange, shape: BoxShape.circle),
-              ),
-            ),
-        ]),
-      ),
-    );
-  }
-}
-
-// ── Notifications Screen ──────────────────────────────────────────────────────
-class _NotificationsScreen extends StatelessWidget {
-  const _NotificationsScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    const mockNotifs = [
-      {'type': 'match',    'title': 'Match Ready',  'body': 'Your tournament match starts in 10 mins.', 'time': '5h ago'},
-      {'type': 'comment',  'title': 'New Comment',  'body': 'CyberNinja replied to your clip',         'time': 'Yesterday'},
-      {'type': 'follower', 'title': 'New Follower', 'body': '@gamer123 started following you',         'time': '3h ago'},
-    ];
-    return Scaffold(
-      backgroundColor: kBgDeep,
-      appBar: AppBar(
-        backgroundColor: context.bg,
-        title: Text('Notifications',
-            style: TextStyle(color: context.txtPri, fontWeight: FontWeight.w700)),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: context.txtPri, size: 18),
-          onPressed: () => Navigator.pop(context),
-        ),
-        elevation: 0,
-      ),
-      body: ListView.builder(
-        itemCount: mockNotifs.length * 3,
-        itemBuilder: (_, i) {
-          final n = mockNotifs[i % mockNotifs.length];
-          final colors = {
-            'match':    const Color(0xFF6C5CE7),
-            'comment':  const Color(0xFFFDBD3F),
-            'follower': kCyan,
-          };
-          final icons = {
-            'match':    Icons.sports_esports,
-            'comment':  Icons.chat_bubble,
-            'follower': Icons.person_add,
-          };
-          return ListTile(
-            leading: Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(
-                color: colors[n['type']]!.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child:
-                  Icon(icons[n['type']], color: colors[n['type']], size: 22),
-            ),
-            title: Text(n['title']!,
-                style: const TextStyle(
-                    color: kTextPri, fontWeight: FontWeight.w700, fontSize: 14)),
-            subtitle: Text(n['body']!,
-                style: const TextStyle(color: kTextSec, fontSize: 12)),
-            trailing: Text(n['time']!,
-                style: const TextStyle(color: kTextMuted, fontSize: 11)),
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ── Settings Screen ───────────────────────────────────────────────────────────
-class _SettingsScreen extends StatefulWidget {
-  const _SettingsScreen();
-
-  @override
-  State<_SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<_SettingsScreen> {
-  bool? _forceDark = ThemeNotifier.instance.forceDark;
-  bool _emailAlerts = false;
-
-  void _onThemeChanged(bool? val) {
-    setState(() => _forceDark = val);
-    ThemeNotifier.instance.setTheme(val);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.bg,
-      appBar: AppBar(
-        backgroundColor: context.bg,
-        title: Text('Settings & Preferences',
-            style: TextStyle(color: context.txtPri, fontWeight: FontWeight.w700)),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: context.txtPri, size: 18),
-          onPressed: () => Navigator.pop(context),
-        ),
-        elevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text('ACCOUNT & SECURITY', style: kLabel.copyWith(color: kCyan)),
-          const SizedBox(height: 8),
-          _SettingsTile(icon: Icons.security,  title: 'Account Security',
-              sub: 'Password, 2FA and sessions', onTap: () {}),
-          _SettingsTile(icon: Icons.payment,   title: 'Payout Methods',
-              sub: 'Bank accounts & wallets',    onTap: () {}),
-          const SizedBox(height: 20),
-
-          Text('GAME PREFERENCES', style: kLabel.copyWith(color: kCyan)),
-          const SizedBox(height: 8),
-
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-                color: context.card, borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Container(
-                      width: 38, height: 38,
-                      decoration: BoxDecoration(
-                        color: kCyan.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.palette_outlined,
-                          color: kCyan, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Theme Preference',
-                            style: TextStyle(
-                                color: context.txtPri, fontWeight: FontWeight.w600)),
-                        Text('Follows system unless changed',
-                            style: TextStyle(color: context.txtSec, fontSize: 11)),
-                      ],
-                    ),
-                  ]),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    _ThemeChip(
-                      label: 'System',
-                      selected: _forceDark == null,
-                      onTap: () => _onThemeChanged(null),
-                    ),
-                    const SizedBox(width: 8),
-                    _ThemeChip(
-                      label: 'Dark',
-                      selected: _forceDark == true,
-                      onTap: () => _onThemeChanged(true),
-                    ),
-                    const SizedBox(width: 8),
-                    _ThemeChip(
-                      label: 'Light',
-                      selected: _forceDark == false,
-                      onTap: () => _onThemeChanged(false),
-                    ),
-                  ]),
-                ],
-              ),
-            ),
-          ),
-
-          _SettingsToggle(
-            icon: Icons.email_outlined,
-            title: 'Email Alerts',
-            sub: 'Weekly rewards summary',
-            value: _emailAlerts,
-            onChanged: (v) => setState(() => _emailAlerts = v),
-          ),
-          _SettingsTile(icon: Icons.language,      title: 'Language',
-              sub: 'English (NG)',              onTap: () {}),
-          _SettingsTile(icon: Icons.shield_outlined, title: 'Privacy & Security',
-              sub: 'Game security update',      onTap: () {}),
-          _SettingsTile(icon: Icons.help_outline,  title: 'Help & Support',
-              sub: 'Get important information', onTap: () {}),
-          const SizedBox(height: 24),
-
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.redAccent),
-            title: const Text('Logout',
-                style: TextStyle(
-                    color: Colors.redAccent, fontWeight: FontWeight.w700)),
-            onTap: () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.of(context).popUntil((r) => r.isFirst);
-              }
-            },
-          ),
-          const SizedBox(height: 8),
-          const Center(
-            child: Text('GAMEARN Premium v2.4.1',
-                style: TextStyle(color: kTextMuted, fontSize: 11)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThemeChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _ThemeChip(
-      {required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? kCyan : kBorder,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                color: selected ? kBgDeep : kTextSec,
-                fontWeight: FontWeight.w700,
-                fontSize: 12)),
-      ),
-    );
-  }
-}
-
-class _SettingsTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String sub;
-  final VoidCallback onTap;
-  const _SettingsTile(
-      {required this.icon, required this.title, required this.sub, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-          color: kBgCard, borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Container(
-          width: 38, height: 38,
-          decoration: BoxDecoration(
-            color: kCyan.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: kCyan, size: 20),
-        ),
-        title: Text(title,
-            style: TextStyle(
-                color: context.txtPri, fontWeight: FontWeight.w600)),
-        subtitle: Text(sub, style: kSub.copyWith(fontSize: 11, color: context.txtSec)),
-        trailing: Icon(Icons.chevron_right, color: context.txtSec, size: 20),
-        onTap: onTap,
-      ),
-    );
-  }
-}
-
-class _SettingsToggle extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String sub;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  const _SettingsToggle(
-      {required this.icon, required this.title, required this.sub,
-       required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-          color: kBgCard, borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Container(
-          width: 38, height: 38,
-          decoration: BoxDecoration(
-            color: kCyan.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: kCyan, size: 20),
-        ),
-        title: Text(title,
-            style: TextStyle(
-                color: context.txtPri, fontWeight: FontWeight.w600)),
-        subtitle: Text(sub, style: kSub.copyWith(fontSize: 11, color: context.txtSec)),
-        trailing: Switch(value: value, onChanged: onChanged, activeColor: kCyan),
-      ),
-    );
-  }
-}
-
-class _ComingSoonScreen extends StatelessWidget {
-  final String title;
-  const _ComingSoonScreen({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBgDeep,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Center(
-        child: Text(
-          '$title Game\nComing Soon!',
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: kCyan, fontSize: 24, fontWeight: FontWeight.bold),
         ),
       ),
     );
