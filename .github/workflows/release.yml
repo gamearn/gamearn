@@ -72,6 +72,16 @@ jobs:
             - ✅ Wallet & Earnings: units system, transaction history
             - ✅ Profile: avatar, stats, friends, performance, Go Premium
             - ✅ Settings & Preferences
+            - **Whot game with AI bot integration** (requires bot API)
+
+            ### Whot Game Bot Requirements
+            The Whot game requires a running bot API service for full functionality:
+            - Bot API: `https://gamearn-bot.onrender.com` (configurable via `BOT_API_BASE`)
+            - Features: Real card dealing, legal move validation, AI opponent
+            - First load may take 30-60s (Render cold start) - app will retry automatically
+
+            **Minimum tag for Whot bot demo:** Post-commit `89b263a` (includes `/start_game`, `/legal_actions`, deal history)
+
 
             ### Install
             1. Download `${{ env.APK_NAME }}` below
@@ -80,6 +90,8 @@ jobs:
 
             > ⚠️ This is an **unsigned debug release** for client preview only.
             > Production signing will be added before Play Store submission.
+            >
+            > 📝 **Release process:** Cut version tags from main branch after Whot changes to ensure bot API compatibility.
 
             ---
             Built from commit `${{ github.sha }}`

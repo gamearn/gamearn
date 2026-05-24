@@ -333,27 +333,69 @@ class LegalActionsResult {
 // ── Gamearn Bot AI Bridge ────────────────────────────────────────────────────
 class _GamearnBotService {
   static String get _base => ApiConfig.botBaseUrl;
+  /// Health check to wake Render from cold start
+  Future<bool> _healthCheck({int timeoutSeconds = 5}) async {
+    try {
+      final res = await http
+          .get(Uri.parse('$_base/'))
+          .timeout(Duration(seconds: timeoutSeconds));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('Health check failed: $e');
+      return false;
+    }
+  }
+
 
   /// Called once on game start — deals real cards via OpenSpiel chance phase.
   Future<Map<String, dynamic>?> fetchStartGame() async {
-    try {
-      final res = await http
-          .post(
-            Uri.parse('$_base/start_game'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'game_name': 'whot', 'num_players': 2}),
-          )
-          .timeout(const Duration(seconds: 20));
-      if (res.statusCode == 200) {
-        return jsonDecode(res.body) as Map<String, dynamic>;
+    // Wake Render with health check
+    debugPrint('Waking Render with health check...');
+    await _healthCheck(timeoutSeconds: 5);
+
+    // Retry logic with backoff
+    const maxRetries = 3;
+    Duration timeout = const Duration(seconds: 60); // Longer timeout for first attempt (cold start)
+    
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        debugPrint('fetchStartGame attempt $attempt/$maxRetries (timeout: ${timeout.inSeconds}s)');
+        
+        final res = await http
+            .post(
+              Uri.parse('$_base/start_game'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'game_name': 'whot', 'num_players': 2}),
+            )
+            .timeout(timeout);
+        
+        if (res.statusCode == 200) {
+          debugPrint('fetchStartGame succeeded on attempt $attempt');
+          return jsonDecode(res.body) as Map<String, dynamic>;
+        } else {
+          debugPrint('fetchStartGame attempt $attempt failed: HTTP ${res.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('fetchStartGame attempt $attempt error: $e');
       }
-    } catch (_) {}
+      
+      // Backoff for retry (except on last attempt)
+      if (attempt < maxRetries) {
+        final backoffDelay = Duration(seconds: attempt * 2); // 2s, 4s, 6s
+        debugPrint('Waiting ${backoffDelay.inSeconds}s before retry...');
+        await Future.delayed(backoffDelay);
+        timeout = const Duration(seconds: 20); // Shorter timeout for retries
+      }
+    }
+    
+    debugPrint('fetchStartGame failed after $maxRetries attempts');
     return null;
   }
 
   /// Get bot next move. action_history MUST include deal_history prefix.
   Future<int?> fetchMctsMove(List<int> actionHistory) async {
     try {
+      debugPrint('fetchMctsMove: action_history length=${actionHistory.length}');
       final res = await http
           .post(
             Uri.parse('$_base/get_move'),
@@ -367,14 +409,21 @@ class _GamearnBotService {
           .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
-        return body['action'] as int?;
+        final action = body['action'] as int?;
+        debugPrint('fetchMctsMove: success, action=$action');
+        return action;
+      } else {
+        debugPrint('fetchMctsMove: HTTP ${res.statusCode}');
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('fetchMctsMove error: $e');
+    }
     return null;
   }
 
   Future<LegalActionsResult?> fetchLegalActions(List<int> actionHistory) async {
     try {
+      debugPrint('fetchLegalActions: action_history length=${actionHistory.length}');
       final res = await http
           .post(
             Uri.parse('$_base/legal_actions'),
@@ -386,10 +435,16 @@ class _GamearnBotService {
           )
           .timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
-        return LegalActionsResult.fromJson(
+        final result = LegalActionsResult.fromJson(
             jsonDecode(res.body) as Map<String, dynamic>);
+        debugPrint('fetchLegalActions: success, legal_actions=${result.legalActions.length}');
+        return result;
+      } else {
+        debugPrint('fetchLegalActions: HTTP ${res.statusCode}');
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('fetchLegalActions error: $e');
+    }
     return null;
   }
 }
@@ -450,13 +505,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   late Animation<double> _timerGlow;
 
   // ── Game state ────────────────────────────────────────────────────────────
-  List<WhotCard> _playerHand = [
-    WhotCard(shape: WhotShape.cross, number: 2, id: 'c1'),
-    WhotCard(shape: WhotShape.square, number: 3, id: 'c2'),
-    WhotCard(shape: WhotShape.whot, number: 20, id: 'c3'),
-    WhotCard(shape: WhotShape.star, number: 8, id: 'c4'),
-    WhotCard(shape: WhotShape.circle, number: 10, id: 'c5'),
-  ];
+  List<WhotCard> _playerHand = []; // Empty until deal succeeds
   int _opponentCardCount = 5;
   WhotCard _topCard =
       WhotCard(shape: WhotShape.triangle, number: 14, id: 'top');
@@ -485,6 +534,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   LegalActionsResult? _legalState;
 
   bool _isDealing = true; // true while /start_game is in flight
+  bool _dealFailed = false; // true if deal failed and retry is available
+  String? _dealErrorMessage; // specific error message for deal failure
 
   // ── Bokeh particles ───────────────────────────────────────────────────────
   late List<_Bokeh> _bokehList;
@@ -567,18 +618,34 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         _topCard = WhotCard.fromJson(topCardJson);
         _opponentCardCount = (result['opponent_hand_count'] as num).toInt();
         _isDealing = false;
+        _dealFailed = false;
+        _dealErrorMessage = null;
         if (legalJson != null) {
           _legalState = LegalActionsResult.fromJson(legalJson);
           _isMyTurn = _legalState!.currentPlayer == 0;
         }
       });
     } else {
-      // Render cold-start failed — keep dummy hand, show toast
-      setState(() => _isDealing = false);
-      _showToast('Could not reach server — using practice cards');
+      // Deal failed - show error and retry option
+      setState(() {
+        _isDealing = false;
+        _dealFailed = true;
+        _dealErrorMessage = 'Server is waking up or unreachable.\n\nCheck your internet connection and tap Retry.';
+      });
+      _showToast('Connection failed - tap Retry');
     }
     if (_legalState == null) await _refreshLegalActions();
-    _startCountdown();
+    if (!_dealFailed) _startCountdown();
+  }
+
+  /// Retry fetching the deal after user taps retry
+  Future<void> _retryDeal() async {
+    setState(() {
+      _dealFailed = false;
+      _dealErrorMessage = null;
+      _isDealing = true;
+    });
+    await _fetchAndApplyDeal();
   }
 
   // ── Timer ─────────────────────────────────────────────────────────────────
@@ -1070,6 +1137,103 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     ));
   }
 
+  // ── Loading overlay ────────────────────────────────────────────────────────
+  Widget _buildLoadingOverlay() {
+    return Container(
+      color: _bg.withOpacity(0.9),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(_cyan),
+              strokeWidth: 3,
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Connecting to game server...',
+              style: TextStyle(
+                color: _textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Waking up server (may take 30-60s)',
+              style: TextStyle(
+                color: _textSub,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Error/retry overlay ────────────────────────────────────────────────────
+  Widget _buildErrorOverlay() {
+    return Container(
+      color: _bg.withOpacity(0.95),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.wifi_off,
+                size: 64,
+                color: _orange,
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Connection Failed',
+                style: TextStyle(
+                  color: _textPrimary,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _dealErrorMessage ?? 'Could not reach server',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _textSub,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: _retryDeal,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _cyan,
+                  foregroundColor: _navy,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Retry',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -1087,6 +1251,12 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
             // Landscape layout
             if (_isLandscape) _buildLandscape(),
+
+            // Loading overlay while dealing
+            if (_isDealing) _buildLoadingOverlay(),
+
+            // Error/retry overlay when deal fails
+            if (_dealFailed) _buildErrorOverlay(),
 
             // Shape chooser overlay
             if (_showShapeChooser) _buildShapeChooser(),
