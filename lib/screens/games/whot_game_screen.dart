@@ -85,8 +85,13 @@ class WhotCard {
       'star': WhotShape.star,
       'whot': WhotShape.whot,
     };
+    final shapeStr = j['shape'] as String? ?? '';
+    final shape = m[shapeStr];
+    if (shape == null) {
+      debugPrint('⚠️ WhotCard.fromJson: unrecognized shape "$shapeStr" in $j');
+    }
     return WhotCard(
-      shape: m[j['shape']] ?? WhotShape.circle,
+      shape: shape ?? WhotShape.circle,
       number: (j['number'] as num).toInt(),
       id: j['id']?.toString(),
     );
@@ -449,9 +454,10 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
     final rawHand = result['player_hand'] as List<dynamic>;
     final topJson = result['top_card'] as Map<String, dynamic>;
-    final dealHist = (result['deal_history'] as List<dynamic>)
+    final rawDealHist = (result['deal_history'] as List<dynamic>)
         .map((e) => (e as num).toInt())
         .toList();
+    final dealHist = rawDealHist.where((a) => a < 54).toList();
     final oppCount = (result['opponent_hand_count'] as num).toInt();
 
     // Determine who goes first from the legal field if present
@@ -830,9 +836,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
               WhotCard(shape: shape, number: _topCard.number, id: _topCard.id);
         });
         _toast('${widget.opponentName} chose ${shape.name}');
-        // Bot still has to give turn back — handled below
-        setState(() => _isMyTurn = true);
-        _startTimer();
+        _botBusy = false;
+        _runBotTurn();
         return;
       }
 
@@ -877,7 +882,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         _startTimer();
       }
     } finally {
-      if (mounted) _botBusy = false;
+      _botBusy = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -1749,8 +1755,8 @@ class _CardPainter extends CustomPainter {
   void _star(Canvas c, Paint p, double cx, double cy, double r) {
     final path = Path();
     final ir = r * 0.42;
-    for (int i = 0; i < 14; i++) {
-      final a = i * pi / 7 - pi / 2;
+    for (int i = 0; i < 10; i++) {
+      final a = i * pi / 5 - pi / 2;
       final rad = i.isEven ? r : ir;
       final x = cx + rad * cos(a);
       final y = cy + rad * sin(a);
