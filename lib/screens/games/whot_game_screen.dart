@@ -379,6 +379,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   List<int> _dealHistory = [];
   List<int> _moveHistory = []; // moves AFTER deal
   bool _botBusy = false; // single guard — replaces _isBotThinking
+  int _dealerAction = 54;
 
   // ── Heuristic legal state (used when /legal_actions not called) ───────────
   // Just the top-card state; updated after every move.
@@ -455,9 +456,10 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     final rawHand = result['player_hand'] as List<dynamic>;
     final topJson = result['top_card'] as Map<String, dynamic>;
     final rawDealHist = (result['deal_history'] as List<dynamic>)
-        .map((e) => (e as num).toInt())
-        .toList();
+      .map((e) => (e as num).toInt())
+      .toList();
     final dealHist = rawDealHist.where((a) => a < 54).toList();
+    final dealerAction = rawDealHist.firstWhere((a) => a >= 54, orElse: () => 54);
     final oppCount = (result['opponent_hand_count'] as num).toInt();
 
     // Determine who goes first from the legal field if present
@@ -471,6 +473,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
     setState(() {
       _dealHistory = dealHist;
+      _dealerAction = dealerAction;
       _moveHistory = [];
       _hand = rawHand
           .map((c) => WhotCard.fromJson(c as Map<String, dynamic>))
@@ -812,7 +815,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     try {
       await Future.delayed(const Duration(milliseconds: 400)); // small UX pause
 
-      final fullHistory = [..._dealHistory, ..._moveHistory];
+      final fullHistory = [_dealerAction, ..._dealHistory, ..._moveHistory];
       final action = await _bot.getMove(fullHistory);
 
       if (!mounted) return;
