@@ -306,7 +306,7 @@ class _BotService {
               'player_rating': 1500,
             }),
           )
-          .timeout(const Duration(seconds: 12));
+          .timeout(const Duration(seconds: 20));
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
         debugPrint('getMove -> action=${body['action']}');
