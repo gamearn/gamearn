@@ -572,7 +572,7 @@ class _GameCard extends StatelessWidget {
 
     if (assetKey.contains('ludo') || title.toLowerCase().contains('ludo')) {
       gameKey = 'ludo';
-      gameScreen = const LudoGameScreen(tokenCount: 4); // lobby overrides this
+      gameScreen = const LudoGameScreen();
     } else if (assetKey.contains('ayo') || title.toLowerCase().contains('ayo')) {
       gameKey = 'ayo';
       gameScreen = const AyoGameScreen();
