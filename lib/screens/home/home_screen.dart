@@ -16,7 +16,7 @@ import 'notifications_screen.dart';
 import '../profile/settings_screen.dart';
 import '../profile/daily_streak_screen.dart';
 
-// ── Game asset map ─────────────────────────────────────────────────────────────
+// ── Game asset map ─────────────────────────────────────────────────────────
 const Map<String, String> kGameAssets = {
   'whot':     'assets/games/whot.jpg',
   'ludo':     'assets/games/ludo.png',
@@ -24,7 +24,7 @@ const Map<String, String> kGameAssets = {
   'draughts': 'assets/games/draughts.jpg',
 };
 
-// ── Game icon map ─────────────────────────────────────────────────────────────
+// ── Game icon map ─────────────────────────────────────────────────────────
 const Map<String, IconData> kGameIcons = {
   'whot':     Icons.style_rounded,
   'ludo':     Icons.casino_rounded,
@@ -341,9 +341,9 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
 //  _IconBtn
-// ═════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
 class _IconBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
@@ -391,9 +391,9 @@ class _IconBtn extends StatelessWidget {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
 //  _StatCard  –  wallet balance / daily streak tiles
-// ═════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
 class _StatCard extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -447,9 +447,9 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
 //  _TournamentCard  –  horizontal scroll card
-// ═════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
 class _TournamentCard extends StatelessWidget {
   final Map<String, dynamic> data;
   final bool active;
@@ -548,9 +548,9 @@ class _TournamentCard extends StatelessWidget {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
 //  _GameCard
-// ═════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
 class _GameCard extends StatelessWidget {
   final Map<String, dynamic> data;
   final String currentUserId;
@@ -572,7 +572,7 @@ class _GameCard extends StatelessWidget {
 
     if (assetKey.contains('ludo') || title.toLowerCase().contains('ludo')) {
       gameKey = 'ludo';
-      gameScreen = const LudoGameScreen();
+      gameScreen = const LudoGameScreen(tokenCount: 4); // lobby overrides this
     } else if (assetKey.contains('ayo') || title.toLowerCase().contains('ayo')) {
       gameKey = 'ayo';
       gameScreen = const AyoGameScreen();
@@ -645,9 +645,9 @@ class _GameCard extends StatelessWidget {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
 //  _LeaderboardSection  –  Firestore-backed top players list
-// ═════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
 class _LeaderboardSection extends StatefulWidget {
   const _LeaderboardSection();
 
