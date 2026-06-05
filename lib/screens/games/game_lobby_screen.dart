@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme.dart';
+import 'ludo/ludo_game_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────
 //  GAME LOBBY SCREEN (Pre-game Info)
@@ -44,7 +45,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     // In vs Computer, you don't stake real money in this mock, or pot is different.
     // For now we keep the UI consistent.
     final potText = _vsPlayer 
-        ? '₦ ${totalPot.toStringAsFixed(0).replaceAllMapped(RegExp(r"\\B(?=(\\d{3})+(?!\\d))"), (match) => ",")}'
+        ? '₦ ${totalPot.toStringAsFixed(0).replaceAllMapped(RegExp(r"\B(?=(\d{3})+(?!\d))"), (match) => ",")}'
         : 'Practice Mode';
 
     return Scaffold(
@@ -185,10 +186,13 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                 height: 56,
                 child: ElevatedButton(
                   onPressed: () {
-                    // Navigate to game screen
+                    Widget screen = widget.gameScreen;
+                    if (widget.gameKey == 'ludo') {
+                      screen = LudoGameScreen(tokenCount: _ludoTokens);
+                    }
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (_) => widget.gameScreen),
+                      MaterialPageRoute(builder: (_) => screen),
                     );
                   },
                   style: ElevatedButton.styleFrom(
@@ -271,7 +275,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
-          '₦${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r"\\B(?=(\\d{3})+(?!\\d))"), (match) => ",")}',
+          '₦${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r"\B(?=(\d{3})+(?!\d))"), (match) => ",")}',
           style: TextStyle(
             color: isActive ? const Color(0xFF22D1EE) : Colors.white70,
             fontSize: 14,
