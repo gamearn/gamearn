@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme.dart';
-import 'ludo/ludo_game_screen.dart';
+import 'package:gamearn/screens/games/ludo_game_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────
 //  GAME LOBBY SCREEN (Pre-game Info)
