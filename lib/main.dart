@@ -23,12 +23,14 @@ class GamearnApp extends StatefulWidget {
 }
 
 class _GamearnAppState extends State<GamearnApp> {
-  bool _showInitialSplash = true;
+  // Only show splash on true cold start when no user is cached yet.
+  // If Firebase already has a cached user, skip straight to AuthGate
+  // so the user doesn't have to log in every restart.
+  bool _showInitialSplash = FirebaseAuth.instance.currentUser == null;
 
   @override
   void initState() {
     super.initState();
-    // Listen to ThemeNotifier so rebuilds happen on theme changes
     ThemeNotifier.instance.addListener(_onThemeChanged);
   }
 
@@ -47,7 +49,6 @@ class _GamearnAppState extends State<GamearnApp> {
       debugShowCheckedModeBanner: false,
       theme: kLightTheme,
       darkTheme: kDarkTheme,
-      // Follows system unless user explicitly overrides in Settings
       themeMode: ThemeNotifier.instance.themeMode,
       home: _showInitialSplash
           ? SplashScreen(onComplete: () => setState(() => _showInitialSplash = false))
