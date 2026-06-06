@@ -13,10 +13,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notifications = true;
   bool _soundEffects = true;
   bool _vibration = false;
-  bool _darkMode = true;
+
+  // Read initial value from the notifier so toggle reflects real state
+  bool get _darkMode {
+    final forced = ThemeNotifier.instance.forceDark;
+    if (forced != null) return forced;
+    // If following system, treat as dark by default (matches design)
+    return true;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    ThemeNotifier.instance.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    ThemeNotifier.instance.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() => setState(() {});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDark;
+
     return Scaffold(
       backgroundColor: context.bg,
       body: SafeArea(
@@ -35,13 +58,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       decoration: BoxDecoration(
                         color: context.surface,
                         borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: context.border),
                       ),
-                      child: const Icon(Icons.arrow_back_ios_new,
-                          color: Colors.white, size: 16),
+                      // ✅ Fixed: was hardcoded Colors.white → now theme-aware
+                      child: Icon(Icons.arrow_back_ios_new,
+                          color: context.txtPri, size: 16),
                     ),
                   ),
                   const SizedBox(width: 16),
-                  Text('Settings', style: context.titleStyle),
+                  Text('Settings', style: context.titleStyle.copyWith(color: context.txtPri)),
                 ],
               ),
             ),
@@ -68,8 +93,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _toggleTile(context, Icons.vibration_outlined, 'Vibration',
                         _vibration, (v) => setState(() => _vibration = v)),
                     _divider(context),
-                    _toggleTile(context, Icons.dark_mode_outlined, 'Dark Mode',
-                        _darkMode, (v) => setState(() => _darkMode = v)),
+                    // ✅ Fixed: now actually calls ThemeNotifier
+                    _toggleTile(context, isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+                        'Dark Mode', _darkMode, (v) {
+                      ThemeNotifier.instance.setTheme(v);
+                    }),
                   ]),
                   const SizedBox(height: 16),
                   _sectionCard(context, 'Account', [
@@ -152,6 +180,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           decoration: BoxDecoration(
             color: context.surface,
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: context.border.withOpacity(0.5)),
           ),
           child: Column(children: items),
         ),
@@ -171,15 +200,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         child: Icon(icon, color: context.cyan, size: 20),
       ),
+      // ✅ Fixed: was hardcoded Colors.white → context.txtPri
       title: Text(label,
-          style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.w500)),
+          style: TextStyle(
+              color: context.txtPri, fontWeight: FontWeight.w500)),
       trailing: Switch(
         value: value,
         onChanged: onChanged,
         activeColor: context.cyan,
         inactiveThumbColor: context.subText,
-        inactiveTrackColor: context.bg,
+        inactiveTrackColor: context.border,
       ),
     );
   }
@@ -197,9 +227,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         child: Icon(icon, color: context.cyan, size: 20),
       ),
+      // ✅ Fixed: was hardcoded Colors.white → context.txtPri
       title: Text(label,
-          style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.w500)),
+          style: TextStyle(
+              color: context.txtPri, fontWeight: FontWeight.w500)),
       trailing: Icon(Icons.chevron_right, color: context.subText),
     );
   }
@@ -207,6 +238,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _divider(BuildContext context) => Divider(
         height: 1,
         indent: 72,
-        color: context.bg.withOpacity(0.6),
+        color: context.border.withOpacity(0.5),
       );
 }
