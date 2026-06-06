@@ -938,125 +938,295 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     ));
   }
 
-  // ═════════════════════════════════════════════════════════════════════════════
-  //  BUILD
-  // ═════════════════════════════════════════════════════════════════════════════
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: const Color(0xFF0B0E1A),
       body: Stack(children: [
         _BokehBg(ctrl: _bokehCtrl, bokeh: _bokeh),
-        if (!_isLandscape) _portrait(),
-        if (_isLandscape) _landscape(),
-        if (_isDealing) _loadingOverlay(),
+        _portrait(),
+        if (_isDealing)  _loadingOverlay(),
         if (_dealFailed) _errorOverlay(),
         if (_showShapeChooser) _shapeChooser(),
-        if (_showCallOverlay) _callCardOverlay(),
+        if (_showCallOverlay)  _callCardOverlay(),
       ]),
     );
   }
 
-  // ── Portrait ───────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  //  PORTRAIT  (Figma: Section 3 — 390×844)
+  // ─────────────────────────────────────────────────────────────────────────
   Widget _portrait() => SafeArea(
-          child: Column(children: [
-        _header(),
-        Expanded(
-            child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+    child: Column(children: [
+
+      // ── HEADER ─────────────────────────────────────────────────────────
+      // Figma: title + prize at top, back arrow left
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: Row(children: [
+          GestureDetector(
+            onTap: widget.onBack ?? () => Navigator.maybePop(context),
+            child: Container(
+              width: 37, height: 37,
+              decoration: BoxDecoration(
+                // Figma section-5 exit btn: #FF5E00, rx=4
+                color: _orange,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Icon(Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white, size: 16),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.tournamentTitle,
+                    style: const TextStyle(
+                        color: _orange,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.8)),
+                Text('Prize Pool: ${widget.prizePool}',
+                    style: const TextStyle(
+                        color: _cyan, fontSize: 11,
+                        fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+          // Timer badge
+          _TimerBadge(sec: _timerSec, myTurn: _isMyTurn && !_botBusy),
+        ]),
+      ),
+
+      // ── MAIN TABLE — Figma: y=99 x=25 w=340 h=662 rx=11 ───────────────
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withOpacity(0.04),
-                  Colors.white.withOpacity(0.01)
-                ],
-              ),
+              color: const Color(0xFF0F172A),
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(color: Colors.white.withOpacity(0.06)),
             ),
             child: Column(children: [
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+
+              // ── BOT SECTION ──────────────────────────────────────────────
+              // Figma: opponent avatar + name + fanned face-down cards at top
               _oppSection(),
+
               const Spacer(),
+
+              // ── TOP CARD + DRAW PILE — centre ────────────────────────────
+              // Figma: big top-card display 100×100 #22D1EE rx=16
+              //        inner 80×80 #1E293B rx=16
+              //        draw pile left, discard right
               _centreArea(),
+
               const Spacer(),
+
+              // ── ACTION CHIPS ─────────────────────────────────────────────
+              // Figma: "Last Card" x=32 w=72 h=29 #FF5E00 rx=14
+              //        "Draw Card" x=266 w=93 h=29 #FF5E00 rx=14
+              _actionChips(),
+
+              const SizedBox(height: 10),
+
+              // ── HUMAN HAND ───────────────────────────────────────────────
+              // Figma: cards fanned at bottom, stagger right+slight-down
               _handFan(),
-              const SizedBox(height: 8),
-              _timerRow(),
-              const SizedBox(height: 16),
+
+              const SizedBox(height: 12),
             ]),
           ),
-        )),
-        _bottomBar(),
-      ]));
+        ),
+      ),
+    ]),
+  );
 
-  Widget _header() => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-        child: Column(children: [
-          Text(widget.tournamentTitle,
-              style: const TextStyle(
-                  color: _orange,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2)),
-          const SizedBox(height: 2),
-          Text('Prize Pool: ${widget.prizePool}',
-              style: const TextStyle(
-                  color: _orange, fontSize: 13, fontWeight: FontWeight.w500)),
-        ]),
-      );
-
-  Widget _oppSection() => Column(children: [
-        _AvatarW(
+  // ── OPPONENT SECTION ──────────────────────────────────────────────────────
+  Widget _oppSection() => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Avatar + name
+        Column(mainAxisSize: MainAxisSize.min, children: [
+          _AvatarW(
             name: widget.opponentName,
             url: widget.opponentAvatar,
             active: !_isMyTurn && !_botBusy,
-            size: 56),
-        const SizedBox(height: 4),
-        Text(widget.opponentName,
-            style: const TextStyle(
-                color: _txtPri, fontSize: 13, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        // Bot thinking indicator
-        if (_botBusy)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 4),
-            child:
-                Text('thinking…', style: TextStyle(color: _cyan, fontSize: 11)),
+            size: 42,
           ),
-        const SizedBox(height: 6),
-        _OppFan(count: _oppCount),
-      ]);
+          const SizedBox(height: 4),
+          Text(widget.opponentName,
+              style: const TextStyle(
+                  color: _txtPri, fontSize: 11,
+                  fontWeight: FontWeight.w600)),
+          if (_botBusy)
+            const Text('thinking…',
+                style: TextStyle(color: _cyan, fontSize: 10)),
+        ]),
+        const SizedBox(width: 12),
+        // Bot hand — fanned face-down
+        // Figma: 5 cards ~64×93 stagger x+28 y+13
+        Expanded(
+          child: SizedBox(
+            height: 80,
+            child: _OppFan(count: _oppCount),
+          ),
+        ),
+        // Card count badge
+        Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B),
+            shape: BoxShape.circle,
+            border: Border.all(color: _cyan.withOpacity(0.3)),
+          ),
+          child: Center(
+            child: Text('$_oppCount',
+                style: const TextStyle(
+                    color: _cyan,
+                    fontSize: 14, fontWeight: FontWeight.w800)),
+          ),
+        ),
+      ],
+    ),
+  );
 
+  // ── CENTRE AREA ───────────────────────────────────────────────────────────
+  // Figma: draw pile (face-down stack) left, big top-card display right
   Widget _centreArea() => Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Column(mainAxisSize: MainAxisSize.min, children: [
-            GestureDetector(
-              onTap: (_isMyTurn && !_botBusy) ? _drawCard : null,
-              child: _CardW(card: WhotCard.faceDown(), w: 90, h: 118),
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      // Draw pile — stacked face-down cards
+      GestureDetector(
+        onTap: (_isMyTurn && !_botBusy) ? _drawCard : null,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Shadow cards beneath
+            for (int i = 2; i >= 1; i--)
+              Positioned(
+                left: i * 2.0, top: -(i * 2.0),
+                child: Opacity(
+                  opacity: 0.5,
+                  child: _CardW(card: WhotCard.faceDown(), w: 54, h: 78),
+                ),
+              ),
+            _CardW(card: WhotCard.faceDown(), w: 54, h: 78),
+          ],
+        ),
+      ),
+      const SizedBox(width: 24),
+      // Top card display — Figma: 100×100 #22D1EE rx=16, inner 80×80 #1E293B
+      Container(
+        width: 100, height: 100,
+        decoration: BoxDecoration(
+          color: _cyan,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+                color: _cyan.withOpacity(0.35),
+                blurRadius: 20, spreadRadius: 2)
+          ],
+        ),
+        child: Center(
+          child: Container(
+            width: 80, height: 80,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(16),
             ),
-            const SizedBox(height: 6),
-            _PileBtn(
-                label: 'DRAW',
-                onTap: (_isMyTurn && !_botBusy) ? _drawCard : null),
-          ]),
-          const SizedBox(width: 32),
-          Column(mainAxisSize: MainAxisSize.min, children: [
-            _CardW(card: _topCard, w: 90, h: 118, glowCyan: true),
-            const SizedBox(height: 6),
-            const _PileBtn(label: 'DISCARD PILE'),
-          ]),
-        ],
-      );
+            child: Center(
+              child: _CardW(card: _topCard, w: 64, h: 80),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
 
+  // ── ACTION CHIPS ─────────────────────────────────────────────────────────
+  // Figma: "Last Card" 72×29 rx=14 #FF5E00  |  "Draw Card" 93×29 rx=14 #FF5E00
+  Widget _actionChips() {
+    final canCallCard = _hand.length == 1 && !_calledCard;
+    final canDraw     = _isMyTurn && !_botBusy;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Last Card chip
+          GestureDetector(
+            onTap: canCallCard ? _callCard : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 90, height: 29,
+              decoration: BoxDecoration(
+                color: canCallCard ? _orange : _orange.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Center(
+                child: Text('Last Card!',
+                    style: TextStyle(
+                        color: canCallCard ? Colors.white : Colors.white54,
+                        fontSize: 11, fontWeight: FontWeight.w800)),
+              ),
+            ),
+          ),
+          // Play selected card
+          if (_selectedIdx >= 0 && _selectedIdx < _hand.length &&
+              _canPlay(_hand[_selectedIdx]))
+            GestureDetector(
+              onTap: () => _playCard(),
+              child: Container(
+                height: 29,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: _cyan,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Center(
+                  child: Text('Play Card',
+                      style: TextStyle(
+                          color: Color(0xFF0B0E1A),
+                          fontSize: 11, fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ),
+          // Draw card chip
+          GestureDetector(
+            onTap: canDraw ? _drawCard : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 93, height: 29,
+              decoration: BoxDecoration(
+                color: canDraw ? _orange : _orange.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Center(
+                child: Text('Draw Card',
+                    style: TextStyle(
+                        color: canDraw ? Colors.white : Colors.white54,
+                        fontSize: 11, fontWeight: FontWeight.w800)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── HUMAN HAND FAN ────────────────────────────────────────────────────────
+  // Figma: cards fanned at bottom, face-up, stagger right+slight-down
   Widget _handFan() {
     final playable = _playableIndices();
     return SizedBox(
-      height: 140,
+      height: 130,
       child: _FanHand(
         cards: _hand,
         selected: _selectedIdx,
@@ -1074,391 +1244,226 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     );
   }
 
-  Widget _timerRow() {
-    final canPlay = _selectedIdx >= 0 &&
-        _selectedIdx < _hand.length &&
-        _canPlay(_hand[_selectedIdx]);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        AnimatedBuilder(
-          animation: _glowAnim,
-          builder: (_, child) => Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: (_isMyTurn && !_botBusy)
-                  ? [
-                      BoxShadow(
-                          color: _cyan.withOpacity(_glowAnim.value * 0.6),
-                          blurRadius: 20,
-                          spreadRadius: 4)
-                    ]
-                  : [],
-            ),
-            child: child,
-          ),
-          child: Stack(clipBehavior: Clip.none, children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: _timerBg,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: (_isMyTurn && !_botBusy)
-                      ? _cyan
-                      : Colors.white.withOpacity(0.1),
-                  width: 2,
-                ),
-              ),
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('$_timerSec',
-                        style: TextStyle(
-                            color: _timerSec <= 5 ? Colors.red : _cyan,
-                            fontSize: 26,
-                            fontWeight: FontWeight.w900)),
-                    const Text('Seconds',
-                        style: TextStyle(
-                            color: _txtSub,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w500)),
-                  ]),
-            ),
-            Positioned(
-              bottom: -6,
-              right: -6,
-              child: GestureDetector(
-                onTap: canPlay ? () => _playCard() : null,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: canPlay ? _cyan : _txtSub,
-                    shape: BoxShape.circle,
-                  ),
-                  child:
-                      const Icon(Icons.play_arrow, color: _navyDeep, size: 16),
-                ),
-              ),
-            ),
-          ]),
-        ),
-        const SizedBox(width: 12),
-        Text('YOU (${widget.playerName})',
-            style: const TextStyle(
-                color: _cyan,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5)),
-      ]),
-    );
-  }
-
-  Widget _bottomBar() => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Row(children: [
-          Expanded(
-              child: GestureDetector(
-            onTap: widget.onBack ?? () => Navigator.maybePop(context),
-            child: Container(
-                height: 52,
-                decoration: BoxDecoration(
-                    color: _orange, borderRadius: BorderRadius.circular(16)),
-                child: const Center(
-                    child: Text('End Game',
-                        style: TextStyle(
-                            color: _white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800)))),
-          )),
-          const SizedBox(width: 12),
-          Expanded(
-              child: GestureDetector(
-            onTap: () => setState(() => _isLandscape = !_isLandscape),
-            child: Container(
-                height: 52,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A3A4A),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _cyan.withOpacity(0.3)),
-                ),
-                child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.screen_rotation, color: _cyan, size: 18),
-                      SizedBox(width: 6),
-                      Text('Rotate',
-                          style: TextStyle(
-                              color: _cyan,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700)),
-                    ])),
-          )),
-        ]),
-      );
-
-  // ── Landscape ─────────────────────────────────────────────────────────────
   Widget _landscape() => SafeArea(
-          child: Stack(children: [
-        Positioned(
-          top: 12,
-          right: 12,
-          child: GestureDetector(
-            onTap: () => setState(() => _isLandscape = false),
-            child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                    color: _orange, borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.close, color: _white)),
+    child: Stack(children: [
+      Positioned(
+        top: 12, right: 12,
+        child: GestureDetector(
+          onTap: () => setState(() => _isLandscape = false),
+          child: Container(
+            width: 37, height: 37,
+            decoration: BoxDecoration(
+                color: _orange, borderRadius: BorderRadius.circular(4)),
+            child: const Icon(Icons.close_rounded,
+                color: Colors.white, size: 18),
           ),
         ),
-        Positioned(
-          right: 12,
-          bottom: 80,
-          child: Column(children: [
-            _RoundBtn(
-                icon: Icons.screen_rotation,
-                onTap: () => setState(() => _isLandscape = false)),
-            const SizedBox(height: 10),
-            _RoundBtn(icon: Icons.refresh, onTap: () => setState(() {})),
+      ),
+      Center(
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          // Bot hand at top (compact)
+          SizedBox(
+            height: 70,
+            child: _OppFan(count: _oppCount),
+          ),
+          const SizedBox(height: 16),
+          // Centre: draw + top card side by side
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            GestureDetector(
+              onTap: (_isMyTurn && !_botBusy) ? _drawCard : null,
+              child: _CardW(card: WhotCard.faceDown(), w: 44, h: 64),
+            ),
+            const SizedBox(width: 16),
+            // Compact top card: Figma 74×74 #22D1EE rx=12
+            Container(
+              width: 74, height: 74,
+              decoration: BoxDecoration(
+                  color: _cyan, borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(
+                      color: _cyan.withOpacity(0.3), blurRadius: 12)]),
+              child: Center(
+                child: Container(
+                  width: 59, height: 59,
+                  decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(11)),
+                  child: Center(
+                      child: _CardW(card: _topCard, w: 50, h: 62)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Last-card badge: Figma 50×20 #FF5E00 rx=10
+            GestureDetector(
+              onTap: (_hand.length == 1 && !_calledCard) ? _callCard : null,
+              child: Container(
+                width: 50, height: 20,
+                decoration: BoxDecoration(
+                  color: (_hand.length == 1 && !_calledCard)
+                      ? _orange : _orange.withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Center(
+                  child: Text('Last Card',
+                      style: TextStyle(color: Colors.white,
+                          fontSize: 9, fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ),
           ]),
-        ),
-        Positioned(
-          top: 8,
-          left: 0,
-          right: 60,
-          child: Column(children: [
-            _AvatarW(
-                name: widget.opponentName,
-                url: widget.opponentAvatar,
-                active: !_isMyTurn,
-                size: 44,
-                rotated: true),
-            Transform.rotate(
-                angle: pi,
-                child: Text(widget.opponentName,
-                    style: const TextStyle(
-                        color: _txtPri,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600))),
-            const SizedBox(height: 4),
-            _OppFan(count: _oppCount),
-          ]),
-        ),
-        Center(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            _PileBtn(
-                label: 'DRAW',
-                onTap: (_isMyTurn && !_botBusy) ? _drawCard : null),
-            const SizedBox(width: 8),
-            _CardW(card: WhotCard.faceDown(), w: 64, h: 86),
-          ]),
-          const SizedBox(height: 12),
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            const _PileBtn(label: 'DISCARD PILE'),
-            const SizedBox(width: 8),
-            _CardW(card: _topCard, w: 64, h: 86, glowCyan: true),
-          ]),
-        ])),
-        Positioned(
-          left: 0,
-          top: 0,
-          bottom: 0,
-          child: RotatedBox(
-              quarterTurns: 3,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    _AvatarW(
-                        name: widget.playerName,
-                        url: widget.playerAvatar,
-                        active: _isMyTurn,
-                        size: 40),
-                    const SizedBox(width: 6),
-                    Text('YOU (${widget.playerName})',
-                        style: const TextStyle(
-                            color: _cyan,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700)),
-                  ]),
-                  const SizedBox(height: 6),
-                  _FanHand(
-                    cards: _hand,
-                    selected: _selectedIdx,
-                    myTurn: _isMyTurn && !_botBusy,
-                    playable: _playableIndices(),
-                    onTap: (i) {
-                      if (!_isMyTurn || _botBusy) return;
-                      setState(() => _selectedIdx = _selectedIdx == i ? -1 : i);
-                    },
-                  ),
-                ],
-              )),
-        ),
-      ]));
+          const SizedBox(height: 16),
+          // Human hand
+          SizedBox(
+            height: 80,
+            child: _FanHand(
+              cards: _hand,
+              selected: _selectedIdx,
+              myTurn: _isMyTurn && !_botBusy,
+              playable: _playableIndices(),
+              onTap: (i) {
+                if (!_isMyTurn || _botBusy) return;
+                setState(() => _selectedIdx = _selectedIdx == i ? -1 : i);
+              },
+            ),
+          ),
+        ]),
+      ),
+    ]),
+  );
 
-  // ── Overlays ──────────────────────────────────────────────────────────────
   Widget _loadingOverlay() => Container(
-        color: _bg.withOpacity(0.92),
-        child: const Center(
-            child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(_cyan), strokeWidth: 3),
-            SizedBox(height: 24),
-            Text('Connecting to game server…',
-                style: TextStyle(
-                    color: _txtPri, fontSize: 16, fontWeight: FontWeight.w600)),
-            SizedBox(height: 8),
-            Text('Waking up server (may take 30-60s)',
-                style: TextStyle(color: _txtSub, fontSize: 13)),
-          ],
-        )),
-      );
+    color: Colors.black87,
+    child: const Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        CircularProgressIndicator(color: _cyan, strokeWidth: 3),
+        SizedBox(height: 16),
+        Text('Dealing cards…',
+            style: TextStyle(color: _cyan, fontSize: 16,
+                fontWeight: FontWeight.w700)),
+      ]),
+    ),
+  );
 
   Widget _errorOverlay() => Container(
-        color: _bg.withOpacity(0.95),
-        child: Center(
-            child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.wifi_off, size: 64, color: _orange),
-            const SizedBox(height: 24),
-            const Text('Connection Failed',
-                style: TextStyle(
-                    color: _txtPri, fontSize: 24, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            const Text(
-                'Server is waking up or unreachable.\nCheck internet and tap Retry.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: _txtSub, fontSize: 15)),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: _dealCards,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _cyan,
-                foregroundColor: _navy,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Retry',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-          ]),
-        )),
-      );
+    color: Colors.black87,
+    child: Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.wifi_off_rounded, color: _orange, size: 48),
+        const SizedBox(height: 12),
+        const Text('Failed to connect to game server',
+            style: TextStyle(color: Colors.white, fontSize: 15)),
+        const SizedBox(height: 20),
+        GestureDetector(
+          onTap: _dealCards,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+            decoration: BoxDecoration(
+                color: _orange, borderRadius: BorderRadius.circular(12)),
+            child: const Text('Retry',
+                style: TextStyle(color: Colors.white,
+                    fontSize: 15, fontWeight: FontWeight.w800)),
+          ),
+        ),
+      ]),
+    ),
+  );
 
   Widget _shapeChooser() {
-    final options = WhotShape.values.where((s) => s != WhotShape.whot).toList();
-    return GestureDetector(
-      onTap: () => setState(() => _showShapeChooser = false),
-      child: Container(
-        color: Colors.black.withOpacity(0.7),
-        child: Center(
-            child: Container(
+    const suits = [
+      (WhotShape.circle,   '●  Circle'),
+      (WhotShape.triangle, '▲  Triangle'),
+      (WhotShape.cross,    '✚  Cross'),
+      (WhotShape.square,   '■  Square'),
+      (WhotShape.star,     '★  Star'),
+    ];
+    return Container(
+      color: Colors.black.withOpacity(0.85),
+      child: Center(
+        child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 32),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: _navy,
-            borderRadius: BorderRadius.circular(24),
+            color: const Color(0xFF0F172A),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: _cyan.withOpacity(0.3)),
           ),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text('Choose a Shape',
-                style: TextStyle(
-                    color: _txtPri, fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              alignment: WrapAlignment.center,
-              children: options
-                  .map((s) => GestureDetector(
-                        onTap: () {
-                          // If _selectedIdx < 0, the Whot card was already played
-                          // (nominateOnly flow)
-                          if (_selectedIdx < 0) {
-                            _playCard(chosen: s, nominateOnly: true);
-                          } else {
-                            _playCard(chosen: s);
-                          }
-                        },
-                        child: Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: _cardBg,
-                            borderRadius: BorderRadius.circular(12),
-                            border:
-                                Border.all(color: _shapeCol.withOpacity(0.4)),
-                          ),
-                          child: CustomPaint(painter: _ShapeOnly(shape: s)),
-                        ),
-                      ))
-                  .toList(),
-            ),
-          ]),
-        )),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Choose a suit',
+                  style: TextStyle(color: Colors.white,
+                      fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 20),
+              ...suits.map((s) => GestureDetector(
+                onTap: () => _playCard(chosen: s.$1),
+                child: Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _cyan.withOpacity(0.2)),
+                  ),
+                  child: Center(child: Text(s.$2,
+                      style: const TextStyle(color: Colors.white,
+                          fontSize: 16, fontWeight: FontWeight.w600))),
+                ),
+              )),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _callCardOverlay() => GestureDetector(
-        onTap: () => setState(() => _showCallOverlay = false),
+    onTap: () => setState(() => _showCallOverlay = false),
+    child: Container(
+      color: Colors.black.withOpacity(0.6),
+      child: Center(
         child: Container(
-          color: Colors.black.withOpacity(0.6),
-          child: Center(
-              child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 32),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: _navy,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: _cyan.withOpacity(0.3)),
-            ),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Text('Call Card',
-                  style: TextStyle(
-                      color: _txtPri,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800)),
-              const SizedBox(height: 8),
-              const Text('Announce when you have 1 card left!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: _txtSub, fontSize: 13)),
-              const SizedBox(height: 20),
-              GestureDetector(
-                onTap: _callCard,
-                child: Container(
-                    height: 50,
-                    decoration: BoxDecoration(
-                        color: _orange,
-                        borderRadius: BorderRadius.circular(14)),
-                    child: const Center(
-                        child: Text('CALL CARD! 🔔',
-                            style: TextStyle(
-                                color: _white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800)))),
-              ),
-            ]),
-          )),
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          decoration: BoxDecoration(
+            color: _orange,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Text('LAST CARD! 🎴',
+              style: TextStyle(color: Colors.white,
+                  fontSize: 24, fontWeight: FontWeight.w900)),
         ),
-      );
+      ),
+    ),
+  );
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  WIDGETS
-// ═════════════════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────────────────
+//  TIMER BADGE — top-right of header
+// ─────────────────────────────────────────────────────────────────────────────
+class _TimerBadge extends StatelessWidget {
+  final int sec;
+  final bool myTurn;
+  const _TimerBadge({required this.sec, required this.myTurn});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 52, height: 52,
+    decoration: BoxDecoration(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+          color: myTurn ? _cyan : Colors.white.withOpacity(0.1), width: 2),
+    ),
+    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      Text('$sec',
+          style: TextStyle(
+              color: sec <= 5 ? Colors.red : _cyan,
+              fontSize: 20, fontWeight: FontWeight.w900)),
+      const Text('sec',
+          style: TextStyle(color: _txtSub, fontSize: 9)),
+    ]),
+  );
+}
 
 class _FanHand extends StatelessWidget {
   final List<WhotCard> cards;
