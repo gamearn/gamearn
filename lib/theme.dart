@@ -69,10 +69,19 @@ ThemeData get kLightTheme => ThemeData(
     secondary: kOrange,
     surface: kLightCard,
     onSurface: kLightText,
+    onPrimary: Colors.white,      // text ON cyan buttons
+    onSecondary: Colors.white,    // text ON orange buttons
   ),
   textTheme: const TextTheme(
-    bodyLarge: TextStyle(color: kLightText),
+    bodyLarge:  TextStyle(color: kLightText),
     bodyMedium: TextStyle(color: kLightSub),
+    titleLarge: TextStyle(color: kLightText, fontWeight: FontWeight.w700),
+  ),
+  iconTheme: const IconThemeData(color: kLightText),
+  appBarTheme: const AppBarTheme(
+    backgroundColor: kLightBg,
+    foregroundColor: kLightText,
+    elevation: 0,
   ),
   useMaterial3: true,
   fontFamily: 'Roboto',
@@ -98,7 +107,10 @@ class ThemeNotifier extends ChangeNotifier {
   ThemeNotifier._();
   static final ThemeNotifier instance = ThemeNotifier._();
 
-  bool? _forceDark;
+  // Default to dark — the entire app is designed dark-first.
+  // User can switch to light in Settings, but starting from system causes
+  // white-text-on-white-background bugs on light-mode devices.
+  bool? _forceDark = true;
 
   bool? get forceDark => _forceDark;
 
