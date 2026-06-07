@@ -373,6 +373,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   bool _isLandscape = false;
   bool _isDealing = true;
   bool _dealFailed = false;
+  bool _calledCard = false;
 
   // ── Bot / history ─────────────────────────────────────────────────────────
   final _BotService _bot = _BotService();
@@ -774,6 +775,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       _isMyTurn = false;
       _pendingDraw = 0;
       _selectedIdx = -1;
+      _calledCard = false;
     });
     HapticFeedback.selectionClick();
 
@@ -923,7 +925,10 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   void _callCard() {
     widget.socketService?.emitCallCard(widget.roomId, widget.playerId);
     onCallCard(widget.playerId);
-    setState(() => _showCallOverlay = false);
+    setState(() {
+      _showCallOverlay = false;
+      _calledCard = true;
+    });
   }
 
   void _toast(String msg) {
