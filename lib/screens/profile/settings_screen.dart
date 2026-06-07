@@ -3,6 +3,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 import 'account_security_screen.dart';
 
+// ════════════════════════════════════════════════════════════════
+//  SETTINGS SCREEN — Figma matched (390×844)
+//
+//  y=123: 342×141 rx=12 #1E293B — section card
+//    y=137: 40×40 rx=8 #22D1EE icon box (notifications row)
+//    y=211: 40×40 rx=8 #22D1EE icon box (sound row)
+//  y=316: 342×353 rx=12 #1E293B — section card (account)
+//    y=329: 40×40 rx=8 #22D1EE icon + toggle 44×24 rx=12 #22D1EE (dark mode)
+//    y=402: 40×40 rx=8 #22D1EE icon + toggle 44×24 rx=12 #334155 (off)
+//    y=480,548,616: nav rows with 40×40 icons
+// ════════════════════════════════════════════════════════════════
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
   @override
@@ -11,15 +23,12 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notifications = true;
-  bool _soundEffects = true;
-  bool _vibration = false;
+  bool _sounds        = true;
+  bool _vibration     = false;
 
-  // Read initial value from the notifier so toggle reflects real state
   bool get _darkMode {
-    final forced = ThemeNotifier.instance.forceDark;
-    if (forced != null) return forced;
-    // If following system, treat as dark by default (matches design)
-    return true;
+    final f = ThemeNotifier.instance.forceDark;
+    return f ?? true;
   }
 
   @override
@@ -37,207 +46,251 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _onThemeChanged() => setState(() {});
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = context.isDark;
-
-    return Scaffold(
-      backgroundColor: context.bg,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.maybePop(context),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: context.surface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: context.border),
-                      ),
-                      // ✅ Fixed: was hardcoded Colors.white → now theme-aware
-                      child: Icon(Icons.arrow_back_ios_new,
-                          color: context.txtPri, size: 16),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text('Settings', style: context.titleStyle.copyWith(color: context.txtPri)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                children: [
-                  _sectionCard(context, 'Preferences', [
-                    _toggleTile(
-                        context,
-                        Icons.notifications_outlined,
-                        'Push Notifications',
-                        _notifications,
-                        (v) => setState(() => _notifications = v)),
-                    _divider(context),
-                    _toggleTile(
-                        context,
-                        Icons.volume_up_outlined,
-                        'Sound Effects',
-                        _soundEffects,
-                        (v) => setState(() => _soundEffects = v)),
-                    _divider(context),
-                    _toggleTile(context, Icons.vibration_outlined, 'Vibration',
-                        _vibration, (v) => setState(() => _vibration = v)),
-                    _divider(context),
-                    // ✅ Fixed: now actually calls ThemeNotifier
-                    _toggleTile(context, isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-                        'Dark Mode', _darkMode, (v) {
-                      ThemeNotifier.instance.setTheme(v);
-                    }),
-                  ]),
-                  const SizedBox(height: 16),
-                  _sectionCard(context, 'Account', [
-                    _navTile(
-                        context,
-                        Icons.lock_outline,
-                        'Account Security',
-                        () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const AccountSecurityScreen(),
-                              ),
-                            )),
-                    _divider(context),
-                    _navTile(context, Icons.privacy_tip_outlined,
-                        'Privacy & Security', () {}),
-                    _divider(context),
-                    _navTile(
-                        context, Icons.language_outlined, 'Language', () {}),
-                  ]),
-                  const SizedBox(height: 16),
-                  _sectionCard(context, 'Support', [
-                    _navTile(
-                        context, Icons.help_outline, 'Help & Support', () {}),
-                    _divider(context),
-                    _navTile(
-                        context, Icons.question_answer_outlined, 'FAQs', () {}),
-                  ]),
-                  const SizedBox(height: 16),
-                  // Sign out
-                  GestureDetector(
-                    onTap: () async {
-                      await FirebaseAuth.instance.signOut();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: context.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border:
-                            Border.all(color: context.orange.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.logout, color: context.orange, size: 20),
-                          const SizedBox(width: 10),
-                          Text('Sign Out',
-                              style: TextStyle(
-                                  color: context.orange,
-                                  fontWeight: FontWeight.w700)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionCard(BuildContext context, String title, List<Widget> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: const Color(0xFF0B0E1A),
+    body: SafeArea(
+      child: Column(children: [
+        // Header
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 10),
-          child: Text(title,
-              style: TextStyle(
-                  color: context.subText,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1)),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(children: [
+            GestureDetector(
+              onTap: () => Navigator.maybePop(context),
+              child: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF334155)),
+                ),
+                child: const Icon(Icons.arrow_back_ios_new_rounded,
+                    color: Colors.white, size: 16),
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Text('Settings',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17, fontWeight: FontWeight.w800)),
+          ]),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: context.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: context.border.withOpacity(0.5)),
+
+        const SizedBox(height: 20),
+
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            children: [
+
+              // ── SECTION 1: Preferences — Figma: 342×141 rx=12 #1E293B ──
+              _sectionLabel('Preferences'),
+              _SectionCard(children: [
+                _IconToggle(
+                  icon: Icons.notifications_outlined,
+                  label: 'Push Notifications',
+                  value: _notifications,
+                  onChanged: (v) => setState(() => _notifications = v),
+                ),
+                _divider(),
+                _IconToggle(
+                  icon: Icons.volume_up_outlined,
+                  label: 'Sound Effects',
+                  value: _sounds,
+                  onChanged: (v) => setState(() => _sounds = v),
+                ),
+              ]),
+
+              const SizedBox(height: 14),
+
+              // ── SECTION 2: Account — Figma: 342×353 rx=12 #1E293B ──────
+              _sectionLabel('Account'),
+              _SectionCard(children: [
+                // Dark mode — toggle active = #22D1EE, off = #334155
+                _IconToggle(
+                  icon: _darkMode
+                      ? Icons.dark_mode_outlined
+                      : Icons.light_mode_outlined,
+                  label: 'Dark Mode',
+                  value: _darkMode,
+                  onChanged: (v) => ThemeNotifier.instance.setTheme(v),
+                ),
+                _divider(),
+                _IconToggle(
+                  icon: Icons.vibration_outlined,
+                  label: 'Vibration',
+                  value: _vibration,
+                  onChanged: (v) => setState(() => _vibration = v),
+                ),
+                _divider(),
+                _IconNav(
+                  icon: Icons.lock_outline_rounded,
+                  label: 'Account Security',
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(
+                          builder: (_) => const AccountSecurityScreen())),
+                ),
+                _divider(),
+                _IconNav(
+                  icon: Icons.privacy_tip_outlined,
+                  label: 'Privacy & Security',
+                  onTap: () {},
+                ),
+                _divider(),
+                _IconNav(
+                  icon: Icons.language_outlined,
+                  label: 'Language',
+                  onTap: () {},
+                ),
+              ]),
+
+              const SizedBox(height: 14),
+
+              // ── SECTION 3: Support ─────────────────────────────────────
+              _sectionLabel('Support'),
+              _SectionCard(children: [
+                _IconNav(
+                    icon: Icons.help_outline_rounded,
+                    label: 'Help & Support',
+                    onTap: () {}),
+                _divider(),
+                _IconNav(
+                    icon: Icons.question_answer_outlined,
+                    label: 'FAQs',
+                    onTap: () {}),
+              ]),
+
+              const SizedBox(height: 16),
+
+              // Sign out
+              GestureDetector(
+                onTap: () => FirebaseAuth.instance.signOut(),
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: kOrange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border:
+                        Border.all(color: kOrange.withOpacity(0.35)),
+                  ),
+                  child: const Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.logout_rounded,
+                            color: kOrange, size: 18),
+                        SizedBox(width: 8),
+                        Text('Sign Out',
+                            style: TextStyle(
+                                color: kOrange,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+            ],
           ),
-          child: Column(children: items),
         ),
-      ],
-    );
-  }
+      ]),
+    ),
+  );
 
-  Widget _toggleTile(BuildContext context, IconData icon, String label,
-      bool value, ValueChanged<bool> onChanged) {
-    return ListTile(
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: context.cyan.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: context.cyan, size: 20),
-      ),
-      // ✅ Fixed: was hardcoded Colors.white → context.txtPri
-      title: Text(label,
-          style: TextStyle(
-              color: context.txtPri, fontWeight: FontWeight.w500)),
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
-        activeColor: context.cyan,
-        inactiveThumbColor: context.subText,
-        inactiveTrackColor: context.border,
-      ),
-    );
-  }
+  Widget _sectionLabel(String t) => Padding(
+    padding: const EdgeInsets.only(left: 4, bottom: 8),
+    child: Text(t.toUpperCase(),
+        style: const TextStyle(
+            color: Color(0xFF94A3B8),
+            fontSize: 11, fontWeight: FontWeight.w700,
+            letterSpacing: 1.2)),
+  );
 
-  Widget _navTile(
-      BuildContext context, IconData icon, String label, VoidCallback onTap) {
-    return ListTile(
-      onTap: onTap,
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: context.cyan.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: context.cyan, size: 20),
-      ),
-      // ✅ Fixed: was hardcoded Colors.white → context.txtPri
-      title: Text(label,
-          style: TextStyle(
-              color: context.txtPri, fontWeight: FontWeight.w500)),
-      trailing: Icon(Icons.chevron_right, color: context.subText),
-    );
-  }
+  Widget _divider() => const Divider(
+      height: 1, indent: 72, color: Color(0xFF334155));
+}
 
-  Widget _divider(BuildContext context) => Divider(
-        height: 1,
-        indent: 72,
-        color: context.border.withOpacity(0.5),
-      );
+// ── SECTION CARD — Figma: 342×var rx=12 #1E293B ──────────────────
+class _SectionCard extends StatelessWidget {
+  final List<Widget> children;
+  const _SectionCard({required this.children});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Column(children: children),
+  );
+}
+
+// ── ICON TOGGLE — Figma: 40×40 rx=8 #22D1EE icon box
+//                         toggle 44×24 rx=12 ─────────────────────
+class _IconToggle extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _IconToggle(
+      {required this.icon, required this.label,
+       required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    contentPadding:
+        const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+    leading: Container(
+      // Figma: 40×40 rx=8 #22D1EE
+      width: 40, height: 40,
+      decoration: BoxDecoration(
+        color: kCyan,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(icon, color: const Color(0xFF0B0E1A), size: 20),
+    ),
+    title: Text(label,
+        style: const TextStyle(
+            color: Colors.white, fontSize: 14,
+            fontWeight: FontWeight.w500)),
+    trailing: Switch(
+      value: value,
+      onChanged: onChanged,
+      // Figma: active #22D1EE, inactive #334155
+      activeColor: kCyan,
+      activeTrackColor: kCyan.withOpacity(0.3),
+      inactiveThumbColor: const Color(0xFF94A3B8),
+      inactiveTrackColor: const Color(0xFF334155),
+    ),
+  );
+}
+
+// ── ICON NAV ─────────────────────────────────────────────────────
+class _IconNav extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _IconNav(
+      {required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    onTap: onTap,
+    contentPadding:
+        const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+    leading: Container(
+      width: 40, height: 40,
+      decoration: BoxDecoration(
+        color: kCyan,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(icon, color: const Color(0xFF0B0E1A), size: 20),
+    ),
+    title: Text(label,
+        style: const TextStyle(
+            color: Colors.white, fontSize: 14,
+            fontWeight: FontWeight.w500)),
+    trailing: const Icon(Icons.chevron_right_rounded,
+        color: Color(0xFF475569), size: 20),
+  );
 }
