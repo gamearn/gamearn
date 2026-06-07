@@ -5,7 +5,7 @@ import '../../theme.dart';
 import 'settings_screen.dart';
 import 'account_security_screen.dart';
 import 'daily_streak_screen.dart';
-import '../home/invite_friends_screen.dart';
+import 'invite_friends_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  PROFILE SCREEN — Figma matched (390×844)
