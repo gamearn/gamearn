@@ -7,14 +7,6 @@ import 'live_tournament_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  TOURNAMENT DETAILS SCREEN — Figma matched
-//
-//  Hero: 342×100 gradient card + 256×256 rx=128 #22D1EE glow circle
-//  Join bar: 342×43 rx=8 #22D1EE
-//  Match cards: 342×227 rx=12 white-outline
-//    — prize row: 105×30 rx=15 #313F55
-//    — player avatars: 30×30 rx=15 overlapping
-//    — more badge: 108×32 rx=16 #313F55
-//  Leaderboard: 342×393 rx=12
 // ════════════════════════════════════════════════════════════════
 
 class TournamentDetailsScreen extends StatefulWidget {
@@ -73,17 +65,16 @@ class _TournamentDetailsScreenState
           final isLive  = status == 'live';
           final isDone  = status == 'completed';
           final joined  = players.contains(uid);
+          final int entryFee = int.tryParse(data['entryCost']?.toString() ?? '0') ?? 0;
 
           return SafeArea(
             child: Column(children: [
               // ── HERO ─────────────────────────────────────────────
-              // Figma: 342×100 gradient, glow circle 256×256 rx=128 right
               Stack(children: [
                 Container(
                   height: 140,
                   margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   decoration: BoxDecoration(
-                    // Figma: linear gradient overlay on bg
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -94,7 +85,6 @@ class _TournamentDetailsScreenState
                         color: kCyan.withOpacity(0.2)),
                   ),
                   child: Stack(children: [
-                    // Glow circle — Figma: x=67 256×256 rx=128 #22D1EE
                     Positioned(
                       right: -30, top: -60,
                       child: Container(
@@ -113,7 +103,6 @@ class _TournamentDetailsScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Back + status chip
                           Row(children: [
                             GestureDetector(
                               onTap: () => Navigator.pop(context),
@@ -139,7 +128,6 @@ class _TournamentDetailsScreenState
                                       fontWeight: FontWeight.w800),
                                   overflow: TextOverflow.ellipsis),
                             ),
-                            // Status chip — Figma: 48×22 rx=11
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 4),
@@ -163,7 +151,6 @@ class _TournamentDetailsScreenState
                             ),
                           ]),
                           const Spacer(),
-                          // Prize + players row
                           Row(children: [
                             const Icon(Icons.emoji_events_rounded,
                                 color: kCyan, size: 16),
@@ -188,7 +175,7 @@ class _TournamentDetailsScreenState
 
               const SizedBox(height: 10),
 
-              // ── JOIN BAR — Figma: 342×43 rx=8 #22D1EE ────────────
+              // ── JOIN BAR ────────────────────────────────────────
               if (!isDone)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -198,15 +185,15 @@ class _TournamentDetailsScreenState
                             ? () => Navigator.push(context,
                                 MaterialPageRoute(
                                     builder: (_) => LiveTournamentScreen(
-                                        tournamentId:
-                                            widget.tournamentId)))
+                                        tournamentId: widget.tournamentId,
+                                        tournamentTitle: title))) // Fixed: added title
                             : null
                         : () => Navigator.push(context,
                             MaterialPageRoute(
                                 builder: (_) => TournamentEntryScreen(
-                                    tournamentId:
-                                        widget.tournamentId,
-                                    data: data))),
+                                    tournamentId: widget.tournamentId,
+                                    title: title, // Fixed: passed title
+                                    entryFee: entryFee))), // Fixed: passed entryFee
                     child: Container(
                       height: 43,
                       decoration: BoxDecoration(
@@ -263,7 +250,6 @@ class _TournamentDetailsScreenState
                 ),
               ),
 
-              // ── TAB VIEWS ─────────────────────────────────────────
               Expanded(
                 child: TabBarView(
                   controller: _tabs,
@@ -291,15 +277,13 @@ class _OverviewTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rules = data['rules'] as String? ??
-        'Standard tournament rules apply. First to win 3 rounds advances. No disconnections allowed.';
+    final rules = data['rules'] as String? ?? 'Standard tournament rules apply.';
     final start = data['startTime'] as String? ?? 'TBD';
     final game  = data['gameType']  as String? ?? 'whot';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: [
-        // Info grid — Figma: 2×2 stat boxes 342×227 rx=12
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -309,26 +293,17 @@ class _OverviewTab extends StatelessWidget {
           ),
           child: Column(children: [
             Row(children: [
-              Expanded(child: _InfoTile(
-                  label: 'Game', value: game.toUpperCase(),
-                  icon: Icons.sports_esports_rounded)),
-              Expanded(child: _InfoTile(
-                  label: 'Start', value: start,
-                  icon: Icons.schedule_rounded)),
+              Expanded(child: _InfoTile(label: 'Game', value: game.toUpperCase(), icon: Icons.sports_esports_rounded)),
+              Expanded(child: _InfoTile(label: 'Start', value: start, icon: Icons.schedule_rounded)),
             ]),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _InfoTile(
-                  label: 'Format', value: 'Single Elim.',
-                  icon: Icons.account_tree_rounded)),
-              Expanded(child: _InfoTile(
-                  label: 'Entry', value: '${data['entryCost'] ?? 0} coins',
-                  icon: Icons.monetization_on_outlined)),
+              Expanded(child: _InfoTile(label: 'Format', value: 'Single Elim.', icon: Icons.account_tree_rounded)),
+              Expanded(child: _InfoTile(label: 'Entry', value: '${data['entryCost'] ?? 0} coins', icon: Icons.monetization_on_outlined)),
             ]),
           ]),
         ),
         const SizedBox(height: 16),
-        // Rules
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -339,15 +314,9 @@ class _OverviewTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Rules',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14, fontWeight: FontWeight.w800)),
+              const Text('Rules', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
               const SizedBox(height: 10),
-              Text(rules,
-                  style: const TextStyle(
-                      color: Color(0xFF9A9A9A),
-                      fontSize: 13, height: 1.6)),
+              Text(rules, style: const TextStyle(color: Color(0xFF9A9A9A), fontSize: 13, height: 1.6)),
             ],
           ),
         ),
@@ -359,28 +328,15 @@ class _OverviewTab extends StatelessWidget {
 class _InfoTile extends StatelessWidget {
   final String label, value;
   final IconData icon;
-  const _InfoTile(
-      {required this.label, required this.value, required this.icon});
+  const _InfoTile({required this.label, required this.value, required this.icon});
 
   @override
   Widget build(BuildContext context) => Row(children: [
-    Container(
-      width: 32, height: 32,
-      decoration: BoxDecoration(
-        color: kCyan.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(icon, color: kCyan, size: 16),
-    ),
+    Container(width: 32, height: 32, decoration: BoxDecoration(color: kCyan.withOpacity(0.12), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: kCyan, size: 16)),
     const SizedBox(width: 10),
     Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label,
-          style: const TextStyle(
-              color: Color(0xFF9A9A9A), fontSize: 10)),
-      Text(value,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 13,
-              fontWeight: FontWeight.w700)),
+      Text(label, style: const TextStyle(color: Color(0xFF9A9A9A), fontSize: 10)),
+      Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
     ]),
   ]);
 }
@@ -389,37 +345,22 @@ class _InfoTile extends StatelessWidget {
 class _PlayersTab extends StatelessWidget {
   final List<String> players;
   final int maxPlayers;
-  const _PlayersTab(
-      {required this.players, required this.maxPlayers});
+  const _PlayersTab({required this.players, required this.maxPlayers});
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: [
-        Text('${players.length} / $maxPlayers players joined',
-            style: const TextStyle(
-                color: Color(0xFF9A9A9A), fontSize: 12)),
+        Text('${players.length} / $maxPlayers players joined', style: const TextStyle(color: Color(0xFF9A9A9A), fontSize: 12)),
         const SizedBox(height: 12),
         ...players.map((uid) => _PlayerRow(uid: uid)),
-        // Empty slots
         ...List.generate(
           (maxPlayers - players.length).clamp(0, 8),
           (i) => Container(
-            height: 64,
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: const Color(0xFF1E293B),
-                  style: BorderStyle.solid),
-            ),
-            child: const Center(
-              child: Text('Open slot',
-                  style: TextStyle(
-                      color: Color(0xFF475569), fontSize: 12)),
-            ),
+            height: 64, margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF1E293B))),
+            child: const Center(child: Text('Open slot', style: TextStyle(color: Color(0xFF475569), fontSize: 12))),
           ),
         ),
       ],
@@ -434,38 +375,20 @@ class _PlayerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 64,
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF1E293B)),
-      ),
+      height: 64, margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF1E293B))),
       child: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance
-            .collection('users').doc(uid).get(),
+        future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
         builder: (_, snap) {
           final u = (snap.data?.data() as Map?) ?? {};
           final name = u['username'] as String? ?? 'Player';
-          final emoji = kAvatars.firstWhere(
-              (a) => a['name'] == (u['avatar'] ?? 'BOT'),
-              orElse: () => kAvatars[0])['emoji'] ?? '🤖';
+          final emoji = kAvatars.firstWhere((a) => a['name'] == (u['avatar'] ?? 'BOT'), orElse: () => kAvatars[0])['emoji'] ?? '🤖';
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Row(children: [
-              Container(
-                width: 36, height: 36,
-                decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFF1E293B)),
-                child: Center(child: Text(emoji,
-                    style: const TextStyle(fontSize: 18))),
-              ),
+              Container(width: 36, height: 36, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF1E293B)), child: Center(child: Text(emoji, style: const TextStyle(fontSize: 18)))),
               const SizedBox(width: 12),
-              Text(name,
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 14,
-                      fontWeight: FontWeight.w600)),
+              Text(name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
             ]),
           );
         },
@@ -491,25 +414,14 @@ class _PrizesTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: prizes.map((p) => Container(
-        height: 64,
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0F172A),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF1E293B)),
-        ),
+        height: 64, margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF1E293B))),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(children: [
-            Text(p.$1,
-                style: const TextStyle(
-                    color: Colors.white, fontSize: 14,
-                    fontWeight: FontWeight.w700)),
+            Text(p.$1, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
             const Spacer(),
-            Text('₦${p.$2}',
-                style: const TextStyle(
-                    color: kCyan, fontSize: 16,
-                    fontWeight: FontWeight.w900)),
+            Text('₦${p.$2}', style: const TextStyle(color: kCyan, fontSize: 16, fontWeight: FontWeight.w900)),
           ]),
         ),
       )).toList(),
