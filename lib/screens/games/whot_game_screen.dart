@@ -257,13 +257,10 @@ class _DummySocket extends WhotSocketService {
 }
 
 // ── Bot service  (only 2 endpoints: /start_game + /get_move) ─────────────────
-//  /legal_actions is NO LONGER called on every move — too slow, causes deadlocks.
-//  Heuristic playability is used during the game; legal_actions only on deal.
 class _BotService {
   static String get _base => ApiConfig.botBaseUrl;
 
   Future<Map<String, dynamic>?> startGame() async {
-    // Warm up Render first (fire-and-forget, short timeout)
     try {
       await http.get(Uri.parse('$_base/')).timeout(const Duration(seconds: 4));
     } catch (_) {}
@@ -365,7 +362,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   List<WhotCard> _hand = [];
   int _oppCount = 4;
   WhotCard _topCard = WhotCard(shape: WhotShape.triangle, number: 14, id: '23');
-  bool _isMyTurn = false; // false until deal confirms who goes first
+  bool _isMyTurn = false;
   int _timerSec = 15;
   int _selectedIdx = -1;
   bool _showShapeChooser = false;
@@ -378,15 +375,14 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   // ── Bot / history ─────────────────────────────────────────────────────────
   final _BotService _bot = _BotService();
   List<int> _dealHistory = [];
-  List<int> _moveHistory = []; // moves AFTER deal
-  bool _botBusy = false; // single guard — replaces _isBotThinking
+  List<int> _moveHistory = [];
+  bool _botBusy = false;
   int _dealerAction = 54;
 
   // ── Heuristic legal state (used when /legal_actions not called) ───────────
-  // Just the top-card state; updated after every move.
   WhotShape _effectiveSuit = WhotShape.triangle;
   int _effectiveRank = 14;
-  int _pendingDraw = 0; // pick-2 / pick-3 accumulator
+  int _pendingDraw = 0;
 
   // ── Bokeh ─────────────────────────────────────────────────────────────────
   late List<_Bokeh> _bokeh;
@@ -394,7 +390,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
   Timer? _timer;
 
-  // ── Init ──────────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
@@ -437,7 +432,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     super.dispose();
   }
 
-  // ── Deal ──────────────────────────────────────────────────────────────────
   Future<void> _dealCards() async {
     setState(() {
       _isDealing = true;
@@ -463,7 +457,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     final dealerAction = rawDealHist.firstWhere((a) => a >= 54, orElse: () => 54);
     final oppCount = (result['opponent_hand_count'] as num).toInt();
 
-    // Determine who goes first from the legal field if present
     bool myTurn = true;
     final legalJson = result['legal'] as Map<String, dynamic>?;
     if (legalJson != null) {
@@ -493,12 +486,10 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     if (myTurn) {
       _startTimer();
     } else {
-      // Bot goes first immediately
       _runBotTurn();
     }
   }
 
-  // ── Timer ─────────────────────────────────────────────────────────────────
   void _startTimer() {
     _timer?.cancel();
     if (!mounted) return;
@@ -513,7 +504,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
           _timerSec--;
         } else {
           t.cancel();
-          // Timer expired — force draw then bot turn
           if (_isMyTurn && !_botBusy) {
             _forceDrawOnTimeout();
           }
@@ -524,14 +514,12 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
   void _forceDrawOnTimeout() {
     if (!mounted || _botBusy) return;
-    // Add a draw action for the human then let bot play
     _moveHistory.add(_kDraw);
     _addDrawnCards(1);
     setState(() => _isMyTurn = false);
     _runBotTurn();
   }
 
-  // ── Socket handlers ───────────────────────────────────────────────────────
   @override
   void onGameState(Map<String, dynamic> s) {
     if (!mounted) return;
@@ -644,11 +632,9 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   @override
   void onError(String m) => _toast(m);
 
-  // ── Heuristic: can this card be played? ───────────────────────────────────
   bool _canPlay(WhotCard c) {
     if (c.isWhot) return true;
     if (_pendingDraw > 0) {
-      // Must stack same rank or draw — only 2s on 2s, 5s on 5s
       return c.number == _effectiveRank;
     }
     return c.shape == _effectiveSuit || c.number == _effectiveRank;
@@ -663,10 +649,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     return out;
   }
 
-  // ── Play card ─────────────────────────────────────────────────────────────
   Future<void> _playCard({WhotShape? chosen, bool nominateOnly = false}) async {
     if (nominateOnly) {
-      // Called after Whot card was already removed from hand
       final nomAction = _kNomBase + _suitFromShape(chosen!);
       _moveHistory.add(nomAction);
       widget.socketService?.emitPlayCard(
@@ -722,10 +706,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     });
     HapticFeedback.lightImpact();
 
-    // Special cards that the PLAYER just played
     _handlePlayerSpecial(newRank);
 
-    // If Whot and no chosen shape yet, show picker before bot goes
     if (card.isWhot && chosen == null) {
       setState(() => _showShapeChooser = true);
       return;
@@ -760,7 +742,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     }
   }
 
-  // ── Draw card ─────────────────────────────────────────────────────────────
   Future<void> _drawCard() async {
     if (!_isMyTurn || _botBusy) return;
     _timer?.cancel();
@@ -782,7 +763,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     _runBotTurn();
   }
 
-  // ── Draw cards helper (uses real deck) ────────────────────────────────────
   void _addDrawnCards(int count) {
     final used = <int>{};
     for (final c in _hand) {
@@ -804,8 +784,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     }
   }
 
-  // ── Bot turn ──────────────────────────────────────────────────────────────
-  //  ONE HTTP call per turn. No /legal_actions. No recursive loops.
   Future<void> _runBotTurn() async {
     if (!mounted) return;
     if (_botBusy) {
@@ -815,7 +793,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     _botBusy = true;
 
     try {
-      await Future.delayed(const Duration(milliseconds: 400)); // small UX pause
+      await Future.delayed(const Duration(milliseconds: 400));
 
       final fullHistory = [_dealerAction, ..._dealHistory, ..._moveHistory];
       final action = await _bot.getMove(fullHistory);
@@ -823,7 +801,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       if (!mounted) return;
 
       if (action == null) {
-        // Network failure — give turn back, player can still play
         debugPrint('runBotTurn: getMove returned null, giving turn back');
         setState(() => _isMyTurn = true);
         _startTimer();
@@ -832,7 +809,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
       _moveHistory.add(action);
 
-      // ── Suit nomination ──────────────────────────────────────────────────
       if (action >= _kNomBase && action < _kNomBase + 5) {
         final shape = _shapeFromSuit(action - _kNomBase);
         setState(() {
@@ -846,7 +822,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         return;
       }
 
-      // ── Bot drew ─────────────────────────────────────────────────────────
       if (action == _kDraw) {
         setState(() {
           _oppCount++;
@@ -857,7 +832,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         return;
       }
 
-      // ── Bot played a card ─────────────────────────────────────────────────
       final played = _deckCard(action);
       setState(() {
         _topCard = played;
@@ -866,14 +840,11 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         if (_oppCount > 0) _oppCount--;
       });
 
-      // Handle special effects of bot's card on the human
       final humanContinues = _handleBotSpecial(played.number);
 
       if (!humanContinues) {
-        // Bot plays again (Hold On / Suspension on human / Whot card needs nomination)
-        // Wait briefly then recurse for next bot action
         await Future.delayed(const Duration(milliseconds: 600));
-        _botBusy = false; // release so _runBotTurn can run again
+        _botBusy = false;
         _runBotTurn();
         return;
       }
@@ -892,12 +863,11 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     }
   }
 
-  /// Returns true if it's now the human's turn.
   bool _handleBotSpecial(int rank) {
     switch (rank) {
       case 1:
         _toast('Hold On! ${widget.opponentName} plays again.');
-        return false; // bot plays again
+        return false;
       case 2:
         _pendingDraw = (_pendingDraw > 0 ? _pendingDraw : 0) + 2;
         _toast('Pick Two! You must pick $_pendingDraw or stack.');
@@ -908,7 +878,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         return true;
       case 8:
         _toast('Suspension! Your turn is skipped.');
-        return false; // bot plays again (skip human)
+        return false;
       case 14:
         _addDrawnCards(1);
         setState(() {});
@@ -916,7 +886,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         return true;
       case 20:
         _toast('Whot! ${widget.opponentName} is choosing a shape…');
-        return false; // bot will nominate on next action
+        return false;
       default:
         return true;
     }
@@ -943,6 +913,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     ));
   }
 
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0B0E1A),
@@ -957,14 +928,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  //  PORTRAIT  (Figma: Section 3 — 390×844)
-  // ─────────────────────────────────────────────────────────────────────────
   Widget _portrait() => SafeArea(
     child: Column(children: [
-
-      // ── HEADER ─────────────────────────────────────────────────────────
-      // Figma: title + prize at top, back arrow left
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         child: Row(children: [
@@ -973,7 +938,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
             child: Container(
               width: 37, height: 37,
               decoration: BoxDecoration(
-                // Figma section-5 exit btn: #FF5E00, rx=4
                 color: _orange,
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -999,12 +963,9 @@ class _WhotGameScreenState extends State<WhotGameScreen>
               ],
             ),
           ),
-          // Timer badge
           _TimerBadge(sec: _timerSec, myTurn: _isMyTurn && !_botBusy),
         ]),
       ),
-
-      // ── MAIN TABLE — Figma: y=99 x=25 w=340 h=662 rx=11 ───────────────
       Expanded(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -1016,32 +977,13 @@ class _WhotGameScreenState extends State<WhotGameScreen>
             ),
             child: Column(children: [
               const SizedBox(height: 12),
-
-              // ── BOT SECTION ──────────────────────────────────────────────
-              // Figma: opponent avatar + name + fanned face-down cards at top
               _oppSection(),
-
               const Spacer(),
-
-              // ── TOP CARD + DRAW PILE — centre ────────────────────────────
-              // Figma: big top-card display 100×100 #22D1EE rx=16
-              //        inner 80×80 #1E293B rx=16
-              //        draw pile left, discard right
               _centreArea(),
-
               const Spacer(),
-
-              // ── ACTION CHIPS ─────────────────────────────────────────────
-              // Figma: "Last Card" x=32 w=72 h=29 #FF5E00 rx=14
-              //        "Draw Card" x=266 w=93 h=29 #FF5E00 rx=14
               _actionChips(),
-
               const SizedBox(height: 10),
-
-              // ── HUMAN HAND ───────────────────────────────────────────────
-              // Figma: cards fanned at bottom, stagger right+slight-down
               _handFan(),
-
               const SizedBox(height: 12),
             ]),
           ),
@@ -1050,13 +992,11 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     ]),
   );
 
-  // ── OPPONENT SECTION ──────────────────────────────────────────────────────
   Widget _oppSection() => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Avatar + name
         Column(mainAxisSize: MainAxisSize.min, children: [
           _AvatarW(
             name: widget.opponentName,
@@ -1074,15 +1014,12 @@ class _WhotGameScreenState extends State<WhotGameScreen>
                 style: TextStyle(color: _cyan, fontSize: 10)),
         ]),
         const SizedBox(width: 12),
-        // Bot hand — fanned face-down
-        // Figma: 5 cards ~64×93 stagger x+28 y+13
         Expanded(
           child: SizedBox(
             height: 80,
             child: _OppFan(count: _oppCount),
           ),
         ),
-        // Card count badge
         Container(
           width: 36, height: 36,
           decoration: BoxDecoration(
@@ -1101,18 +1038,14 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     ),
   );
 
-  // ── CENTRE AREA ───────────────────────────────────────────────────────────
-  // Figma: draw pile (face-down stack) left, big top-card display right
   Widget _centreArea() => Row(
     mainAxisAlignment: MainAxisAlignment.center,
     children: [
-      // Draw pile — stacked face-down cards
       GestureDetector(
         onTap: (_isMyTurn && !_botBusy) ? _drawCard : null,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // Shadow cards beneath
             for (int i = 2; i >= 1; i--)
               Positioned(
                 left: i * 2.0, top: -(i * 2.0),
@@ -1126,7 +1059,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         ),
       ),
       const SizedBox(width: 24),
-      // Top card display — Figma: 100×100 #22D1EE rx=16, inner 80×80 #1E293B
       Container(
         width: 100, height: 100,
         decoration: BoxDecoration(
@@ -1154,8 +1086,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     ],
   );
 
-  // ── ACTION CHIPS ─────────────────────────────────────────────────────────
-  // Figma: "Last Card" 72×29 rx=14 #FF5E00  |  "Draw Card" 93×29 rx=14 #FF5E00
   Widget _actionChips() {
     final canCallCard = _hand.length == 1 && !_calledCard;
     final canDraw     = _isMyTurn && !_botBusy;
@@ -1165,7 +1095,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Last Card chip
           GestureDetector(
             onTap: canCallCard ? _callCard : null,
             child: AnimatedContainer(
@@ -1183,7 +1112,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
               ),
             ),
           ),
-          // Play selected card
           if (_selectedIdx >= 0 && _selectedIdx < _hand.length &&
               _canPlay(_hand[_selectedIdx]))
             GestureDetector(
@@ -1203,7 +1131,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
                 ),
               ),
             ),
-          // Draw card chip
           GestureDetector(
             onTap: canDraw ? _drawCard : null,
             child: AnimatedContainer(
@@ -1226,12 +1153,10 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     );
   }
 
-  // ── HUMAN HAND FAN ────────────────────────────────────────────────────────
-  // Figma: cards fanned at bottom, face-up, stagger right+slight-down
   Widget _handFan() {
     final playable = _playableIndices();
     return SizedBox(
-      height: 130,
+      height: 160,
       child: _FanHand(
         cards: _hand,
         selected: _selectedIdx,
@@ -1266,20 +1191,17 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       ),
       Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          // Bot hand at top (compact)
           SizedBox(
             height: 70,
             child: _OppFan(count: _oppCount),
           ),
           const SizedBox(height: 16),
-          // Centre: draw + top card side by side
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             GestureDetector(
               onTap: (_isMyTurn && !_botBusy) ? _drawCard : null,
               child: _CardW(card: WhotCard.faceDown(), w: 44, h: 64),
             ),
             const SizedBox(width: 16),
-            // Compact top card: Figma 74×74 #22D1EE rx=12
             Container(
               width: 74, height: 74,
               decoration: BoxDecoration(
@@ -1298,7 +1220,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
               ),
             ),
             const SizedBox(width: 16),
-            // Last-card badge: Figma 50×20 #FF5E00 rx=10
             GestureDetector(
               onTap: (_hand.length == 1 && !_calledCard) ? _callCard : null,
               child: Container(
@@ -1317,7 +1238,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
             ),
           ]),
           const SizedBox(height: 16),
-          // Human hand
           SizedBox(
             height: 80,
             child: _FanHand(
@@ -1443,7 +1363,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  TIMER BADGE — top-right of header
+//  TIMER BADGE
 // ─────────────────────────────────────────────────────────────────────────────
 class _TimerBadge extends StatelessWidget {
   final int sec;
@@ -1470,6 +1390,7 @@ class _TimerBadge extends StatelessWidget {
   );
 }
 
+// ── REPLACED FANHAND WIDGET CLASS ────────────────────────────────────────────
 class _FanHand extends StatelessWidget {
   final List<WhotCard> cards;
   final int selected;
@@ -1477,36 +1398,42 @@ class _FanHand extends StatelessWidget {
   final Set<int> playable;
   final ValueChanged<int> onTap;
 
-  const _FanHand(
-      {required this.cards,
-      required this.selected,
-      required this.myTurn,
-      required this.playable,
-      required this.onTap});
+  const _FanHand({
+    required this.cards,
+    required this.selected,
+    required this.myTurn,
+    required this.playable,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final n = cards.length;
     if (n == 0) return const SizedBox.shrink();
+
     const cardW = 62.0, cardH = 88.0;
-    final spread = 40.0 * min(1.0, n / 6);
-    final step = n > 1 ? spread / (n - 1) : 0.0;
-    const r = 320.0;
+
+    // 100° total spread, scales down for small hands to avoid gap
+    final spread = 100.0 * min(1.0, n / 6.0);
+    final step   = n > 1 ? spread / (n - 1) : 0.0;
+
+    // r=180 verified to fit within 340px table at 6 cards (338px total)
+    const r = 180.0;
 
     return SizedBox(
-      height: 140,
+      height: 160,
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: List.generate(n, (i) {
           final deg = -spread / 2 + i * step;
           final rad = deg * pi / 180;
-          final dx = r * sin(rad);
-          final dy = -r * (1 - cos(rad)) * 0.35;
+          final dx  = r * sin(rad);
+          final dy  = -r * (1 - cos(rad)) * 0.18;
           final sel = selected == i;
-          final ok = !myTurn || playable.isEmpty || playable.contains(i);
+          final ok  = !myTurn || playable.isEmpty || playable.contains(i);
 
           return Positioned(
-            bottom: sel ? 20 : 0,
+            bottom: sel ? 22 : 0,
             child: Transform.translate(
               offset: Offset(dx, dy),
               child: Transform.rotate(
@@ -1514,13 +1441,15 @@ class _FanHand extends StatelessWidget {
                 child: GestureDetector(
                   onTap: () => onTap(i),
                   child: Opacity(
-                      opacity: ok ? 1.0 : 0.38,
-                      child: _CardW(
-                          card: cards[i],
-                          w: cardW,
-                          h: cardH,
-                          selected: sel,
-                          glowOrange: sel && ok)),
+                    opacity: ok ? 1.0 : 0.38,
+                    child: _CardW(
+                      card: cards[i],
+                      w: cardW,
+                      h: cardH,
+                      selected: sel,
+                      glowOrange: sel && ok,
+                    ),
+                  ),
                 ),
               ),
             ),
