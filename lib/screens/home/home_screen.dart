@@ -20,9 +20,9 @@ String _avatarEmoji(String avatar) =>
 
 // ── Game routing ─────────────────────────────────────────────────────────────
 const Map<String, String> kGameAssets = {
-  'whot':     'assets/games/whot.jpg',
-  'ludo':     'assets/games/ludo.png',
-  'ayo':      'assets/games/ayo.jpg',
+  'whot':      'assets/games/whot.jpg',
+  'ludo':      'assets/games/ludo.png',
+  'ayo':       'assets/games/ayo.jpg',
   'draughts': 'assets/games/draughts.jpg',
 };
 
@@ -78,7 +78,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 return CustomScrollView(
                   slivers: [
                     // ── TOP NAV BAR ────────────────────────────────────────
-                    // Figma: y=53, avatar 38x38 circle, 2x icon buttons 40x40 cyan rounded-20
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -115,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ],
                               ),
                             ),
-                            // Notification btn — cyan circle, Figma: 40x40 rx=20 #22D1EE
+                            // Notification btn
                             _TopBtn(
                               icon: Icons.notifications_outlined,
                               onTap: () => Navigator.push(context,
@@ -123,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               badge: true,
                             ),
                             const SizedBox(width: 8),
-                            // Settings btn — cyan circle
+                            // Settings btn
                             _TopBtn(
                               icon: Icons.settings_outlined,
                               onTap: () => Navigator.push(context,
@@ -157,7 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
 
-                    // ── STAT CARDS — Figma: y=163, 2x cards 163×78 #22D1EE rx=8 ─
+                    // ── STAT CARDS ─────────────────────────────────────────
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
@@ -183,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
 
-                    // ── FEATURED TOURNAMENTS ─ Figma: y=284, 2x cards 270×160 dark gradient
+                    // ── FEATURED TOURNAMENTS ────────────────────────────────
                     const SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(16, 24, 16, 10),
@@ -215,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
 
-                    // ── GAMES GRID ─ Figma: y=490, 3x tiles 150×149 #22D1EE rx=12 ─
+                    // ── GAMES GRID ─────────────────────────────────────────
                     const SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
@@ -242,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
 
-                    // ── LEADERBOARD MINI ─ Figma: y=699, tab bar #1E293B, active tab #22D1EE
+                    // ── LEADERBOARD MINI ────────────────────────────────────
                     const SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(16, 24, 16, 10),
@@ -276,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // ════════════════════════════════════════════════════════════════
-//  TOP BUTTON — Figma: 40×40, rx=20, fill=#22D1EE
+//  TOP BUTTON
 // ════════════════════════════════════════════════════════════════
 class _TopBtn extends StatelessWidget {
   final IconData icon;
@@ -291,7 +290,6 @@ class _TopBtn extends StatelessWidget {
       Container(
         width: 40, height: 40,
         decoration: BoxDecoration(
-          // Figma: #22D1EE fill, circular
           color: kCyan,
           shape: BoxShape.circle,
         ),
@@ -313,7 +311,7 @@ class _TopBtn extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-//  STAT CARD — Figma: 163×78, #22D1EE fill, rx=8
+//  STAT CARD
 // ════════════════════════════════════════════════════════════════
 class _StatCard extends StatelessWidget {
   final String label, value, sub;
@@ -326,7 +324,6 @@ class _StatCard extends StatelessWidget {
     height: 78,
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     decoration: BoxDecoration(
-      // Figma: exact fill #22D1EE
       color: kCyan,
       borderRadius: BorderRadius.circular(8),
     ),
@@ -387,8 +384,7 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-//  TOURNAMENT CARD — Figma: 270×160, dark gradient, rx=8
-//  Two chips: green "Live"  +  white/transparent timer chip
+//  TOURNAMENT CARD
 // ════════════════════════════════════════════════════════════════
 class _TournamentCard extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -398,8 +394,8 @@ class _TournamentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final title     = data['title']       as String? ?? 'Tournament';
     final prize     = data['prizePool']   as String? ?? '0';
-    final players   = data['playerCount'] as int?    ?? 0;
-    final active    = data['active']      as bool?   ?? false;
+    final players   = data['playerCount'] as int?     ?? 0;
+    final active    = data['active']      as bool?    ?? false;
     final assetKey  = (data['assetKey']   as String? ?? 'whot').toLowerCase();
     final asset     = _assetFor(assetKey) ?? kGameAssets['whot']!;
 
@@ -408,16 +404,13 @@ class _TournamentCard extends StatelessWidget {
       height: 160,
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
-        // Figma: #0F172A base fill, then image pattern, then linear gradient overlay
         color: const Color(0xFF0F172A),
         borderRadius: BorderRadius.circular(8),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Stack(fit: StackFit.expand, children: [
-          // Game image background
           Image.asset(asset, fit: BoxFit.cover),
-          // Gradient overlay — Figma: linear from transparent → #0F172A
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -432,20 +425,17 @@ class _TournamentCard extends StatelessWidget {
               ),
             ),
           ),
-          // Content
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Chips row — Figma: green chip rx=9 #2AE500, white chip rx=9
                 Row(children: [
                   if (active) _Chip(label: '● Live', color: const Color(0xFF2AE500)),
                   if (active) const SizedBox(width: 8),
                   _Chip(label: '$players Players', color: Colors.white),
                 ]),
                 const Spacer(),
-                // Title
                 Text(title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -453,7 +443,6 @@ class _TournamentCard extends StatelessWidget {
                         color: Colors.white,
                         fontSize: 15, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 4),
-                // Prize
                 Row(children: [
                   const Text('Prize Pool  ',
                       style: TextStyle(color: Color(0xFF9A9A9A), fontSize: 11)),
@@ -484,12 +473,12 @@ class _Chip extends StatelessWidget {
       border: Border.all(color: color.withOpacity(0.6)),
     ),
     child: Text(label, style: TextStyle(
-        color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+      color: color, fontSize: 10, fontWeight: FontWeight.w700)),
   );
 }
 
 // ════════════════════════════════════════════════════════════════
-//  GAMES GRID — Figma: 3 tiles per row, each ~150×149, #22D1EE rx=12
+//  GAMES GRID
 // ════════════════════════════════════════════════════════════════
 class _GamesGrid extends StatelessWidget {
   final List<Map<String, dynamic>> games;
@@ -505,7 +494,6 @@ class _GamesGrid extends StatelessWidget {
         crossAxisCount: 3,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        // Figma tile: 150×149 ≈ square
         childAspectRatio: 149 / 149,
       ),
       itemCount: games.length,
@@ -536,9 +524,21 @@ class _GameTile extends StatelessWidget {
     if (assetKey.contains('ludo')) {
       gameKey = 'ludo'; gameScreen = const LudoGameScreen();
     } else if (assetKey.contains('ayo')) {
-      gameKey = 'ayo'; gameScreen = const AyoGameScreen();
+      gameKey = 'ayo'; 
+      gameScreen = AyoGameScreen(
+        roomId: 'single_player_ai_room',
+        playerId: uid,
+        playerName: 'You',
+        opponentName: 'Gamearn Bot',
+      );
     } else if (assetKey.contains('draft')) {
-      gameKey = 'draughts'; gameScreen = const DraughtsGameScreen();
+      gameKey = 'draughts'; 
+      gameScreen = DraughtsGameScreen(
+        roomId: 'single_player_ai_room',
+        playerId: uid,
+        playerName: 'You',
+        opponentName: 'Gamearn Bot',
+      );
     }
 
     return GestureDetector(
@@ -548,17 +548,14 @@ class _GameTile extends StatelessWidget {
               playCount: count))),
       child: Container(
         decoration: BoxDecoration(
-          // Figma: #22D1EE fill, rx=12
           color: kCyan,
           borderRadius: BorderRadius.circular(12),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: Stack(fit: StackFit.expand, children: [
-            // Game image
             if (asset != null)
               Image.asset(asset, fit: BoxFit.cover),
-            // Dark overlay so text is legible
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -569,7 +566,6 @@ class _GameTile extends StatelessWidget {
                 ),
               ),
             ),
-            // Game name + play count at bottom
             Positioned(
               left: 8, right: 8, bottom: 8,
               child: Column(
@@ -599,9 +595,7 @@ class _GameTile extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-//  LEADERBOARD SECTION — Figma: tab bar y=699 #1E293B, active chip #22D1EE
-//  tab bar 342×28 rx=8; active tab 83×20 rx=6 #22D1EE
-//  cta button y=743 342×43 #22D1EE rx=8; secondary y=794 342×43 #1E293B rx=8
+//  LEADERBOARD SECTION
 // ════════════════════════════════════════════════════════════════
 class _LeaderboardSection extends StatefulWidget {
   const _LeaderboardSection();
@@ -625,7 +619,6 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Tab row — Figma: 342×28 container #1E293B rx=8, active chip 83×20 #22D1EE rx=6
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Container(
@@ -662,7 +655,6 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
         ),
         const SizedBox(height: 12),
 
-        // Leaderboard rows
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('leaderboard')
@@ -740,11 +732,9 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
 
         const SizedBox(height: 16),
 
-        // CTA buttons — Figma: y=743 342×43 #22D1EE rx=8 + y=794 342×43 #1E293B rx=8
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(children: [
-            // Primary CTA
             Container(
               width: double.infinity, height: 43,
               decoration: BoxDecoration(
@@ -757,7 +747,6 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
               ),
             ),
             const SizedBox(height: 8),
-            // Secondary CTA
             Container(
               width: double.infinity, height: 43,
               decoration: BoxDecoration(
