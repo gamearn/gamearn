@@ -132,10 +132,32 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
   Future<void> _startGame() async {
     HapticFeedback.heavyImpact();
     if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => LudoGameScreen(tokenCount: _tokens),
+    _showMatchmakingDialog('ludo');
+    await MatchmakingService.joinQueue(
+      gameType: 'ludo',
+      entryFee: EntryFees.get('ludo', 'beginner'),
+    );
+  }
+
+  void _showMatchmakingDialog(String gameType) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _MatchmakingDialog(
+        gameType: gameType,
+        onMatchFound: (roomId, opponent, prizePool) {
+          Navigator.pop(context); // close dialog
+          final uid  = FirebaseAuth.instance.currentUser?.uid ?? '';
+          final name = FirebaseAuth.instance.currentUser?.displayName ?? 'Player';
+          Navigator.push(context, MaterialPageRoute(builder: (_) {
+            switch (gameType) {
+              case 'ludo':
+                return LudoGameScreen(tokenCount: _tokens);
+              default:
+                return LudoGameScreen(tokenCount: _tokens);
+            }
+          }));
+        },
       ),
     );
   }
@@ -178,18 +200,33 @@ class _DrafuSetupScreenState extends State<DrafuSetupScreen> {
 
   Future<void> _startGame() async {
     HapticFeedback.heavyImpact();
-    final roomId = 'match_room_${DateTime.now().millisecondsSinceEpoch}';
     if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => DraughtsGameScreen(
-          roomId: roomId,
-          playerId: 'player_main',
-          opponentName: 'Challenger',
-          prizePool: '\$70.00',
-          onBack: () => Navigator.pop(context),
-        ),
+    _showMatchmakingDialog('draughts');
+    await MatchmakingService.joinQueue(
+      gameType: 'draughts',
+      entryFee: EntryFees.get('draughts', 'beginner'),
+    );
+  }
+
+  void _showMatchmakingDialog(String gameType) {
+    final uid  = FirebaseAuth.instance.currentUser?.uid ?? '';
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _MatchmakingDialog(
+        gameType: gameType,
+        onMatchFound: (roomId, opponent, prizePool) {
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => DraughtsGameScreen(
+              roomId:       roomId,
+              playerId:     uid,
+              opponentName: opponent['displayName'] as String? ?? 'Challenger',
+              prizePool:    EntryFees.naira(prizePool * 2),
+              onBack:       () => Navigator.pop(context),
+            ),
+          ));
+        },
       ),
     );
   }
@@ -232,18 +269,33 @@ class _AyoSetupScreenState extends State<AyoSetupScreen> {
 
   Future<void> _startGame() async {
     HapticFeedback.heavyImpact();
-    final roomId = 'match_room_${DateTime.now().millisecondsSinceEpoch}';
     if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AyoGameScreen(
-          roomId: roomId,
-          playerId: 'player_main',
-          opponentName: 'Challenger',
-          prizePool: '\$70.00',
-          onBack: () => Navigator.pop(context),
-        ),
+    _showMatchmakingDialog('ayo');
+    await MatchmakingService.joinQueue(
+      gameType: 'ayo',
+      entryFee: EntryFees.get('ayo', 'beginner'),
+    );
+  }
+
+  void _showMatchmakingDialog(String gameType) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _MatchmakingDialog(
+        gameType: gameType,
+        onMatchFound: (roomId, opponent, prizePool) {
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => AyoGameScreen(
+              roomId:       roomId,
+              playerId:     uid,
+              opponentName: opponent['displayName'] as String? ?? 'Challenger',
+              prizePool:    EntryFees.naira(prizePool * 2),
+              onBack:       () => Navigator.pop(context),
+            ),
+          ));
+        },
       ),
     );
   }
@@ -505,22 +557,35 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
 
   Future<void> _startGame() async {
     HapticFeedback.heavyImpact();
-    final uid  = FirebaseAuth.instance.currentUser?.uid  ?? 'player_main';
-    final name = FirebaseAuth.instance.currentUser?.displayName ?? 'Player';
-    final roomId = 'match_room_${DateTime.now().millisecondsSinceEpoch}';
     if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => WhotGameScreen(
-          roomId:        roomId,
-          playerId:      uid,
-          playerName:    name,
-          opponentName:  'Challenger',
-          prizePool:     '\$30.00',
-          socketService: GamearnSocketService(), // real socket — not _DummySocket
-          onBack: () => Navigator.pop(context),
-        ),
+    _showMatchmakingDialog('whot');
+    await MatchmakingService.joinQueue(
+      gameType: 'whot',
+      entryFee: EntryFees.get('whot', 'beginner'),
+    );
+  }
+
+  void _showMatchmakingDialog(String gameType) {
+    final uid  = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final name = FirebaseAuth.instance.currentUser?.displayName ?? 'Player';
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _MatchmakingDialog(
+        gameType: gameType,
+        onMatchFound: (roomId, opponent, prizePool) {
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => WhotGameScreen(
+              roomId:        roomId,
+              playerId:      uid,
+              playerName:    name,
+              opponentName:  opponent['displayName'] as String? ?? 'Challenger',
+              prizePool:     EntryFees.naira(prizePool * 2),
+              onBack:        () => Navigator.pop(context),
+            ),
+          ));
+        },
       ),
     );
   }
@@ -1227,4 +1292,161 @@ int _timerSeconds(double v) {
   if (v <= 1.0) return 60;
   if (v <= 2.0) return 120;
   return 180;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MATCHMAKING DIALOG
+//  Shown while searching for opponent.
+//  Connects socket, listens for 'match_found', then calls onMatchFound.
+//  Cancel button leaves queue and disconnects socket.
+// ════════════════════════════════════════════════════════════════
+
+class _MatchmakingDialog extends StatefulWidget {
+  final String gameType;
+  final void Function(String roomId, Map<String, dynamic> opponent, int prizePool) onMatchFound;
+
+  const _MatchmakingDialog({
+    required this.gameType,
+    required this.onMatchFound,
+  });
+
+  @override
+  State<_MatchmakingDialog> createState() => _MatchmakingDialogState();
+}
+
+class _MatchmakingDialogState extends State<_MatchmakingDialog>
+    implements GameEventHandler {
+  final _socket = GamearnSocketService();
+  int _elapsed = 0;
+  Timer? _ticker;
+  String _status = 'Searching for opponent...';
+
+  @override
+  void initState() {
+    super.initState();
+    _socket.connect(this);
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _elapsed++);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    _socket.disconnect();
+    super.dispose();
+  }
+
+  String get _elapsed_fmt {
+    final m = _elapsed ~/ 60;
+    final s = _elapsed % 60;
+    return m > 0 ? '${m}m ${s}s' : '${s}s';
+  }
+
+  Future<void> _cancel() async {
+    await MatchmakingService.leaveQueue(widget.gameType);
+    await _socket.disconnect();
+    if (mounted) Navigator.pop(context);
+  }
+
+  // ── GameEventHandler callbacks ────────────────────────────────
+
+  @override
+  void onConnected() {
+    if (mounted) setState(() => _status = 'Connected — searching...');
+  }
+
+  @override
+  void onMatchFound(String roomId, Map<String, dynamic> opponent, int prizePool) {
+    if (mounted) setState(() => _status = 'Match found! Joining room...');
+    _socket.joinRoom(roomId, onAck: (data) {
+      widget.onMatchFound(roomId, opponent, prizePool);
+    });
+  }
+
+  @override
+  void onError(String message) {
+    if (mounted) setState(() => _status = 'Error: $message');
+  }
+
+  @override void onDisconnected(String reason) {
+    if (mounted) setState(() => _status = 'Disconnected: $reason');
+  }
+
+  // Unused in this context — game hasn't started yet
+  @override void onMatchStarted(Map<String, dynamic> gs, int ef, int pp) {}
+  @override void onMatchAborted(String reason) {
+    if (mounted) {
+      setState(() => _status = 'Match cancelled: $reason');
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) Navigator.pop(context);
+      });
+    }
+  }
+  @override void onMoveMade(String u, Map m, Map gs, bool over) {}
+  @override void onGameOver(String? w, int p, String r) {}
+  @override void onGameStateSync(Map<String, dynamic> gs) {}
+  @override void onPlayerJoined(String u, String n) {}
+  @override void onOpponentDisconnected(int g) {}
+  @override void onOpponentReconnected() {}
+  @override void onOpponentForfeited(String? w) {}
+  @override void onRematchRequested() {}
+  @override void onRematchAccepted(String r) {}
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: const Color(0xFF16223F),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Animated cyan spinner
+            const SizedBox(
+              width: 48, height: 48,
+              child: CircularProgressIndicator(
+                color: Color(0xFF22D1EE),
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text('Finding Match',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text(_status,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    color: Color(0xFF94A3B8), fontSize: 13)),
+            const SizedBox(height: 4),
+            Text(_elapsed_fmt,
+                style: const TextStyle(
+                    color: Color(0xFF22D1EE),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 24),
+            GestureDetector(
+              onTap: _cancel,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0x6694A3B8)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text('Cancel',
+                    style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
