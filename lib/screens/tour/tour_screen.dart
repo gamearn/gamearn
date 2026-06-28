@@ -4,6 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 import 'tournament_details_screen.dart';
 import 'tournament_entry_screen.dart';
+import 'create_tournament_screen.dart';
+import 'tournament_pending_screen.dart';
+import 'tournament_results_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  TOUR SCREEN  — Figma matched (390×844)
@@ -139,12 +142,23 @@ class _TourScreenState extends State<TourScreen> {
                     final data =
                         docs[i].data() as Map<String, dynamic>;
                     data['id'] = docs[i].id;
+                    final tStatus = data['status'] as String? ?? 'upcoming';
+                    final tId     = docs[i].id;
+                    final tTitle  = data['title'] as String? ?? 'Tournament';
                     return _TourCard(
                       data: data,
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(
-                              builder: (_) => TournamentDetailsScreen(
-                                  tournamentId: docs[i].id))),
+                      onTap: () {
+                        Widget dest;
+                        if (tStatus == 'pending') {
+                          dest = TournamentPendingScreen(tournamentId: tId);
+                        } else if (tStatus == 'completed') {
+                          dest = TournamentResultsScreen(tournamentId: tId);
+                        } else {
+                          dest = TournamentDetailsScreen(tournamentId: tId);
+                        }
+                        Navigator.push(context,
+                            MaterialPageRoute(builder: (_) => dest));
+                      },
                     );
                   },
                 );
@@ -187,14 +201,9 @@ class _TourScreenState extends State<TourScreen> {
   );
 
   void _showCreateSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF0F172A),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius:
-              BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => const _CreateTournamentSheet(),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CreateTournamentScreen()),
     );
   }
 }
