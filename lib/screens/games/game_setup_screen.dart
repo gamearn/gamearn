@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'ludo_game_screen.dart';
 import 'ayo_game_screen.dart';
 import 'draughts_game_screen.dart';
 import 'whot_game_screen.dart';
+import '../../services/socket_service.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  GAME SETUP SCREENS — Pixel-perfect Figma match × 4 games
@@ -503,16 +505,20 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
 
   Future<void> _startGame() async {
     HapticFeedback.heavyImpact();
+    final uid  = FirebaseAuth.instance.currentUser?.uid  ?? 'player_main';
+    final name = FirebaseAuth.instance.currentUser?.displayName ?? 'Player';
     final roomId = 'match_room_${DateTime.now().millisecondsSinceEpoch}';
     if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => WhotGameScreen(
-          roomId: roomId,
-          playerId: 'player_main',
-          opponentName: 'Challenger',
-          prizePool: '\$30.00',
+          roomId:        roomId,
+          playerId:      uid,
+          playerName:    name,
+          opponentName:  'Challenger',
+          prizePool:     '\$30.00',
+          socketService: GamearnSocketService(), // real socket — not _DummySocket
           onBack: () => Navigator.pop(context),
         ),
       ),
