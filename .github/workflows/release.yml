@@ -46,7 +46,7 @@ jobs:
           echo "storeFile=upload-keystore.jks" >> android/key.properties
 
       - name: 🏗️ Build release APK (Signed)
-        run: flutter build apk --release --no-tree-shake-icons
+        run: flutter build apk --release --no-tree-shake-icons --dart-define=BOT_API_BASE=${{ secrets.BOT_API_BASE }} --dart-define=NODE_API_BASE=${{ secrets.NODE_API_BASE }}
 
       - name: ✏️ Rename APK with version tag
         run: |
