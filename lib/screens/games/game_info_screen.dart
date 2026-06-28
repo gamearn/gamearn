@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import 'game_lobby_screen.dart';
+import 'game_setup_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  GAME INFO SCREEN — Figma matched
@@ -301,12 +302,30 @@ class _GameInfoScreenState extends State<GameInfoScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
               child: GestureDetector(
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(
-                        builder: (_) => GameLobbyScreen(
+                onTap: () {
+                    Widget dest;
+                    switch (widget.gameKey) {
+                      case 'ludo':
+                        dest = const LudoSetupScreen();
+                        break;
+                      case 'draughts':
+                        dest = const DrafuSetupScreen();
+                        break;
+                      case 'ayo':
+                        dest = const AyoSetupScreen();
+                        break;
+                      case 'whot':
+                        dest = const WhotSetupScreen();
+                        break;
+                      default:
+                        dest = GameLobbyScreen(
                             gameTitle: _meta.title,
                             gameScreen: widget.gameScreen,
-                            gameKey: widget.gameKey))),
+                            gameKey: widget.gameKey);
+                    }
+                    Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => dest));
+                  },
                 child: Container(
                   height: 56,
                   decoration: BoxDecoration(
