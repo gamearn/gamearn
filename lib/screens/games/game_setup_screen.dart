@@ -7,7 +7,6 @@ import 'ayo_game_screen.dart';
 import 'draughts_game_screen.dart';
 import 'whot_game_screen.dart';
 import '../../services/socket_service.dart';
-import 'dart:async';
 
 // ════════════════════════════════════════════════════════════════
 //  GAME SETUP SCREENS — Pixel-perfect Figma match × 4 games
@@ -66,6 +65,7 @@ class LudoSetupScreen extends StatefulWidget {
 }
 
 class _LudoSetupScreenState extends State<LudoSetupScreen> {
+  bool   _vsBot   = false;
   int _players    = 4;   // 2 or 4
   int _tokens     = 4;   // 1-4
   double _timer   = 2.0; // 0.5=30s 1=1m 2=2m 3=3m
@@ -82,6 +82,13 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
       entryFee: '\$70.00',
       onStart: _startGame,
       sections: [
+        // ── vs Bot toggle ─────────────────────────────────────────
+        _VsBotToggle(
+          vsBot: _vsBot,
+          onChanged: (v) => setState(() => _vsBot = v),
+        ),
+        const SizedBox(height: 24),
+
         // ── Players Selection ─────────────────────────────────────
         // node 1850:6246 — Players icon 24×12, h=48 bg rgba(30,41,59,0.5)
         // active: bg #22D1EE rx=6 text #0B0E1A | inactive: transparent rx=8 text white
@@ -133,6 +140,13 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
   Future<void> _startGame() async {
     HapticFeedback.heavyImpact();
     if (!mounted) return;
+    if (_vsBot) {
+      // Bot play — skip matchmaking, go straight to game
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => LudoGameScreen(tokenCount: _tokens),
+      ));
+      return;
+    }
     _showMatchmakingDialog('ludo');
     await MatchmakingService.joinQueue(
       gameType: 'ludo',
@@ -147,17 +161,10 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
       builder: (_) => _MatchmakingDialog(
         gameType: gameType,
         onMatchFound: (roomId, opponent, prizePool) {
-          Navigator.pop(context); // close dialog
-          final uid  = FirebaseAuth.instance.currentUser?.uid ?? '';
-          final name = FirebaseAuth.instance.currentUser?.displayName ?? 'Player';
-          Navigator.push(context, MaterialPageRoute(builder: (_) {
-            switch (gameType) {
-              case 'ludo':
-                return LudoGameScreen(tokenCount: _tokens);
-              default:
-                return LudoGameScreen(tokenCount: _tokens);
-            }
-          }));
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => LudoGameScreen(tokenCount: _tokens),
+          ));
         },
       ),
     );
@@ -176,6 +183,7 @@ class DrafuSetupScreen extends StatefulWidget {
 }
 
 class _DrafuSetupScreenState extends State<DrafuSetupScreen> {
+  bool   _vsBot = false;
   double _timer = 2.0;
 
   @override
@@ -189,8 +197,10 @@ class _DrafuSetupScreenState extends State<DrafuSetupScreen> {
       lbPosition: '2,625',
       entryFee: '\$70.00',
       onStart: _startGame,
-      topGap: 40, // Figma: gap=40 between header and sections
+      topGap: 40,
       sections: [
+        _VsBotToggle(vsBot: _vsBot, onChanged: (v) => setState(() => _vsBot = v)),
+        const SizedBox(height: 24),
         _TurnTimerSection(
           value: _timer,
           onChanged: (v) => setState(() => _timer = v),
@@ -202,6 +212,19 @@ class _DrafuSetupScreenState extends State<DrafuSetupScreen> {
   Future<void> _startGame() async {
     HapticFeedback.heavyImpact();
     if (!mounted) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'player_main';
+    if (_vsBot) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => DraughtsGameScreen(
+          roomId: 'practice_bot',
+          playerId: uid,
+          opponentName: 'Gamearn AI Bot',
+          prizePool: 'Practice',
+          onBack: () => Navigator.pop(context),
+        ),
+      ));
+      return;
+    }
     _showMatchmakingDialog('draughts');
     await MatchmakingService.joinQueue(
       gameType: 'draughts',
@@ -245,6 +268,7 @@ class AyoSetupScreen extends StatefulWidget {
 }
 
 class _AyoSetupScreenState extends State<AyoSetupScreen> {
+  bool   _vsBot = false;
   double _timer = 2.0;
 
   @override
@@ -260,6 +284,8 @@ class _AyoSetupScreenState extends State<AyoSetupScreen> {
       onStart: _startGame,
       topGap: 40,
       sections: [
+        _VsBotToggle(vsBot: _vsBot, onChanged: (v) => setState(() => _vsBot = v)),
+        const SizedBox(height: 24),
         _TurnTimerSection(
           value: _timer,
           onChanged: (v) => setState(() => _timer = v),
@@ -271,6 +297,19 @@ class _AyoSetupScreenState extends State<AyoSetupScreen> {
   Future<void> _startGame() async {
     HapticFeedback.heavyImpact();
     if (!mounted) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'player_main';
+    if (_vsBot) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => AyoGameScreen(
+          roomId: 'practice_bot',
+          playerId: uid,
+          opponentName: 'Gamearn AI Bot',
+          prizePool: 'Practice',
+          onBack: () => Navigator.pop(context),
+        ),
+      ));
+      return;
+    }
     _showMatchmakingDialog('ayo');
     await MatchmakingService.joinQueue(
       gameType: 'ayo',
@@ -317,6 +356,7 @@ class WhotSetupScreen extends StatefulWidget {
 }
 
 class _WhotSetupScreenState extends State<WhotSetupScreen> {
+  bool   _vsBot         = false;
   int    _players       = 3;       // 2/3/4/5 — default 3 (active in Figma)
   bool   _continuous    = true;    // Continuous | Finish and count
   double _startCards    = 6.0;     // 4-8 — default 6
@@ -345,6 +385,10 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
       entryFee: '\$30.00',
       onStart: _startGame,
       sections: [
+        // ── vs Bot toggle ─────────────────────────────────────────
+        _VsBotToggle(vsBot: _vsBot, onChanged: (v) => setState(() => _vsBot = v)),
+        const SizedBox(height: 24),
+
         // ── Players Selection ─────────────────────────────────────
         // node 1863:1300 — icon 18.333×13.333
         // Players toggle: h=48 bg rgba(30,41,59,0.5) border #334155 rx=8 p=7
@@ -559,6 +603,21 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
   Future<void> _startGame() async {
     HapticFeedback.heavyImpact();
     if (!mounted) return;
+    final uid  = FirebaseAuth.instance.currentUser?.uid ?? 'player_main';
+    final name = FirebaseAuth.instance.currentUser?.displayName ?? 'Player';
+    if (_vsBot) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => WhotGameScreen(
+          roomId:        'practice_bot',
+          playerId:      uid,
+          playerName:    name,
+          opponentName:  'Gamearn AI Bot',
+          prizePool:     'Practice',
+          onBack:        () => Navigator.pop(context),
+        ),
+      ));
+      return;
+    }
     _showMatchmakingDialog('whot');
     await MatchmakingService.joinQueue(
       gameType: 'whot',
@@ -1293,6 +1352,113 @@ int _timerSeconds(double v) {
   if (v <= 1.0) return 60;
   if (v <= 2.0) return 120;
   return 180;
+}
+
+
+// ════════════════════════════════════════════════════════════════
+//  VS BOT TOGGLE
+//  Shown at top of every setup screen.
+//  Practice: bg rgba(34,209,238,0.1) border #22D1EE — free, no matchmaking
+//  Multiplayer: bg rgba(255,94,0,0.1) border #FF5E00 — entry fee applies
+// ════════════════════════════════════════════════════════════════
+
+class _VsBotToggle extends StatelessWidget {
+  final bool vsBot;
+  final ValueChanged<bool> onChanged;
+  const _VsBotToggle({required this.vsBot, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0x0D22D1EE),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x1A22D1EE)),
+      ),
+      child: Row(
+        children: [
+          // vs Bot
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onChanged(true),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: vsBot ? const Color(0xFF22D1EE) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Column(
+                  children: [
+                    Text('🤖',
+                        style: TextStyle(
+                            fontSize: 18,
+                            color: vsBot
+                                ? const Color(0xFF0B0E1A)
+                                : Colors.white)),
+                    const SizedBox(height: 4),
+                    Text('vs Bot',
+                        style: TextStyle(
+                            color: vsBot
+                                ? const Color(0xFF0B0E1A)
+                                : const Color(0x80FFFFFF),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700)),
+                    Text('Free practice',
+                        style: TextStyle(
+                            color: vsBot
+                                ? const Color(0xFF0B0E1A).withOpacity(0.6)
+                                : const Color(0x40FFFFFF),
+                            fontSize: 10)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Multiplayer
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onChanged(false),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: !vsBot ? const Color(0xFFFF5E00) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Column(
+                  children: [
+                    Text('🎮',
+                        style: TextStyle(
+                            fontSize: 18,
+                            color: !vsBot
+                                ? const Color(0xFF0B0E1A)
+                                : Colors.white)),
+                    const SizedBox(height: 4),
+                    Text('Multiplayer',
+                        style: TextStyle(
+                            color: !vsBot
+                                ? const Color(0xFF0B0E1A)
+                                : const Color(0x80FFFFFF),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700)),
+                    Text('Real money',
+                        style: TextStyle(
+                            color: !vsBot
+                                ? const Color(0xFF0B0E1A).withOpacity(0.6)
+                                : const Color(0x40FFFFFF),
+                            fontSize: 10)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ════════════════════════════════════════════════════════════════
