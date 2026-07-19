@@ -7,6 +7,7 @@ import 'ayo_game_screen.dart';
 import 'draughts_game_screen.dart';
 import 'whot_game_screen.dart';
 import '../../services/socket_service.dart';
+import 'dart:async';
 
 // ════════════════════════════════════════════════════════════════
 //  GAME SETUP SCREENS — Pixel-perfect Figma match × 4 games
