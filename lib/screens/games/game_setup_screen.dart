@@ -148,19 +148,16 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
       ));
       return;
     }
-    _showMatchmakingDialog('ludo');
-    await MatchmakingService.joinQueue(
-      gameType: 'ludo',
-      entryFee: EntryFees.get('ludo', 'beginner'),
-    );
+    _showMatchmakingDialog('ludo', EntryFees.get('ludo', 'beginner'));
   }
 
-  void _showMatchmakingDialog(String gameType) {
+  void _showMatchmakingDialog(String gameType, int entryFee) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => _MatchmakingDialog(
         gameType: gameType,
+        entryFee: entryFee,
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
           Navigator.push(context, MaterialPageRoute(
@@ -226,20 +223,17 @@ class _DrafuSetupScreenState extends State<DrafuSetupScreen> {
       ));
       return;
     }
-    _showMatchmakingDialog('draughts');
-    await MatchmakingService.joinQueue(
-      gameType: 'draughts',
-      entryFee: EntryFees.get('draughts', 'beginner'),
-    );
+    _showMatchmakingDialog('draughts', EntryFees.get('draughts', 'beginner'));
   }
 
-  void _showMatchmakingDialog(String gameType) {
+  void _showMatchmakingDialog(String gameType, int entryFee) {
     final uid  = FirebaseAuth.instance.currentUser?.uid ?? '';
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => _MatchmakingDialog(
         gameType: gameType,
+        entryFee: entryFee,
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
           Navigator.push(context, MaterialPageRoute(
@@ -311,20 +305,17 @@ class _AyoSetupScreenState extends State<AyoSetupScreen> {
       ));
       return;
     }
-    _showMatchmakingDialog('ayo');
-    await MatchmakingService.joinQueue(
-      gameType: 'ayo',
-      entryFee: EntryFees.get('ayo', 'beginner'),
-    );
+    _showMatchmakingDialog('ayo', EntryFees.get('ayo', 'beginner'));
   }
 
-  void _showMatchmakingDialog(String gameType) {
+  void _showMatchmakingDialog(String gameType, int entryFee) {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => _MatchmakingDialog(
         gameType: gameType,
+        entryFee: entryFee,
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
           Navigator.push(context, MaterialPageRoute(
@@ -619,14 +610,10 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
       ));
       return;
     }
-    _showMatchmakingDialog('whot');
-    await MatchmakingService.joinQueue(
-      gameType: 'whot',
-      entryFee: EntryFees.get('whot', 'beginner'),
-    );
+    _showMatchmakingDialog('whot', EntryFees.get('whot', 'beginner'));
   }
 
-  void _showMatchmakingDialog(String gameType) {
+  void _showMatchmakingDialog(String gameType, int entryFee) {
     final uid  = FirebaseAuth.instance.currentUser?.uid ?? '';
     final name = FirebaseAuth.instance.currentUser?.displayName ?? 'Player';
     showDialog(
@@ -634,6 +621,7 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
       barrierDismissible: false,
       builder: (_) => _MatchmakingDialog(
         gameType: gameType,
+        entryFee: entryFee,
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
           Navigator.push(context, MaterialPageRoute(
@@ -1471,10 +1459,12 @@ class _VsBotToggle extends StatelessWidget {
 
 class _MatchmakingDialog extends StatefulWidget {
   final String gameType;
+  final int entryFee;
   final void Function(String roomId, Map<String, dynamic> opponent, int prizePool) onMatchFound;
 
   const _MatchmakingDialog({
     required this.gameType,
+    required this.entryFee,
     required this.onMatchFound,
   });
 
@@ -1522,6 +1512,10 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
   @override
   void onConnected() {
     if (mounted) setState(() => _status = 'Connected — searching...');
+    MatchmakingService.joinQueue(
+      gameType: widget.gameType,
+      entryFee: widget.entryFee,
+    );
   }
 
   @override
