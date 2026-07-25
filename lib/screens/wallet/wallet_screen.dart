@@ -6,6 +6,7 @@ import '../../theme.dart';
 import 'withdraw_screen.dart';
 import 'transaction_history_screen.dart';
 import 'buy_coins_screen.dart';
+import 'sell_coins_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -189,7 +190,7 @@ class _WalletScreenState extends State<WalletScreen>
                   ),
                 ),
 
-                // ── Action buttons (Add Funds / Cash Out) ─────────────────
+                // ── Action buttons (Add Funds / Sell / Cash Out) ───────
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -219,7 +220,32 @@ class _WalletScreenState extends State<WalletScreen>
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const SellCoinsScreen()),
+                            ),
+                            icon: const Icon(Icons.sell_outlined,
+                                size: 18),
+                            label: const Text('Sell'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF00E676),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 14),
+                              side: const BorderSide(
+                                  color: Color(0xFF00E676)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              textStyle: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () => Navigator.push(
