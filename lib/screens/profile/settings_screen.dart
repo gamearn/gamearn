@@ -29,9 +29,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _sounds        = true;
   bool _vibration     = false;
 
-  bool get _darkMode {
+  String get _themeLabel {
     final f = ThemeNotifier.instance.forceDark;
-    return f ?? true;
+    if (f == null) return 'System';
+    return f ? 'Dark' : 'Light';
+  }
+
+  IconData get _themeIcon {
+    final f = ThemeNotifier.instance.forceDark;
+    if (f == null) return Icons.brightness_auto_outlined;
+    return f ? Icons.dark_mode_outlined : Icons.light_mode_outlined;
+  }
+
+  void _cycleTheme() {
+    final f = ThemeNotifier.instance.forceDark;
+    if (f == null) {
+      ThemeNotifier.instance.setTheme(true);   // system → dark
+    } else if (f == true) {
+      ThemeNotifier.instance.setTheme(false);  // dark → light
+    } else {
+      ThemeNotifier.instance.setTheme(null);   // light → system
+    }
   }
 
   @override
@@ -108,14 +126,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // ── SECTION 2: Account — Figma: 342×353 rx=12 #1E293B ──────
               _sectionLabel('Account'),
               _SectionCard(children: [
-                // Dark mode — toggle active = #22D1EE, off = #334155
-                _IconToggle(
-                  icon: _darkMode
-                      ? Icons.dark_mode_outlined
-                      : Icons.light_mode_outlined,
-                  label: 'Dark Mode',
-                  value: _darkMode,
-                  onChanged: (v) => ThemeNotifier.instance.setTheme(v),
+                // Theme — tap to cycle: System → Dark → Light → System
+                _IconNav(
+                  icon: _themeIcon,
+                  label: 'Theme  ($_themeLabel)',
+                  onTap: _cycleTheme,
                 ),
                 _divider(),
                 _IconToggle(

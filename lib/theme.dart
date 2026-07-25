@@ -107,10 +107,9 @@ class ThemeNotifier extends ChangeNotifier {
   ThemeNotifier._();
   static final ThemeNotifier instance = ThemeNotifier._();
 
-  // Default to dark — the entire app is designed dark-first.
-  // User can switch to light in Settings, but starting from system causes
-  // white-text-on-white-background bugs on light-mode devices.
-  bool? _forceDark = true;
+  // null = follow system, true = force dark, false = force light.
+  // Starts as null so the app respects the device theme on first launch.
+  bool? _forceDark;
 
   bool? get forceDark => _forceDark;
 
