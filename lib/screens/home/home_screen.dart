@@ -531,7 +531,7 @@ class _GameTile extends StatelessWidget {
         playerName: 'You',
         opponentName: 'Gamearn Bot',
       );
-    } else if (assetKey.contains('draft')) {
+    } else if (assetKey.contains('draught')) {
       gameKey = 'draughts'; 
       gameScreen = DraughtsGameScreen(
         roomId: 'single_player_ai_room',
