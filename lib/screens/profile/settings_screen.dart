@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 import 'account_security_screen.dart';
+import 'privacy_security_screen.dart';
+import 'language_screen.dart';
+import 'help_support_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  SETTINGS SCREEN — Figma matched (390×844)
@@ -133,13 +136,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _IconNav(
                   icon: Icons.privacy_tip_outlined,
                   label: 'Privacy & Security',
-                  onTap: () {},
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(
+                          builder: (_) => const PrivacySecurityScreen())),
                 ),
                 _divider(),
                 _IconNav(
                   icon: Icons.language_outlined,
                   label: 'Language',
-                  onTap: () {},
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(
+                          builder: (_) => const LanguageScreen())),
                 ),
               ]),
 
@@ -151,7 +158,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _IconNav(
                     icon: Icons.help_outline_rounded,
                     label: 'Help & Support',
-                    onTap: () {}),
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(
+                            builder: (_) => const HelpSupportScreen()))),
                 _divider(),
                 _IconNav(
                     icon: Icons.question_answer_outlined,

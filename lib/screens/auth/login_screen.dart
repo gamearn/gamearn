@@ -4,6 +4,7 @@ import '../../theme.dart';
 import '../../widgets/brand_logo.dart';
 import '../../services/social_auth_service.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -134,17 +135,21 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-                // Forgot password
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      // TODO: password reset
-                    },
-                    child: const Text('Forgot Password?',
-                        style: TextStyle(color: kCyan, fontSize: 13)),
+                  // Forgot password
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ForgotPasswordScreen()),
+                        );
+                      },
+                      child: const Text('Forgot Password?',
+                          style: TextStyle(color: kCyan, fontSize: 13)),
+                    ),
                   ),
-                ),
                 const SizedBox(height: 8),
 
                 // Login button
