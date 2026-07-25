@@ -11,7 +11,7 @@ class AdminDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
           // Header
@@ -29,9 +29,9 @@ class AdminDashboardScreen extends StatelessWidget {
                     color: kOrange, size: 22),
               ),
               const SizedBox(width: 14),
-              const Text('Admin Dashboard',
+              Text('Admin Dashboard',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 17,
                       fontWeight: FontWeight.w800)),
             ]),
@@ -86,9 +86,9 @@ class AdminDashboardScreen extends StatelessWidget {
                 const SizedBox(height: 24),
 
                 // Quick actions
-                const Text('QUICK ACTIONS',
+                Text('QUICK ACTIONS',
                     style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: context.txtSec,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
@@ -101,7 +101,7 @@ class AdminDashboardScreen extends StatelessWidget {
                     color: kOrange,
                     onTap: () {},
                   ),
-                  _divider(),
+                  _divider(context),
                   _ActionRow(
                     icon: Icons.people_outline_rounded,
                     label: 'Manage Users',
@@ -109,7 +109,7 @@ class AdminDashboardScreen extends StatelessWidget {
                     color: kCyan,
                     onTap: () {},
                   ),
-                  _divider(),
+                  _divider(context),
                   _ActionRow(
                     icon: Icons.emoji_events_outlined,
                     label: 'Tournament Overview',
@@ -122,9 +122,9 @@ class AdminDashboardScreen extends StatelessWidget {
                 const SizedBox(height: 24),
 
                 // Recent activity
-                const Text('RECENT ACTIVITY',
+                Text('RECENT ACTIVITY',
                     style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: context.txtSec,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
@@ -136,28 +136,28 @@ class AdminDashboardScreen extends StatelessWidget {
                     subtitle: 'kofi_92 joined via Google',
                     time: '2m ago',
                   ),
-                  _divider(),
+                  _divider(context),
                   _ActivityRow(
                     icon: Icons.emoji_events,
                     title: 'Tournament completed',
                     subtitle: 'Weekly Ludo #24 — ₦50K prize',
                     time: '15m ago',
                   ),
-                  _divider(),
+                  _divider(context),
                   _ActivityRow(
                     icon: Icons.account_balance_wallet_outlined,
                     title: 'Withdrawal processed',
                     subtitle: '₦25,000 to GTBank •••• 4521',
                     time: '32m ago',
                   ),
-                  _divider(),
+                  _divider(context),
                   _ActivityRow(
                     icon: Icons.sports_esports_outlined,
                     title: 'Game completed',
                     subtitle: 'Ayo — player1 vs player2',
                     time: '1h ago',
                   ),
-                  _divider(),
+                  _divider(context),
                   _ActivityRow(
                     icon: Icons.warning_amber_outlined,
                     title: 'Report filed',
@@ -175,8 +175,8 @@ class AdminDashboardScreen extends StatelessWidget {
     );
   }
 
-  static Widget _divider() =>
-      const Divider(height: 1, indent: 56, color: Color(0xFF334155));
+  Widget _divider(BuildContext context) =>
+      Divider(height: 1, indent: 56, color: context.border);
 }
 
 class _StatCard extends StatelessWidget {
@@ -199,9 +199,9 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: kBgCard,
+        color: context.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kBorder),
+        border: Border.all(color: context.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,14 +218,14 @@ class _StatCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(value,
-              style: const TextStyle(
-                  color: Colors.white,
+              style: TextStyle(
+                  color: context.txtPri,
                   fontSize: 22,
                   fontWeight: FontWeight.w800)),
           const SizedBox(height: 2),
           Text(label,
-              style: const TextStyle(
-                  color: Color(0xFF94A3B8), fontSize: 11)),
+              style: TextStyle(
+                  color: context.txtSec, fontSize: 11)),
           const SizedBox(height: 2),
           Text(change,
               style: TextStyle(color: color, fontSize: 10)),
@@ -242,7 +242,7 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: kBgCard,
+          color: context.card,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(children: children),
@@ -279,15 +279,15 @@ class _ActionRow extends StatelessWidget {
           child: Icon(icon, color: color, size: 20),
         ),
         title: Text(label,
-            style: const TextStyle(
-                color: Colors.white,
+            style: TextStyle(
+                color: context.txtPri,
                 fontSize: 14,
                 fontWeight: FontWeight.w500)),
         subtitle: Text(subtitle,
-            style: const TextStyle(
-                color: Color(0xFF64748B), fontSize: 11)),
-        trailing: const Icon(Icons.chevron_right_rounded,
-            color: Color(0xFF475569), size: 20),
+            style: TextStyle(
+                color: context.txtSec, fontSize: 11)),
+        trailing: Icon(Icons.chevron_right_rounded,
+            color: context.txtSec, size: 20),
       );
 }
 
@@ -318,15 +318,15 @@ class _ActivityRow extends StatelessWidget {
           child: Icon(icon, color: kCyan, size: 20),
         ),
         title: Text(title,
-            style: const TextStyle(
-                color: Colors.white,
+            style: TextStyle(
+                color: context.txtPri,
                 fontSize: 13,
                 fontWeight: FontWeight.w600)),
         subtitle: Text(subtitle,
-            style: const TextStyle(
-                color: Color(0xFF64748B), fontSize: 11)),
+            style: TextStyle(
+                color: context.txtSec, fontSize: 11)),
         trailing: Text(time,
-            style: const TextStyle(
-                color: Color(0xFF475569), fontSize: 10)),
+            style: TextStyle(
+                color: context.txtSec, fontSize: 10)),
       );
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme.dart';
 
 // ---------------------------------------------------------------------------
 // BuyCoinsScreen
@@ -83,19 +84,19 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen>
         _selectedIndex >= 0 ? _bundles[_selectedIndex] : null;
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: context.bg,
       appBar: AppBar(
-        backgroundColor: _bg,
+        backgroundColor: context.bg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: Colors.white, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded,
+              color: context.txtPri, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Buy Coins',
           style: TextStyle(
-            color: Colors.white,
+            color: context.txtPri,
             fontSize: 18,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.3,
@@ -247,14 +248,14 @@ class _BundleCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? _cyan.withOpacity(0.08)
-              : _surface,
+              : context.card,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected
                 ? _cyan
                 : popular
                     ? _orange.withOpacity(0.5)
-                    : _border,
+                    : context.border,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -296,7 +297,7 @@ class _BundleCard extends StatelessWidget {
                       Text(
                         _formatNum(bundle['coins'] as int),
                         style: TextStyle(
-                          color: selected ? _cyan : Colors.white,
+                          color: selected ? _cyan : context.txtPri,
                           fontWeight: FontWeight.w800,
                           fontSize: 20,
                         ),
@@ -322,8 +323,8 @@ class _BundleCard extends StatelessWidget {
                   const Spacer(),
                   Text(
                     '₦${_formatNum(bundle['price'] as int)}',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: context.txtPri,
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
                     ),
@@ -382,9 +383,9 @@ class _BottomBar extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(
           16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F1220),
-        border: Border(top: BorderSide(color: Color(0xFF1E2438))),
+      decoration: BoxDecoration(
+        color: context.card,
+        border: Border(top: BorderSide(color: context.border)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -399,8 +400,8 @@ class _BottomBar extends StatelessWidget {
                 ),
                 Text(
                   '₦${bundle!['price']}',
-                  style: const TextStyle(
-                      color: Colors.white,
+                  style: TextStyle(
+                      color: context.txtPri,
                       fontWeight: FontWeight.w700,
                       fontSize: 15),
                 ),

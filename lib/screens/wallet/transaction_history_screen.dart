@@ -49,8 +49,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
                         color: context.surface,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.arrow_back_ios_new,
-                          color: Colors.white, size: 16),
+                      child: Icon(Icons.arrow_back_ios_new,
+                          color: context.txtPri, size: 16),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -180,8 +180,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(desc,
-                                      style: const TextStyle(
-                                          color: Colors.white,
+                                      style: TextStyle(
+                                          color: context.txtPri,
                                           fontWeight: FontWeight.w600,
                                           fontSize: 14)),
                                   const SizedBox(height: 4),

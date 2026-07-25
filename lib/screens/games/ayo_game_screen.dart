@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:gamearn/config/api_config.dart';
+import '../../theme.dart';
 
 // ── Palette (matches Gamearn design tokens) ───────────────────────────────────
 const _bg       = Color(0xFF0B0E1A);
@@ -453,7 +454,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: context.bg,
       body: Stack(children: [
         _body(),
         if (_isLoading)  _loadingOverlay(),
@@ -784,14 +785,10 @@ class _AyoBoardWidget extends StatelessWidget {
       return Container(
         width: w, height: h,
         decoration: BoxDecoration(
-          // Warm wood-brown gradient — Ayo is traditionally played on wood
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF2D1B0E), Color(0xFF3D2510), Color(0xFF2A1608)],
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF6B3A1F), width: 2),
+          color: const Color(0xFF78350F), // Figma: #78350f
+          borderRadius: BorderRadius.circular(13.0),
+          border: Border.all(color: const Color(0xFF4B1B00), width: 1.1),
+          // Figma doesn't explicitly have the black box shadow here, but it's often good for depth.
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.5),
@@ -821,20 +818,8 @@ class _AyoBoardWidget extends StatelessWidget {
               ),
             ),
 
-            // ── SCORE DIVIDER ─────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(child: Divider(color: const Color(0xFF6B3A1F))),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.grain_rounded,
-                      color: Color(0xFFD4A853), size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(child: Divider(color: const Color(0xFF6B3A1F))),
-                ],
-              ),
-            ),
+            // ── SEPARATOR MARGIN ─────────────────────────────────────────
+            const SizedBox(height: 12),
 
             // ── HUMAN ROW (holes 0–5, left to right) ─────────────────────
             Padding(
@@ -887,7 +872,7 @@ class _HoleWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color borderCol = const Color(0xFF6B3A1F);
+    Color borderCol = const Color(0xFF1E293B); // Figma stroke color
     if (isSelected)   borderCol = _cyan;
     if (isLastLand)   borderCol = _green;
     if (isLastSown)   borderCol = _orange;
@@ -896,13 +881,13 @@ class _HoleWidget extends StatelessWidget {
       onTap: isPlayable ? onTap : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 46, height: 46,
+        width: 48, height: 48, // Slightly larger to match ~47.7px in Figma
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: isSelected
               ? _cyan.withOpacity(0.15)
-              : const Color(0xFF1A0A00),
-          border: Border.all(color: borderCol, width: isSelected ? 2.5 : 1.5),
+              : const Color(0xFF0B0E1A), // Figma fill color
+          border: Border.all(color: borderCol, width: isSelected ? 2.5 : 2.2), // Figma stroke is 2.17
           boxShadow: isSelected
               ? [BoxShadow(color: _cyan.withOpacity(0.4), blurRadius: 10)]
               : isPlayable

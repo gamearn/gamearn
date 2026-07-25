@@ -43,7 +43,7 @@ class NotificationsScreen extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
 
@@ -56,18 +56,18 @@ class NotificationsScreen extends StatelessWidget {
                 child: Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: context.border),
                   ),
                   child: const Icon(Icons.arrow_back_ios_new_rounded,
                       color: Colors.white, size: 16),
                 ),
               ),
               const SizedBox(width: 14),
-              const Text('Notifications',
+              Text('Notifications',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 17, fontWeight: FontWeight.w800)),
               const Spacer(),
               // Mark all read
@@ -111,13 +111,13 @@ class NotificationsScreen extends StatelessWidget {
                   return Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      children: const [
+                      children: [
                         Text('🔔',
                             style: TextStyle(fontSize: 48)),
                         SizedBox(height: 12),
                         Text('No notifications yet',
                             style: TextStyle(
-                                color: Color(0xFF9A9A9A))),
+                                color: context.txtSec)),
                       ],
                     ),
                   );
@@ -224,12 +224,12 @@ class _NotifRow extends StatelessWidget {
         decoration: BoxDecoration(
           // unread rows slightly lighter
           color: read
-              ? const Color(0xFF0F172A)
-              : const Color(0xFF101022),
+              ? context.card
+              : context.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: read
-                ? const Color(0xFF1E293B)
+                ? context.border
                 : kCyan.withOpacity(0.25),
           ),
         ),
@@ -269,9 +269,7 @@ class _NotifRow extends StatelessWidget {
                     Expanded(
                       child: Text(title,
                           style: TextStyle(
-                              color: read
-                                  ? Colors.white
-                                  : Colors.white,
+                              color: context.txtPri,
                               fontSize: 14,
                               fontWeight: read
                                   ? FontWeight.w600
@@ -281,14 +279,14 @@ class _NotifRow extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(time,
-                        style: const TextStyle(
-                            color: Color(0xFF94A3B8),
+                        style: TextStyle(
+                            color: context.txtSec,
                             fontSize: 10)),
                   ]),
                   const SizedBox(height: 4),
                   Text(body,
-                      style: const TextStyle(
-                          color: Color(0xFF9A9A9A),
+                      style: TextStyle(
+                          color: context.txtSec,
                           fontSize: 12, height: 1.4),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),

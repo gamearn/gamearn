@@ -72,7 +72,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: SafeArea(
         child: StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
@@ -92,23 +92,23 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                     child: Row(children: [
                       GestureDetector(
                         onTap: () => Navigator.maybePop(context),
-                        child: Container(
+                          child: Container(
                           width: 40, height: 40,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B),
+                            color: context.card,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                                color: const Color(0xFF334155)),
+                                color: context.border),
                           ),
-                          child: const Icon(
+                          child: Icon(
                               Icons.arrow_back_ios_new_rounded,
-                              color: Colors.white, size: 16),
+                              color: context.txtPri, size: 16),
                         ),
                       ),
                       const SizedBox(width: 14),
-                      const Text('Daily Streak',
+                      Text('Daily Streak',
                           style: TextStyle(
-                              color: Colors.white,
+                              color: context.txtPri,
                               fontSize: 17,
                               fontWeight: FontWeight.w800)),
                     ]),
@@ -247,12 +247,12 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                 ),
 
                 // ── DAILY REWARDS LIST ─────────────────────────────
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
                     child: Text('Daily Rewards',
                         style: TextStyle(
-                            color: Colors.white,
+                            color: context.txtPri,
                             fontSize: 14,
                             fontWeight: FontWeight.w800)),
                   ),
@@ -280,7 +280,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: locked
-                                  ? const Color(0xFF1E293B)
+                                  ? context.card
                                   : kCyan,
                               border: today
                                   ? Border.all(
@@ -292,7 +292,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                                 claimed ? '✓' : '$day',
                                 style: TextStyle(
                                     color: locked
-                                        ? const Color(0xFF475569)
+                                        ? context.txtSec
                                         : const Color(0xFF0B0E1A),
                                     fontSize: 14,
                                     fontWeight:
@@ -313,8 +313,8 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                                 color: claimed
                                     ? kCyan
                                     : locked
-                                        ? const Color(0xFF0F172A)
-                                        : const Color(0xFF1E293B),
+                                        ? context.card
+                                        : context.card,
                                 borderRadius:
                                     BorderRadius.circular(12),
                                 border: today
@@ -322,14 +322,13 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                                         color: kOrange, width: 2)
                                     : locked
                                         ? Border.all(
-                                            color: const Color(
-                                                0xFF334155))
+                                        color: context.border)
                                         : null,
                                 gradient: locked
                                     ? LinearGradient(
                                         colors: [
-                                          const Color(0xFF1E293B),
-                                          const Color(0xFF0F172A),
+                                          context.card,
+                                          context.card,
                                         ],
                                         begin: Alignment.topLeft,
                                         end: Alignment.bottomRight,
@@ -349,12 +348,11 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                                       Text(label,
                                           style: TextStyle(
                                               color: claimed
-                                                  ? const Color(
-                                                      0xFF0B0E1A)
-                                                  : locked
-                                                      ? const Color(
-                                                          0xFF475569)
-                                                      : Colors.white,
+                                              ? const Color(
+                                                       0xFF0B0E1A)
+                                                   : locked
+                                                       ? context.txtSec
+                                                       : Colors.white,
                                               fontSize: 14,
                                               fontWeight:
                                                   FontWeight.w800)),
@@ -367,8 +365,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                                                       .withOpacity(
                                                           0.7)
                                                   : locked
-                                                      ? const Color(
-                                                          0xFF334155)
+                                                      ? context.txtSec
                                                       : kCyan,
                                               fontSize: 12)),
                                     ],
@@ -426,23 +423,23 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                                               vertical: 4),
                                       decoration: BoxDecoration(
                                         color:
-                                            const Color(0xFF181818),
+                                            context.card,
                                         borderRadius:
                                             BorderRadius.circular(
                                                 10),
                                       ),
-                                      child: const Text('🔒 Locked',
+                                      child: Text('🔒 Locked',
                                           style: TextStyle(
                                               color:
-                                                  Color(0xFF475569),
+                                                  context.txtSec,
                                               fontSize: 10,
                                               fontWeight:
                                                   FontWeight.w700)),
                                     )
                                   else
-                                    const Text('Tomorrow',
+                                    Text('Tomorrow',
                                         style: TextStyle(
-                                            color: Color(0xFF9A9A9A),
+                                            color: context.txtSec,
                                             fontSize: 11)),
                                 ]),
                               ),

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../theme.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  CREATE TOURNAMENT SCREEN — Pixel-perfect Figma match
@@ -114,7 +115,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
   Widget build(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: Column(
         children: [
           // ── AppBar — Figma: pt=40 pb=16 px=24, blur bg, border-b ──
@@ -137,9 +138,9 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
                           letterSpacing: 2,
                           height: 25 / 20)),
                   const SizedBox(height: 5),
-                  const Text('Basic Info & Game Selection',
+                  Text('Basic Info & Game Selection',
                       style: TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: context.txtSec,
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
                           height: 26 / 16)),
@@ -278,7 +279,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
       decoration: BoxDecoration(
         color: const Color(0x801E293B),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF1E293B)),
+        border: Border.all(color: context.border),
       ),
       child: TextField(
         controller: ctrl,
@@ -308,13 +309,13 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
           decoration: BoxDecoration(
             color: const Color(0x801E293B),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF1E293B)),
+            border: Border.all(color: context.border),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedGame,
               isExpanded: true,
-              dropdownColor: const Color(0xFF1E293B),
+              dropdownColor: context.card,
               // hide the default icon — we use custom asset
               icon: const SizedBox.shrink(),
               padding: const EdgeInsets.fromLTRB(17, 0, 44, 0),
@@ -409,7 +410,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
                     style: TextStyle(
                       color: active
                           ? const Color(0xFF00F2FF)
-                          : const Color(0xFF94A3B8),
+                          : context.txtSec,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: active ? -0.5 : 0,
@@ -551,9 +552,9 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
       child: Column(
         children: [
           // ENTRY FEE — #94A3B8 fs=12 fw=700 ls=2.4 uppercase
-          const Text('ENTRY FEE',
+          Text('ENTRY FEE',
               style: TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: context.txtSec,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 2.4,

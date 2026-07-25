@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme.dart';
 
 // ---------------------------------------------------------------------------
 // SellCoinsScreen
@@ -84,7 +85,7 @@ class _SellCoinsScreenState extends State<SellCoinsScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: context.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -100,22 +101,22 @@ class _SellCoinsScreenState extends State<SellCoinsScreen>
                   color: Color(0xFF00E676), size: 32),
             ),
             const SizedBox(height: 16),
-            const Text('Sell Order Placed!',
+            Text('Sell Order Placed!',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: context.txtPri,
                     fontSize: 18,
                     fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
             Text(
               '${_formatNum(tier['coins'] as int)} coins will be sold for ₦${_formatNum(tier['payout'] as int)}',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+              style: TextStyle(color: context.txtSec, fontSize: 13),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Payout will be sent to your linked bank account within 24 hours.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+              style: TextStyle(color: context.txtSec, fontSize: 12),
             ),
             const SizedBox(height: 20),
             SizedBox(
@@ -149,19 +150,19 @@ class _SellCoinsScreenState extends State<SellCoinsScreen>
     final tier = _selectedIndex >= 0 ? _tiers[_selectedIndex] : null;
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: context.bg,
       appBar: AppBar(
-        backgroundColor: _bg,
+        backgroundColor: context.bg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: Colors.white, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded,
+              color: context.txtPri, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Sell Coins',
           style: TextStyle(
-            color: Colors.white,
+            color: context.txtPri,
             fontSize: 18,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.3,
@@ -350,14 +351,14 @@ class _TierCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: selected ? _green.withOpacity(0.08) : _surface,
+          color: selected ? _green.withOpacity(0.08) : context.card,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected
                 ? _green
                 : popular
                     ? _cyan.withOpacity(0.5)
-                    : _border,
+                    : context.border,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -399,7 +400,7 @@ class _TierCard extends StatelessWidget {
                       Text(
                         _formatNum(tier['coins'] as int),
                         style: TextStyle(
-                          color: selected ? _green : Colors.white,
+                          color: selected ? _green : context.txtPri,
                           fontWeight: FontWeight.w800,
                           fontSize: 20,
                         ),
@@ -423,8 +424,8 @@ class _TierCard extends StatelessWidget {
                   const Spacer(),
                   Text(
                     '₦${_formatNum(tier['payout'] as int)}',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: context.txtPri,
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
                     ),
@@ -483,9 +484,9 @@ class _BottomBar extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(
           16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F1220),
-        border: Border(top: BorderSide(color: Color(0xFF1E2438))),
+      decoration: BoxDecoration(
+        color: context.card,
+        border: Border(top: BorderSide(color: context.border)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

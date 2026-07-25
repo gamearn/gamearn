@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../theme.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  TOURNAMENT RESULTS SCREEN — Pixel-perfect Figma match
@@ -35,7 +36,7 @@ class TournamentResultsScreen extends StatelessWidget {
     final top = MediaQuery.of(context).padding.top;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('tournaments')
@@ -286,9 +287,9 @@ class _Podium extends StatelessWidget {
               prize: prizes.length > 1 ? prizes[1] : 0,
               avatarUrl: p2['avatar'] as String?,
               staticAvatarUrl: _kAvatar2nd,
-              borderColor: const Color(0xFF94A3B8),
-              rankBg: const Color(0xFF94A3B8),
-              nameColor: const Color(0xFF94A3B8),
+              borderColor: context.txtSec,
+              rankBg: context.txtSec,
+              nameColor: context.txtSec,
               rotateDeg: 3,
               avatarSize: 64,
             ),
@@ -632,12 +633,12 @@ class _Leaderboard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header row
-        const Row(
+        Row(
           children: [
             Expanded(
               child: Text('Leaderboard',
                   style: TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: context.txtSec,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.4,
@@ -724,7 +725,7 @@ class _LeaderboardRow extends StatelessWidget {
                 style: TextStyle(
                     color: isCurrentUser
                         ? const Color(0xFF22D1EE)
-                        : const Color(0xFF94A3B8),
+                        : context.txtSec,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     height: 16 / 12)),
@@ -744,7 +745,7 @@ class _LeaderboardRow extends StatelessWidget {
               style: TextStyle(
                   color: isCurrentUser
                       ? const Color(0xFF22D1EE)
-                      : const Color(0xFF94A3B8),
+                      : context.txtSec,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.35,
@@ -758,11 +759,11 @@ class _LeaderboardRow extends StatelessWidget {
               style: TextStyle(
                   color: isCurrentUser
                       ? const Color(0xFF22D1EE)
-                      : const Color(0xFF94A3B8),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                  height: 24 / 16)),
+                       : context.txtSec,
+                   fontSize: 16,
+                   fontWeight: FontWeight.w700,
+                   letterSpacing: 0.8,
+                   height: 24 / 16)),
         ],
       ),
     );

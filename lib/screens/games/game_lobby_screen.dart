@@ -58,7 +58,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
         : _fmt(_stakeAmount * _selectedPlayers);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: Column(children: [
 
         // ── HERO IMAGE (Figma Match) ───────────────────────────────────────────
@@ -117,13 +117,13 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
 
                 // ── GAME MODE ROW (Figma: 342×48 rx=8 #0B0E1A) ──────────────────
                 _sectionLabel('Game Mode'),
-                Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0B0E1A),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF334155)),
-                  ),
+                  Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: context.card,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: context.border),
+                    ),
                   child: Row(children: [
                     _modeChip('Vs Player', !_vsComputer,
                         () => setState(() => _vsComputer = false)),
@@ -168,9 +168,9 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                   Container(
                     height: 48,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
+                      color: context.card,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF334155)),
+                      border: Border.all(color: context.border),
                     ),
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
@@ -370,9 +370,9 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
         height: 48,
         padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(
-          color: const Color(0xFF0B0E1A),
+          color: context.card,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF334155)),
+          border: Border.all(color: context.border),
         ),
         child: Row(
           children: options.map((o) {
@@ -406,8 +406,8 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   Widget _sectionLabel(String t) => Padding(
     padding: const EdgeInsets.only(top: 20, bottom: 8),
     child: Text(t,
-        style: const TextStyle(
-            color: Color(0xFF94A3B8),
+        style: TextStyle(
+            color: context.txtSec,
             fontSize: 11,
             fontWeight: FontWeight.w900,
             letterSpacing: 1.2)),

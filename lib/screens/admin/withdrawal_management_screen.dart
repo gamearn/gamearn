@@ -7,7 +7,7 @@ class WithdrawalManagementScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
           // Header
@@ -20,19 +20,19 @@ class WithdrawalManagementScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: context.border),
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 16),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: context.txtPri, size: 16),
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Text('Withdrawal Management',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 17,
                         fontWeight: FontWeight.w800)),
               ),
@@ -56,11 +56,11 @@ class WithdrawalManagementScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Row(children: [
-              _miniStat('Total', '₦8.4M', kCyan),
+              _miniStat(context, 'Total', '₦8.4M', kCyan),
               const SizedBox(width: 10),
-              _miniStat('Pending', '₦890K', kOrange),
+              _miniStat(context, 'Pending', '₦890K', kOrange),
               const SizedBox(width: 10),
-              _miniStat('Today', '₦1.2M', const Color(0xFF00E676)),
+              _miniStat(context, 'Today', '₦1.2M', const Color(0xFF00E676)),
             ]),
           ),
 
@@ -85,21 +85,21 @@ class WithdrawalManagementScreen extends StatelessWidget {
     );
   }
 
-  Widget _miniStat(String label, String value, Color color) {
+  Widget _miniStat(BuildContext context, String label, String value, Color color) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(
-          color: kBgCard,
+          color: context.card,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: kBorder),
+          border: Border.all(color: context.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
                 style:
-                    const TextStyle(color: Color(0xFF64748B), fontSize: 10)),
+                    TextStyle(color: context.txtSec, fontSize: 10)),
             const SizedBox(height: 2),
             Text(value,
                 style: TextStyle(
@@ -140,10 +140,10 @@ class _WithdrawalCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: kBgCard,
+        color: context.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isPending ? kOrange.withOpacity(0.3) : kBorder,
+          color: isPending ? kOrange.withOpacity(0.3) : context.border,
         ),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -169,13 +169,13 @@ class _WithdrawalCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(userName,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: context.txtPri,
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
                 Text('$bank •••• $accountLast4',
-                    style: const TextStyle(
-                        color: Color(0xFF64748B), fontSize: 11)),
+                    style: TextStyle(
+                        color: context.txtSec, fontSize: 11)),
               ],
             ),
           ),
@@ -230,15 +230,15 @@ class _WithdrawalCard extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(timeAgo,
-                style: const TextStyle(
-                    color: Color(0xFF475569), fontSize: 10)),
+                style: TextStyle(
+                    color: context.txtSec, fontSize: 10)),
           ]),
         ] else
           Align(
             alignment: Alignment.centerRight,
             child: Text(timeAgo,
-                style: const TextStyle(
-                    color: Color(0xFF475569), fontSize: 10)),
+                style: TextStyle(
+                    color: context.txtSec, fontSize: 10)),
           ),
       ]),
     );

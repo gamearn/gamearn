@@ -21,7 +21,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: const Color(0xFF0B0E1A),
+        backgroundColor: context.bg,
         body: SafeArea(
           child: Column(children: [
             // Header
@@ -34,18 +34,18 @@ class _LanguageScreenState extends State<LanguageScreen> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: context.card,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF334155)),
+                      border: Border.all(color: context.border),
                     ),
-                    child: const Icon(Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white, size: 16),
+                    child: Icon(Icons.arrow_back_ios_new_rounded,
+                        color: context.txtPri, size: 16),
                   ),
                 ),
                 const SizedBox(width: 14),
-                const Text('Language',
+                Text('Language',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 17,
                         fontWeight: FontWeight.w800)),
               ]),
@@ -69,10 +69,10 @@ class _LanguageScreenState extends State<LanguageScreen> {
                       decoration: BoxDecoration(
                         color: selected
                             ? kCyan.withOpacity(0.08)
-                            : const Color(0xFF1E293B),
+                            : context.card,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: selected ? kCyan : const Color(0xFF334155),
+                          color: selected ? kCyan : context.border,
                           width: selected ? 1.5 : 1,
                         ),
                       ),
@@ -83,7 +83,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
                         Expanded(
                           child: Text(lang['name']!,
                               style: TextStyle(
-                                  color: selected ? kCyan : Colors.white,
+                                  color: selected ? kCyan : context.txtPri,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600)),
                         ),
@@ -91,8 +91,8 @@ class _LanguageScreenState extends State<LanguageScreen> {
                           const Icon(Icons.check_circle_rounded,
                               color: kCyan, size: 22)
                         else
-                          const Icon(Icons.radio_button_unchecked,
-                              color: Color(0xFF475569), size: 22),
+                          Icon(Icons.radio_button_unchecked,
+                              color: context.txtSec, size: 22),
                       ]),
                     ),
                   );

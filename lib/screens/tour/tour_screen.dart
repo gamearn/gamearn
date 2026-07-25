@@ -40,7 +40,7 @@ class _TourScreenState extends State<TourScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
 
@@ -78,7 +78,7 @@ class _TourScreenState extends State<TourScreen> {
               height: 36,
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: context.card,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -246,7 +246,7 @@ class _TourCard extends StatelessWidget {
         height: 160,
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A),
+          color: context.card,
           borderRadius: BorderRadius.circular(12),
         ),
         child: ClipRRect(
@@ -331,7 +331,7 @@ class _TourCard extends StatelessWidget {
                               width: 24, height: 24,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color(0xFF1E293B),
+                                color: context.card,
                                 border: Border.all(
                                     color: const Color(0xFF0B0E1A),
                                     width: 1.5),
@@ -431,8 +431,8 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
       initialChildSize: 0.92,
       maxChildSize: 0.95,
       builder: (_, ctrl) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF0B0E1A),
+        decoration: BoxDecoration(
+          color: context.bg,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: ListView(
@@ -525,10 +525,10 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
               height: 82,
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(children: [
+                        color: context.card,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(children: [
                 Expanded(child: _prizeToggle(0, '🪙 Coins')),
                 const SizedBox(width: 4),
                 Expanded(child: _prizeToggle(1, '₦ Naira')),
@@ -555,12 +555,12 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
                       margin: EdgeInsets.only(
                           right: s != _sizes.last ? 8 : 0),
                       decoration: BoxDecoration(
-                        color: active ? kCyan : const Color(0xFF1E293B),
+                        color: active ? kCyan : context.card,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                             color: active
                                 ? kCyan
-                                : const Color(0xFF334155)),
+                                : context.border),
                       ),
                       child: Center(
                         child: Text('$s',
@@ -636,7 +636,7 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
         height: 59,
         decoration: BoxDecoration(
           // Figma: 341×59 rx=12 #1E293B
-          color: const Color(0xFF1E293B),
+          color: context.card,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Padding(

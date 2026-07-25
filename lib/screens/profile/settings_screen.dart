@@ -68,7 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: const Color(0xFF0B0E1A),
+    backgroundColor: context.bg,
     body: SafeArea(
       child: Column(children: [
         // Header
@@ -80,18 +80,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Container(
                 width: 40, height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: context.card,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF334155)),
+                  border: Border.all(color: context.border),
                 ),
-                child: const Icon(Icons.arrow_back_ios_new_rounded,
-                    color: Colors.white, size: 16),
+                child: Icon(Icons.arrow_back_ios_new_rounded,
+                    color: context.txtPri, size: 16),
               ),
             ),
             const SizedBox(width: 14),
-            const Text('Settings',
+            Text('Settings',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: context.txtPri,
                     fontSize: 17, fontWeight: FontWeight.w800)),
           ]),
         ),
@@ -224,14 +224,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _sectionLabel(String t) => Padding(
     padding: const EdgeInsets.only(left: 4, bottom: 8),
     child: Text(t.toUpperCase(),
-        style: const TextStyle(
-            color: Color(0xFF94A3B8),
+        style: TextStyle(
+            color: context.txtSec,
             fontSize: 11, fontWeight: FontWeight.w700,
             letterSpacing: 1.2)),
   );
 
-  Widget _divider() => const Divider(
-      height: 1, indent: 72, color: Color(0xFF334155));
+  Widget _divider() => Divider(
+      height: 1, indent: 72, color: context.border);
 }
 
 // ── SECTION CARD — Figma: 342×var rx=12 #1E293B ──────────────────
@@ -242,7 +242,7 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
-      color: const Color(0xFF1E293B),
+      color: context.card,
       borderRadius: BorderRadius.circular(12),
     ),
     child: Column(children: children),
@@ -274,8 +274,8 @@ class _IconToggle extends StatelessWidget {
       child: Icon(icon, color: const Color(0xFF0B0E1A), size: 20),
     ),
     title: Text(label,
-        style: const TextStyle(
-            color: Colors.white, fontSize: 14,
+        style: TextStyle(
+            color: context.txtPri, fontSize: 14,
             fontWeight: FontWeight.w500)),
     trailing: Switch(
       value: value,
@@ -283,8 +283,8 @@ class _IconToggle extends StatelessWidget {
       // Figma: active #22D1EE, inactive #334155
       activeColor: kCyan,
       activeTrackColor: kCyan.withOpacity(0.3),
-      inactiveThumbColor: const Color(0xFF94A3B8),
-      inactiveTrackColor: const Color(0xFF334155),
+      inactiveThumbColor: context.txtSec,
+      inactiveTrackColor: context.border,
     ),
   );
 }
@@ -311,10 +311,10 @@ class _IconNav extends StatelessWidget {
       child: Icon(icon, color: const Color(0xFF0B0E1A), size: 20),
     ),
     title: Text(label,
-        style: const TextStyle(
-            color: Colors.white, fontSize: 14,
+        style: TextStyle(
+            color: context.txtPri, fontSize: 14,
             fontWeight: FontWeight.w500)),
-    trailing: const Icon(Icons.chevron_right_rounded,
-        color: Color(0xFF475569), size: 20),
+    trailing: Icon(Icons.chevron_right_rounded,
+        color: context.txtSec, size: 20),
   );
 }

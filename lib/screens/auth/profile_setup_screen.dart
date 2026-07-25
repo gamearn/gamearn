@@ -118,7 +118,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -139,7 +139,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(color: kOrange, width: 3),
-                            color: kBgCard,
+                            color: context.card,
                           ),
                           child: Center(
                             child: Text(
@@ -183,9 +183,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               const SizedBox(height: 28),
 
               // Avatar picker
-              const Text('Choose an Avatar',
+              Text('Choose an Avatar',
                   style: TextStyle(
-                      color: kTextPri,
+                      color: context.txtPri,
                       fontWeight: FontWeight.w700,
                       fontSize: 16)),
               const SizedBox(height: 12),
@@ -210,7 +210,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 border: Border.all(
                                     color: selected ? kOrange : Colors.transparent,
                                     width: 2.5),
-                                color: kBgCard,
+                                color: context.card,
                               ),
                               child: Center(
                                 child: Text(
@@ -223,7 +223,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             Text(
                               kAvatars[i]['name']!,
                               style: TextStyle(
-                                color: selected ? kOrange : kTextSec,
+                                color: selected ? kOrange : context.txtSec,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -238,15 +238,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               const SizedBox(height: 24),
 
               // Username
-              const Text('Username',
+              Text('Username',
                   style: TextStyle(
-                      color: kTextPri,
+                      color: context.txtPri,
                       fontWeight: FontWeight.w700,
                       fontSize: 16)),
               const SizedBox(height: 8),
               TextField(
                 controller: _usernameCtrl,
-                style: const TextStyle(color: kTextPri),
+                style: TextStyle(color: context.txtPri),
                 onChanged: (v) {
                   setState(() {
                     _usernameAvailable = false;
@@ -259,9 +259,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 },
                 decoration: InputDecoration(
                   hintText: 'GamerOne',
-                  hintStyle: const TextStyle(color: kTextSec),
+                  hintStyle: TextStyle(color: context.txtSec),
                   filled: true,
-                  fillColor: kBgCard,
+                  fillColor: context.card,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -306,22 +306,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               const SizedBox(height: 20),
 
               // Bio & Tags
-              const Text('Bio & Tags',
+              Text('Bio & Tags',
                   style: TextStyle(
-                      color: kTextPri,
+                      color: context.txtPri,
                       fontWeight: FontWeight.w700,
                       fontSize: 16)),
               const SizedBox(height: 8),
               TextField(
                 controller: _bioCtrl,
                 maxLines: 4,
-                style: const TextStyle(color: kTextPri),
+                style: TextStyle(color: context.txtPri),
                 decoration: InputDecoration(
                   hintText:
                       'Tell the world your gaming style... (e.g. Ayo Pro, Ludo King, Daily Grinder)',
-                  hintStyle: const TextStyle(color: kTextSec, fontSize: 13),
+                  hintStyle: TextStyle(color: context.txtSec, fontSize: 13),
                   filled: true,
-                  fillColor: kBgCard,
+                  fillColor: context.card,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -369,8 +369,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               Center(
                 child: TextButton(
                   onPressed: _loading ? null : _save, // same action, just skips bio
-                  child: const Text('Skip for now',
-                      style: TextStyle(color: kTextSec)),
+                  child:               Text('Skip for now',
+                      style: TextStyle(color: context.txtSec)),
                 ),
               ),
               const SizedBox(height: 32),

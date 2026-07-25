@@ -7,7 +7,7 @@ class UsersManagementScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
           // Header
@@ -20,19 +20,19 @@ class UsersManagementScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: context.border),
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 16),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: context.txtPri, size: 16),
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Text('Users Management',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 17,
                         fontWeight: FontWeight.w800)),
               ),
@@ -59,20 +59,20 @@ class UsersManagementScreen extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: kBgCard,
+                color: context.card,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: kBorder),
+                border: Border.all(color: context.border),
               ),
-              child: const Row(children: [
+              child: Row(children: [
                 Icon(Icons.search_outlined,
-                    color: Color(0xFF64748B), size: 20),
+                    color: context.txtSec, size: 20),
                 SizedBox(width: 10),
                 Expanded(
                     child: Text('Search users...',
                         style: TextStyle(
-                            color: Color(0xFF64748B), fontSize: 14))),
+                            color: context.txtSec, fontSize: 14))),
                 Icon(Icons.filter_list_outlined,
-                    color: Color(0xFF64748B), size: 20),
+                    color: context.txtSec, size: 20),
               ]),
             ),
           ),
@@ -122,9 +122,9 @@ class _UserCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: kBgCard,
+        color: context.card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
+        border: Border.all(color: context.border),
       ),
       child: Row(children: [
         // Avatar
@@ -149,8 +149,8 @@ class _UserCard extends StatelessWidget {
             children: [
               Row(children: [
                 Text(name,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: context.txtPri,
                         fontSize: 14,
                         fontWeight: FontWeight.w600)),
                 if (isAdmin) ...[
@@ -172,12 +172,12 @@ class _UserCard extends StatelessWidget {
               ]),
               const SizedBox(height: 3),
               Text(email,
-                  style: const TextStyle(
-                      color: Color(0xFF64748B), fontSize: 11)),
+                  style: TextStyle(
+                      color: context.txtSec, fontSize: 11)),
               const SizedBox(height: 3),
               Text('$gamesPlayed games played',
-                  style: const TextStyle(
-                      color: Color(0xFF475569), fontSize: 10)),
+                  style: TextStyle(
+                      color: context.txtSec, fontSize: 10)),
             ],
           ),
         ),

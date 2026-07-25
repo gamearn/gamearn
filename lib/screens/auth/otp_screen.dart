@@ -165,20 +165,20 @@ class _OtpScreenState extends State<OtpScreen> {
     final defaultPinTheme = PinTheme(
       width: 58,
       height: 64,
-      textStyle: const TextStyle(
+      textStyle: TextStyle(
         fontSize: 24, 
-        color: kTextPri, 
+        color: context.txtPri, 
         fontWeight: FontWeight.w700
       ),
       decoration: BoxDecoration(
-        color: kBgCard,
+        color: context.card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
+        border: Border.all(color: context.border),
       ),
     );
 
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -188,7 +188,7 @@ class _OtpScreenState extends State<OtpScreen> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new, color: kTextPri, size: 20),
+                  icon: Icon(Icons.arrow_back_ios_new, color: context.txtPri, size: 20),
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
@@ -206,13 +206,13 @@ class _OtpScreenState extends State<OtpScreen> {
               ),
               const SizedBox(height: 24),
               
-              const Text('SMS Verification',
-                  style: TextStyle(color: kTextPri, fontSize: 24, fontWeight: FontWeight.w800)),
+              Text('SMS Verification',
+                  style: TextStyle(color: context.txtPri, fontSize: 24, fontWeight: FontWeight.w800)),
               const SizedBox(height: 10),
               Text(
                 'Enter the 6-digit code sent to\n${widget.phone}',
                 textAlign: TextAlign.center,
-                style: kSub,
+                style: TextStyle(color: context.txtSec, fontSize: 13),
               ),
               const SizedBox(height: 36),
               
@@ -235,17 +235,17 @@ class _OtpScreenState extends State<OtpScreen> {
               // Countdown
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: kBgCard,
-                  borderRadius: BorderRadius.circular(20),
+                  decoration: BoxDecoration(
+                    color: context.card,
+                    borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.timer_outlined, color: kTextSec, size: 16),
+                    Icon(Icons.timer_outlined, color: context.txtSec, size: 16),
                     const SizedBox(width: 6),
                     Text(_timerDisplay,
-                        style: const TextStyle(color: kTextPri, fontWeight: FontWeight.w700, fontSize: 15)),
+                        style: TextStyle(color: context.txtPri, fontWeight: FontWeight.w700, fontSize: 15)),
                   ],
                 ),
               ),
@@ -255,12 +255,12 @@ class _OtpScreenState extends State<OtpScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center, 
                 children: [
-                  Text("Didn't receive the code?  ", style: kSub),
+                  Text("Didn't receive the code?  ", style: TextStyle(color: context.txtSec, fontSize: 13)),
                   GestureDetector(
                     onTap: _secondsLeft == 0 ? _resendCode : null,
                     child: Text('Resend SMS',
                         style: TextStyle(
-                            color: _secondsLeft == 0 ? kCyan : kTextMuted,
+                            color: _secondsLeft == 0 ? kCyan : context.txtSec,
                             fontWeight: FontWeight.w700,
                             fontSize: 13)),
                   ),
@@ -296,7 +296,7 @@ class _OtpScreenState extends State<OtpScreen> {
               ),
               const SizedBox(height: 16),
               Text('SECURED BY GAMEARN SHIELD',
-                  style: kLabel.copyWith(color: kTextMuted)),
+                  style: kLabel.copyWith(color: context.txtSec)),
               const SizedBox(height: 24),
             ],
           ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:gamearn/config/api_config.dart';
+import '../../theme.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _bg      = Color(0xFF0B0E1A);
@@ -481,7 +482,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: context.bg,
       body: Stack(children: [
         _body(),
         if (_isLoading)  _loadingOverlay(),

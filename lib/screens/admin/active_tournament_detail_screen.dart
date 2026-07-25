@@ -7,7 +7,7 @@ class ActiveTournamentDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
           // Header
@@ -20,19 +20,19 @@ class ActiveTournamentDetailScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: context.border),
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 16),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: context.txtPri, size: 16),
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Text('Active Tournament',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 17,
                         fontWeight: FontWeight.w800)),
               ),
@@ -74,7 +74,7 @@ class ActiveTournamentDetailScreen extends StatelessWidget {
                     gradient: LinearGradient(
                       colors: [
                         const Color(0xFF00E676).withOpacity(0.08),
-                        kBgCard,
+                        context.card,
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -84,18 +84,18 @@ class ActiveTournamentDetailScreen extends StatelessWidget {
                         color: const Color(0xFF00E676).withOpacity(0.25)),
                   ),
                   child: Column(children: [
-                    const Text('Weekly Ludo Championship #24',
+                    Text('Weekly Ludo Championship #24',
                         style: TextStyle(
-                            color: Colors.white,
+                            color: context.txtPri,
                             fontSize: 17,
                             fontWeight: FontWeight.w800)),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _info('Prize Pool', '₦50,000'),
-                        _info('Players', '24/32'),
-                        _info('Round', 'Semi-Final'),
+                        _info(context, 'Prize Pool', '₦50,000'),
+                        _info(context, 'Players', '24/32'),
+                        _info(context, 'Round', 'Semi-Final'),
                       ],
                     ),
                   ]),
@@ -104,9 +104,9 @@ class ActiveTournamentDetailScreen extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // Live bracket
-                const Text('BRACKET',
+                Text('BRACKET',
                     style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: context.txtSec,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
@@ -114,13 +114,13 @@ class ActiveTournamentDetailScreen extends StatelessWidget {
                 _SectionCard(children: [
                   _MatchRow(
                       p1: 'Kofi_92', p2: 'Ada_Flow', score: '2 - 1', live: true),
-                  _divider(),
+                  _divider(context),
                   _MatchRow(
                       p1: 'Chidi_Goat', p2: 'Bola_King', score: '1 - 0', live: true),
-                  _divider(),
+                  _divider(context),
                   _MatchRow(
                       p1: 'Emeka_Pro', p2: 'Ngozi_Queen', score: '3 - 2', live: false),
-                  _divider(),
+                  _divider(context),
                   _MatchRow(
                       p1: 'Tunde_Rush', p2: 'Amara_Win', score: '0 - 0', live: false),
                 ]),
@@ -128,9 +128,9 @@ class ActiveTournamentDetailScreen extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // Admin actions
-                const Text('ADMIN ACTIONS',
+                Text('ADMIN ACTIONS',
                     style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: context.txtSec,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
@@ -142,14 +142,14 @@ class ActiveTournamentDetailScreen extends StatelessWidget {
                     color: kOrange,
                     onTap: () {},
                   ),
-                  _divider(),
+                  _divider(context),
                   _ActionRow(
                     icon: Icons.stop_circle_outlined,
                     label: 'Cancel Tournament',
                     color: Colors.redAccent,
                     onTap: () {},
                   ),
-                  _divider(),
+                  _divider(context),
                   _ActionRow(
                     icon: Icons.edit_outlined,
                     label: 'Edit Settings',
@@ -167,22 +167,22 @@ class ActiveTournamentDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _info(String label, String value) {
+  Widget _info(BuildContext context, String label, String value) {
     return Column(children: [
       Text(label,
           style:
-              const TextStyle(color: Color(0xFF64748B), fontSize: 10)),
+              TextStyle(color: context.txtSec, fontSize: 10)),
       const SizedBox(height: 2),
       Text(value,
-          style: const TextStyle(
-              color: Colors.white,
+          style: TextStyle(
+              color: context.txtPri,
               fontSize: 15,
               fontWeight: FontWeight.w800)),
     ]);
   }
 
-  static Widget _divider() =>
-      const Divider(height: 1, indent: 56, color: Color(0xFF334155));
+  Widget _divider(BuildContext context) =>
+      Divider(height: 1, indent: 56, color: context.border);
 }
 
 class _SectionCard extends StatelessWidget {
@@ -192,7 +192,7 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: kBgCard,
+          color: context.card,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(children: children),
@@ -218,8 +218,8 @@ class _MatchRow extends StatelessWidget {
       title: Row(children: [
         Expanded(
             child: Text(p1,
-                style: const TextStyle(
-                    color: Colors.white,
+                style: TextStyle(
+                    color: context.txtPri,
                     fontSize: 13,
                     fontWeight: FontWeight.w600))),
         Container(
@@ -250,8 +250,8 @@ class _MatchRow extends StatelessWidget {
         Expanded(
             child: Text(p2,
                 textAlign: TextAlign.end,
-                style: const TextStyle(
-                    color: Colors.white,
+                style: TextStyle(
+                    color: context.txtPri,
                     fontSize: 13,
                     fontWeight: FontWeight.w600))),
       ]),
@@ -291,7 +291,7 @@ class _ActionRow extends StatelessWidget {
                 color: color,
                 fontSize: 14,
                 fontWeight: FontWeight.w500)),
-        trailing: const Icon(Icons.chevron_right_rounded,
-            color: Color(0xFF475569), size: 20),
+        trailing: Icon(Icons.chevron_right_rounded,
+            color: context.txtSec, size: 20),
       );
 }

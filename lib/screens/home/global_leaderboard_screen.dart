@@ -36,7 +36,7 @@ class _GlobalLeaderboardScreenState
     final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
 
@@ -49,18 +49,18 @@ class _GlobalLeaderboardScreenState
                 child: Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: context.border),
                   ),
                   child: const Icon(Icons.arrow_back_ios_new_rounded,
                       color: Colors.white, size: 16),
                 ),
               ),
               const SizedBox(width: 14),
-              const Text('Global Leaderboard',
+              Text('Global Leaderboard',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 17, fontWeight: FontWeight.w800)),
             ]),
           ),
@@ -75,7 +75,7 @@ class _GlobalLeaderboardScreenState
               height: 36,
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: context.card,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -92,11 +92,11 @@ class _GlobalLeaderboardScreenState
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Center(
-                          child: Text(_tabs[i],
-                              style: TextStyle(
-                                  color: active
-                                      ? const Color(0xFF0B0E1A)
-                                      : const Color(0xFF9A9A9A),
+                              child: Text(_tabs[i],
+                                  style: TextStyle(
+                                      color: active
+                                          ? const Color(0xFF0B0E1A)
+                                          : context.txtSec,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700)),
                         ),
@@ -133,8 +133,8 @@ class _GlobalLeaderboardScreenState
                             style: TextStyle(fontSize: 48)),
                         const SizedBox(height: 12),
                         Text('No rankings yet for ${_tabs[_tab]}',
-                            style: const TextStyle(
-                                color: Color(0xFF9A9A9A))),
+                            style: TextStyle(
+                                color: context.txtSec)),
                       ],
                     ),
                   );
@@ -163,7 +163,7 @@ class _GlobalLeaderboardScreenState
                             ? kCyan
                             : isMe
                                 ? kCyan.withOpacity(0.12)
-                                : const Color(0xFF1E293B),
+                                : context.card,
                         borderRadius: BorderRadius.circular(8),
                         border: isMe && !isTop
                             ? Border.all(
@@ -182,7 +182,7 @@ class _GlobalLeaderboardScreenState
                               style: TextStyle(
                                   color: isTop
                                       ? const Color(0xFF0B0E1A)
-                                      : const Color(0xFF9A9A9A),
+                                      : context.txtSec,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w900),
                               textAlign: TextAlign.center,
@@ -212,7 +212,7 @@ class _GlobalLeaderboardScreenState
                               style: TextStyle(
                                   color: isTop
                                       ? const Color(0xFF0B0E1A)
-                                      : Colors.white,
+                                      : context.txtPri,
                                   fontSize: 13,
                                   fontWeight: isTop
                                       ? FontWeight.w800

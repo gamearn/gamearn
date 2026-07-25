@@ -58,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: SafeArea(
         child: StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
@@ -89,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(color: kOrange, width: 2),
-                                color: const Color(0xFF1E293B),
+                                color: context.card,
                               ),
                               child: Center(
                                 child: Text(_avatarEmoji(avatar),
@@ -103,8 +103,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(username,
-                                      style: const TextStyle(
-                                          color: Color(0xFFF1F5F9),
+                                      style: TextStyle(
+                                          color: context.txtPri,
                                           fontWeight: FontWeight.w700,
                                           fontSize: 14)),
                                   Text(status,
@@ -141,15 +141,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('$_welcomeMsg $username! 👋',
-                                style: const TextStyle(
-                                    color: Color(0xFFF1F5F9),
+                                style: TextStyle(
+                                    color: context.txtPri,
                                     fontSize: 21,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: -0.3)),
                             const SizedBox(height: 4),
-                            const Text('Keep your streak going to earn more rewards.',
+                            Text('Keep your streak going to earn more rewards.',
                                 style: TextStyle(
-                                    color: Color(0xFF9A9A9A),
+                                    color: context.txtSec,
                                     fontSize: 13)),
                           ],
                         ),
@@ -374,8 +374,8 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
-      Text(title, style: const TextStyle(
-          color: Color(0xFFF1F5F9), fontSize: 16, fontWeight: FontWeight.w800)),
+      Text(title, style: TextStyle(
+          color: context.txtPri, fontSize: 16, fontWeight: FontWeight.w800)),
       if (showAll)
         Text('See all', style: TextStyle(
             color: kCyan, fontSize: 12, fontWeight: FontWeight.w600)),
@@ -404,7 +404,7 @@ class _TournamentCard extends StatelessWidget {
       height: 160,
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: context.card,
         borderRadius: BorderRadius.circular(8),
       ),
       child: ClipRRect(
@@ -439,13 +439,13 @@ class _TournamentCard extends StatelessWidget {
                 Text(title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: context.txtPri,
                         fontSize: 15, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 4),
                 Row(children: [
-                  const Text('Prize Pool  ',
-                      style: TextStyle(color: Color(0xFF9A9A9A), fontSize: 11)),
+                  Text('Prize Pool  ',
+                      style: TextStyle(color: context.txtSec, fontSize: 11)),
                   Text('₦$prize',
                       style: const TextStyle(
                           color: kCyan, fontSize: 14, fontWeight: FontWeight.w800)),
@@ -625,7 +625,7 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
             height: 36,
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
+              color: context.card,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -641,9 +641,9 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Center(
-                        child: Text(_tabs[i],
-                            style: TextStyle(
-                                color: active ? const Color(0xFF0B0E1A) : const Color(0xFF9A9A9A),
+                            child: Text(_tabs[i],
+                                style: TextStyle(
+                                    color: active ? const Color(0xFF0B0E1A) : context.txtSec,
                                 fontSize: 11, fontWeight: FontWeight.w700)),
                       ),
                     ),
@@ -670,10 +670,10 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
               );
             }
             if (docs.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Center(child: Text('No data yet.',
-                    style: TextStyle(color: Color(0xFF9A9A9A)))),
+                    style: TextStyle(color: context.txtSec))),
               );
             }
             return ListView.builder(
@@ -691,7 +691,7 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                         color: top ? kOrange.withOpacity(0.3) : Colors.transparent),
@@ -710,14 +710,14 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
                           shape: BoxShape.circle,
                           color: const Color(0xFF0F172A),
                           border: Border.all(
-                              color: top ? kOrange.withOpacity(0.5) : const Color(0xFF334155))),
+                              color: top ? kOrange.withOpacity(0.5) : context.border)),
                       child: Center(child: Text(emoji,
                           style: const TextStyle(fontSize: 16))),
                     ),
                     const SizedBox(width: 10),
                     Expanded(child: Text(name,
-                        style: const TextStyle(
-                            color: Color(0xFFF1F5F9), fontSize: 13,
+                        style: TextStyle(
+                            color: context.txtPri, fontSize: 13,
                             fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis)),
                     Text('$score pts',
@@ -750,14 +750,14 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
             Container(
               width: double.infinity, height: 43,
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: context.card,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF334155)),
+                border: Border.all(color: context.border),
               ),
-              child: const Center(
+              child: Center(
                 child: Text('My Rankings',
                     style: TextStyle(
-                        color: Color(0xFFF1F5F9),
+                        color: context.txtPri,
                         fontSize: 14, fontWeight: FontWeight.w700)),
               ),
             ),

@@ -117,7 +117,7 @@ class _GameInfoScreenState extends State<GameInfoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: Stack(children: [
         // Glow circle — Figma: y=98 x=237 256×256 #22D1EE
         Positioned(
@@ -146,10 +146,10 @@ class _GameInfoScreenState extends State<GameInfoScreen> {
                   child: Container(
                     width: 40, height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: context.card,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                          color: const Color(0xFF334155)),
+                          color: context.border),
                     ),
                     child: const Icon(
                         Icons.arrow_back_ios_new_rounded,
@@ -419,8 +419,8 @@ class _InfoPill extends StatelessWidget {
           style: const TextStyle(
               color: kCyan, fontSize: 13, fontWeight: FontWeight.w800)),
       Text(label,
-          style: const TextStyle(
-              color: Color(0xFF94A3B8), fontSize: 10)),
+          style: TextStyle(
+              color: context.txtSec, fontSize: 10)),
     ]),
   );
 }
@@ -516,9 +516,9 @@ class _LeaderboardTab extends StatelessWidget {
                 height: 52,
                 decoration: BoxDecoration(
                   border: rank < entries.length
-                      ? const Border(
-                          bottom: BorderSide(
-                              color: Color(0xFF1E293B), width: 1))
+                       ? Border(
+                           bottom: BorderSide(
+                               color: context.border, width: 1))
                       : null,
                 ),
                 child: Padding(
@@ -534,7 +534,7 @@ class _LeaderboardTab extends StatelessWidget {
                         style: TextStyle(
                             color: isTop
                                 ? kOrange
-                                : const Color(0xFF94A3B8),
+                                : context.txtSec,
                             fontSize: rank <= 3 ? 16 : 12,
                             fontWeight: FontWeight.w800),
                         textAlign: TextAlign.center,

@@ -7,7 +7,7 @@ class TournamentOverviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
           // Header
@@ -20,18 +20,18 @@ class TournamentOverviewScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: context.border),
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 16),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: context.txtPri, size: 16),
                 ),
               ),
               const SizedBox(width: 14),
-              const Text('Tournament Overview',
+              Text('Tournament Overview',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 17,
                       fontWeight: FontWeight.w800)),
             ]),
@@ -41,11 +41,11 @@ class TournamentOverviewScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Row(children: [
-              _tab('Live', true, const Color(0xFF00E676)),
+              _tab(context, 'Live', true, const Color(0xFF00E676)),
               const SizedBox(width: 8),
-              _tab('Upcoming', false, kOrange),
+              _tab(context, 'Upcoming', false, kOrange),
               const SizedBox(width: 8),
-              _tab('Completed', false, kCyan),
+              _tab(context, 'Completed', false, kCyan),
             ]),
           ),
 
@@ -70,21 +70,21 @@ class TournamentOverviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _tab(String label, bool selected, Color color) {
+  Widget _tab(BuildContext context, String label, bool selected, Color color) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? color.withOpacity(0.15) : kBgCard,
+          color: selected ? color.withOpacity(0.15) : context.card,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? color : kBorder,
+            color: selected ? color : context.border,
           ),
         ),
         child: Center(
           child: Text(label,
               style: TextStyle(
-                  color: selected ? color : const Color(0xFF94A3B8),
+                  color: selected ? color : context.txtSec,
                   fontSize: 13,
                   fontWeight: FontWeight.w700)),
         ),
@@ -126,17 +126,17 @@ class _TournamentCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: kBgCard,
+        color: context.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isLive ? statusColor.withOpacity(0.3) : kBorder,
+          color: isLive ? statusColor.withOpacity(0.3) : context.border,
         ),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text(name,
-              style: const TextStyle(
-                  color: Colors.white,
+              style: TextStyle(
+                  color: context.txtPri,
                   fontSize: 14,
                   fontWeight: FontWeight.w700)),
           const Spacer(),
@@ -155,28 +155,28 @@ class _TournamentCard extends StatelessWidget {
         ]),
         const SizedBox(height: 10),
         Row(children: [
-          _info('Game', game),
+          _info(context, 'Game', game),
           const SizedBox(width: 16),
-          _info('Prize', formatted),
+          _info(context, 'Prize', formatted),
           const SizedBox(width: 16),
-          _info('Entry', '₦$entryFee'),
+          _info(context, 'Entry', '₦$entryFee'),
           const Spacer(),
-          _info('Players', players),
+          _info(context, 'Players', players),
         ]),
       ]),
     );
   }
 
-  Widget _info(String label, String value) {
+  Widget _info(BuildContext context, String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
             style:
-                const TextStyle(color: Color(0xFF475569), fontSize: 10)),
+                TextStyle(color: context.txtSec, fontSize: 10)),
         Text(value,
-            style: const TextStyle(
-                color: Colors.white,
+            style: TextStyle(
+                color: context.txtPri,
                 fontSize: 12,
                 fontWeight: FontWeight.w600)),
       ],

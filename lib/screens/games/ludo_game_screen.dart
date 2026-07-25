@@ -412,7 +412,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     final bs = sw - 16; // board size
 
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

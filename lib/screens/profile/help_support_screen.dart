@@ -46,7 +46,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: const Color(0xFF0B0E1A),
+        backgroundColor: context.bg,
         body: SafeArea(
           child: Column(children: [
             // Header
@@ -59,18 +59,18 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: context.card,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF334155)),
+                      border: Border.all(color: context.border),
                     ),
-                    child: const Icon(Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white, size: 16),
+                    child: Icon(Icons.arrow_back_ios_new_rounded,
+                        color: context.txtPri, size: 16),
                   ),
                 ),
                 const SizedBox(width: 14),
-                const Text('Help & Support',
+                Text('Help & Support',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 17,
                         fontWeight: FontWeight.w800)),
               ]),
@@ -87,17 +87,17 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: context.card,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF334155)),
+                      border: Border.all(color: context.border),
                     ),
-                    child: const Row(children: [
+                    child: Row(children: [
                       Icon(Icons.search_outlined,
-                          color: Color(0xFF64748B), size: 20),
+                          color: context.txtSec, size: 20),
                       SizedBox(width: 10),
                       Text('Search for help...',
                           style: TextStyle(
-                              color: Color(0xFF64748B), fontSize: 14)),
+                              color: context.txtSec, fontSize: 14)),
                     ]),
                   ),
                   const SizedBox(height: 20),
@@ -109,7 +109,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: context.card,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Theme(
@@ -131,15 +131,15 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                                 color: kCyan, size: 20),
                           ),
                           title: Text(_faqs[i]['q']!,
-                              style: const TextStyle(
-                                  color: Colors.white,
+                              style: TextStyle(
+                                  color: context.txtPri,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600)),
                           trailing: Icon(
                             expanded
                                 ? Icons.keyboard_arrow_up_rounded
                                 : Icons.keyboard_arrow_down_rounded,
-                            color: const Color(0xFF64748B),
+                            color: context.txtSec,
                           ),
                           onExpansionChanged: (open) {
                             setState(
@@ -147,8 +147,8 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                           },
                           children: [
                             Text(_faqs[i]['a']!,
-                                style: const TextStyle(
-                                    color: Color(0xFF94A3B8),
+                                style: TextStyle(
+                                    color: context.txtSec,
                                     fontSize: 13,
                                     height: 1.5)),
                           ],
@@ -223,15 +223,15 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
   Widget _sectionLabel(String t) => Padding(
         padding: const EdgeInsets.only(left: 4, bottom: 8),
         child: Text(t.toUpperCase(),
-            style: const TextStyle(
-                color: Color(0xFF94A3B8),
+            style: TextStyle(
+                color: context.txtSec,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.2)),
       );
 
   Widget _divider() =>
-      const Divider(height: 1, indent: 72, color: Color(0xFF334155));
+      Divider(height: 1, indent: 72, color: context.border);
 }
 
 class _SectionCard extends StatelessWidget {
@@ -241,7 +241,7 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: context.card,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(children: children),
@@ -275,16 +275,16 @@ class _ContactRow extends StatelessWidget {
           child: Icon(icon, color: const Color(0xFF0B0E1A), size: 20),
         ),
         title: Text(label,
-            style: const TextStyle(
-                color: Colors.white,
+            style: TextStyle(
+                color: context.txtPri,
                 fontSize: 14,
                 fontWeight: FontWeight.w500)),
         subtitle: subtitle != null
             ? Text(subtitle!,
                 style:
-                    const TextStyle(color: Color(0xFF64748B), fontSize: 11))
+                    TextStyle(color: context.txtSec, fontSize: 11))
             : null,
-        trailing: const Icon(Icons.chevron_right_rounded,
-            color: Color(0xFF475569), size: 20),
+        trailing: Icon(Icons.chevron_right_rounded,
+            color: context.txtSec, size: 20),
       );
 }

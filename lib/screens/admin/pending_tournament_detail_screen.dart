@@ -7,7 +7,7 @@ class PendingTournamentDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
           // Header
@@ -20,19 +20,19 @@ class PendingTournamentDetailScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: context.border),
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 16),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: context.txtPri, size: 16),
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Text('Pending Tournament',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 17,
                         fontWeight: FontWeight.w800)),
               ),
@@ -63,7 +63,7 @@ class PendingTournamentDetailScreen extends StatelessWidget {
                     gradient: LinearGradient(
                       colors: [
                         kOrange.withOpacity(0.08),
-                        kBgCard,
+                        context.card,
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -72,27 +72,27 @@ class PendingTournamentDetailScreen extends StatelessWidget {
                     border: Border.all(color: kOrange.withOpacity(0.25)),
                   ),
                   child: Column(children: [
-                    const Text('Ayo Masters Cup #12',
+                    Text('Ayo Masters Cup #12',
                         style: TextStyle(
-                            color: Colors.white,
+                            color: context.txtPri,
                             fontSize: 17,
                             fontWeight: FontWeight.w800)),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _info('Prize Pool', '₦30,000'),
-                        _info('Entry Fee', '₦500'),
-                        _info('Players', '18/32'),
+                        _info(context, 'Prize Pool', '₦30,000'),
+                        _info(context, 'Entry Fee', '₦500'),
+                        _info(context, 'Players', '18/32'),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _info('Starts In', '2h 15m'),
-                        _info('Game', 'Ayo'),
-                        _info('Format', 'Single Elim'),
+                        _info(context, 'Starts In', '2h 15m'),
+                        _info(context, 'Game', 'Ayo'),
+                        _info(context, 'Format', 'Single Elim'),
                       ],
                     ),
                   ]),
@@ -104,9 +104,9 @@ class PendingTournamentDetailScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('REGISTERED PLAYERS (18)',
+                    Text('REGISTERED PLAYERS (18)',
                         style: TextStyle(
-                            color: Color(0xFF94A3B8),
+                            color: context.txtSec,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1.2)),
@@ -129,20 +129,20 @@ class PendingTournamentDetailScreen extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // Config review
-                const Text('TOURNAMENT CONFIG',
+                Text('TOURNAMENT CONFIG',
                     style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: context.txtSec,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
                 const SizedBox(height: 10),
                 _SectionCard(children: [
                   _ConfigRow('Max Players', '32'),
-                  _divider(),
+                  _divider(context),
                   _ConfigRow('Entry Fee', '₦500'),
-                  _divider(),
+                  _divider(context),
                   _ConfigRow('Prize Distribution', '1st: ₦20K, 2nd: ₦7K, 3rd: ₦3K'),
-                  _divider(),
+                  _divider(context),
                   _ConfigRow('Match Timer', '120 seconds'),
                 ]),
 
@@ -179,8 +179,8 @@ class PendingTournamentDetailScreen extends StatelessWidget {
                           // TODO: edit tournament
                         },
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: kBorder),
+                          foregroundColor: context.txtPri,
+                          side: BorderSide(color: context.border),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
@@ -202,22 +202,22 @@ class PendingTournamentDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _info(String label, String value) {
+  Widget _info(BuildContext context, String label, String value) {
     return Column(children: [
       Text(label,
           style:
-              const TextStyle(color: Color(0xFF64748B), fontSize: 10)),
+              TextStyle(color: context.txtSec, fontSize: 10)),
       const SizedBox(height: 2),
       Text(value,
-          style: const TextStyle(
-              color: Colors.white,
+          style: TextStyle(
+              color: context.txtPri,
               fontSize: 14,
               fontWeight: FontWeight.w800)),
     ]);
   }
 
-  static Widget _divider() =>
-      const Divider(height: 1, indent: 56, color: Color(0xFF334155));
+  Widget _divider(BuildContext context) =>
+      Divider(height: 1, indent: 56, color: context.border);
 }
 
 class _SectionCard extends StatelessWidget {
@@ -227,7 +227,7 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: kBgCard,
+          color: context.card,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(children: children),
@@ -261,12 +261,12 @@ class _PlayerRow extends StatelessWidget {
         ),
       ),
       title: Text(name,
-          style: const TextStyle(
-              color: Colors.white,
+          style: TextStyle(
+              color: context.txtPri,
               fontSize: 13,
               fontWeight: FontWeight.w500)),
-      trailing: const Icon(Icons.chevron_right_rounded,
-          color: Color(0xFF475569), size: 18),
+      trailing: Icon(Icons.chevron_right_rounded,
+          color: context.txtSec, size: 18),
     );
   }
 }
@@ -283,11 +283,11 @@ class _ConfigRow extends StatelessWidget {
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       title: Text(label,
-          style: const TextStyle(
-              color: Color(0xFF94A3B8), fontSize: 13)),
+          style: TextStyle(
+              color: context.txtSec, fontSize: 13)),
       trailing: Text(value,
-          style: const TextStyle(
-              color: Colors.white,
+          style: TextStyle(
+              color: context.txtPri,
               fontSize: 13,
               fontWeight: FontWeight.w600)),
     );

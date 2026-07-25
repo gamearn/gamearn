@@ -7,7 +7,7 @@ class CompletedGamesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
           // Header
@@ -20,18 +20,18 @@ class CompletedGamesScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: context.border),
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 16),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: context.txtPri, size: 16),
                 ),
               ),
               const SizedBox(width: 14),
-              const Text('Completed Games',
+              Text('Completed Games',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 17,
                       fontWeight: FontWeight.w800)),
             ]),
@@ -41,15 +41,15 @@ class CompletedGamesScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Row(children: [
-              _filterChip('All', true),
+              _filterChip(context, 'All', true),
               const SizedBox(width: 8),
-              _filterChip('Ayo', false),
+              _filterChip(context, 'Ayo', false),
               const SizedBox(width: 8),
-              _filterChip('Ludo', false),
+              _filterChip(context, 'Ludo', false),
               const SizedBox(width: 8),
-              _filterChip('Whot', false),
+              _filterChip(context, 'Whot', false),
               const SizedBox(width: 8),
-              _filterChip('Draughts', false),
+              _filterChip(context, 'Draughts', false),
             ]),
           ),
 
@@ -74,19 +74,19 @@ class CompletedGamesScreen extends StatelessWidget {
     );
   }
 
-  Widget _filterChip(String label, bool selected) {
+  Widget _filterChip(BuildContext context, String label, bool selected) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
-        color: selected ? kCyan.withOpacity(0.15) : kBgCard,
+        color: selected ? kCyan.withOpacity(0.15) : context.card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: selected ? kCyan : kBorder,
+          color: selected ? kCyan : context.border,
         ),
       ),
       child: Text(label,
           style: TextStyle(
-              color: selected ? kCyan : const Color(0xFF94A3B8),
+              color: selected ? kCyan : context.txtSec,
               fontSize: 12,
               fontWeight: FontWeight.w600)),
     );
@@ -120,9 +120,9 @@ class _GameCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: kBgCard,
+        color: context.card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
+        border: Border.all(color: context.border),
       ),
       child: Column(children: [
         Row(children: [
@@ -171,7 +171,7 @@ class _GameCard extends StatelessWidget {
                     Text(player1,
                         style: TextStyle(
                             color:
-                                p1Won ? const Color(0xFF00E676) : Colors.white,
+                                p1Won ? const Color(0xFF00E676) : context.txtPri,
                             fontSize: 12,
                             fontWeight: FontWeight.w600)),
                     if (p1Won)
@@ -186,9 +186,9 @@ class _GameCard extends StatelessWidget {
             ]),
           ),
           // VS
-          const Text('VS',
+          Text('VS',
               style: TextStyle(
-                  color: Color(0xFF475569),
+                  color: context.txtSec,
                   fontSize: 11,
                   fontWeight: FontWeight.w800)),
           // Player 2
@@ -202,7 +202,7 @@ class _GameCard extends StatelessWidget {
                         style: TextStyle(
                             color: !p1Won
                                 ? const Color(0xFF00E676)
-                                : Colors.white,
+                                : context.txtPri,
                             fontSize: 12,
                             fontWeight: FontWeight.w600)),
                     if (!p1Won)
@@ -235,8 +235,8 @@ class _GameCard extends StatelessWidget {
         Align(
           alignment: Alignment.centerRight,
           child: Text(timeAgo,
-              style: const TextStyle(
-                  color: Color(0xFF475569), fontSize: 10)),
+              style: TextStyle(
+                  color: context.txtSec, fontSize: 10)),
         ),
       ]),
     );

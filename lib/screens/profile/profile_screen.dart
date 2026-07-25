@@ -27,7 +27,7 @@ class ProfileScreen extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: SafeArea(
         child: StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
@@ -57,9 +57,9 @@ class ProfileScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                     child: Row(children: [
-                      const Text('Profile',
+                      Text('Profile',
                           style: TextStyle(
-                              color: Colors.white,
+                              color: context.txtPri,
                               fontSize: 20, fontWeight: FontWeight.w900)),
                       const Spacer(),
                       GestureDetector(
@@ -68,9 +68,9 @@ class ProfileScreen extends StatelessWidget {
                         child: Container(
                           width: 40, height: 40,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B),
+                            color: context.card,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFF334155)),
+                            border: Border.all(color: context.border),
                           ),
                           child: const Icon(Icons.settings_outlined,
                               color: kCyan, size: 18),
@@ -104,9 +104,9 @@ class ProfileScreen extends StatelessWidget {
                             top: 2, left: 2,
                             child: Container(
                               width: 124, height: 124,
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Color(0xFF0B0E1A)),
+                                  color: context.bg),
                               child: Center(
                                 child: Text(avatarEmoji,
                                     style: const TextStyle(fontSize: 60)),
@@ -124,7 +124,7 @@ class ProfileScreen extends StatelessWidget {
                                   color: kOrange,
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                      color: const Color(0xFF0B0E1A), width: 2),
+                                      color: context.bg, width: 2),
                                 ),
                                 child: const Icon(Icons.edit_rounded,
                                     color: Colors.white, size: 14),
@@ -143,14 +143,14 @@ class ProfileScreen extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                     child: Column(children: [
                       Text(username,
-                          style: const TextStyle(
-                              color: Colors.white,
+                          style: TextStyle(
+                              color: context.txtPri,
                               fontSize: 22, fontWeight: FontWeight.w900)),
                       const SizedBox(height: 4),
                       Text(bio,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                              color: Color(0xFF9A9A9A), fontSize: 13)),
+                          style: TextStyle(
+                              color: context.txtSec, fontSize: 13)),
                       const SizedBox(height: 8),
                       // Level chip
                       Container(
@@ -206,15 +206,15 @@ class ProfileScreen extends StatelessWidget {
                           child: Container(
                             height: 44,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
+                              color: context.card,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                  color: const Color(0xFF334155)),
+                                  color: context.border),
                             ),
                             child: const Center(
                               child: Text('Share Profile',
                                   style: TextStyle(
-                                      color: Colors.white,
+                                      color: context.txtPri,
                                       fontSize: 14,
                                       fontWeight: FontWeight.w700)),
                             ),
@@ -233,11 +233,11 @@ class ProfileScreen extends StatelessWidget {
                     child: Row(children: [
                       Expanded(child: _StatBox(
                           label: 'Wins', value: '$wins',
-                          accent: const Color(0xFF1E293B), highlight: false)),
+                          accent: context.card, highlight: false)),
                       const SizedBox(width: 12),
                       Expanded(child: _StatBox(
                           label: 'Games', value: '$games',
-                          accent: const Color(0xFF1E293B), highlight: false)),
+                          accent: context.card, highlight: false)),
                       const SizedBox(width: 12),
                       // Rank box — Figma: #22D1EE fill
                       Expanded(child: _StatBox(
@@ -254,7 +254,7 @@ class ProfileScreen extends StatelessWidget {
                     child: Container(
                       height: 47,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: context.card,
                         borderRadius: BorderRadius.circular(24),
                       ),
                       child: Padding(
@@ -262,7 +262,7 @@ class ProfileScreen extends StatelessWidget {
                         child: Row(children: [
                           Text('XP  ',
                               style: TextStyle(
-                                  color: Colors.white.withOpacity(0.5),
+                                  color: context.txtPri.withOpacity(0.5),
                                   fontSize: 11)),
                           Expanded(
                             child: ClipRRect(
@@ -288,12 +288,12 @@ class ProfileScreen extends StatelessWidget {
                 ),
 
                 // ── QUICK LINKS ───────────────────────────────────────
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(24, 20, 24, 10),
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
                     child: Text('Quick Links',
                         style: TextStyle(
-                            color: Colors.white,
+                            color: context.txtPri,
                             fontSize: 14, fontWeight: FontWeight.w800)),
                   ),
                 ),
@@ -343,12 +343,12 @@ class ProfileScreen extends StatelessWidget {
                 //    avatar 48×48 rx=24, badge 32×19 rx=4 #FF5E00
                 //    play btn 64×32 rx=8 #FF5E00 ──────────────────
                 if (friends.isNotEmpty) ...[
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(24, 20, 24, 10),
+                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
                       child: Text('Friends',
                           style: TextStyle(
-                              color: Colors.white,
+                              color: context.txtPri,
                               fontSize: 14, fontWeight: FontWeight.w800)),
                     ),
                   ),
@@ -405,7 +405,7 @@ class ProfileScreen extends StatelessWidget {
       BuildContext context, String uid, String username, String bio) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: context.card,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       isScrollControlled: true,
@@ -430,21 +430,21 @@ class _StatBox extends StatelessWidget {
     decoration: BoxDecoration(
       color: accent,
       borderRadius: BorderRadius.circular(12),
-      border: highlight ? null : Border.all(color: const Color(0xFF334155)),
+      border: highlight ? null : Border.all(color: context.border),
     ),
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(value,
             style: TextStyle(
-                color: highlight ? const Color(0xFF0B0E1A) : Colors.white,
+                color: highlight ? context.bg : context.txtPri,
                 fontSize: 20, fontWeight: FontWeight.w900)),
         const SizedBox(height: 4),
         Text(label,
             style: TextStyle(
                 color: highlight
-                    ? const Color(0xFF0B0E1A).withOpacity(0.7)
-                    : const Color(0xFF9A9A9A),
+                    ? context.bg.withOpacity(0.7)
+                    : context.txtSec,
                 fontSize: 11, fontWeight: FontWeight.w500)),
       ],
     ),
@@ -467,9 +467,9 @@ class _NavTile extends StatelessWidget {
     child: Container(
       height: 56,
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: context.card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF1E293B)),
+        border: Border.all(color: context.border),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -484,11 +484,11 @@ class _NavTile extends StatelessWidget {
           ),
           const SizedBox(width: 14),
           Expanded(child: Text(label,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 14,
+              style: TextStyle(
+                  color: context.txtPri, fontSize: 14,
                   fontWeight: FontWeight.w600))),
           Icon(Icons.chevron_right_rounded,
-              color: Colors.white.withOpacity(0.3), size: 20),
+              color: context.txtPri.withOpacity(0.3), size: 20),
         ]),
       ),
     ),
@@ -520,7 +520,7 @@ class _FriendRow extends StatelessWidget {
             height: 74,
             decoration: BoxDecoration(
               // Figma: #1A2131
-              color: const Color(0xFF1A2131),
+              color: context.card,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Padding(
@@ -530,9 +530,9 @@ class _FriendRow extends StatelessWidget {
                 Stack(children: [
                   Container(
                     width: 48, height: 48,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Color(0xFF0B0E1A)),
+                        color: context.bg),
                     child: Center(child: Text(emoji,
                         style: const TextStyle(fontSize: 24))),
                   ),
@@ -544,7 +544,7 @@ class _FriendRow extends StatelessWidget {
                         color: const Color(0xFF22C55E),
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: const Color(0xFF1A2131), width: 2),
+                            color: context.card, width: 2),
                       ),
                     ),
                   ),
@@ -556,8 +556,8 @@ class _FriendRow extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(name,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 14,
+                          style: TextStyle(
+                              color: context.txtPri, fontSize: 14,
                               fontWeight: FontWeight.w700)),
                       // online badge 32×19 rx=4 #FF5E00 / #334155
                       const SizedBox(height: 4),
@@ -567,12 +567,11 @@ class _FriendRow extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: online
                               ? kOrange
-                              : const Color(0xFF334155),
-                          borderRadius: BorderRadius.circular(4),
+                              : context.border,
                         ),
                         child: Text(online ? 'Online' : 'Offline',
-                            style: const TextStyle(
-                                color: Colors.white,
+                            style: TextStyle(
+                                color: context.txtPri,
                                 fontSize: 9, fontWeight: FontWeight.w700)),
                       ),
                     ],
@@ -651,11 +650,11 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 40, height: 4,
               decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: context.txtPri.withOpacity(0.24),
                   borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 20),
-          const Text('Edit Profile',
-              style: TextStyle(color: Colors.white,
+          Text('Edit Profile',
+              style: TextStyle(color: context.txtPri,
                   fontSize: 17, fontWeight: FontWeight.w800)),
           const SizedBox(height: 20),
           _field(_nameCtrl, 'Username', Icons.person_outline_rounded),
@@ -685,9 +684,9 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       Container(
         height: 52,
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: context.card,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFF334155)),
+          border: Border.all(color: context.border),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -696,10 +695,10 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
             const SizedBox(width: 10),
             Expanded(child: TextField(
               controller: ctrl,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: context.txtPri),
               decoration: InputDecoration(
                 hintText: hint,
-                hintStyle: const TextStyle(color: Color(0xFF9A9A9A)),
+                hintStyle: TextStyle(color: context.txtSec),
                 border: InputBorder.none,
               ),
             )),

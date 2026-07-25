@@ -39,7 +39,7 @@ class _TournamentDetailsScreenState
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('tournaments')
@@ -47,8 +47,8 @@ class _TournamentDetailsScreenState
             .snapshots(),
         builder: (_, snap) {
           if (!snap.hasData) {
-            return const Scaffold(
-              backgroundColor: Color(0xFF0B0E1A),
+            return Scaffold(
+              backgroundColor: context.bg,
               body: Center(
                   child: CircularProgressIndicator(
                       color: kCyan, strokeWidth: 2)),
@@ -109,10 +109,10 @@ class _TournamentDetailsScreenState
                               child: Container(
                                 width: 36, height: 36,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1E293B),
+                                  color: context.card,
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                      color: const Color(0xFF334155)),
+                                      color: context.border),
                                 ),
                                 child: const Icon(
                                     Icons.arrow_back_ios_new_rounded,
@@ -225,7 +225,7 @@ class _TournamentDetailsScreenState
                 child: Container(
                   height: 36,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: TabBar(
@@ -287,9 +287,9 @@ class _OverviewTab extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF0F172A),
+            color: context.card,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF1E293B)),
+            border: Border.all(color: context.border),
           ),
           child: Column(children: [
             Row(children: [
@@ -307,9 +307,9 @@ class _OverviewTab extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF0F172A),
+            color: context.card,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF1E293B)),
+            border: Border.all(color: context.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -359,8 +359,8 @@ class _PlayersTab extends StatelessWidget {
           (maxPlayers - players.length).clamp(0, 8),
           (i) => Container(
             height: 64, margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF1E293B))),
-            child: const Center(child: Text('Open slot', style: TextStyle(color: Color(0xFF475569), fontSize: 12))),
+            decoration: BoxDecoration(color: context.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: context.border)),
+            child: Center(child: Text('Open slot', style: TextStyle(color: context.txtSec, fontSize: 12))),
           ),
         ),
       ],
@@ -376,7 +376,7 @@ class _PlayerRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 64, margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF1E293B))),
+      decoration: BoxDecoration(color: context.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: context.border)),
       child: FutureBuilder<DocumentSnapshot>(
         future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
         builder: (_, snap) {
@@ -386,7 +386,7 @@ class _PlayerRow extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Row(children: [
-              Container(width: 36, height: 36, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF1E293B)), child: Center(child: Text(emoji, style: const TextStyle(fontSize: 18)))),
+              Container(width: 36, height: 36, decoration: BoxDecoration(shape: BoxShape.circle, color: context.card), child: Center(child: Text(emoji, style: const TextStyle(fontSize: 18)))),
               const SizedBox(width: 12),
               Text(name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
             ]),
@@ -415,7 +415,7 @@ class _PrizesTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: prizes.map((p) => Container(
         height: 64, margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF1E293B))),
+        decoration: BoxDecoration(color: context.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: context.border)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(children: [

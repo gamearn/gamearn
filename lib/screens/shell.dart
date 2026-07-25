@@ -26,7 +26,7 @@ class _ShellState extends State<Shell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: IndexedStack(
         index: _currentIndex,
         children: _pages,

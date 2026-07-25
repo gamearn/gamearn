@@ -7,7 +7,7 @@ class LiveUsersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
           // Header
@@ -20,19 +20,19 @@ class LiveUsersScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: context.border),
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 16),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: context.txtPri, size: 16),
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Text('Live Users',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 17,
                         fontWeight: FontWeight.w800)),
               ),
@@ -139,9 +139,9 @@ class _LiveUserRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: kBgCard,
+        color: context.card,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: kBorder),
+        border: Border.all(color: context.border),
       ),
       child: Row(children: [
         // Live indicator
@@ -159,13 +159,13 @@ class _LiveUserRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(name,
-                  style: const TextStyle(
-                      color: Colors.white,
+                  style: TextStyle(
+                      color: context.txtPri,
                       fontSize: 13,
                       fontWeight: FontWeight.w600)),
               Text('vs $opponent',
-                  style: const TextStyle(
-                      color: Color(0xFF64748B), fontSize: 11)),
+                  style: TextStyle(
+                      color: context.txtSec, fontSize: 11)),
             ],
           ),
         ),
@@ -187,8 +187,8 @@ class _LiveUserRow extends StatelessWidget {
             ),
             const SizedBox(height: 3),
             Text(duration,
-                style: const TextStyle(
-                    color: Color(0xFF475569), fontSize: 10)),
+                style: TextStyle(
+                    color: context.txtSec, fontSize: 10)),
           ],
         ),
       ]),

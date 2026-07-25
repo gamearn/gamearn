@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../theme.dart';
 import 'live_tournament_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
@@ -125,7 +126,7 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
     final safeTop = MediaQuery.of(context).padding.top;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('tournaments')
@@ -339,7 +340,7 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
                       fit: BoxFit.cover,
                       width: double.infinity,
                       errorWidget: (_, __, ___) => Container(
-                        color: const Color(0xFF0F172A),
+                        color: context.card,
                         child: const Center(
                             child: Icon(Icons.sports_esports_rounded,
                                 color: Colors.white24, size: 48)),
@@ -496,9 +497,9 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // "ENTRY FEE" — #94A3B8 fs=12 fw=700 ls=2.4 uppercase lh=16
-          const Text('ENTRY FEE',
+          Text('ENTRY FEE',
               style: TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: context.txtSec,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 2.4,

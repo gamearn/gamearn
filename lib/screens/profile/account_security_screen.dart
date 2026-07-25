@@ -26,7 +26,7 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: const Color(0xFF0B0E1A),
+    backgroundColor: context.bg,
     body: SafeArea(
       child: Stack(children: [
         // Glow circle — Figma: y=225 x=222 192×192 rx=96 #22D1EE
@@ -56,18 +56,18 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                     child: Container(
                       width: 40, height: 40,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: context.card,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF334155)),
+                        border: Border.all(color: context.border),
                       ),
-                      child: const Icon(Icons.arrow_back_ios_new_rounded,
-                          color: Colors.white, size: 16),
+                      child: Icon(Icons.arrow_back_ios_new_rounded,
+                          color: context.txtPri, size: 16),
                     ),
                   ),
                   const SizedBox(width: 14),
-                  const Text('Account Security',
+                  Text('Account Security',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: context.txtPri,
                           fontSize: 17, fontWeight: FontWeight.w800)),
                 ]),
               ),
@@ -78,9 +78,9 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
                 child: Column(children: [
-                  const Text('Security Score',
+                  Text('Security Score',
                       style: TextStyle(
-                          color: Color(0xFF9A9A9A), fontSize: 13)),
+                          color: context.txtSec, fontSize: 13)),
                   const SizedBox(height: 8),
                   Text(_score(),
                       style: TextStyle(
@@ -163,12 +163,12 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
             ),
 
             // ── SECURITY OPTIONS ──────────────────────────────────────
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 24, 16, 10),
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
                 child: Text('Security Options',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 14, fontWeight: FontWeight.w800)),
               ),
             ),
@@ -178,9 +178,9 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF1E293B)),
+                    border: Border.all(color: context.border),
                   ),
                   child: Column(children: [
                     _ToggleRow(
@@ -190,8 +190,8 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                       value: _biometrics,
                       onChanged: (v) => setState(() => _biometrics = v),
                     ),
-                    const Divider(height: 1, indent: 72,
-                        color: Color(0xFF1E293B)),
+                    Divider(height: 1, indent: 72,
+                        color: context.border),
                     _ToggleRow(
                       icon: Icons.notifications_active_outlined,
                       label: 'Login Alerts',
@@ -199,8 +199,8 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                       value: _loginAlerts,
                       onChanged: (v) => setState(() => _loginAlerts = v),
                     ),
-                    const Divider(height: 1, indent: 72,
-                        color: Color(0xFF1E293B)),
+                    Divider(height: 1, indent: 72,
+                        color: context.border),
                     _NavRow(
                       icon: Icons.password_rounded,
                       label: 'Change Password',
@@ -212,12 +212,12 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
             ),
 
             // ── ACTIVE SESSIONS — Figma: y=636 342×130 rx=12 #201F1F ─
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 24, 16, 10),
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
                 child: Text('Active Sessions',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 14, fontWeight: FontWeight.w800)),
               ),
             ),
@@ -228,7 +228,7 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                 child: Container(
                   decoration: BoxDecoration(
                     // Figma: #201F1F
-                    color: const Color(0xFF201F1F),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Padding(
@@ -244,18 +244,18 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                             color: kCyan, size: 20),
                       ),
                       const SizedBox(width: 14),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('This Device',
                                 style: TextStyle(
-                                    color: Colors.white,
+                                    color: context.txtPri,
                                     fontSize: 14, fontWeight: FontWeight.w700)),
                             SizedBox(height: 2),
                             Text('Android • Current session',
                                 style: TextStyle(
-                                    color: Color(0xFF9A9A9A), fontSize: 11)),
+                                    color: context.txtSec, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -340,7 +340,7 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
     final _newCtrl = TextEditingController();
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: context.card,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
@@ -351,11 +351,11 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 40, height: 4,
               decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: context.txtPri.withOpacity(0.24),
                   borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 20),
-          const Text('Change Password',
-              style: TextStyle(color: Colors.white,
+          Text('Change Password',
+              style: TextStyle(color: context.txtPri,
                   fontSize: 17, fontWeight: FontWeight.w800)),
           const SizedBox(height: 20),
           _pwField(_oldCtrl, 'Current Password'),
@@ -396,19 +396,19 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
   Widget _pwField(TextEditingController c, String hint) => Container(
     height: 52,
     decoration: BoxDecoration(
-      color: const Color(0xFF1E293B),
+      color: context.card,
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: const Color(0xFF334155)),
+      border: Border.all(color: context.border),
     ),
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: TextField(
         controller: c,
         obscureText: true,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: context.txtPri),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: Color(0xFF9A9A9A)),
+          hintStyle: TextStyle(color: context.txtSec),
           border: InputBorder.none,
         ),
       ),
@@ -418,18 +418,18 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
   void _deleteAccountDialog() => showDialog(
     context: context,
     builder: (_) => AlertDialog(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: context.card,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('Delete Account',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-      content: const Text(
+      title: Text('Delete Account',
+          style: TextStyle(color: context.txtPri, fontWeight: FontWeight.w800)),
+      content: Text(
           'This action is permanent and cannot be undone. All your data will be lost.',
-          style: TextStyle(color: Color(0xFF9A9A9A))),
+          style: TextStyle(color: context.txtSec)),
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel',
-                style: TextStyle(color: Color(0xFF9A9A9A)))),
+            child: Text('Cancel',
+                style: TextStyle(color: context.txtSec))),
         TextButton(
             onPressed: () async {
               Navigator.pop(context);
@@ -462,16 +462,16 @@ class _ToggleRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(8)),
       child: Icon(icon, color: kCyan, size: 20),
     ),
-    title: Text(label, style: const TextStyle(
-        color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-    subtitle: Text(sub, style: const TextStyle(
-        color: Color(0xFF9A9A9A), fontSize: 11)),
+    title: Text(label, style: TextStyle(
+        color: context.txtPri, fontSize: 14, fontWeight: FontWeight.w600)),
+    subtitle: Text(sub, style: TextStyle(
+        color: context.txtSec, fontSize: 11)),
     trailing: Switch(
       value: value, onChanged: onChanged,
       activeColor: kCyan,
       activeTrackColor: kCyan.withOpacity(0.3),
-      inactiveThumbColor: const Color(0xFF94A3B8),
-      inactiveTrackColor: const Color(0xFF334155),
+      inactiveThumbColor: context.txtSec,
+      inactiveTrackColor: context.border,
     ),
   );
 }
@@ -495,9 +495,9 @@ class _NavRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(8)),
       child: Icon(icon, color: kCyan, size: 20),
     ),
-    title: Text(label, style: const TextStyle(
-        color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-    trailing: const Icon(Icons.chevron_right_rounded,
-        color: Color(0xFF475569), size: 20),
+    title: Text(label, style: TextStyle(
+        color: context.txtPri, fontSize: 14, fontWeight: FontWeight.w600)),
+    trailing: Icon(Icons.chevron_right_rounded,
+        color: context.txtSec, size: 20),
   );
 }

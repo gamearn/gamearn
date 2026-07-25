@@ -7,7 +7,7 @@ class TransactionsOverviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
           // Header
@@ -20,18 +20,18 @@ class TransactionsOverviewScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: context.border),
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 16),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: context.txtPri, size: 16),
                 ),
               ),
               const SizedBox(width: 14),
-              const Text('Transactions',
+              Text('Transactions',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 17,
                       fontWeight: FontWeight.w800)),
             ]),
@@ -41,11 +41,11 @@ class TransactionsOverviewScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Row(children: [
-              _stat('Inflow', '+₦12.4M', const Color(0xFF00E676)),
+              _stat(context, 'Inflow', '+₦12.4M', const Color(0xFF00E676)),
               const SizedBox(width: 10),
-              _stat('Outflow', '-₦8.1M', kOrange),
+              _stat(context, 'Outflow', '-₦8.1M', kOrange),
               const SizedBox(width: 10),
-              _stat('Net', '+₦4.3M', kCyan),
+              _stat(context, 'Net', '+₦4.3M', kCyan),
             ]),
           ),
 
@@ -53,13 +53,13 @@ class TransactionsOverviewScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Row(children: [
-              _filterChip('All', true),
+              _filterChip(context, 'All', true),
               const SizedBox(width: 8),
-              _filterChip('Deposits', false),
+              _filterChip(context, 'Deposits', false),
               const SizedBox(width: 8),
-              _filterChip('Withdrawals', false),
+              _filterChip(context, 'Withdrawals', false),
               const SizedBox(width: 8),
-              _filterChip('Sales', false),
+              _filterChip(context, 'Sales', false),
             ]),
           ),
 
@@ -82,21 +82,21 @@ class TransactionsOverviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _stat(String label, String value, Color color) {
+  Widget _stat(BuildContext context, String label, String value, Color color) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(
-          color: kBgCard,
+          color: context.card,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: kBorder),
+          border: Border.all(color: context.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
                 style:
-                    const TextStyle(color: Color(0xFF64748B), fontSize: 10)),
+                    TextStyle(color: context.txtSec, fontSize: 10)),
             const SizedBox(height: 2),
             Text(value,
                 style: TextStyle(
@@ -109,17 +109,17 @@ class TransactionsOverviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _filterChip(String label, bool selected) {
+  Widget _filterChip(BuildContext context, String label, bool selected) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: selected ? kCyan.withOpacity(0.15) : kBgCard,
+        color: selected ? kCyan.withOpacity(0.15) : context.card,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: selected ? kCyan : kBorder),
+        border: Border.all(color: selected ? kCyan : context.border),
       ),
       child: Text(label,
           style: TextStyle(
-              color: selected ? kCyan : const Color(0xFF94A3B8),
+              color: selected ? kCyan : context.txtSec,
               fontSize: 11,
               fontWeight: FontWeight.w600)),
     );
@@ -157,9 +157,9 @@ class _TxRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: kBgCard,
+        color: context.card,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: kBorder),
+        border: Border.all(color: context.border),
       ),
       child: Row(children: [
         Container(
@@ -179,13 +179,13 @@ class _TxRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(user,
-                  style: const TextStyle(
-                      color: Colors.white,
+                  style: TextStyle(
+                      color: context.txtPri,
                       fontSize: 13,
                       fontWeight: FontWeight.w600)),
               Text(label,
-                  style: const TextStyle(
-                      color: Color(0xFF64748B), fontSize: 11)),
+                  style: TextStyle(
+                      color: context.txtSec, fontSize: 11)),
             ],
           ),
         ),
@@ -200,8 +200,8 @@ class _TxRow extends StatelessWidget {
                     fontSize: 13,
                     fontWeight: FontWeight.w800)),
             Text(timeAgo,
-                style: const TextStyle(
-                    color: Color(0xFF475569), fontSize: 10)),
+                style: TextStyle(
+                    color: context.txtSec, fontSize: 10)),
           ],
         ),
       ]),

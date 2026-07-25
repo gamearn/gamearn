@@ -48,17 +48,17 @@ class _AdminShellState extends State<AdminShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: IndexedStack(
         index: _currentIndex,
         children: _pages,
       ),
       bottomNavigationBar: Container(
         height: 72,
-        decoration: const BoxDecoration(
-          color: Color(0xFF0B0E1A),
+        decoration: BoxDecoration(
+          color: context.bg,
           border: Border(
-            top: BorderSide(color: Color(0xFF1E293B), width: 1),
+            top: BorderSide(color: context.border, width: 1),
           ),
         ),
         child: Row(
@@ -79,7 +79,7 @@ class _AdminShellState extends State<AdminShell> {
                       curve: Curves.easeOut,
                       child: Icon(
                         _icons[i],
-                        color: active ? kOrange : Colors.white54,
+                        color: active ? kOrange : context.txtSec,
                         size: 24,
                       ),
                     ),
@@ -91,7 +91,7 @@ class _AdminShellState extends State<AdminShell> {
                         fontWeight:
                             active ? FontWeight.w600 : FontWeight.w400,
                         color:
-                            active ? const Color(0xFFFF5E00) : Colors.white54,
+                            active ? const Color(0xFFFF5E00) : context.txtSec,
                         letterSpacing: 0.3,
                       ),
                     ),

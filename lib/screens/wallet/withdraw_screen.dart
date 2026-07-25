@@ -49,8 +49,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                         color: context.surface,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.arrow_back_ios_new,
-                          color: Colors.white, size: 16),
+                      child: Icon(Icons.arrow_back_ios_new,
+                          color: context.txtPri, size: 16),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -234,8 +234,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           Text(label,
               style: TextStyle(color: context.subText, fontSize: 13)),
           Text(value,
-              style: const TextStyle(
-                  color: Colors.white,
+              style: TextStyle(
+                  color: context.txtPri,
                   fontWeight: FontWeight.w600,
                   fontSize: 14)),
         ],
@@ -287,7 +287,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
     return TextField(
       controller: ctrl,
       keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: context.txtPri),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: context.subText),
@@ -317,7 +317,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         ),
         child: Center(
           child: Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 15)),

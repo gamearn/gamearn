@@ -16,7 +16,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: const Color(0xFF0B0E1A),
+        backgroundColor: context.bg,
         body: SafeArea(
           child: Column(children: [
             // Header
@@ -29,18 +29,18 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: context.card,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF334155)),
+                      border: Border.all(color: context.border),
                     ),
-                    child: const Icon(Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white, size: 16),
+                    child: Icon(Icons.arrow_back_ios_new_rounded,
+                        color: context.txtPri, size: 16),
                   ),
                 ),
                 const SizedBox(width: 14),
-                const Text('Privacy & Security',
+                Text('Privacy & Security',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 17,
                         fontWeight: FontWeight.w800)),
               ]),
@@ -129,32 +129,32 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   Widget _sectionLabel(String t) => Padding(
         padding: const EdgeInsets.only(left: 4, bottom: 8),
         child: Text(t.toUpperCase(),
-            style: const TextStyle(
-                color: Color(0xFF94A3B8),
+            style: TextStyle(
+                color: context.txtSec,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.2)),
       );
 
   Widget _divider() =>
-      const Divider(height: 1, indent: 72, color: Color(0xFF334155));
+      Divider(height: 1, indent: 72, color: context.border);
 
   void _showDeleteDialog() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: context.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Account?',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-        content: const Text(
+        title: Text('Delete Account?',
+            style: TextStyle(color: context.txtPri, fontWeight: FontWeight.w800)),
+        content: Text(
           'This action is permanent and cannot be undone. All your data, earnings, and game history will be lost.',
-          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+          style: TextStyle(color: context.txtSec, fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+            child: Text('Cancel', style: TextStyle(color: context.txtSec)),
           ),
           TextButton(
             onPressed: () {
@@ -178,7 +178,7 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: context.card,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(children: children),
@@ -213,22 +213,22 @@ class _IconToggle extends StatelessWidget {
           child: Icon(icon, color: const Color(0xFF0B0E1A), size: 20),
         ),
         title: Text(label,
-            style: const TextStyle(
-                color: Colors.white,
+            style: TextStyle(
+                color: context.txtPri,
                 fontSize: 14,
                 fontWeight: FontWeight.w500)),
         subtitle: subtitle != null
             ? Text(subtitle!,
                 style:
-                    const TextStyle(color: Color(0xFF64748B), fontSize: 11))
+                    TextStyle(color: context.txtSec, fontSize: 11))
             : null,
         trailing: Switch(
           value: value,
           onChanged: onChanged,
           activeColor: kCyan,
           activeTrackColor: kCyan.withOpacity(0.3),
-          inactiveThumbColor: const Color(0xFF94A3B8),
-          inactiveTrackColor: const Color(0xFF334155),
+          inactiveThumbColor: context.txtSec,
+          inactiveTrackColor: context.border,
         ),
       );
 }
@@ -263,10 +263,10 @@ class _IconNav extends StatelessWidget {
         ),
         title: Text(label,
             style: TextStyle(
-                color: labelColor ?? Colors.white,
+                color: labelColor ?? context.txtPri,
                 fontSize: 14,
                 fontWeight: FontWeight.w500)),
-        trailing: const Icon(Icons.chevron_right_rounded,
-            color: Color(0xFF475569), size: 20),
+        trailing: Icon(Icons.chevron_right_rounded,
+            color: context.txtSec, size: 20),
       );
 }

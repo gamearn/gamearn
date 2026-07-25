@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:gamearn/config/api_config.dart';
+import '../../theme.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _bg = Color(0xFF0A0D1C);
@@ -916,7 +917,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: Stack(children: [
         _BokehBg(ctrl: _bokehCtrl, bokeh: _bokeh),
         _portrait(),

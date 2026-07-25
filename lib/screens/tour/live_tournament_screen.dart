@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme.dart';
 
 // ---------------------------------------------------------------------------
 // LiveTournamentScreen
@@ -31,10 +32,8 @@ class LiveTournamentScreen extends StatefulWidget {
 
 class _LiveTournamentScreenState extends State<LiveTournamentScreen>
     with SingleTickerProviderStateMixin {
-  static const _bg = Color(0xFF0B0E1A);
   static const _cyan = Color(0xFF22D1EE);
   static const _orange = Color(0xFFFF5E00);
-  static const _surface = Color(0xFF141827);
   static const _border = Color(0xFF1E2438);
 
   late TabController _tabCtrl;
@@ -126,7 +125,7 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: context.bg,
       appBar: _buildAppBar(),
       body: Column(
         children: [
@@ -138,7 +137,7 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
 
           // Tab bar
           Container(
-            color: _bg,
+            color: context.bg,
             child: TabBar(
               controller: _tabCtrl,
               labelColor: _cyan,
@@ -178,7 +177,7 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
 
   AppBar _buildAppBar() {
     return AppBar(
-      backgroundColor: _bg,
+      backgroundColor: context.bg,
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios_new_rounded,
@@ -225,7 +224,7 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF141827),
+        backgroundColor: context.card,
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Leave Tournament?',
@@ -367,7 +366,7 @@ class _BracketMatchCard extends StatelessWidget {
       width: 160,
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF141827),
+        color: context.card,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: match.isLive
@@ -490,7 +489,7 @@ class _MatchListTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF141827),
+        color: context.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: match.isLive
@@ -631,7 +630,7 @@ class _ChatBubble extends StatelessWidget {
         decoration: BoxDecoration(
           color: message.isMe
               ? const Color(0xFF22D1EE).withOpacity(0.15)
-              : const Color(0xFF141827),
+              : context.card,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(12),
             topRight: const Radius.circular(12),
@@ -695,7 +694,7 @@ class _ChatInput extends StatelessWidget {
                 hintText: 'Say something...',
                 hintStyle: const TextStyle(color: Colors.white38),
                 filled: true,
-                fillColor: const Color(0xFF141827),
+                fillColor: context.card,
                 contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14, vertical: 10),
                 border: OutlineInputBorder(

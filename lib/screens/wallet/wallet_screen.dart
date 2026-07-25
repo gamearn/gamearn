@@ -179,7 +179,7 @@ class _WalletScreenState extends State<WalletScreen>
                       unselectedLabelColor: context.txtSec,
                       labelStyle: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 14),
-                      dividerColor: kBorder,
+                      dividerColor: context.border,
                       tabs: const [
                         Tab(text: 'Overview'),
                         Tab(text: 'Buy'),
@@ -258,10 +258,10 @@ class _WalletScreenState extends State<WalletScreen>
                                 size: 18),
                             label: const Text('Cash Out'),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: kTextPri,
+                              foregroundColor: context.txtPri,
                               padding: const EdgeInsets.symmetric(
                                   vertical: 14),
-                              side: const BorderSide(color: kBorder),
+                              side: BorderSide(color: context.border),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12)),
                               textStyle: const TextStyle(
@@ -323,7 +323,7 @@ class _WalletScreenState extends State<WalletScreen>
                               Icon(Icons.history_toggle_off, color: kTextMuted, size: 48),
                               SizedBox(height: 12),
                               Text('No transactions yet',
-                                  style: TextStyle(color: kTextSec, fontSize: 14)),
+                                  style: TextStyle(color: context.txtSec, fontSize: 14)),
                               SizedBox(height: 4),
                               Text('Your gaming wins will appear here',
                                   style: TextStyle(color: kTextMuted, fontSize: 12)),

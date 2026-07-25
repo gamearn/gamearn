@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme.dart';
 
 // ─────────────────────────────────────────────────────────────────
 //  GAMEARN CUSTOM NAV ICONS
@@ -396,14 +397,13 @@ class GamearnBottomNav extends StatelessWidget {
 
   static const _labels = ['Home', 'Games', 'Wallet', 'Profile'];
 
-  @override
   Widget build(BuildContext context) {
     return Container(
       height: 72,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0B0E1A),
+      decoration: BoxDecoration(
+        color: context.bg,
         border: Border(
-          top: BorderSide(color: Color(0xFF1E293B), width: 1),
+          top: BorderSide(color: context.border, width: 1),
         ),
       ),
       child: Row(

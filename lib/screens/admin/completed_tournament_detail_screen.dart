@@ -7,7 +7,7 @@ class CompletedTournamentDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDeep,
+      backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
           // Header
@@ -20,19 +20,19 @@ class CompletedTournamentDetailScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: context.card,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: context.border),
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 16),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: context.txtPri, size: 16),
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Text('Completed Tournament',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 17,
                         fontWeight: FontWeight.w800)),
               ),
@@ -63,7 +63,7 @@ class CompletedTournamentDetailScreen extends StatelessWidget {
                     gradient: LinearGradient(
                       colors: [
                         kCyan.withOpacity(0.08),
-                        kBgCard,
+                        context.card,
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -72,22 +72,22 @@ class CompletedTournamentDetailScreen extends StatelessWidget {
                     border: Border.all(color: kCyan.withOpacity(0.25)),
                   ),
                   child: Column(children: [
-                    const Text('Whot Championship #8',
+                    Text('Whot Championship #8',
                         style: TextStyle(
-                            color: Colors.white,
+                            color: context.txtPri,
                             fontSize: 17,
                             fontWeight: FontWeight.w800)),
                     const SizedBox(height: 8),
-                    const Text('Completed 2 hours ago',
+                    Text('Completed 2 hours ago',
                         style: TextStyle(
-                            color: Color(0xFF64748B), fontSize: 12)),
+                            color: context.txtSec, fontSize: 12)),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _info('Prize Pool', '₦40,000'),
-                        _info('Players', '28'),
-                        _info('Matches', '27'),
+                        _info(context, 'Prize Pool', '₦40,000'),
+                        _info(context, 'Players', '28'),
+                        _info(context, 'Matches', '27'),
                       ],
                     ),
                   ]),
@@ -96,9 +96,9 @@ class CompletedTournamentDetailScreen extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // Winners podium
-                const Text('WINNERS',
+                Text('WINNERS',
                     style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: context.txtSec,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
@@ -119,64 +119,64 @@ class CompletedTournamentDetailScreen extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // Prize distribution
-                const Text('PRIZE DISTRIBUTION',
+                Text('PRIZE DISTRIBUTION',
                     style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: context.txtSec,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
                 const SizedBox(height: 10),
                 _SectionCard(children: [
                   _PrizeRow('1st Place', 'Kofi_92', '₦22,000', true),
-                  _divider(),
+                  _divider(context),
                   _PrizeRow('2nd Place', 'Ada_Flow', '₦7,000', false),
-                  _divider(),
+                  _divider(context),
                   _PrizeRow('3rd Place', 'Chidi_Goat', '₦3,000', false),
-                  _divider(),
+                  _divider(context),
                   _PrizeRow('4th Place', 'Bola_King', '₦2,000', false),
-                  _divider(),
+                  _divider(context),
                   _PrizeRow('5th-8th', 'Various', '₦750 each', false),
                 ]),
 
                 const SizedBox(height: 20),
 
                 // Payout status
-                const Text('PAYOUT STATUS',
+                Text('PAYOUT STATUS',
                     style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: context.txtSec,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
                 const SizedBox(height: 10),
                 _SectionCard(children: [
                   _PayoutRow('Kofi_92', '₦22,000', 'paid'),
-                  _divider(),
+                  _divider(context),
                   _PayoutRow('Ada_Flow', '₦7,000', 'paid'),
-                  _divider(),
+                  _divider(context),
                   _PayoutRow('Chidi_Goat', '₦3,000', 'pending'),
-                  _divider(),
+                  _divider(context),
                   _PayoutRow('Bola_King', '₦2,000', 'pending'),
                 ]),
 
                 const SizedBox(height: 20),
 
                 // Match history
-                const Text('MATCH HISTORY',
+                Text('MATCH HISTORY',
                     style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: context.txtSec,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
                 const SizedBox(height: 10),
                 _SectionCard(children: [
                   _MatchResult('Quarter-Final', 'Kofi_92', 'Bola_King', '3 - 1'),
-                  _divider(),
+                  _divider(context),
                   _MatchResult('Quarter-Final', 'Ada_Flow', 'Ngozi_Q', '2 - 0'),
-                  _divider(),
+                  _divider(context),
                   _MatchResult('Semi-Final', 'Kofi_92', 'Emeka_Pro', '2 - 1'),
-                  _divider(),
+                  _divider(context),
                   _MatchResult('Semi-Final', 'Ada_Flow', 'Tunde_R', '3 - 2'),
-                  _divider(),
+                  _divider(context),
                   _MatchResult('Final', 'Kofi_92', 'Ada_Flow', '4 - 3'),
                 ]),
 
@@ -189,22 +189,22 @@ class CompletedTournamentDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _info(String label, String value) {
+  Widget _info(BuildContext context, String label, String value) {
     return Column(children: [
       Text(label,
           style:
-              const TextStyle(color: Color(0xFF64748B), fontSize: 10)),
+              TextStyle(color: context.txtSec, fontSize: 10)),
       const SizedBox(height: 2),
       Text(value,
-          style: const TextStyle(
-              color: Colors.white,
+          style: TextStyle(
+              color: context.txtPri,
               fontSize: 15,
               fontWeight: FontWeight.w800)),
     ]);
   }
 
-  static Widget _divider() =>
-      const Divider(height: 1, indent: 56, color: Color(0xFF334155));
+  Widget _divider(BuildContext context) =>
+      Divider(height: 1, indent: 56, color: context.border);
 }
 
 class _SectionCard extends StatelessWidget {
@@ -214,7 +214,7 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: kBgCard,
+          color: context.card,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(children: children),
@@ -264,8 +264,8 @@ class _WinnerPodium extends StatelessWidget {
                   fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
           Text(prize,
-              style: const TextStyle(
-                  color: Colors.white,
+              style: TextStyle(
+                  color: context.txtPri,
                   fontSize: 13,
                   fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
@@ -303,15 +303,15 @@ class _PrizeRow extends StatelessWidget {
       ),
       title: Text(place,
           style: TextStyle(
-              color: isWinner ? kOrange : Colors.white,
+              color: isWinner ? kOrange : context.txtPri,
               fontSize: 13,
               fontWeight:
                   isWinner ? FontWeight.w700 : FontWeight.w500)),
       subtitle:
-          Text(name, style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+          Text(name, style: TextStyle(color: context.txtSec, fontSize: 11)),
       trailing: Text(amount,
           style: TextStyle(
-              color: isWinner ? kOrange : Colors.white,
+              color: isWinner ? kOrange : context.txtPri,
               fontSize: 13,
               fontWeight: FontWeight.w700)),
     );
@@ -332,14 +332,14 @@ class _PayoutRow extends StatelessWidget {
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       title: Text(name,
-          style: const TextStyle(
-              color: Colors.white,
+          style: TextStyle(
+              color: context.txtPri,
               fontSize: 13,
               fontWeight: FontWeight.w500)),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         Text(amount,
-            style: const TextStyle(
-                color: Colors.white,
+            style: TextStyle(
+                color: context.txtPri,
                 fontSize: 13,
                 fontWeight: FontWeight.w600)),
         const SizedBox(width: 8),
@@ -386,13 +386,13 @@ class _MatchResult extends StatelessWidget {
                 color: kCyan, fontSize: 9, fontWeight: FontWeight.w600)),
       ),
       title: Text('$p1  vs  $p2',
-          style: const TextStyle(
-              color: Colors.white,
+          style: TextStyle(
+              color: context.txtPri,
               fontSize: 12,
               fontWeight: FontWeight.w500)),
       trailing: Text(score,
-          style: const TextStyle(
-              color: Colors.white,
+          style: TextStyle(
+              color: context.txtPri,
               fontSize: 13,
               fontWeight: FontWeight.w800)),
     );

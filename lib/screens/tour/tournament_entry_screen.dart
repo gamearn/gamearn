@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme.dart';
 import '../wallet/buy_coins_screen.dart';
 import 'live_tournament_screen.dart';
 
@@ -21,7 +22,6 @@ class TournamentEntryScreen extends StatefulWidget {
 
 class _TournamentEntryScreenState extends State<TournamentEntryScreen>
     with SingleTickerProviderStateMixin {
-  static const _bg = Color(0xFF0B0E1A);
   static const _cyan = Color(0xFF22D1EE);
   static const _orange = Color(0xFFFF5E00);
 
@@ -80,7 +80,7 @@ class _TournamentEntryScreenState extends State<TournamentEntryScreen>
       context: context,
       isDismissible: false,
       enableDrag: false,
-      backgroundColor: const Color(0xFF141827),
+      backgroundColor: context.card,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => Padding(
         padding: const EdgeInsets.fromLTRB(24, 32, 24, 48),
@@ -134,7 +134,7 @@ class _TournamentEntryScreenState extends State<TournamentEntryScreen>
   void _showInsufficientCoinsSheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF141827),
+      backgroundColor: context.card,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => Padding(
         padding: const EdgeInsets.fromLTRB(24, 28, 24, 40),
@@ -169,9 +169,9 @@ class _TournamentEntryScreenState extends State<TournamentEntryScreen>
     final int deficit = _canAfford ? 0 : widget.entryFee - _coinBalance;
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: context.bg,
       appBar: AppBar(
-        backgroundColor: _bg, elevation: 0,
+        backgroundColor: context.bg, elevation: 0,
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20), onPressed: () => Navigator.pop(context)),
         title: const Text('Confirm Entry', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
         centerTitle: true,
@@ -244,7 +244,7 @@ class _WalletCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF141827), borderRadius: BorderRadius.circular(14), border: Border.all(color: canAfford ? const Color(0xFF1E2438) : Colors.redAccent.withOpacity(0.4))),
+      decoration: BoxDecoration(color: context.card, borderRadius: BorderRadius.circular(14), border: Border.all(color: canAfford ? context.border : Colors.redAccent.withOpacity(0.4))),
       child: Row(children: [
         Container(width: 42, height: 42, decoration: BoxDecoration(color: const Color(0xFF22D1EE).withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF22D1EE), size: 22)),
         const SizedBox(width: 14),
@@ -275,13 +275,13 @@ class _BreakdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF141827), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFF1E293B))),
+      decoration: BoxDecoration(color: context.card, borderRadius: BorderRadius.circular(14), border: Border.all(color: context.border)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Entry Breakdown', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
         const SizedBox(height: 12),
         _breakdownRow('Entry fee', '$entryFee coins'),
         _breakdownRow('Platform fee', '0 coins'),
-        const Divider(height: 20, color: Color(0xFF1E293B)),
+        Divider(height: 20, color: context.border),
         _breakdownRow('Total deducted', '$entryFee coins', highlight: true),
       ]),
     );
@@ -328,7 +328,7 @@ class _ConfirmBar extends StatelessWidget {
     final bool ready = canAfford && agreed && !isLoading;
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
-      decoration: const BoxDecoration(color: Color(0xFF0F1220), border: Border(top: BorderSide(color: Color(0xFF1E2438)))),
+      decoration: BoxDecoration(color: context.card, border: Border(top: BorderSide(color: context.border))),
       child: SizedBox(
         width: double.infinity, height: 52,
         child: ElevatedButton(

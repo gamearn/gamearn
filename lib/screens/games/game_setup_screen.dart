@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../theme.dart';
 import 'ludo_game_screen.dart';
 import 'ayo_game_screen.dart';
 import 'draughts_game_screen.dart';
@@ -675,16 +676,16 @@ class _SetupBase extends StatelessWidget {
     final safeTop = MediaQuery.of(context).padding.top;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0E1A),
+      backgroundColor: context.bg,
       body: Column(
         children: [
           // ── AppBar — pt=40 pb=16 px=24 blur bg border-b ──────────
           Container(
             width: double.infinity,
             padding: EdgeInsets.fromLTRB(24, safeTop + 16, 24, 16),
-            decoration: const BoxDecoration(
-              color: Color(0xE60B0E1A),
-              border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF))),
+            decoration: BoxDecoration(
+              color: context.bg,
+              border: Border(bottom: BorderSide(color: context.border)),
             ),
             child: Stack(
               alignment: Alignment.center,
@@ -736,9 +737,9 @@ class _SetupBase extends StatelessWidget {
                           letterSpacing: 2,
                           height: 25 / 20)),
                   const SizedBox(height: 4),
-                  const Text('Configure your match settings',
+                  Text('Configure your match settings',
                       style: TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: context.txtSec,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           height: 16 / 12)),
@@ -764,11 +765,11 @@ class _SetupBase extends StatelessWidget {
 
                   // ── Terms text ─────────────────────────────────────
                   // node 1850:6312 — #64748B fs=10 fw=400 center lh=13.5
-                  const Text(
+                  Text(
                     'By starting, you agree to the Game Rules and Terms of Service.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        color: Color(0xFF64748B),
+                        color: context.txtSec,
                         fontSize: 10,
                         fontWeight: FontWeight.w400,
                         height: 13.5 / 10),
@@ -890,7 +891,7 @@ class _SegmentedPicker extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0x801E293B),
         borderRadius: BorderRadius.circular(containerRx),
-        border: Border.all(color: const Color(0xFF334155)),
+        border: Border.all(color: context.border),
       ),
       child: Row(
         children: options.map((opt) {
@@ -1582,8 +1583,8 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
             const SizedBox(height: 8),
             Text(_status,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                    color: Color(0xFF94A3B8), fontSize: 13)),
+                style: TextStyle(
+                    color: context.txtSec, fontSize: 13)),
             const SizedBox(height: 4),
             Text(_elapsed_fmt,
                 style: const TextStyle(
@@ -1599,9 +1600,9 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
                   border: Border.all(color: const Color(0x6694A3B8)),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text('Cancel',
+                child: Text('Cancel',
                     style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: context.txtSec,
                         fontSize: 14,
                         fontWeight: FontWeight.w600)),
               ),
