@@ -314,7 +314,7 @@ class _WalletScreenState extends State<WalletScreen>
                   builder: (ctx, txSnap) {
                     final docs = txSnap.data?.docs ?? [];
                     if (docs.isEmpty) {
-                      return const SliverFillRemaining(
+                      return SliverFillRemaining(
                         hasScrollBody: false,
                         child: Center(
                           child: Column(

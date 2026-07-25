@@ -211,7 +211,7 @@ class ProfileScreen extends StatelessWidget {
                               border: Border.all(
                                   color: context.border),
                             ),
-                            child: const Center(
+                            child: Center(
                               child: Text('Share Profile',
                                   style: TextStyle(
                                       color: context.txtPri,
