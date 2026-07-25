@@ -6,6 +6,7 @@ import 'settings_screen.dart';
 import 'account_security_screen.dart';
 import 'daily_streak_screen.dart';
 import 'invite_friends_screen.dart';
+import '../admin/admin_shell.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  PROFILE SCREEN — Figma matched (390×844)
@@ -42,6 +43,7 @@ class ProfileScreen extends StatelessWidget {
             final games    = user['gamesPlayed'] as int? ?? 0;
             final rank     = user['rank']     as String? ?? 'Bronze';
             final bio      = user['bio']      as String? ?? 'Ready to play!';
+            final role     = user['role']     as String? ?? 'player';
             final friends  = (user['friends'] as List?)?.cast<String>() ?? [];
 
             final avatarEmoji = kAvatars.firstWhere(
@@ -323,6 +325,16 @@ class ProfileScreen extends StatelessWidget {
                           onTap: () => Navigator.push(context,
                               MaterialPageRoute(
                                   builder: (_) => const InviteFriendsScreen()))),
+                      if (role == 'admin') ...[
+                        const SizedBox(height: 8),
+                        _NavTile(
+                            icon: Icons.admin_panel_settings_outlined,
+                            label: 'Admin Panel',
+                            color: kOrange,
+                            onTap: () => Navigator.push(context,
+                                MaterialPageRoute(
+                                    builder: (_) => const AdminShell()))),
+                      ],
                     ]),
                   ),
                 ),
