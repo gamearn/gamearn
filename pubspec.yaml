@@ -71,7 +71,6 @@ flutter:
     - assets/games/ludo.png
     - assets/games/ayo.jpg
     - assets/games/draughts.jpg
-    - assets/svgs/
     # Audio — replace .mp3 files with real assets
     - assets/audio/sfx/
     - assets/audio/bgm/
