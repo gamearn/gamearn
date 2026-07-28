@@ -33,6 +33,10 @@ dependencies:
   http: ^1.2.0
   socket_io_client: ^2.0.3+1
 
+  # Audio
+  just_audio: ^0.9.43
+  shared_preferences: ^2.3.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -68,3 +72,6 @@ flutter:
     - assets/games/ayo.jpg
     - assets/games/draughts.jpg
     - assets/svgs/
+    # Audio — replace .mp3 files with real assets
+    - assets/audio/sfx/
+    - assets/audio/bgm/

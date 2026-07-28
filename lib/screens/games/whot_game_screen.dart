@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../services/sound_service.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:gamearn/config/api_config.dart';
@@ -292,27 +293,42 @@ class _BotService {
   }
 
   Future<int?> getMove(List<int> history) async {
+    // This method is now unused — replaced by getMovePractice
+    return null;
+  }
+
+  /// Practice mode: send hand + topCard directly, bypass broken OpenSpiel replay
+  Future<Map<String, dynamic>?> getMovePractice({
+    required List<Map<String, dynamic>> hand,
+    required Map<String, dynamic> topCard,
+    int pendingDraw = 0,
+    String? pendingShape,
+    int playerRating = 1200,
+  }) async {
     try {
-      debugPrint('getMove history.length=${history.length}');
+      debugPrint('getMovePractice hand.length=${hand.length} topCard=$topCard');
       final res = await http
           .post(
             Uri.parse('$_base/get_move'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'game_name': 'whot',
-              'action_history': history,
-              'player_rating': 1500,
+              'game_type': 'whot',
+              'hand': hand,
+              'top_card': topCard,
+              'pending_draw': pendingDraw,
+              'pending_shape': pendingShape,
+              'player_rating': playerRating,
             }),
           )
           .timeout(const Duration(seconds: 20));
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
-        debugPrint('getMove -> action=${body['action']}');
-        return body['action'] as int?;
+        debugPrint('getMovePractice -> $body');
+        return body;
       }
-      debugPrint('getMove HTTP ${res.statusCode}: ${res.body}');
+      debugPrint('getMovePractice HTTP ${res.statusCode}: ${res.body}');
     } catch (e) {
-      debugPrint('getMove error: $e');
+      debugPrint('getMovePractice error: $e');
     }
     return null;
   }
@@ -330,6 +346,7 @@ class WhotGameScreen extends StatefulWidget {
   final String opponentAvatar;
   final String tournamentTitle;
   final String prizePool;
+  final int playerRating;
   final WhotSocketService? socketService;
   final VoidCallback? onBack;
 
@@ -343,6 +360,7 @@ class WhotGameScreen extends StatefulWidget {
     this.opponentAvatar = '',
     this.tournamentTitle = 'Wọt TOURNAMENT',
     this.prizePool = '₦70,000',
+    this.playerRating = 1200,
     this.socketService,
     this.onBack,
   });
@@ -614,6 +632,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   void onGameOver(Map<String, dynamic> d) {
     if (!mounted) return;
     _timer?.cancel();
+    final won = d['winnerId'] == widget.playerId;
+    SoundService.instance.play(won ? SoundType.gameWin : SoundType.gameLose);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -652,6 +672,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
   Future<void> _playCard({WhotShape? chosen, bool nominateOnly = false}) async {
     if (nominateOnly) {
+      SoundService.instance.play(SoundType.nominate);
       final nomAction = _kNomBase + _suitFromShape(chosen!);
       _moveHistory.add(nomAction);
       widget.socketService?.emitPlayCard(
@@ -705,7 +726,26 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       _showShapeChooser = false;
       _isMyTurn = false;
     });
+    SoundService.instance.play(SoundType.cardPlay);
     HapticFeedback.lightImpact();
+
+    // BUG #2 FIX: Check if human won (emptied hand)
+    if (_hand.isEmpty) {
+      _timer?.cancel();
+      SoundService.instance.play(SoundType.gameWin);
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => _GameOverDialog(
+            isWinner: true,
+            prizePool: widget.prizePool,
+            onClose: widget.onBack ?? () => Navigator.maybePop(context),
+          ),
+        );
+      }
+      return;
+    }
 
     _handlePlayerSpecial(newRank);
 
@@ -759,6 +799,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       _selectedIdx = -1;
       _calledCard = false;
     });
+    SoundService.instance.play(SoundType.drawCard);
     HapticFeedback.selectionClick();
 
     _runBotTurn();
@@ -796,26 +837,45 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     try {
       await Future.delayed(const Duration(milliseconds: 400));
 
-      final fullHistory = [_dealerAction, ..._dealHistory, ..._moveHistory];
-      final action = await _bot.getMove(fullHistory);
+      // Practice mode: send hand + topCard directly (bypasses broken OpenSpiel replay)
+      final handJson = _hand.map((c) => c.toJson()).toList();
+      final topJson = _topCard.toJson();
+      final result = await _bot.getMovePractice(
+        hand: handJson,
+        topCard: topJson,
+        pendingDraw: _pendingDraw,
+        pendingShape: _effectiveSuit.name,
+        playerRating: widget.playerRating,
+      );
 
       if (!mounted) return;
 
-      if (action == null) {
-        debugPrint('runBotTurn: getMove returned null, giving turn back');
+      if (result == null) {
+        debugPrint('runBotTurn: getMovePractice returned null, giving turn back');
         setState(() => _isMyTurn = true);
         _startTimer();
         return;
       }
 
-      _moveHistory.add(action);
+      final action = result['action'] as int?;
+      final nominateAction = result['nominate'] as int?;
 
-      if (action >= _kNomBase && action < _kNomBase + 5) {
-        final shape = _shapeFromSuit(action - _kNomBase);
+      if (action == null) {
+        setState(() => _isMyTurn = true);
+        _startTimer();
+        return;
+      }
+
+      // Handle nominate action (after Whot card)
+      if (nominateAction != null) {
+        _moveHistory.add(action);
+        _moveHistory.add(nominateAction);
+        final shape = _shapeFromSuit(nominateAction - _kNomBase);
         setState(() {
           _effectiveSuit = shape;
-          _topCard =
-              WhotCard(shape: shape, number: _topCard.number, id: _topCard.id);
+          _topCard = WhotCard(shape: shape, number: _topCard.number, id: _topCard.id);
+          _hand.removeWhere((c) => c.number == 20);
+          if (_oppCount > 0) _oppCount--;
         });
         _toast('${widget.opponentName} chose ${shape.name}');
         _botBusy = false;
@@ -823,7 +883,10 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         return;
       }
 
+      // Handle draw
       if (action == _kDraw) {
+        SoundService.instance.play(SoundType.drawCard);
+        _moveHistory.add(_kDraw);
         setState(() {
           _oppCount++;
           _pendingDraw = 0;
@@ -833,13 +896,37 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         return;
       }
 
+      // Play card
+      _moveHistory.add(action);
       final played = _deckCard(action);
+      SoundService.instance.play(SoundType.cardPlay);
+
+      // Remove played card from bot's tracked count
       setState(() {
         _topCard = played;
         _effectiveSuit = played.shape;
         _effectiveRank = played.number;
         if (_oppCount > 0) _oppCount--;
       });
+
+      // BUG #2 FIX: Check if bot won (emptied hand)
+      if (_oppCount <= 0) {
+        _timer?.cancel();
+        _botBusy = false;
+        SoundService.instance.play(SoundType.gameLose);
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => _GameOverDialog(
+              isWinner: false,
+              prizePool: widget.prizePool,
+              onClose: widget.onBack ?? () => Navigator.maybePop(context),
+            ),
+          );
+        }
+        return;
+      }
 
       final humanContinues = _handleBotSpecial(played.number);
 

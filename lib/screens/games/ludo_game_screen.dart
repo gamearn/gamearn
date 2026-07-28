@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../theme.dart';
+import '../../services/sound_service.dart';
 
 // ─────────────────────────────────────────────────────────────────
 //  LUDO GAME SCREEN  — fixed & wired
@@ -48,7 +49,8 @@ class _Piece {
 // ─────────────────────────────────────────────────────────────────
 class LudoGameScreen extends StatefulWidget {
   final int tokenCount;
-  const LudoGameScreen({super.key, this.tokenCount = 4});
+  final int playerRating;
+  const LudoGameScreen({super.key, this.tokenCount = 4, this.playerRating = 1200});
   @override State<LudoGameScreen> createState() => _LudoGameScreenState();
 }
 
@@ -122,6 +124,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   Future<void> _humanRoll() async {
     if (!_waiting || _rolling || _gameOver || !_isHuman) return;
     setState(() => _rolling = true);
+    SoundService.instance.play(SoundType.diceRoll);
     _diceCtrl.forward(from: 0);
 
     final roll = Random().nextInt(6) + 1;
@@ -192,6 +195,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 if ((_kStart[op] + o.pos) % 52 == abs) {
                   o.inBase = true; o.pos = -1;
                   bonus = true;
+                  SoundService.instance.play(SoundType.capture);
                 }
               }
             }
@@ -199,10 +203,14 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         }
       }
 
+      // Home
+      if (p.home) SoundService.instance.play(SoundType.pieceHome);
+
       // Win?
       if (_pieces[player].every((x) => x.home)) {
         _gameOver = true; _winner = player;
         _legal = []; _selected = null;
+        SoundService.instance.play(player <= 1 ? SoundType.gameWin : SoundType.gameLose);
         return;
       }
 
@@ -254,6 +262,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       final roll = Random().nextInt(6) + 1;
       _actionHistory.add(roll - 1);
 
+      SoundService.instance.play(SoundType.diceRoll);
       if (mounted) setState(() { _dice = roll; _waiting = false; });
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted || _gameOver) break;
@@ -282,7 +291,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         final res = await http.post(
           Uri.parse('$_kAiBase/get_move'),
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'game_name': 'ludo', 'action_history': List<int>.from(_actionHistory)}),
+          body: jsonEncode({'game_name': 'ludo', 'action_history': List<int>.from(_actionHistory), 'player_rating': widget.playerRating}),
         ).timeout(const Duration(seconds: 6));
         if (res.statusCode == 200) {
           action = (jsonDecode(res.body)['action'] as num).toInt();
@@ -321,6 +330,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 if (!o.inBase && !o.home && o.pos < 52) {
                   if ((_kStart[op] + o.pos) % 52 == abs) {
                     o.inBase = true; o.pos = -1; bonus = true;
+                    SoundService.instance.play(SoundType.capture);
                   }
                 }
               }
@@ -328,10 +338,13 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           }
         }
 
+        if (pc.home) SoundService.instance.play(SoundType.pieceHome);
+
         // Win?
         if (_pieces[_current].every((x) => x.home)) {
           _gameOver = true; _winner = _current;
           _legal = []; _dice = 0;
+          SoundService.instance.play(_current <= 1 ? SoundType.gameWin : SoundType.gameLose);
           return;
         }
 
@@ -360,6 +373,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   // ─── GAME OVER ────────────────────────────────────────────────
   void _showGameOver() {
     final humanWon = _winner == 0 || _winner == 1;
+    SoundService.instance.play(humanWon ? SoundType.gameWin : SoundType.gameLose);
     showDialog(
       context: context,
       barrierDismissible: false,

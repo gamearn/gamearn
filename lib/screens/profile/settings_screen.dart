@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme.dart';
+import '../../services/sound_service.dart';
 import 'account_security_screen.dart';
 import 'privacy_security_screen.dart';
 import 'language_screen.dart';
@@ -56,6 +58,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     ThemeNotifier.instance.addListener(_onThemeChanged);
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final sp = await SharedPreferences.getInstance();
+    setState(() {
+      _sounds = sp.getBool('sound_enabled') ?? true;
+    });
+    SoundService.instance.setEnabled(_sounds);
+  }
+
+  Future<void> _toggleSound(bool val) async {
+    setState(() => _sounds = val);
+    SoundService.instance.setEnabled(val);
+    final sp = await SharedPreferences.getInstance();
+    await sp.setBool('sound_enabled', val);
   }
 
   @override
@@ -117,7 +135,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.volume_up_outlined,
                   label: 'Sound Effects',
                   value: _sounds,
-                  onChanged: (v) => setState(() => _sounds = v),
+                  onChanged: _toggleSound,
                 ),
               ]),
 

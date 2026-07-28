@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:gamearn/config/api_config.dart';
 import '../../theme.dart';
+import '../../services/sound_service.dart';
 
 // ── Palette (matches Gamearn design tokens) ───────────────────────────────────
 const _bg       = Color(0xFF0B0E1A);
@@ -64,6 +65,7 @@ class AyoGameScreen extends StatefulWidget {
   final String opponentAvatar;
   final String tournamentTitle;
   final String prizePool;
+  final int playerRating;
   final VoidCallback? onBack;
 
   const AyoGameScreen({
@@ -76,6 +78,7 @@ class AyoGameScreen extends StatefulWidget {
     this.opponentAvatar = '',
     this.tournamentTitle = 'AYÒ TOURNAMENT',
     this.prizePool     = '₦70,000',
+    this.playerRating  = 1200,
     this.onBack,
   });
 
@@ -203,7 +206,10 @@ class _AyoGameScreenState extends State<AyoGameScreen>
     HapticFeedback.lightImpact();
 
     // Apply move locally so UI is instant
+    final scoresBefore = List<int>.from(_game.scores);
     final newGame = _applyMoveLocally(_game, hole);
+    final captured = newGame.scores[0] > scoresBefore[0];
+    SoundService.instance.play(captured ? SoundType.capture : SoundType.pieceMove);
     _actionHistory.add(hole);
 
     setState(() {
@@ -249,7 +255,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
         body: jsonEncode({
           'game_name': 'ayo',
           'action_history': _actionHistory,
-          'player_rating': 1500,
+          'player_rating': widget.playerRating,
         }),
       ).timeout(const Duration(seconds: 15));
 
@@ -270,7 +276,10 @@ class _AyoGameScreenState extends State<AyoGameScreen>
 
         // Bot action is 0–5 relative to its row; absolute = action + 6
         final absHole = action + _kHolesEach;
+        final scoresBefore = List<int>.from(_game.scores);
         final newGame = _applyMoveLocally(_game, absHole);
+        final captured = newGame.scores[1] > scoresBefore[1];
+        SoundService.instance.play(captured ? SoundType.capture : SoundType.pieceMove);
 
         setState(() {
           _game = newGame;
@@ -417,6 +426,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
     final humanScore = _game.scores[0];
     final botScore   = _game.scores[1];
     final isWinner   = humanScore > botScore;
+    SoundService.instance.play(isWinner ? SoundType.gameWin : SoundType.gameLose);
 
     showDialog(
       context: context,

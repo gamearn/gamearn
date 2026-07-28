@@ -23,7 +23,17 @@ service cloud.firestore {
       allow read:   if isAuthed();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
-      allow delete: if false; // never delete user profiles from client
+      allow delete: if false;
+    }
+
+    // ── User sub-collections (followers/following) ────────────────────────
+    match /users/{userId}/followers/{followerId} {
+      allow read: if isAuthed();
+      allow write: if isOwner(userId) || isOwner(followerId);
+    }
+    match /users/{userId}/following/{followingId} {
+      allow read: if isAuthed();
+      allow write: if isOwner(userId) || isOwner(followingId);
     }
 
     // ── Wallets ────────────────────────────────────────────────────────────
@@ -45,41 +55,91 @@ service cloud.firestore {
 
     // ── Tournaments ────────────────────────────────────────────────────────
     // Any authenticated user can read tournaments
-    // Authenticated users can update (needed for currentPlayers increment)
-    // Only admins can create or delete tournaments
-    // NOTE: Move currentPlayers increment to Cloud Function long-term
+    // Only admins can create or delete
+    // Update restricted to creator (join/leave) or admin
     match /tournaments/{tournamentId} {
       allow read:   if isAuthed();
       allow create: if isAdmin();
-      allow update: if isAuthed(); // scoped further below — see lobby
+      allow update: if isAuthed() && (
+        resource.data.createdBy == request.auth.uid || isAdmin()
+      );
       allow delete: if isAdmin();
 
       // ── Lobby sub-collection ─────────────────────────────────────────────
-      // Any authenticated user can read lobby (to see waiting players)
-      // Users can only write to their own lobby document (join/leave)
       match /lobby/{userId} {
         allow read:   if isAuthed();
-        allow create: if isOwner(userId); // join lobby
-        allow delete: if isOwner(userId); // leave lobby
-        allow update: if false; // lobby docs are set-once
+        allow create: if isOwner(userId);
+        allow delete: if isOwner(userId);
+        allow update: if false;
       }
     }
 
+    // ── Leaderboard ────────────────────────────────────────────────────────
+    // Read-only for authenticated users, written by Cloud Functions / Admin SDK only
+    match /leaderboard/{uid} {
+      allow read:  if isAuthed();
+      allow write: if false;
+    }
+
     // ── Arena (games catalogue) ────────────────────────────────────────────
-    // Read-only for all authenticated users
-    // Write only from Firebase Console / Admin SDK
     match /arena/{gameId} {
       allow read:  if isAuthed();
       allow write: if false;
     }
 
-    // ── Notifications ──────────────────────────────────────────────────────
-    // Users can only read and delete their own notifications
-    match /notifications/{userId}/items/{notifId} {
-      allow read:   if isOwner(userId);
-      allow delete: if isOwner(userId);
-      allow create: if false; // written by Cloud Functions only
-      allow update: if false;
+    // ── Notifications (flat collection) ───────────────────────────────────
+    // Users can only read/mark their own notifications
+    match /notifications/{notifId} {
+      allow read:   if isAuthed() && resource.data.userId == request.auth.uid;
+      allow create: if false; // written by Cloud Functions / Admin SDK only
+      allow update: if isAuthed() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthed() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── Withdrawal Requests ───────────────────────────────────────────────
+    match /withdrawal_requests/{requestId} {
+      allow create: if isAuthed() && request.data.userId == request.auth.uid;
+      allow read:   if isAuthed() && resource.data.userId == request.auth.uid;
+      allow update: if false; // admin only via Admin SDK
+      allow delete: if false;
+    }
+
+    // ── Daily Streaks ─────────────────────────────────────────────────────
+    match /daily_streaks/{userId} {
+      allow read:  if isOwner(userId);
+      allow write: if false; // server-side only (Cloud Functions)
+    }
+
+    // ── Premium Subscriptions ─────────────────────────────────────────────
+    match /premium_subscriptions/{userId} {
+      allow read:  if isOwner(userId);
+      allow write: if false; // server-side only
+    }
+
+    // ── Coin Packages ─────────────────────────────────────────────────────
+    match /coin_packages/{packageId} {
+      allow read:  if isAuthed();
+      allow write: if false; // admin only via Admin SDK
+    }
+
+    // ── Game Sessions ─────────────────────────────────────────────────────
+    match /game_sessions/{sessionId} {
+      allow read:  if isAuthed();
+      allow write: if false; // server-side only
+    }
+
+    // ── Challenges ────────────────────────────────────────────────────────
+    match /challenges/{challengeId} {
+      allow read: if isAuthed() && (
+        resource.data.challengerUid == request.auth.uid ||
+        resource.data.opponentUid == request.auth.uid
+      );
+      allow create: if isAuthed();
+      allow update: if isAuthed() && (
+        resource.data.challengerUid == request.auth.uid ||
+        resource.data.opponentUid == request.auth.uid
+      );
+      allow delete: if false;
     }
 
     // ── Catch-all: deny everything not explicitly matched ──────────────────

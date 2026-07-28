@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:gamearn/config/api_config.dart';
 import '../../theme.dart';
+import '../../services/sound_service.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _bg      = Color(0xFF0B0E1A);
@@ -54,6 +55,7 @@ class DraughtsGameScreen extends StatefulWidget {
   final String opponentAvatar;
   final String tournamentTitle;
   final String prizePool;
+  final int playerRating;
   final VoidCallback? onBack;
 
   const DraughtsGameScreen({
@@ -66,6 +68,7 @@ class DraughtsGameScreen extends StatefulWidget {
     this.opponentAvatar = '',
     this.tournamentTitle = 'DRÁFÙ TOURNAMENT',
     this.prizePool      = '₦70,000',
+    this.playerRating   = 1200,
     this.onBack,
   });
 
@@ -219,6 +222,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
     final newBoard = _applyMoveLocally(
         List<int>.from(_board), from, to, 0);
 
+    final isCapture = (from ~/ _kBoardSize - to ~/ _kBoardSize).abs() == 2;
+    SoundService.instance.play(isCapture ? SoundType.capture : SoundType.pieceMove);
+
     setState(() {
       _board        = newBoard;
       _selectedSq   = -1;
@@ -261,7 +267,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
         body: jsonEncode({
           'game_name': 'draughts',
           'action_history': _actionHistory,
-          'player_rating': 1500,
+          'player_rating': widget.playerRating,
         }),
       ).timeout(const Duration(seconds: 15));
 
@@ -284,6 +290,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
         final to       = action % _kCells;
         final newBoard = _applyMoveLocally(
             List<int>.from(_board), from, to, 1);
+
+        final isCapture = (from ~/ _kBoardSize - to ~/ _kBoardSize).abs() == 2;
+        SoundService.instance.play(isCapture ? SoundType.capture : SoundType.pieceMove);
 
         setState(() {
           _board       = newBoard;
@@ -448,6 +457,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
 
   void _endGame({required bool humanWins}) {
     if (!mounted) return;
+    SoundService.instance.play(humanWins ? SoundType.gameWin : SoundType.gameLose);
     setState(() { _isTerminal = true; _botBusy = false; });
     showDialog(
       context: context,
