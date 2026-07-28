@@ -258,77 +258,96 @@ class _DummySocket extends WhotSocketService {
   void disconnect() {}
 }
 
-// ── Bot service  (only 2 endpoints: /start_game + /get_move) ─────────────────
+// ── Bot service  — calls Backend_manager /practice/* endpoints ──────────────
+// Bot hand never leaves the server.
 class _BotService {
-  static String get _base => ApiConfig.botBaseUrl;
+  static String get _nodeBase => ApiConfig.nodeBaseUrl;
+  String? sessionId;
 
-  Future<Map<String, dynamic>?> startGame() async {
+  static final _headers = {'Content-Type': 'application/json'};
+
+  /// Warm up the Node backend (like we did for Python)
+  Future<void> _warmUp() async {
     try {
-      await http.get(Uri.parse('$_base/')).timeout(const Duration(seconds: 4));
+      await http.get(Uri.parse('$_nodeBase/health'))
+          .timeout(const Duration(seconds: 4));
     } catch (_) {}
+  }
+
+  /// Start a server-side practice session.
+  /// Returns { sessionId, playerHand, topCard, botCardCount, currentTurn, pendingShape, deckSize }
+  Future<Map<String, dynamic>?> startGame({int playerRating = 1200}) async {
+    await _warmUp();
 
     for (int attempt = 1; attempt <= 3; attempt++) {
       try {
-        final timeout = attempt == 1
-            ? const Duration(seconds: 60)
-            : const Duration(seconds: 25);
-        debugPrint('startGame attempt $attempt');
+        debugPrint('practice/start attempt $attempt');
         final res = await http
             .post(
-              Uri.parse('$_base/start_game'),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'game_name': 'whot', 'num_players': 2}),
+              Uri.parse('$_nodeBase/api/v1/practice/start'),
+              headers: _headers,
+              body: jsonEncode({
+                'gameType': 'whot',
+                'playerRating': playerRating,
+              }),
             )
-            .timeout(timeout);
+            .timeout(Duration(seconds: attempt == 1 ? 60 : 25));
         if (res.statusCode == 200) {
-          debugPrint('startGame OK');
-          return jsonDecode(res.body) as Map<String, dynamic>;
+          final body = jsonDecode(res.body) as Map<String, dynamic>;
+          if (body['success'] == true) {
+            final data = body['data'] as Map<String, dynamic>;
+            sessionId = data['sessionId'] as String;
+            debugPrint('practice/start OK sessionId=$sessionId');
+            return data;
+          }
+          debugPrint('practice/start failed: ${body['error']}');
+        } else {
+          debugPrint('practice/start HTTP ${res.statusCode}: ${res.body}');
         }
       } catch (e) {
-        debugPrint('startGame attempt $attempt error: $e');
+        debugPrint('practice/start attempt $attempt error: $e');
       }
       if (attempt < 3) await Future.delayed(Duration(seconds: attempt * 2));
     }
     return null;
   }
 
-  Future<int?> getMove(List<int> history) async {
-    // This method is now unused — replaced by getMovePractice
-    return null;
-  }
-
-  /// Practice mode: send hand + topCard directly, bypass broken OpenSpiel replay
-  Future<Map<String, dynamic>?> getMovePractice({
-    required List<Map<String, dynamic>> hand,
-    required Map<String, dynamic> topCard,
-    int pendingDraw = 0,
-    String? pendingShape,
-    int playerRating = 1200,
-  }) async {
+  /// Send the player's move; server validates, applies it, plays the bot's
+  /// turn(s), and returns the updated state + botActions.
+  ///
+  /// [move] shape: { "card": {"number":N,"shape":"S"}, "declaredShape": "S" }
+  ///   or: { "pickFromMarket": true }
+  Future<Map<String, dynamic>?> sendMove(Map<String, dynamic> move) async {
+    if (sessionId == null) {
+      debugPrint('sendMove: no sessionId');
+      return null;
+    }
     try {
-      debugPrint('getMovePractice hand.length=${hand.length} topCard=$topCard');
+      debugPrint('practice/move sessionId=$sessionId move=$move');
       final res = await http
           .post(
-            Uri.parse('$_base/get_move'),
-            headers: {'Content-Type': 'application/json'},
+            Uri.parse('$_nodeBase/api/v1/practice/move'),
+            headers: _headers,
             body: jsonEncode({
-              'game_type': 'whot',
-              'hand': hand,
-              'top_card': topCard,
-              'pending_draw': pendingDraw,
-              'pending_shape': pendingShape,
-              'player_rating': playerRating,
+              'sessionId': sessionId,
+              'move': move,
             }),
           )
           .timeout(const Duration(seconds: 20));
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
-        debugPrint('getMovePractice -> $body');
-        return body;
+        if (body['success'] == true) {
+          final data = body['data'] as Map<String, dynamic>;
+          debugPrint('practice/move OK gameOver=${data['gameOver']} '
+              'botActions=${(data['botActions'] as List?)?.length ?? 0}');
+          return data;
+        }
+        debugPrint('practice/move failed: ${body['error']}');
+      } else {
+        debugPrint('practice/move HTTP ${res.statusCode}: ${res.body}');
       }
-      debugPrint('getMovePractice HTTP ${res.statusCode}: ${res.body}');
     } catch (e) {
-      debugPrint('getMovePractice error: $e');
+      debugPrint('practice/move error: $e');
     }
     return null;
   }
@@ -379,7 +398,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
   // ── Game state ────────────────────────────────────────────────────────────
   List<WhotCard> _hand = [];
-  List<WhotCard> _botHand = [];
   int _oppCount = 4;
   WhotCard _topCard = WhotCard(shape: WhotShape.triangle, number: 14, id: '23');
   bool _isMyTurn = false;
@@ -457,7 +475,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       _isDealing = true;
       _dealFailed = false;
     });
-    final result = await _bot.startGame();
+    final result = await _bot.startGame(playerRating: widget.playerRating);
     if (!mounted) return;
 
     if (result == null) {
@@ -468,64 +486,36 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       return;
     }
 
-    final rawHand = result['player_hand'] as List<dynamic>;
-    final topJson = result['top_card'] as Map<String, dynamic>;
-    final rawDealHist = (result['deal_history'] as List<dynamic>)
-      .map((e) => (e as num).toInt())
-      .toList();
-    final dealHist = rawDealHist.where((a) => a < 54).toList();
-    final dealerAction = rawDealHist.firstWhere((a) => a >= 54, orElse: () => 54);
-    final oppCount = (result['opponent_hand_count'] as num).toInt();
-
-    bool myTurn = true;
-    final legalJson = result['legal'] as Map<String, dynamic>?;
-    if (legalJson != null) {
-      myTurn = (legalJson['current_player'] as num?)?.toInt() == 0;
-    }
+    final rawHand = result['playerHand'] as List<dynamic>;
+    final topJson = result['topCard'] as Map<String, dynamic>;
+    final oppCount = (result['botCardCount'] as num).toInt();
+    final currentTurn = result['currentTurn'] as String?;
 
     final topCard = WhotCard.fromJson(topJson);
 
-    // Reconstruct bot hand from remaining deck cards
-    final usedIds = <String>{};
-    for (final c in rawHand) {
-      usedIds.add((c as Map<String, dynamic>)['id']?.toString() ?? '');
-    }
-    usedIds.add(topJson['id']?.toString() ?? '');
-    final remaining = <int>[];
-    for (var i = 0; i < _kDeck.length; i++) {
-      if (!usedIds.contains(i.toString())) remaining.add(i);
-    }
-    remaining.shuffle(_rng);
-    final botHandCards = <WhotCard>[];
-    for (var i = 0; i < oppCount && i < remaining.length; i++) {
-      final idx = remaining[i];
-      final (s, n) = _kDeck[idx];
-      botHandCards.add(WhotCard(shape: s, number: n, id: idx.toString()));
-    }
-
     setState(() {
-      _dealHistory = dealHist;
-      _dealerAction = dealerAction;
       _moveHistory = [];
       _hand = rawHand
           .map((c) => WhotCard.fromJson(c as Map<String, dynamic>))
           .toList();
-      _botHand = botHandCards;
       _topCard = topCard;
       _oppCount = oppCount;
       _effectiveSuit = topCard.shape;
       _effectiveRank = topCard.number;
       _pendingDraw = 0;
-      _isMyTurn = myTurn;
+      _isMyTurn = currentTurn == widget.playerId;
       _isDealing = false;
       _dealFailed = false;
       _botBusy = false;
     });
 
-    if (myTurn) {
+    if (_isMyTurn) {
       _startTimer();
     } else {
-      _runBotTurn();
+      // Server already determined it's bot's turn — shouldn't happen at start
+      // but handle gracefully
+      _isMyTurn = true;
+      _startTimer();
     }
   }
 
@@ -553,10 +543,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
   void _forceDrawOnTimeout() {
     if (!mounted || _botBusy) return;
-    _moveHistory.add(_kDraw);
-    _addDrawnCards(1);
-    setState(() => _isMyTurn = false);
-    _runBotTurn();
+    _drawCard();
   }
 
   @override
@@ -691,25 +678,6 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   }
 
   Future<void> _playCard({WhotShape? chosen, bool nominateOnly = false}) async {
-    if (nominateOnly) {
-      SoundService.instance.play(SoundType.nominate);
-      final nomAction = _kNomBase + _suitFromShape(chosen!);
-      _moveHistory.add(nomAction);
-      widget.socketService?.emitPlayCard(
-          widget.roomId, widget.playerId, _topCard,
-          chosenShape: chosen);
-      setState(() {
-        _effectiveSuit = chosen;
-        _topCard =
-            WhotCard(shape: chosen, number: _topCard.number, id: _topCard.id);
-        _showShapeChooser = false;
-        _isMyTurn = false;
-      });
-      HapticFeedback.lightImpact();
-      _runBotTurn();
-      return;
-    }
-
     if (_selectedIdx < 0 || !_isMyTurn || _botBusy) return;
     final card = _hand[_selectedIdx];
 
@@ -723,300 +691,180 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     }
 
     _timer?.cancel();
-
-    final actionId = _deckAction(card);
-    _moveHistory.add(actionId);
-
-    if (card.isWhot && chosen != null) {
-      _moveHistory.add(_kNomBase + _suitFromShape(chosen));
-    }
-
-    widget.socketService?.emitPlayCard(widget.roomId, widget.playerId, card,
-        chosenShape: chosen);
-
-    final newSuit = chosen ?? card.shape;
-    final newRank = card.number;
-
     setState(() {
-      _topCard = WhotCard(shape: newSuit, number: newRank, id: card.id);
-      _effectiveSuit = newSuit;
-      _effectiveRank = newRank;
       _hand.removeAt(_selectedIdx);
-      _selectedIdx = -1;
       _showShapeChooser = false;
+      _selectedIdx = -1;
       _isMyTurn = false;
+      _botBusy = true;
     });
     SoundService.instance.play(SoundType.cardPlay);
     HapticFeedback.lightImpact();
 
-    // BUG #2 FIX: Check if human won (emptied hand)
-    if (_hand.isEmpty) {
-      _timer?.cancel();
-      SoundService.instance.play(SoundType.gameWin);
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => _GameOverDialog(
-            isWinner: true,
-            prizePool: widget.prizePool,
-            onClose: widget.onBack ?? () => Navigator.maybePop(context),
-          ),
-        );
-      }
+    // Build server-side move
+    final move = <String, dynamic>{
+      'card': {'number': card.number, 'shape': card.shape.name},
+    };
+    if (card.isWhot && chosen != null) {
+      move['declaredShape'] = chosen.name;
+    }
+
+    final result = await _bot.sendMove(move);
+    if (!mounted) return;
+
+    if (result == null) {
+      // Server error — restore card
+      setState(() {
+        _hand.insert(_selectedIdx < 0 ? _hand.length : _selectedIdx, card);
+        _isMyTurn = true;
+        _botBusy = false;
+      });
+      _startTimer();
       return;
     }
 
-    _handlePlayerSpecial(newRank);
-
-    if (card.isWhot && chosen == null) {
-      setState(() => _showShapeChooser = true);
-      return;
-    }
-
-    _runBotTurn();
-  }
-
-  void _handlePlayerSpecial(int rank) {
-    switch (rank) {
-      case 1:
-        _toast('Hold On! You play again.');
-        break;
-      case 2:
-        _toast('Pick Two on opponent!');
-        _oppCount += 2;
-        break;
-      case 5:
-        _toast('Pick Three on opponent!');
-        _oppCount += 3;
-        break;
-      case 8:
-        _toast('Suspension!');
-        break;
-      case 14:
-        _toast('General Market!');
-        _addDrawnCards(1);
-        break;
-      case 20:
-        _toast('Whot! Choose a shape.');
-        break;
-    }
+    _applyServerState(result);
   }
 
   Future<void> _drawCard() async {
     if (!_isMyTurn || _botBusy) return;
     _timer?.cancel();
-
-    final count = _pendingDraw > 0 ? _pendingDraw : 1;
-    _moveHistory.add(_kDraw);
-    _addDrawnCards(count);
-
-    widget.socketService?.emitDrawCard(widget.roomId, widget.playerId);
-
     setState(() {
       _isMyTurn = false;
-      _pendingDraw = 0;
+      _botBusy = true;
       _selectedIdx = -1;
       _calledCard = false;
     });
     SoundService.instance.play(SoundType.drawCard);
     HapticFeedback.selectionClick();
 
-    _runBotTurn();
-  }
-
-  void _addDrawnCards(int count) {
-    final used = <int>{};
-    for (final c in _hand) {
-      final id = int.tryParse(c.id ?? '');
-      if (id != null) used.add(id);
-    }
-    final available = List.generate(_kDeck.length, (i) => i)
-        .where((i) => !used.contains(i))
-        .toList()
-      ..shuffle(_rng);
-    for (var i = 0; i < count; i++) {
-      if (i < available.length) {
-        final idx = available[i];
-        final (s, n) = _kDeck[idx];
-        _hand.add(WhotCard(shape: s, number: n, id: idx.toString()));
-      } else {
-        _hand.add(WhotCard.faceDown());
-      }
-    }
-  }
-
-  Future<void> _runBotTurn() async {
+    final result = await _bot.sendMove({'pickFromMarket': true});
     if (!mounted) return;
-    if (_botBusy) {
-      debugPrint('runBotTurn: already busy, skipping');
+
+    if (result == null) {
+      setState(() {
+        _isMyTurn = true;
+        _botBusy = false;
+      });
+      _startTimer();
       return;
     }
-    _botBusy = true;
 
-    try {
-      await Future.delayed(const Duration(milliseconds: 400));
+    _applyServerState(result);
+  }
 
-      // Practice mode: send bot's own hand + topCard directly
-      final handJson = _botHand.map((c) => c.toJson()).toList();
-      final topJson = _topCard.toJson();
-      final result = await _bot.getMovePractice(
-        hand: handJson,
-        topCard: topJson,
-        pendingDraw: _pendingDraw,
-        pendingShape: _effectiveSuit.name,
-        playerRating: widget.playerRating,
-      );
+  /// Apply full server response (player hand + bot actions).
+  void _applyServerState(Map<String, dynamic> data) {
+    final rawHand = data['playerHand'] as List<dynamic>? ?? [];
+    final topJson = data['topCard'] as Map<String, dynamic>?;
+    final oppCount = (data['botCardCount'] as num?)?.toInt() ?? 0;
+    final currentTurn = data['currentTurn'] as String?;
+    final pendingShape = data['pendingShape'] as String?;
+    final gameOver = data['gameOver'] as bool? ?? false;
+    final winner = data['winner'] as String?;
+    final botActions = (data['botActions'] as List<dynamic>?) ?? [];
+    final playerEffects = data['playerEffects'] as String?;
 
-      if (!mounted) return;
-
-      if (result == null) {
-        debugPrint('runBotTurn: getMovePractice returned null, giving turn back');
-        setState(() => _isMyTurn = true);
-        _startTimer();
-        return;
+    setState(() {
+      _hand = rawHand
+          .map((c) => WhotCard.fromJson(c as Map<String, dynamic>))
+          .toList();
+      _oppCount = oppCount;
+      if (topJson != null) {
+        _topCard = WhotCard.fromJson(topJson);
+        _effectiveSuit = _topCard.shape;
+        _effectiveRank = _topCard.number;
       }
-
-      final action = result['action'] as int?;
-      final nominateAction = result['nominate'] as int?;
-
-      if (action == null) {
-        setState(() => _isMyTurn = true);
-        _startTimer();
-        return;
+      if (pendingShape != null) {
+        final ps = _shapeFromName(pendingShape);
+        if (ps != null) _effectiveSuit = ps;
       }
+    });
 
-      // Handle nominate action (after Whot card)
-      if (nominateAction != null) {
-        _moveHistory.add(action);
-        _moveHistory.add(nominateAction);
-        final shape = _shapeFromSuit(nominateAction - _kNomBase);
-        final playedWhot = _deckCard(action);
-        setState(() {
-          _effectiveSuit = shape;
-          _topCard = playedWhot;
-          _botHand.removeWhere((c) => c.id == playedWhot.id);
-          if (_oppCount > 0) _oppCount--;
-        });
-        _toast('${widget.opponentName} chose ${shape.name}');
-        _botBusy = false;
-        _runBotTurn();
-        return;
-      }
+    // Process bot actions
+    for (final raw in botActions) {
+      final ba = raw as Map<String, dynamic>;
+      final action = ba['action'] as String?;
+      final effect = ba['effect'] as String?;
+      final isWin = ba['isWin'] as bool? ?? false;
 
-      // Handle draw
-      if (action == _kDraw) {
-        SoundService.instance.play(SoundType.drawCard);
-        _moveHistory.add(_kDraw);
-        // Bot takes the penalty: draw pendingDraw (+1 for normal draw if no penalty)
-        final drawCount = _pendingDraw > 0 ? _pendingDraw : 1;
-        final usedIds = <String>{
-          ..._hand.map((c) => c.id ?? ''),
-          ..._botHand.map((c) => c.id ?? ''),
-          _topCard.id ?? '',
-        };
-        var available = List.generate(_kDeck.length, (i) => i)
-            .where((i) => !usedIds.contains(i.toString()))
-            .toList()
-          ..shuffle(_rng);
-        for (var i = 0; i < drawCount && i < available.length; i++) {
-          final idx = available[i];
-          final (s, n) = _kDeck[idx];
-          _botHand.add(WhotCard(shape: s, number: n, id: idx.toString()));
+      if (action == 'play_card') {
+        SoundService.instance.play(SoundType.cardPlay);
+        if (isWin) {
+          _timer?.cancel();
+          _botBusy = false;
+          SoundService.instance.play(SoundType.gameLose);
+          if (mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => _GameOverDialog(
+                isWinner: false,
+                prizePool: widget.prizePool,
+                onClose: widget.onBack ?? () => Navigator.maybePop(context),
+              ),
+            );
+          }
+          return;
         }
-        setState(() {
-          _oppCount += drawCount;
-          _pendingDraw = 0;
-          _isMyTurn = true;
-        });
-        _startTimer();
-        return;
+        if (effect == 'hold_on') {
+          _toast('Hold On! ${widget.opponentName} plays again.');
+        } else if (effect == 'pick_two') {
+          _toast('Pick Two on you!');
+        } else if (effect == 'pick_three') {
+          _toast('Pick Five on you!');
+        } else if (effect == 'suspension') {
+          _toast('${widget.opponentName} suspends you!');
+        } else if (effect == 'general_market') {
+          _toast('General Market!');
+        } else if (effect == 'whot') {
+          final ds = ba['declaredShape'] as String?;
+          _toast('${widget.opponentName} called WHOT! Declares $ds.');
+        }
+      } else if (action == 'pick_market') {
+        SoundService.instance.play(SoundType.drawCard);
       }
+    }
 
-      // Play card
-      _moveHistory.add(action);
-      final played = _deckCard(action);
-      SoundService.instance.play(SoundType.cardPlay);
+    // Player effects
+    if (playerEffects == 'hold_on') {
+      _toast('Hold On! You play again.');
+    } else if (playerEffects == 'suspension') {
+      _toast('Suspension!');
+    }
 
-      // Remove played card from bot's hand
-      setState(() {
-        _topCard = played;
-        _effectiveSuit = played.shape;
-        _effectiveRank = played.number;
-        if (_oppCount > 0) _oppCount--;
-        _botHand.removeWhere((c) => c.id == played.id);
-      });
-
-      // BUG #2 FIX: Check if bot won (emptied hand)
-      if (_oppCount <= 0) {
-        _timer?.cancel();
-        _botBusy = false;
-        SoundService.instance.play(SoundType.gameLose);
+    if (gameOver) {
+      _timer?.cancel();
+      _botBusy = false;
+      if (winner == widget.playerId) {
+        SoundService.instance.play(SoundType.gameWin);
         if (mounted) {
           showDialog(
             context: context,
             barrierDismissible: false,
             builder: (_) => _GameOverDialog(
-              isWinner: false,
+              isWinner: true,
               prizePool: widget.prizePool,
               onClose: widget.onBack ?? () => Navigator.maybePop(context),
             ),
           );
         }
-        return;
       }
+      return;
+    }
 
-      final humanContinues = _handleBotSpecial(played.number);
-
-      if (!humanContinues) {
-        await Future.delayed(const Duration(milliseconds: 600));
-        _botBusy = false;
-        _runBotTurn();
-        return;
-      }
-
-      setState(() => _isMyTurn = true);
-      _startTimer();
-    } catch (e) {
-      debugPrint('runBotTurn error: $e');
-      if (mounted) {
-        setState(() => _isMyTurn = true);
-        _startTimer();
-      }
-    } finally {
+    final isMyTurn = currentTurn == widget.playerId;
+    setState(() {
+      _isMyTurn = isMyTurn;
       _botBusy = false;
-      if (mounted) setState(() {});
-    }
+    });
+    if (isMyTurn) _startTimer();
   }
 
-  bool _handleBotSpecial(int rank) {
-    switch (rank) {
-      case 1:
-        _toast('Hold On! ${widget.opponentName} plays again.');
-        return false;
-      case 2:
-        _pendingDraw = (_pendingDraw > 0 ? _pendingDraw : 0) + 2;
-        _toast('Pick Two! You must pick $_pendingDraw or stack.');
-        return true;
-      case 5:
-        _pendingDraw = (_pendingDraw > 0 ? _pendingDraw : 0) + 3;
-        _toast('Pick Three! You must pick $_pendingDraw or stack.');
-        return true;
-      case 8:
-        _toast('Suspension! Your turn is skipped.');
-        return false;
-      case 14:
-        _addDrawnCards(1);
-        setState(() {});
-        _toast('General Market! You picked 1.');
-        return true;
-      case 20:
-        _toast('Whot! ${widget.opponentName} is choosing a shape…');
-        return false;
-      default:
-        return true;
-    }
-  }
+  void _handlePlayerSpecial(int rank) {}
+
+  // Stub for multiplayer socket handlers (unused in practice mode)
+  void _addDrawnCards(int count) {}
 
   void _callCard() {
     widget.socketService?.emitCallCard(widget.roomId, widget.playerId);
