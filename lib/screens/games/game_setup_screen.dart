@@ -606,6 +606,8 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
           playerName:    name,
           opponentName:  'Gamearn AI Bot',
           prizePool:     'Practice',
+          playerRating:  1200,
+          startingCards:  _startCards.round(),
           onBack:        () => Navigator.pop(context),
         ),
       ));

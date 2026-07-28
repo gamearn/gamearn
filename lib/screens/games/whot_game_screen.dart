@@ -276,7 +276,7 @@ class _BotService {
 
   /// Start a server-side practice session.
   /// Returns { sessionId, playerHand, topCard, botCardCount, currentTurn, pendingShape, deckSize }
-  Future<Map<String, dynamic>?> startGame({int playerRating = 1200}) async {
+  Future<Map<String, dynamic>?> startGame({int playerRating = 1200, int startCards = 6}) async {
     await _warmUp();
 
     for (int attempt = 1; attempt <= 3; attempt++) {
@@ -289,6 +289,7 @@ class _BotService {
               body: jsonEncode({
                 'gameType': 'whot',
                 'playerRating': playerRating,
+                'startCards': startCards,
               }),
             )
             .timeout(Duration(seconds: attempt == 1 ? 60 : 25));
@@ -366,6 +367,7 @@ class WhotGameScreen extends StatefulWidget {
   final String tournamentTitle;
   final String prizePool;
   final int playerRating;
+  final int startingCards;
   final WhotSocketService? socketService;
   final VoidCallback? onBack;
 
@@ -380,6 +382,7 @@ class WhotGameScreen extends StatefulWidget {
     this.tournamentTitle = 'Wọt TOURNAMENT',
     this.prizePool = '₦70,000',
     this.playerRating = 1200,
+    this.startingCards = 6,
     this.socketService,
     this.onBack,
   });
@@ -475,7 +478,9 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       _isDealing = true;
       _dealFailed = false;
     });
-    final result = await _bot.startGame(playerRating: widget.playerRating);
+    final result = await _bot.startGame(
+        playerRating: widget.playerRating,
+        startCards: widget.startingCards);
     if (!mounted) return;
 
     if (result == null) {
