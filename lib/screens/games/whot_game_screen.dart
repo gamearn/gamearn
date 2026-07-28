@@ -379,6 +379,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
   // ── Game state ────────────────────────────────────────────────────────────
   List<WhotCard> _hand = [];
+  List<WhotCard> _botHand = [];
   int _oppCount = 4;
   WhotCard _topCard = WhotCard(shape: WhotShape.triangle, number: 14, id: '23');
   bool _isMyTurn = false;
@@ -484,6 +485,24 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
     final topCard = WhotCard.fromJson(topJson);
 
+    // Reconstruct bot hand from remaining deck cards
+    final usedIds = <String>{};
+    for (final c in rawHand) {
+      usedIds.add((c as Map<String, dynamic>)['id']?.toString() ?? '');
+    }
+    usedIds.add(topJson['id']?.toString() ?? '');
+    final remaining = <int>[];
+    for (var i = 0; i < _kDeck.length; i++) {
+      if (!usedIds.contains(i.toString())) remaining.add(i);
+    }
+    remaining.shuffle(_rng);
+    final botHandCards = <WhotCard>[];
+    for (var i = 0; i < oppCount && i < remaining.length; i++) {
+      final idx = remaining[i];
+      final (s, n) = _kDeck[idx];
+      botHandCards.add(WhotCard(shape: s, number: n, id: idx.toString()));
+    }
+
     setState(() {
       _dealHistory = dealHist;
       _dealerAction = dealerAction;
@@ -491,6 +510,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       _hand = rawHand
           .map((c) => WhotCard.fromJson(c as Map<String, dynamic>))
           .toList();
+      _botHand = botHandCards;
       _topCard = topCard;
       _oppCount = oppCount;
       _effectiveSuit = topCard.shape;
@@ -837,8 +857,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     try {
       await Future.delayed(const Duration(milliseconds: 400));
 
-      // Practice mode: send hand + topCard directly (bypasses broken OpenSpiel replay)
-      final handJson = _hand.map((c) => c.toJson()).toList();
+      // Practice mode: send bot's own hand + topCard directly
+      final handJson = _botHand.map((c) => c.toJson()).toList();
       final topJson = _topCard.toJson();
       final result = await _bot.getMovePractice(
         hand: handJson,
@@ -871,10 +891,11 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         _moveHistory.add(action);
         _moveHistory.add(nominateAction);
         final shape = _shapeFromSuit(nominateAction - _kNomBase);
+        final playedWhot = _deckCard(action);
         setState(() {
           _effectiveSuit = shape;
-          _topCard = WhotCard(shape: shape, number: _topCard.number, id: _topCard.id);
-          _hand.removeWhere((c) => c.number == 20);
+          _topCard = playedWhot;
+          _botHand.removeWhere((c) => c.id == playedWhot.id);
           if (_oppCount > 0) _oppCount--;
         });
         _toast('${widget.opponentName} chose ${shape.name}');
@@ -887,8 +908,24 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       if (action == _kDraw) {
         SoundService.instance.play(SoundType.drawCard);
         _moveHistory.add(_kDraw);
+        // Bot takes the penalty: draw pendingDraw (+1 for normal draw if no penalty)
+        final drawCount = _pendingDraw > 0 ? _pendingDraw : 1;
+        final usedIds = <String>{
+          ..._hand.map((c) => c.id ?? ''),
+          ..._botHand.map((c) => c.id ?? ''),
+          _topCard.id ?? '',
+        };
+        var available = List.generate(_kDeck.length, (i) => i)
+            .where((i) => !usedIds.contains(i.toString()))
+            .toList()
+          ..shuffle(_rng);
+        for (var i = 0; i < drawCount && i < available.length; i++) {
+          final idx = available[i];
+          final (s, n) = _kDeck[idx];
+          _botHand.add(WhotCard(shape: s, number: n, id: idx.toString()));
+        }
         setState(() {
-          _oppCount++;
+          _oppCount += drawCount;
           _pendingDraw = 0;
           _isMyTurn = true;
         });
@@ -901,12 +938,13 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       final played = _deckCard(action);
       SoundService.instance.play(SoundType.cardPlay);
 
-      // Remove played card from bot's tracked count
+      // Remove played card from bot's hand
       setState(() {
         _topCard = played;
         _effectiveSuit = played.shape;
         _effectiveRank = played.number;
         if (_oppCount > 0) _oppCount--;
+        _botHand.removeWhere((c) => c.id == played.id);
       });
 
       // BUG #2 FIX: Check if bot won (emptied hand)
