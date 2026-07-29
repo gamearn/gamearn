@@ -275,19 +275,16 @@ class _BotService {
   }
 
   /// Start a server-side practice session.
-  /// Returns { sessionId, playerHand, topCard, botCardCount, currentTurn, pendingShape, deckSize }
+  /// Returns { sessionId, playerHand, topCard, botCardCount, currentPlayerUid, pendingShape, deckSize }
   Future<Map<String, dynamic>?> startGame({int playerRating = 1200, int startCards = 6}) async {
-    await _warmUp();
-
     for (int attempt = 1; attempt <= 3; attempt++) {
       try {
-        debugPrint('practice/start attempt $attempt');
+        debugPrint('practice/whot/start attempt $attempt');
         final res = await http
             .post(
-              Uri.parse('$_nodeBase/api/v1/practice/start'),
+              Uri.parse('$_nodeBase/api/v1/practice/whot/start'),
               headers: _headers,
               body: jsonEncode({
-                'gameType': 'whot',
                 'playerRating': playerRating,
                 'startCards': startCards,
               }),
@@ -298,15 +295,15 @@ class _BotService {
           if (body['success'] == true) {
             final data = body['data'] as Map<String, dynamic>;
             sessionId = data['sessionId'] as String;
-            debugPrint('practice/start OK sessionId=$sessionId');
+            debugPrint('practice/whot/start OK sessionId=$sessionId');
             return data;
           }
-          debugPrint('practice/start failed: ${body['error']}');
+          debugPrint('practice/whot/start failed: ${body['error']}');
         } else {
-          debugPrint('practice/start HTTP ${res.statusCode}: ${res.body}');
+          debugPrint('practice/whot/start HTTP ${res.statusCode}: ${res.body}');
         }
       } catch (e) {
-        debugPrint('practice/start attempt $attempt error: $e');
+        debugPrint('practice/whot/start attempt $attempt error: $e');
       }
       if (attempt < 3) await Future.delayed(Duration(seconds: attempt * 2));
     }
@@ -324,10 +321,10 @@ class _BotService {
       return null;
     }
     try {
-      debugPrint('practice/move sessionId=$sessionId move=$move');
+      debugPrint('practice/whot/move sessionId=$sessionId move=$move');
       final res = await http
           .post(
-            Uri.parse('$_nodeBase/api/v1/practice/move'),
+            Uri.parse('$_nodeBase/api/v1/practice/whot/move'),
             headers: _headers,
             body: jsonEncode({
               'sessionId': sessionId,
@@ -339,16 +336,16 @@ class _BotService {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
         if (body['success'] == true) {
           final data = body['data'] as Map<String, dynamic>;
-          debugPrint('practice/move OK gameOver=${data['gameOver']} '
+          debugPrint('practice/whot/move OK gameOver=${data['gameOver']} '
               'botActions=${(data['botActions'] as List?)?.length ?? 0}');
           return data;
         }
-        debugPrint('practice/move failed: ${body['error']}');
+        debugPrint('practice/whot/move failed: ${body['error']}');
       } else {
-        debugPrint('practice/move HTTP ${res.statusCode}: ${res.body}');
+        debugPrint('practice/whot/move HTTP ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
-      debugPrint('practice/move error: $e');
+      debugPrint('practice/whot/move error: $e');
     }
     return null;
   }
@@ -494,7 +491,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     final rawHand = result['playerHand'] as List<dynamic>;
     final topJson = result['topCard'] as Map<String, dynamic>;
     final oppCount = (result['botCardCount'] as num).toInt();
-    final currentTurn = result['currentTurn'] as String?;
+    final currentPlayerUid = result['currentPlayerUid'] as String?;
 
     final topCard = WhotCard.fromJson(topJson);
 
@@ -508,7 +505,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       _effectiveSuit = topCard.shape;
       _effectiveRank = topCard.number;
       _pendingDraw = 0;
-      _isMyTurn = currentTurn == widget.playerId;
+      _isMyTurn = currentPlayerUid == widget.playerId;
       _isDealing = false;
       _dealFailed = false;
       _botBusy = false;
@@ -763,7 +760,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     final rawHand = data['playerHand'] as List<dynamic>? ?? [];
     final topJson = data['topCard'] as Map<String, dynamic>?;
     final oppCount = (data['botCardCount'] as num?)?.toInt() ?? 0;
-    final currentTurn = data['currentTurn'] as String?;
+    final currentPlayerUid = data['currentPlayerUid'] as String?;
     final pendingShape = data['pendingShape'] as String?;
     final gameOver = data['gameOver'] as bool? ?? false;
     final winner = data['winner'] as String?;
@@ -858,7 +855,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       return;
     }
 
-    final isMyTurn = currentTurn == widget.playerId;
+    final isMyTurn = currentPlayerUid == widget.playerId;
     setState(() {
       _isMyTurn = isMyTurn;
       _botBusy = false;

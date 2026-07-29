@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -23,29 +22,101 @@ const _border  = Color(0xFF334155);
 // Board colours
 const _darkSquare  = Color(0xFF2D1B0E);
 const _lightSquare = Color(0xFFD4A853);
-const _humanPiece  = Color(0xFFF1F5F9);   // white pieces = human
-const _botPiece    = Color(0xFF1A0A00);   // dark pieces = bot
+const _humanPiece  = Color(0xFFF1F5F9);
+const _botPiece    = Color(0xFF1A0A00);
 const _humanKing   = Color(0xFFFFD700);
 const _botKing     = Color(0xFF8B0000);
 const _selectRing  = Color(0xFF22D1EE);
 const _moveHint    = Color(0xFF22D1EE);
 const _captureHint = Color(0xFFFF5E00);
 
-// ── Cell states (mirrors draughts.h CellState) ────────────────────────────────
-// 0=empty, 1=white(human), 2=black(bot), 3=white king, 4=black king
-const _kEmpty      = 0;
-const _kWhite      = 1;
-const _kBlack      = 2;
-const _kWhiteKing  = 3;
-const _kBlackKing  = 4;
+// Cell values (match validator: 0=empty, 1=human_man, 2=human_king,
+// 3=bot_man, 4=bot_king)
+const _kEmpty     = 0;
+const _kHumanMan  = 1;
+const _kHumanKing = 2;
+const _kBotMan    = 3;
+const _kBotKing   = 4;
 
-// ── Board size ────────────────────────────────────────────────────────────────
 const _kBoardSize = 8;
 const _kCells     = 64;
+
+// ── Practice API service ──────────────────────────────────────────────────────
+
+class _PracticeDraughtsService {
+  static String get _base => '${ApiConfig.nodeBaseUrl}/api/v1/practice/draughts';
+
+  String? sessionId;
+  List<int> humanPlayerIndices = [];
+
+  Future<Map<String, dynamic>> startGame({int playerRating = 1200}) async {
+    final res = await http.post(
+      Uri.parse('$_base/start'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'playerRating': playerRating}),
+    ).timeout(const Duration(seconds: 10));
+    if (res.statusCode != 200) throw Exception('Failed to start practice game');
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final data = body['data'] as Map<String, dynamic>;
+    sessionId = data['sessionId'] as String;
+    humanPlayerIndices = (data['humanPlayerIndices'] as List).cast<int>();
+    return data;
+  }
+
+  Future<Map<String, dynamic>> movePiece(int fromSq, int toSq, {List<Map<String, dynamic>>? captures}) async {
+    final fromRow = fromSq ~/ _kBoardSize;
+    final fromCol = fromSq % _kBoardSize;
+    final toRow = toSq ~/ _kBoardSize;
+    final toCol = toSq % _kBoardSize;
+
+    final body = <String, dynamic>{
+      'sessionId': sessionId,
+      'fromRow': fromRow,
+      'fromCol': fromCol,
+      'toRow': toRow,
+      'toCol': toCol,
+    };
+    if (captures != null && captures.isNotEmpty) {
+      body['captures'] = captures;
+    }
+
+    final res = await http.post(
+      Uri.parse('$_base/move'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 404) throw Exception('Session expired');
+    if (res.statusCode != 200) {
+      final err = jsonDecode(res.body);
+      throw Exception(err['error']?['message'] ?? 'Move failed');
+    }
+    return jsonDecode(res.body)['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getState() async {
+    final res = await http.get(
+      Uri.parse('$_base/state/${Uri.encodeComponent(sessionId!)}'),
+      headers: {'Content-Type': 'application/json'},
+    ).timeout(const Duration(seconds: 10));
+    if (res.statusCode == 404) throw Exception('Session expired');
+    if (res.statusCode != 200) throw Exception('Failed to get state');
+    return jsonDecode(res.body)['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> deleteSession() async {
+    if (sessionId == null) return;
+    try {
+      await http.delete(
+        Uri.parse('$_base/${Uri.encodeComponent(sessionId!)}'),
+      ).timeout(const Duration(seconds: 5));
+    } catch (_) {}
+  }
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  DRAUGHTS GAME SCREEN
 // ═════════════════════════════════════════════════════════════════════════════
+
 class DraughtsGameScreen extends StatefulWidget {
   final String roomId;
   final String playerId;
@@ -84,20 +155,18 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
   late Animation<double>   _glowAnim;
 
   // ── Game state ────────────────────────────────────────────────────────────
-  // board: flat list of 64, index = row*8 + col
   List<int>  _board          = List.filled(_kCells, _kEmpty);
-  int        _currentPlayer  = 0;   // 0 = human (white), 1 = bot (black)
+  int        _currentPlayer  = 0;
   bool       _isTerminal     = false;
   int        _humanPieces    = 12;
   int        _botPieces      = 12;
 
   // Selection & hints
-  int        _selectedSq     = -1;  // selected square index
-  List<int>  _legalMoves     = [];  // to-squares for selected piece
-  List<int>  _captureMoves   = [];  // capture subset of legal moves
+  int        _selectedSq     = -1;
+  List<int>  _legalMoves     = [];
+  List<int>  _captureMoves   = [];
 
-  // History & busy
-  List<int>  _actionHistory  = [];
+  // Busy
   bool       _botBusy        = false;
   bool       _isLoading      = true;
   bool       _loadFailed     = false;
@@ -106,6 +175,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
   // Last move highlight
   int        _lastFrom       = -1;
   int        _lastTo         = -1;
+
+  // Service
+  final _PracticeDraughtsService _svc = _PracticeDraughtsService();
 
   // ── Init ──────────────────────────────────────────────────────────────────
   @override
@@ -121,6 +193,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
 
   @override
   void dispose() {
+    _svc.deleteSession();
     _glowCtrl.dispose();
     super.dispose();
   }
@@ -130,50 +203,26 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
     setState(() { _isLoading = true; _loadFailed = false; });
 
     try {
-      try {
-        await http.get(Uri.parse('${ApiConfig.botBaseUrl}/'))
-            .timeout(const Duration(seconds: 4));
-      } catch (_) {}
-
-      final res = await http.post(
-        Uri.parse('${ApiConfig.botBaseUrl}/start_game'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'game_name': 'draughts', 'num_players': 2}),
-      ).timeout(const Duration(seconds: 20));
+      final data = await _svc.startGame(playerRating: widget.playerRating);
 
       if (!mounted) return;
 
-      if (res.statusCode == 200) {
-        final data           = jsonDecode(res.body) as Map<String, dynamic>;
-        final board          = List<int>.from(data['board'] as List);
-        final startingPlayer = (data['starting_player'] as num).toInt();
-        final counts         = data['piece_counts'] as Map<String, dynamic>;
+      final board = List<int>.from(data['board'] as List);
 
-        setState(() {
-          _board         = board;
-          _currentPlayer = startingPlayer;
-          _humanPieces   = (counts['human'] as num).toInt();
-          _botPieces     = (counts['bot'] as num).toInt();
-          _actionHistory = [];
-          _selectedSq    = -1;
-          _legalMoves    = [];
-          _captureMoves  = [];
-          _lastFrom      = -1;
-          _lastTo        = -1;
-          _isTerminal    = false;
-          _isLoading     = false;
-          _statusMsg     = startingPlayer == 0
-              ? 'Your turn — select a piece'
-              : '${widget.opponentName} goes first';
-        });
-
-        if (startingPlayer == 1) {
-          await Future.delayed(const Duration(milliseconds: 800));
-          _runBotTurn();
-        }
-      } else {
-        setState(() { _isLoading = false; _loadFailed = true; });
-      }
+      setState(() {
+        _board         = board;
+        _currentPlayer = data['currentPlayerIndex'] as int;
+        _humanPieces   = data['pieceCounts']['player0'] as int;
+        _botPieces     = data['pieceCounts']['player1'] as int;
+        _selectedSq    = -1;
+        _legalMoves    = [];
+        _captureMoves  = [];
+        _lastFrom      = -1;
+        _lastTo        = -1;
+        _isTerminal    = false;
+        _isLoading     = false;
+        _statusMsg     = 'Your turn — select a piece';
+      });
     } catch (e) {
       if (mounted) setState(() { _isLoading = false; _loadFailed = true; });
     }
@@ -191,10 +240,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
     }
 
     // Tap own piece → select it and show hints
-    if (cell == _kWhite || cell == _kWhiteKing) {
+    if (cell == _kHumanMan || cell == _kHumanKing) {
       final moves    = _getMovesFrom(sq);
       final captures = _getCapturesFrom(sq);
-      // If any piece has captures available, only capture moves are shown
       final anyCapture = _anyPieceHasCapture();
       setState(() {
         _selectedSq   = sq;
@@ -213,153 +261,95 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
   }
 
   // ── Execute human move ────────────────────────────────────────────────────
-  void _executeHumanMove(int from, int to) {
+  Future<void> _executeHumanMove(int from, int to) async {
     HapticFeedback.lightImpact();
-
-    final action = from * _kCells + to;
-    _actionHistory.add(action);
-
-    final newBoard = _applyMoveLocally(
-        List<int>.from(_board), from, to, 0);
-
-    final isCapture = (from ~/ _kBoardSize - to ~/ _kBoardSize).abs() == 2;
-    SoundService.instance.play(isCapture ? SoundType.capture : SoundType.pieceMove);
-
-    setState(() {
-      _board        = newBoard;
-      _selectedSq   = -1;
-      _legalMoves   = [];
-      _captureMoves = [];
-      _lastFrom     = from;
-      _lastTo       = to;
-      _humanPieces  = newBoard.where((c) => c == _kWhite || c == _kWhiteKing).length;
-      _botPieces    = newBoard.where((c) => c == _kBlack || c == _kBlackKing).length;
-    });
-
-    // Check win
-    if (_botPieces == 0 || !_opponentCanMove(newBoard, 1)) {
-      _endGame(humanWins: true);
-      return;
-    }
-
-    setState(() {
-      _currentPlayer = 1;
-      _statusMsg     = '${widget.opponentName} is thinking…';
-    });
-
-    Future.delayed(const Duration(milliseconds: 400), _runBotTurn);
-  }
-
-  // ── Bot turn ──────────────────────────────────────────────────────────────
-  Future<void> _runBotTurn() async {
-    if (!mounted || _isTerminal) return;
-    setState(() {
-      _botBusy   = true;
-      _statusMsg = '${widget.opponentName} is thinking…';
-    });
+    setState(() { _botBusy = true; _statusMsg = 'Sending move…'; });
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final res = await http.post(
-        Uri.parse('${ApiConfig.botBaseUrl}/get_move'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'game_name': 'draughts',
-          'action_history': _actionHistory,
-          'player_rating': widget.playerRating,
-        }),
-      ).timeout(const Duration(seconds: 15));
-
+      final data = await _svc.movePiece(from, to);
       if (!mounted) return;
 
-      if (res.statusCode == 200) {
-        final data       = jsonDecode(res.body) as Map<String, dynamic>;
-        final isTerminal = data['is_terminal'] as bool? ?? false;
+      final board   = List<int>.from(data['board'] as List);
+      final captureCount = (data['lastMove'] is Map
+          ? (data['lastMove']['captures'] as List?)?.length ?? 0
+          : 0);
+      final isCapture = captureCount > 0;
+      SoundService.instance.play(isCapture ? SoundType.capture : SoundType.pieceMove);
 
-        if (isTerminal) {
-          final winner = (data['winner'] as num?)?.toInt() ?? -1;
-          _endGame(humanWins: winner == 0);
-          return;
-        }
+      setState(() {
+        _board        = board;
+        _selectedSq   = -1;
+        _legalMoves   = [];
+        _captureMoves = [];
+        _lastFrom     = from;
+        _lastTo       = to;
+        _humanPieces  = data['pieceCounts']['player0'] as int;
+        _botPieces    = data['pieceCounts']['player1'] as int;
+        _currentPlayer = data['currentPlayerIndex'] as int;
+      });
 
-        final action = (data['action'] as num).toInt();
-        _actionHistory.add(action);
-
-        final from     = action ~/ _kCells;
-        final to       = action % _kCells;
-        final newBoard = _applyMoveLocally(
-            List<int>.from(_board), from, to, 1);
-
-        final isCapture = (from ~/ _kBoardSize - to ~/ _kBoardSize).abs() == 2;
-        SoundService.instance.play(isCapture ? SoundType.capture : SoundType.pieceMove);
-
+      if (data['additionalCapturesAvailable'] == true) {
         setState(() {
-          _board       = newBoard;
-          _lastFrom    = from;
-          _lastTo      = to;
-          _humanPieces = newBoard.where((c) => c == _kWhite || c == _kWhiteKing).length;
-          _botPieces   = newBoard.where((c) => c == _kBlack || c == _kBlackKing).length;
-          _botBusy     = false;
+          _botBusy   = false;
+          _statusMsg = 'Continue capturing';
         });
-
-        // Check win
-        if (_humanPieces == 0 || !_opponentCanMove(newBoard, 0)) {
-          _endGame(humanWins: false);
-          return;
-        }
-
-        setState(() {
-          _currentPlayer = 0;
-          _statusMsg     = 'Your turn — select a piece';
-        });
-      } else {
-        // Network error — give turn back
-        setState(() {
-          _botBusy       = false;
-          _currentPlayer = 0;
-          _statusMsg     = 'Network error — your turn';
-        });
+        return;
       }
+
+      if (data['gameOver'] == true) {
+        _endGame(humanWins: _currentPlayer != 1);
+        return;
+      }
+
+      final botActions = data['botActions'] as List? ?? [];
+      await _animateBotActions(botActions);
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _botBusy       = false;
-          _currentPlayer = 0;
-          _statusMsg     = 'Your turn — select a piece';
-        });
+      if (!mounted) return;
+      _toast(e.toString().replaceFirst('Exception: ', ''));
+      setState(() {
+        _botBusy   = false;
+        _statusMsg = 'Your turn — select a piece';
+      });
+    }
+  }
+
+  // ── Animate bot actions ───────────────────────────────────────────────────
+  Future<void> _animateBotActions(List<dynamic> actions) async {
+    for (final action in actions) {
+      if (!mounted || _isTerminal) break;
+      final a = action as Map<String, dynamic>;
+
+      final fromRow = a['fromRow'] as int;
+      final fromCol = a['fromCol'] as int;
+      final toRow   = a['toRow']   as int;
+      final toCol   = a['toCol']   as int;
+      final from    = fromRow * _kBoardSize + fromCol;
+      final to      = toRow   * _kBoardSize + toCol;
+      final isCap   = (a['captures'] as List?)?.isNotEmpty == true;
+
+      setState(() {
+        _lastFrom  = from;
+        _lastTo    = to;
+        _statusMsg = '${widget.opponentName} is thinking…';
+      });
+      SoundService.instance.play(isCap ? SoundType.capture : SoundType.pieceMove);
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (a['isWin'] == true) {
+        _endGame(humanWins: false);
+        return;
       }
-    } finally {
-      if (mounted) setState(() => _botBusy = false);
-    }
-  }
-
-  // ── Local move application ─────────────────────────────────────────────────
-  List<int> _applyMoveLocally(List<int> board, int from, int to, int player) {
-    final piece = board[from];
-    board[from] = _kEmpty;
-    board[to]   = piece;
-
-    // Capture: if moved 2 rows, remove jumped piece
-    final fromRow = from ~/ _kBoardSize;
-    final toRow   = to   ~/ _kBoardSize;
-    final fromCol = from % _kBoardSize;
-    final toCol   = to   % _kBoardSize;
-
-    if ((fromRow - toRow).abs() == 2) {
-      final midRow = (fromRow + toRow) ~/ 2;
-      final midCol = (fromCol + toCol) ~/ 2;
-      board[midRow * _kBoardSize + midCol] = _kEmpty;
     }
 
-    // Promotion
-    if (piece == _kWhite && toRow == 0) board[to] = _kWhiteKing;
-    if (piece == _kBlack && toRow == 7) board[to] = _kBlackKing;
-
-    return board;
+    if (!mounted || _isTerminal) return;
+    setState(() {
+      _botBusy   = false;
+      _statusMsg = 'Your turn — select a piece';
+    });
   }
 
-  // ── Move generation (local, for hints) ───────────────────────────────────
+  // ── Hint generators (render-only — server validates) ──────────────────────
+
   List<int> _getMovesFrom(int from) {
     final board = _board;
     final piece = board[from];
@@ -367,60 +357,56 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
     final col   = from % _kBoardSize;
     final moves = <int>[];
 
-    final isKing  = piece == _kWhiteKing || piece == _kBlackKing;
-    // White moves up (decreasing row), Black moves down (increasing row)
-    // Kings move both directions
-    final dirs = isKing
-        ? [[-1,-1],[-1,1],[1,-1],[1,1]]
-        : (piece == _kWhite || piece == _kWhiteKing)
-            ? [[-1,-1],[-1,1]]
-            : [[1,-1],[1,1]];
-
-    for (final d in dirs) {
-      final nr = row + d[0];
-      final nc = col + d[1];
-      if (nr >= 0 && nr < _kBoardSize && nc >= 0 && nc < _kBoardSize) {
-        final sq = nr * _kBoardSize + nc;
-        if (board[sq] == _kEmpty) moves.add(sq);
+    final isKing  = piece == _kHumanKing || piece == _kBotKing;
+    if (isKing) {
+      for (final d in [[-1,-1],[-1,1],[1,-1],[1,1]]) {
+        final nr = row + d[0], nc = col + d[1];
+        if (nr >= 0 && nr < _kBoardSize && nc >= 0 && nc < _kBoardSize) {
+          if (board[nr * _kBoardSize + nc] == _kEmpty) moves.add(nr * _kBoardSize + nc);
+        }
+      }
+    } else {
+      final isHuman = piece == _kHumanMan || piece == _kHumanKing;
+      final dirs = isHuman
+          ? [[1,-1],[1,1]]
+          : [[-1,-1],[-1,1]];
+      for (final d in dirs) {
+        final nr = row + d[0], nc = col + d[1];
+        if (nr >= 0 && nr < _kBoardSize && nc >= 0 && nc < _kBoardSize) {
+          if (board[nr * _kBoardSize + nc] == _kEmpty) moves.add(nr * _kBoardSize + nc);
+        }
       }
     }
-    // Add captures
     moves.addAll(_getCapturesFrom(from));
     return moves;
   }
 
   List<int> _getCapturesFrom(int from) {
-    final board = _board;
-    final piece = board[from];
-    final row   = from ~/ _kBoardSize;
-    final col   = from % _kBoardSize;
+    final board  = _board;
+    final piece  = board[from];
+    if (piece == _kEmpty) return [];
+    final row    = from ~/ _kBoardSize;
+    final col    = from % _kBoardSize;
+    final isKing = piece == _kHumanKing || piece == _kBotKing;
+    final isHuman = piece == _kHumanMan || piece == _kHumanKing;
     final captures = <int>[];
 
-    final isKing  = piece == _kWhiteKing || piece == _kBlackKing;
-    final dirs    = [[-1,-1],[-1,1],[1,-1],[1,1]];
-    final isHuman = piece == _kWhite || piece == _kWhiteKing;
-
-    for (final d in dirs) {
-      // Forward only for men
+    for (final d in [[-1,-1],[-1,1],[1,-1],[1,1]]) {
       if (!isKing) {
-        if (isHuman && d[0] > 0) continue;   // white men only go up
-        if (!isHuman && d[0] < 0) continue;  // black men only go down
+        if (isHuman && d[0] < 0) continue;
+        if (!isHuman && d[0] > 0) continue;
       }
-      final mr = row + d[0];
-      final mc = col + d[1];
-      final lr = row + d[0] * 2;
-      final lc = col + d[1] * 2;
-
+      final mr  = row + d[0], mc  = col + d[1];
+      final lr  = row + d[0]*2, lc = col + d[1]*2;
       if (lr < 0 || lr >= _kBoardSize || lc < 0 || lc >= _kBoardSize) continue;
 
       final mid    = mr * _kBoardSize + mc;
       final land   = lr * _kBoardSize + lc;
       final midCell = board[mid];
-      final isOpponent = isHuman
-          ? (midCell == _kBlack || midCell == _kBlackKing)
-          : (midCell == _kWhite || midCell == _kWhiteKing);
-
-      if (isOpponent && board[land] == _kEmpty) captures.add(land);
+      final isOpp  = isHuman
+          ? (midCell == _kBotMan || midCell == _kBotKing)
+          : (midCell == _kHumanMan || midCell == _kHumanKing);
+      if (isOpp && board[land] == _kEmpty) captures.add(land);
     }
     return captures;
   }
@@ -428,7 +414,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
   bool _anyPieceHasCapture() {
     for (int sq = 0; sq < _kCells; sq++) {
       final c = _board[sq];
-      if (c == _kWhite || c == _kWhiteKing) {
+      if (c == _kHumanMan || c == _kHumanKing) {
         if (_getCapturesFrom(sq).isNotEmpty) return true;
       }
     }
@@ -439,12 +425,10 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
     for (int sq = 0; sq < _kCells; sq++) {
       final c = board[sq];
       final isOwn = player == 0
-          ? (c == _kWhite || c == _kWhiteKing)
-          : (c == _kBlack || c == _kBlackKing);
+          ? (c == _kHumanMan || c == _kHumanKing)
+          : (c == _kBotMan || c == _kBotKing);
       if (!isOwn) continue;
-      // Quick check: any empty diagonal neighbour
-      final row = sq ~/ _kBoardSize;
-      final col = sq % _kBoardSize;
+      final row = sq ~/ _kBoardSize, col = sq % _kBoardSize;
       for (final d in [[-1,-1],[-1,1],[1,-1],[1,1]]) {
         final nr = row + d[0], nc = col + d[1];
         if (nr >= 0 && nr < _kBoardSize && nc >= 0 && nc < _kBoardSize) {
@@ -690,7 +674,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
       ),
       // Piece count + colour indicator
       Row(children: [
-        // Colour chip
         Container(
           width: 14, height: 14,
           decoration: BoxDecoration(
@@ -769,6 +752,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
 // ═════════════════════════════════════════════════════════════════════════════
 //  DRAUGHTS BOARD WIDGET
 // ═════════════════════════════════════════════════════════════════════════════
+
 class _DraughtsBoardWidget extends StatelessWidget {
   final List<int> board;
   final int       selectedSq;
@@ -831,7 +815,6 @@ class _DraughtsBoardWidget extends StatelessWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Move hint dot
                     if (isMove && cell == _kEmpty && isDark)
                       Container(
                         width: 10, height: 10,
@@ -842,7 +825,6 @@ class _DraughtsBoardWidget extends StatelessWidget {
                               : _moveHint.withOpacity(0.6),
                         ),
                       ),
-                    // Piece
                     if (cell != _kEmpty)
                       _PieceWidget(
                         cell:     cell,
@@ -874,10 +856,10 @@ class _PieceWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isWhite = cell == _kWhite || cell == _kWhiteKing;
-    final isKing  = cell == _kWhiteKing || cell == _kBlackKing;
-    final base    = isWhite ? _humanPiece : _botPiece;
-    final ring    = selected ? _selectRing : (isWhite
+    final isHuman = cell == _kHumanMan || cell == _kHumanKing;
+    final isKing  = cell == _kHumanKing || cell == _kBotKing;
+    final base    = isHuman ? _humanPiece : _botPiece;
+    final ring    = selected ? _selectRing : (isHuman
         ? const Color(0xFFCBD5E1)
         : const Color(0xFF4A2A10));
 
@@ -902,7 +884,7 @@ class _PieceWidget extends StatelessWidget {
               child: Text('♛',
                   style: TextStyle(
                       fontSize: 12,
-                      color: isWhite
+                      color: isHuman
                           ? const Color(0xFF1A0A00)
                           : const Color(0xFFFFD700))),
             )
@@ -959,7 +941,7 @@ class _GameOverDialog extends StatelessWidget {
                 label: 'You',
                 count: humanPieces,
                 color: isWinner ? _green : _orange,
-                isWhite: true),
+                isHuman: true),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: Text('vs',
@@ -969,7 +951,7 @@ class _GameOverDialog extends StatelessWidget {
                 label: 'Bot',
                 count: botPieces,
                 color: !isWinner ? _green : _orange,
-                isWhite: false),
+                isHuman: false),
           ],
         ),
         const SizedBox(height: 8),
@@ -1023,16 +1005,16 @@ class _GameOverDialog extends StatelessWidget {
 }
 
 class _PieceBadge extends StatelessWidget {
-  final String label;
-  final int    count;
-  final Color  color;
-  final bool   isWhite;
+  final String  label;
+  final int     count;
+  final Color   color;
+  final bool    isHuman;
 
   const _PieceBadge({
     required this.label,
     required this.count,
     required this.color,
-    required this.isWhite,
+    required this.isHuman,
   });
 
   @override
@@ -1042,9 +1024,9 @@ class _PieceBadge extends StatelessWidget {
         width: 16, height: 16,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: isWhite ? _humanPiece : _botPiece,
+          color: isHuman ? _humanPiece : _botPiece,
           border: Border.all(
-              color: isWhite
+              color: isHuman
                   ? const Color(0xFFCBD5E1)
                   : const Color(0xFF4A2A10)),
         ),
