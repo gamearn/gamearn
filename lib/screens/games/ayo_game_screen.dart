@@ -20,37 +20,62 @@ const _txtPri   = Color(0xFFF1F5F9);
 const _txtSub   = Color(0xFF94A3B8);
 const _border   = Color(0xFF334155);
 
-// ── Board constants ───────────────────────────────────────────────────────────
-const _kHoles      = 12;
-const _kHolesEach  = 6;
-const _kInitSeeds  = 4;
-const _kWinScore   = 25;
+// ── Board constants (display only — server validates) ─────────────────────────
+const _kHoles     = 12;
+const _kHolesEach = 6;
 
-// ── Models ────────────────────────────────────────────────────────────────────
-class _AyoState {
-  List<int> board;        // 12 holes: 0–5 = human, 6–11 = bot
-  List<int> scores;       // [human, bot]
-  int currentPlayer;      // 0 = human, 1 = bot
-  bool isTerminal;
+// ── Practice API service ──────────────────────────────────────────────────────
 
-  _AyoState({
-    required this.board,
-    required this.scores,
-    required this.currentPlayer,
-    required this.isTerminal,
-  });
+class _PracticeAyoService {
+  static String get _base => '${ApiConfig.nodeBaseUrl}/api/v1/practice/ayo';
 
-  _AyoState copyWith({
-    List<int>? board,
-    List<int>? scores,
-    int? currentPlayer,
-    bool? isTerminal,
-  }) => _AyoState(
-    board: board ?? List.from(this.board),
-    scores: scores ?? List.from(this.scores),
-    currentPlayer: currentPlayer ?? this.currentPlayer,
-    isTerminal: isTerminal ?? this.isTerminal,
-  );
+  String? sessionId;
+
+  Future<Map<String, dynamic>> startGame({int playerRating = 1200}) async {
+    final res = await http.post(
+      Uri.parse('$_base/start'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'playerRating': playerRating}),
+    ).timeout(const Duration(seconds: 10));
+    if (res.statusCode != 200) throw Exception('Failed to start practice game');
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final data = body['data'] as Map<String, dynamic>;
+    sessionId = data['sessionId'] as String;
+    return data;
+  }
+
+  Future<Map<String, dynamic>> movePiece(int pitIndex) async {
+    final res = await http.post(
+      Uri.parse('$_base/move'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'sessionId': sessionId, 'pitIndex': pitIndex}),
+    ).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 404) throw Exception('Session expired');
+    if (res.statusCode != 200) {
+      final err = jsonDecode(res.body);
+      throw Exception(err['error']?['message'] ?? 'Move failed');
+    }
+    return jsonDecode(res.body)['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getState() async {
+    final res = await http.get(
+      Uri.parse('$_base/state/${Uri.encodeComponent(sessionId!)}'),
+      headers: {'Content-Type': 'application/json'},
+    ).timeout(const Duration(seconds: 10));
+    if (res.statusCode == 404) throw Exception('Session expired');
+    if (res.statusCode != 200) throw Exception('Failed to get state');
+    return jsonDecode(res.body)['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> deleteSession() async {
+    if (sessionId == null) return;
+    try {
+      await http.delete(
+        Uri.parse('$_base/${Uri.encodeComponent(sessionId!)}'),
+      ).timeout(const Duration(seconds: 5));
+    } catch (_) {}
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -93,25 +118,25 @@ class _AyoGameScreenState extends State<AyoGameScreen>
   late AnimationController _glowCtrl;
   late Animation<double>   _glowAnim;
 
-  // ── Game state ────────────────────────────────────────────────────────────
-  _AyoState _game = _AyoState(
-    board: List.filled(_kHoles, _kInitSeeds),
-    scores: [0, 0],
-    currentPlayer: 0,
-    isTerminal: false,
-  );
+  // ── Game state (from server) ──────────────────────────────────────────────
+  List<int>  _board          = List.filled(_kHoles, 0);
+  List<int>  _stores         = [0, 0];
+  int        _currentPlayerIndex = 0;
+  bool       _isTerminal     = false;
 
-  List<int>  _actionHistory = [];   // sent to /get_move
-  int        _selectedHole  = -1;   // human's selected hole (0–5)
-  bool       _botBusy       = false;
-  bool       _isLoading     = true;
-  bool       _loadFailed    = false;
-  String     _statusMsg     = 'Loading…';
+  int        _selectedHole   = -1;
+  bool       _botBusy        = false;
+  bool       _isLoading      = true;
+  bool       _loadFailed     = false;
+  String     _statusMsg      = 'Loading…';
 
-  // Last sow highlight
-  int        _lastSownHole  = -1;
-  int        _lastLandHole  = -1;
+  // Last move highlight
+  int        _lastPit        = -1;
+  int        _lastLandPit    = -1;
   Timer?     _highlightTimer;
+
+  // Service
+  final _PracticeAyoService _svc = _PracticeAyoService();
 
   // ── Init ──────────────────────────────────────────────────────────────────
   @override
@@ -127,6 +152,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
 
   @override
   void dispose() {
+    _svc.deleteSession();
     _glowCtrl.dispose();
     _highlightTimer?.cancel();
     super.dispose();
@@ -137,64 +163,42 @@ class _AyoGameScreenState extends State<AyoGameScreen>
     setState(() { _isLoading = true; _loadFailed = false; });
 
     try {
-      // Warm up Render
-      try {
-        await http.get(Uri.parse('${ApiConfig.botBaseUrl}/'))
-            .timeout(const Duration(seconds: 4));
-      } catch (_) {}
-
-      final res = await http.post(
-        Uri.parse('${ApiConfig.botBaseUrl}/start_game'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'game_name': 'ayo', 'num_players': 2}),
-      ).timeout(const Duration(seconds: 20));
+      final data = await _svc.startGame(playerRating: widget.playerRating);
 
       if (!mounted) return;
 
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body) as Map<String, dynamic>;
-        final board         = List<int>.from(data['board'] as List);
-        final startingPlayer = (data['starting_player'] as num).toInt();
+      final board = List<int>.from(data['board'] as List);
 
-        setState(() {
-          _game = _AyoState(
-            board: board,
-            scores: [0, 0],
-            currentPlayer: startingPlayer,
-            isTerminal: false,
-          );
-          _actionHistory = [];
-          _isLoading = false;
-          _statusMsg = startingPlayer == 0
-              ? 'Your turn — pick a pit'
-              : '${widget.opponentName} goes first';
-        });
-
-        if (startingPlayer == 1) {
-          await Future.delayed(const Duration(milliseconds: 600));
-          _runBotTurn();
-        }
-      } else {
-        setState(() { _isLoading = false; _loadFailed = true; });
-      }
+      setState(() {
+        _board             = board;
+        _stores            = List<int>.from(data['stores'] as List);
+        _currentPlayerIndex = data['currentPlayerIndex'] as int;
+        _selectedHole       = -1;
+        _lastPit            = -1;
+        _lastLandPit        = -1;
+        _isTerminal         = false;
+        _isLoading          = false;
+        _statusMsg          = 'Your turn — pick a pit';
+      });
     } catch (e) {
       if (mounted) setState(() { _isLoading = false; _loadFailed = true; });
     }
   }
 
-  // ── Human plays ───────────────────────────────────────────────────────────
+  // ── Human pit tap ─────────────────────────────────────────────────────────
   void _onHoleTap(int holeIndex) {
-    // holeIndex is 0–5 relative to human's row
-    if (_game.currentPlayer != 0 || _botBusy || _game.isTerminal) return;
-    if (_game.board[holeIndex] == 0) {
+    // holeIndex is 0–5 (relative to human's row)
+    if (_currentPlayerIndex != 0 || _botBusy || _isTerminal) return;
+    if (_board[holeIndex] == 0) {
       _toast('Empty pit — pick another');
       return;
     }
     setState(() => _selectedHole = holeIndex);
   }
 
-  Future<void> _confirmPlay() async {
-    if (_selectedHole < 0 || _game.currentPlayer != 0 || _botBusy) return;
+  // ── Execute human move ────────────────────────────────────────────────────
+  Future<void> _executeHumanMove() async {
+    if (_selectedHole < 0 || _currentPlayerIndex != 0 || _botBusy) return;
 
     final hole = _selectedHole;
     setState(() {
@@ -205,227 +209,95 @@ class _AyoGameScreenState extends State<AyoGameScreen>
 
     HapticFeedback.lightImpact();
 
-    // Apply move locally so UI is instant
-    final scoresBefore = List<int>.from(_game.scores);
-    final newGame = _applyMoveLocally(_game, hole);
-    final captured = newGame.scores[0] > scoresBefore[0];
-    SoundService.instance.play(captured ? SoundType.capture : SoundType.pieceMove);
-    _actionHistory.add(hole);
+    try {
+      final data = await _svc.movePiece(hole);
+      if (!mounted) return;
 
-    setState(() {
-      _game = newGame;
-      _lastSownHole = hole;
-    });
+      final board = List<int>.from(data['board'] as List);
+      final lastMove = data['lastMove'] as Map<String, dynamic>?;
+      final captureTotal = (lastMove?['captureTotal'] as num?)?.toInt() ?? 0;
+      final isCapture = captureTotal > 0;
+      SoundService.instance.play(isCapture ? SoundType.capture : SoundType.pieceMove);
 
-    _highlightLastLand(newGame);
-
-    if (newGame.isTerminal) {
-      _botBusy = false;
-      _showGameOver();
-      return;
-    }
-
-    if (newGame.currentPlayer == 1) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      _botBusy = false;
-      _runBotTurn();
-    } else {
-      // Relay sow gave turn back to human
       setState(() {
-        _botBusy = false;
+        _board             = board;
+        _stores            = List<int>.from(data['stores'] as List);
+        _currentPlayerIndex = data['currentPlayerIndex'] as int;
+        _lastPit            = hole;
+        _lastLandPit        = (lastMove?['lastPit'] as num?)?.toInt() ?? -1;
+      });
+
+      _highlightLastLand();
+
+      final botActions = data['botActions'] as List? ?? [];
+      final gameOver = data['gameOver'] == true;
+
+      if (botActions.isNotEmpty) {
+        await _animateBotActions(botActions);
+      }
+
+      if (gameOver || _isTerminal) {
+        _showGameOver();
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _botBusy   = false;
+        _statusMsg = 'Your turn — pick a pit';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      _toast(e.toString().replaceFirst('Exception: ', ''));
+      setState(() {
+        _botBusy   = false;
         _statusMsg = 'Your turn — pick a pit';
       });
     }
   }
 
-  // ── Bot turn ──────────────────────────────────────────────────────────────
-  Future<void> _runBotTurn() async {
-    if (!mounted || _game.isTerminal) return;
-    setState(() {
-      _botBusy = true;
-      _statusMsg = '${widget.opponentName} is thinking…';
-    });
+  // ── Animate bot actions ───────────────────────────────────────────────────
+  Future<void> _animateBotActions(List<dynamic> actions) async {
+    for (final action in actions) {
+      if (!mounted || _isTerminal) break;
+      final a = action as Map<String, dynamic>;
 
-    try {
-      await Future.delayed(const Duration(milliseconds: 600));
+      final pitIdx   = (a['pitIndex'] as num).toInt();
+      final lastPit  = (a['lastPit'] as num).toInt();
+      final capTotal = (a['captureTotal'] as num).toInt();
+      final isCap    = capTotal > 0;
 
-      final res = await http.post(
-        Uri.parse('${ApiConfig.botBaseUrl}/get_move'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'game_name': 'ayo',
-          'action_history': _actionHistory,
-          'player_rating': widget.playerRating,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      setState(() {
+        _lastPit     = pitIdx;
+        _lastLandPit = lastPit;
+        _statusMsg   = '${widget.opponentName} is thinking…';
+      });
+      SoundService.instance.play(isCap ? SoundType.capture : SoundType.pieceMove);
 
-      if (!mounted) return;
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      if (res.statusCode == 200) {
-        final data   = jsonDecode(res.body) as Map<String, dynamic>;
-        final isTerminal = data['is_terminal'] as bool? ?? false;
-
-        if (isTerminal) {
-          _botBusy = false;
-          _showGameOver();
-          return;
-        }
-
-        final action = (data['action'] as num).toInt();
-        _actionHistory.add(action);
-
-        // Bot action is 0–5 relative to its row; absolute = action + 6
-        final absHole = action + _kHolesEach;
-        final scoresBefore = List<int>.from(_game.scores);
-        final newGame = _applyMoveLocally(_game, absHole);
-        final captured = newGame.scores[1] > scoresBefore[1];
-        SoundService.instance.play(captured ? SoundType.capture : SoundType.pieceMove);
-
-        setState(() {
-          _game = newGame;
-          _lastSownHole = absHole;
-        });
-
-        _highlightLastLand(newGame);
-
-        if (newGame.isTerminal) {
-          _botBusy = false;
-          _showGameOver();
-          return;
-        }
-
-        if (newGame.currentPlayer == 1) {
-          // Bot plays again (relay)
-          await Future.delayed(const Duration(milliseconds: 700));
-          _runBotTurn();
-        } else {
-          setState(() {
-            _botBusy = false;
-            _statusMsg = 'Your turn — pick a pit';
-          });
-        }
-      } else {
-        // Network error — give turn back
-        setState(() {
-          _botBusy = false;
-          _game = _game.copyWith(currentPlayer: 0);
-          _statusMsg = 'Network error — your turn';
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _botBusy = false;
-          _game = _game.copyWith(currentPlayer: 0);
-          _statusMsg = 'Your turn — pick a pit';
-        });
+      if (a['isWin'] == true) {
+        return;
       }
     }
   }
 
-  // ── Local move simulation ─────────────────────────────────────────────────
-  // Mirrors ayo.cc logic so UI is instant without waiting for server
-  _AyoState _applyMoveLocally(_AyoState state, int absHole) {
-    final board   = List<int>.from(state.board);
-    final scores  = List<int>.from(state.scores);
-    final player  = state.currentPlayer;
-
-    int seeds = board[absHole];
-    if (seeds == 0) return state;
-
-    board[absHole] = 0;
-
-    // Sow counterclockwise — in our array layout:
-    // Human holes: 0–5 (left to right)
-    // Bot holes:   6–11 (right to left visually, but 6–11 in array)
-    // Counterclockwise: from human row, go right (increasing index on human side)
-    // then wrap to bot side right-to-left (decreasing index on bot side)
-    // Array order for CCW: 0,1,2,3,4,5,11,10,9,8,7,6, then back to 0...
-    final ccwOrder = [0,1,2,3,4,5,11,10,9,8,7,6];
-    int startIdx = ccwOrder.indexOf(absHole);
-
-    int curr = startIdx;
-    for (int i = 0; i < seeds; i++) {
-      curr = (curr + 1) % _kHoles;
-      final hole = ccwOrder[curr];
-      if (hole == absHole) {
-        // Skip the starting hole if seeds > 11
-        curr = (curr + 1) % _kHoles;
-      }
-      board[ccwOrder[curr]]++;
-    }
-
-    final lastHole = ccwOrder[curr];
-    setState(() => _lastLandHole = lastHole);
-
-    // Relay sow: if last seed lands in non-empty hole on own side, pick up and continue
-    // (This is a simplification — full relay requires recursion; OpenSpiel handles it)
-
-    // Capture: last seed lands in opponent's pit with 2 or 3 seeds
-    final opponent = 1 - player;
-    final oppStart = opponent * _kHolesEach;
-    final oppEnd   = oppStart + _kHolesEach;
-
-    if (lastHole >= oppStart && lastHole < oppEnd) {
-      // Capture chain
-      int scan = lastHole;
-      while (scan >= oppStart && scan < oppEnd &&
-             (board[scan] == 2 || board[scan] == 3)) {
-        // Grand slam check: would this wipe opponent completely?
-        bool wouldWipe = true;
-        for (int h = oppStart; h < oppEnd; h++) {
-          if (h != scan && board[h] > 0) { wouldWipe = false; break; }
-        }
-        if (wouldWipe) break; // No grand slam
-
-        scores[player] += board[scan];
-        board[scan] = 0;
-
-        // Move scan backward (toward lower index in opponent row)
-        scan--;
-      }
-    }
-
-    // Check win condition
-    final isTerminal = scores[0] > _kWinScore ||
-                       scores[1] > _kWinScore ||
-                       scores[0] + scores[1] == 48 ||
-                       _hasNoMoves(board, 0) ||
-                       _hasNoMoves(board, 1);
-
-    // Next player
-    int nextPlayer = 1 - player;
-    if (isTerminal) nextPlayer = player;
-
-    return _AyoState(
-      board: board,
-      scores: scores,
-      currentPlayer: nextPlayer,
-      isTerminal: isTerminal,
-    );
-  }
-
-  bool _hasNoMoves(List<int> board, int player) {
-    final start = player * _kHolesEach;
-    for (int i = start; i < start + _kHolesEach; i++) {
-      if (board[i] > 0) return false;
-    }
-    return true;
-  }
-
-  void _highlightLastLand(_AyoState state) {
+  void _highlightLastLand() {
     _highlightTimer?.cancel();
     _highlightTimer = Timer(const Duration(milliseconds: 800), () {
-      if (mounted) setState(() { _lastSownHole = -1; _lastLandHole = -1; });
+      if (mounted) setState(() { _lastPit = -1; _lastLandPit = -1; });
     });
   }
 
   // ── Game over ─────────────────────────────────────────────────────────────
   void _showGameOver() {
     if (!mounted) return;
-    final humanScore = _game.scores[0];
-    final botScore   = _game.scores[1];
+    setState(() { _isTerminal = true; _botBusy = false; });
+
+    final humanScore = _stores[0];
+    final botScore   = _stores[1];
     final isWinner   = humanScore > botScore;
+
     SoundService.instance.play(isWinner ? SoundType.gameWin : SoundType.gameLose);
 
     showDialog(
@@ -529,9 +401,9 @@ class _AyoGameScreenState extends State<AyoGameScreen>
               _playerRow(
                 name:   widget.opponentName,
                 avatar: widget.opponentAvatar,
-                score:  _game.scores[1],
+                score:  _stores[1],
                 isBot:  true,
-                active: _game.currentPlayer == 1 && !_game.isTerminal,
+                active: _currentPlayerIndex == 1 && !_isTerminal,
               ),
 
               const SizedBox(height: 12),
@@ -541,11 +413,11 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: _AyoBoardWidget(
-                    board:        _game.board,
-                    currentPlayer: _game.currentPlayer,
+                    board:        _board,
+                    currentPlayerIndex: _currentPlayerIndex,
                     selectedHole: _selectedHole,
-                    lastSownHole: _lastSownHole,
-                    lastLandHole: _lastLandHole,
+                    lastPit:      _lastPit,
+                    lastLandPit:  _lastLandPit,
                     botBusy:      _botBusy,
                     onHoleTap:    _onHoleTap,
                   ),
@@ -565,7 +437,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                     color: _surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: _game.currentPlayer == 0 && !_botBusy
+                      color: _currentPlayerIndex == 0 && !_botBusy
                           ? _cyan.withOpacity(0.4)
                           : _border,
                     ),
@@ -597,7 +469,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                 child: _selectedHole >= 0
                     ? GestureDetector(
                         key: const ValueKey('confirm'),
-                        onTap: _confirmPlay,
+                        onTap: _executeHumanMove,
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 4),
                           padding: const EdgeInsets.symmetric(
@@ -613,7 +485,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                           ),
                           child: Text(
                             'Sow from pit ${_selectedHole + 1}  '
-                            '(${_game.board[_selectedHole]} seeds)',
+                            '(${_board[_selectedHole]} seeds)',
                             style: const TextStyle(
                                 color: _bg, fontSize: 13,
                                 fontWeight: FontWeight.w800),
@@ -629,9 +501,9 @@ class _AyoGameScreenState extends State<AyoGameScreen>
               _playerRow(
                 name:   widget.playerName,
                 avatar: widget.playerAvatar,
-                score:  _game.scores[0],
+                score:  _stores[0],
                 isBot:  false,
-                active: _game.currentPlayer == 0 && !_game.isTerminal,
+                active: _currentPlayerIndex == 0 && !_isTerminal,
               ),
 
               const SizedBox(height: 16),
@@ -699,18 +571,18 @@ class _AyoGameScreenState extends State<AyoGameScreen>
             color: _surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: score >= _kWinScore ? _green : _border,
+              color: _border,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.grain_rounded,
-                  color: score >= _kWinScore ? _green : _cyan, size: 14),
+                  color: _cyan, size: 14),
               const SizedBox(width: 6),
               Text('$score',
-                  style: TextStyle(
-                      color: score >= _kWinScore ? _green : _txtPri,
+                  style: const TextStyle(
+                      color: _txtPri,
                       fontSize: 16, fontWeight: FontWeight.w900)),
             ],
           ),
@@ -770,19 +642,19 @@ class _AyoGameScreenState extends State<AyoGameScreen>
 // ═════════════════════════════════════════════════════════════════════════════
 class _AyoBoardWidget extends StatelessWidget {
   final List<int> board;
-  final int currentPlayer;
+  final int currentPlayerIndex;
   final int selectedHole;
-  final int lastSownHole;
-  final int lastLandHole;
+  final int lastPit;
+  final int lastLandPit;
   final bool botBusy;
   final ValueChanged<int> onHoleTap;
 
   const _AyoBoardWidget({
     required this.board,
-    required this.currentPlayer,
+    required this.currentPlayerIndex,
     required this.selectedHole,
-    required this.lastSownHole,
-    required this.lastLandHole,
+    required this.lastPit,
+    required this.lastLandPit,
     required this.botBusy,
     required this.onHoleTap,
   });
@@ -795,10 +667,9 @@ class _AyoBoardWidget extends StatelessWidget {
       return Container(
         width: w, height: h,
         decoration: BoxDecoration(
-          color: const Color(0xFF78350F), // Figma: #78350f
+          color: const Color(0xFF78350F),
           borderRadius: BorderRadius.circular(13.0),
           border: Border.all(color: const Color(0xFF4B1B00), width: 1.1),
-          // Figma doesn't explicitly have the black box shadow here, but it's often good for depth.
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.5),
@@ -814,14 +685,14 @@ class _AyoBoardWidget extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: List.generate(6, (i) {
-                  final holeIdx = 11 - i; // right to left = 11,10,9,8,7,6
+                  final holeIdx = 11 - i;
                   return _HoleWidget(
                     seeds:      board[holeIdx],
                     isSelected: false,
-                    isLastSown: lastSownHole == holeIdx,
-                    isLastLand: lastLandHole == holeIdx,
+                    isLastSown: lastPit == holeIdx,
+                    isLastLand: lastLandPit == holeIdx,
                     isPlayable: false,
-                    label:      '${6 - i}', // label 6→1 right to left
+                    label:      '${6 - i}',
                     onTap:      () {},
                   );
                 }),
@@ -837,15 +708,15 @@ class _AyoBoardWidget extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: List.generate(6, (i) {
-                  final holeIdx = i; // 0–5
-                  final isPlayable = currentPlayer == 0 &&
+                  final holeIdx = i;
+                  final isPlayable = currentPlayerIndex == 0 &&
                       !botBusy &&
                       board[holeIdx] > 0;
                   return _HoleWidget(
                     seeds:      board[holeIdx],
                     isSelected: selectedHole == holeIdx,
-                    isLastSown: lastSownHole == holeIdx,
-                    isLastLand: lastLandHole == holeIdx,
+                    isLastSown: lastPit == holeIdx,
+                    isLastLand: lastLandPit == holeIdx,
                     isPlayable: isPlayable,
                     label:      '${i + 1}',
                     onTap:      () => onHoleTap(holeIdx),
@@ -882,7 +753,7 @@ class _HoleWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color borderCol = const Color(0xFF1E293B); // Figma stroke color
+    Color borderCol = const Color(0xFF1E293B);
     if (isSelected)   borderCol = _cyan;
     if (isLastLand)   borderCol = _green;
     if (isLastSown)   borderCol = _orange;
@@ -891,13 +762,13 @@ class _HoleWidget extends StatelessWidget {
       onTap: isPlayable ? onTap : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 48, height: 48, // Slightly larger to match ~47.7px in Figma
+        width: 48, height: 48,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: isSelected
               ? _cyan.withOpacity(0.15)
-              : const Color(0xFF0B0E1A), // Figma fill color
-          border: Border.all(color: borderCol, width: isSelected ? 2.5 : 2.2), // Figma stroke is 2.17
+              : const Color(0xFF0B0E1A),
+          border: Border.all(color: borderCol, width: isSelected ? 2.5 : 2.2),
           boxShadow: isSelected
               ? [BoxShadow(color: _cyan.withOpacity(0.4), blurRadius: 10)]
               : isPlayable
@@ -908,14 +779,12 @@ class _HoleWidget extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Seeds as dots (max 8 shown, then number)
             seeds <= 8
                 ? _SeedDots(count: seeds)
                 : Text('$seeds',
                     style: const TextStyle(
                         color: Color(0xFFD4A853),
                         fontSize: 14, fontWeight: FontWeight.w900)),
-            // Pit label
             Text(label,
                 style: TextStyle(
                     color: isPlayable
@@ -939,7 +808,6 @@ class _SeedDots extends StatelessWidget {
     if (count == 0) {
       return const SizedBox(height: 20);
     }
-    // Arrange up to 8 seeds in a 3-column grid
     return SizedBox(
       width: 28, height: 20,
       child: CustomPaint(painter: _SeedDotsPainter(count: count)),
@@ -1013,11 +881,10 @@ class _GameOverDialog extends StatelessWidget {
               : _orange.withOpacity(0.4)),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(isWinner ? '🏆 You Win!' : '💀 You Lost',
+        Text(isWinner ? 'You Win!' : 'You Lost',
             style: const TextStyle(
                 color: _txtPri, fontSize: 26, fontWeight: FontWeight.w900)),
         const SizedBox(height: 12),
-        // Score display
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -1039,7 +906,6 @@ class _GameOverDialog extends StatelessWidget {
                   color: _orange, fontSize: 18,
                   fontWeight: FontWeight.w700)),
         const SizedBox(height: 24),
-        // Buttons
         Row(children: [
           Expanded(
             child: GestureDetector(

@@ -1,26 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../theme.dart';
 import '../../services/sound_service.dart';
-
-// ─────────────────────────────────────────────────────────────────
-//  LUDO GAME SCREEN  — fixed & wired
-//
-//  Turn state machine:
-//    waitingForDice=true  → human taps dice / bot auto-rolls
-//    waitingForDice=false → show result, compute legal moves
-//                           human taps piece / bot picks via server
-//    after move → check win → next player → waitingForDice=true
-//
-//  2-player model:
-//    Human = players 0 (Red)  & 1 (Yellow)
-//    Bot   = players 2 (Green) & 3 (Blue)
-// ─────────────────────────────────────────────────────────────────
-
-const String _kAiBase = 'https://gamearn-bot.onrender.com';
+import '../../config/api_config.dart';
 
 const Color _kRed    = Color(0xFFE53935);
 const Color _kBlue   = Color(0xFF1E88E5);
@@ -33,20 +17,100 @@ const Color _kCell   = Color(0xFF141827);
 const List<Color> _kColors = [_kRed, _kYellow, _kGreen, _kBlue];
 const List<String> _kNames  = ['Red', 'Yellow', 'Green', 'Blue'];
 
-// Absolute path start per player on the 52-cell ring
 const List<int> _kStart = [0, 13, 26, 39];
-// Safety squares (absolute positions)
 const Set<int> _kSafe52 = {0, 8, 13, 21, 26, 34, 39, 47};
 
 class _Piece {
-  int  pos;        // -1 = base | 0-51 = ring | 52-57 = home stretch | 58 = home
+  int  pos;
   bool inBase;
   bool home;
-  _Piece() : pos = -1, inBase = true, home = false;
-  _Piece.copy(_Piece o) : pos = o.pos, inBase = o.inBase, home = o.home;
+  int  colorIdx;
+  _Piece() : pos = -1, inBase = true, home = false, colorIdx = 0;
+  _Piece.copy(_Piece o) : pos = o.pos, inBase = o.inBase, home = o.home, colorIdx = o.colorIdx;
 }
 
-// ─────────────────────────────────────────────────────────────────
+_Piece _pieceFromServer(Map<String, dynamic> s) {
+  final p = _Piece();
+  final pos      = s['position'] as int;
+  final inHS     = s['inHomeStretch'] as bool? ?? false;
+  final hp       = s['homePosition'] as int? ?? 0;
+  final done     = s['completed'] as bool? ?? false;
+  final cIdx     = s['colorIdx'] as int? ?? 0;
+  p.colorIdx = cIdx;
+  if (done) { p.home = true; p.pos = 58; }
+  else if (pos == -1) { p.inBase = true; p.pos = -1; }
+  else if (inHS) { p.pos = 52 + hp - 1; }
+  else { p.pos = pos; }
+  return p;
+}
+
+class _PracticeLudoService {
+  static String get _base => '${ApiConfig.nodeBaseUrl}/api/v1/practice/ludo';
+  String? sessionId;
+  int playerCount = 2;
+  List<int> humanPlayerIndices = [0];
+  int diceCount = 1;
+  bool dualHome = false;
+
+  Future<Map<String, dynamic>> startGame({int playerRating = 1200}) async {
+    final res = await http.post(
+      Uri.parse('$_base/start'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'playerRating': playerRating}),
+    ).timeout(const Duration(seconds: 10));
+    if (res.statusCode != 200) throw Exception('Failed to start practice game');
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final data = body['data'] as Map<String, dynamic>;
+    sessionId = data['sessionId'] as String;
+    final players = data['players'] as List;
+    playerCount = players.length;
+    humanPlayerIndices = (data['humanPlayerIndices'] as List).cast<int>();
+    diceCount = data['diceCount'] as int? ?? 1;
+    dualHome = data['dualHome'] as bool? ?? false;
+    return data;
+  }
+
+  Future<Map<String, dynamic>> rollDice() async {
+    final res = await http.post(
+      Uri.parse('$_base/roll'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'sessionId': sessionId}),
+    ).timeout(const Duration(seconds: 10));
+    if (res.statusCode == 404) throw Exception('Session expired');
+    if (res.statusCode != 200) {
+      final err = jsonDecode(res.body);
+      throw Exception(err['error']?['message'] ?? 'Roll failed');
+    }
+    return jsonDecode(res.body)['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> movePiece(int pieceId, {int? diceValue}) async {
+    final body = <String, dynamic>{'sessionId': sessionId, 'pieceId': pieceId};
+    if (diceValue != null) body['diceValue'] = diceValue;
+    final res = await http.post(
+      Uri.parse('$_base/move'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 404) throw Exception('Session expired');
+    if (res.statusCode != 200) {
+      final err = jsonDecode(res.body);
+      throw Exception(err['error']?['message'] ?? 'Move failed');
+    }
+    return jsonDecode(res.body)['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> endSession() async {
+    if (sessionId == null) return;
+    try {
+      await http.delete(
+        Uri.parse('$_base/${Uri.encodeComponent(sessionId!)}'),
+      ).timeout(const Duration(seconds: 5));
+    } catch (_) {}
+    sessionId = null;
+  }
+}
+
 class LudoGameScreen extends StatefulWidget {
   final int tokenCount;
   final int playerRating;
@@ -57,31 +121,35 @@ class LudoGameScreen extends StatefulWidget {
 class _LudoGameScreenState extends State<LudoGameScreen>
     with TickerProviderStateMixin {
 
-  // ── Core state ────────────────────────────────────────────────
+  final _PracticeLudoService _svc = _PracticeLudoService();
   late List<List<_Piece>> _pieces;
-  List<int> _actionHistory = [];
-  int  _current    = 0;   // current player (0-3)
-  int  _dice       = 0;   // 1-6, 0 = not yet rolled
-  bool _waiting    = true; // true = need to roll dice
+  int  _current    = 0;
+  int  _dice       = 0;
+  List<int> _diceValues = [];
+  bool _waiting    = true;
   bool _gameOver   = false;
   int  _winner     = -1;
-  int  _consSixes  = 0;    // consecutive sixes
+  int  _playerCount = 2;
+  int  _humanIndex  = 0;
+  int  _diceCount   = 1;
+  int  _tokenCount  = 4;
+  bool _dualHome    = false;
 
-  bool get _isHuman => _current == 0 || _current == 1;
+  bool get _isHuman => _current == _humanIndex;
 
-  // ── UI state ──────────────────────────────────────────────────
   bool _botBusy    = false;
   bool _rolling    = false;
-  List<int> _legal = [];   // legal piece indices for current player
-  int? _selected;          // tapped piece index
+  List<int> _legal = [];
+  List<Map<String, dynamic>> _legalMoves = [];
+  int? _selected;
 
-  // ── Animations ────────────────────────────────────────────────
+  List<Map<String, dynamic>> _pendingBotActions = [];
+
   late AnimationController _diceCtrl;
   late Animation<double>   _diceRot;
   late AnimationController _pulseCtrl;
   late Animation<double>   _pulse;
 
-  // ── Init ──────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
@@ -95,284 +163,318 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       ..repeat(reverse: true);
     _pulse = Tween<double>(begin: 0.85, end: 1.18)
         .animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
+    _startPractice();
   }
 
   @override
   void dispose() {
+    _svc.endSession();
     _diceCtrl.dispose();
     _pulseCtrl.dispose();
     super.dispose();
   }
 
   void _reset() {
-    _pieces = List.generate(4, (_) =>
-        List.generate(widget.tokenCount, (_) => _Piece()));
-    _actionHistory = [];
+    _pieces      = [];
     _current     = 0;
     _dice        = 0;
+    _diceValues  = [];
     _waiting     = true;
     _gameOver    = false;
     _winner      = -1;
-    _consSixes   = 0;
     _legal       = [];
+    _legalMoves  = [];
     _selected    = null;
     _botBusy     = false;
+    _pendingBotActions = [];
+    _playerCount = 2;
+    _humanIndex  = 0;
+    _diceCount   = 1;
+    _tokenCount  = 4;
+    _dualHome    = false;
   }
 
-  // ─── DICE ────────────────────────────────────────────────────
+  void _updatePiecesFromPlayers(List<dynamic> players) {
+    while (_pieces.length < players.length) _pieces.add([]);
+    for (int pl = 0; pl < players.length && pl < 4; pl++) {
+      final serverPieces = (players[pl] as Map)['pieces'] as List? ?? [];
+      _pieces[pl] = serverPieces
+          .map((s) => _pieceFromServer(s as Map<String, dynamic>))
+          .toList();
+    }
+  }
+
+  Future<void> _startPractice() async {
+    try {
+      final data = await _svc.startGame(playerRating: widget.playerRating);
+      final players = data['players'] as List;
+      _playerCount = players.length;
+      _humanIndex = _svc.humanPlayerIndices.isNotEmpty
+          ? _svc.humanPlayerIndices.first
+          : 0;
+      _diceCount = _svc.diceCount;
+      _dualHome = _svc.dualHome;
+      _tokenCount = players.isNotEmpty
+          ? ((players[0] as Map)['pieces'] as List?)?.length ?? 4
+          : 4;
+      _updatePiecesFromPlayers(players);
+      _current = data['currentPlayerIndex'] as int? ?? 0;
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to start: $e'),
+              backgroundColor: Colors.redAccent));
+      }
+    }
+  }
+
+  void _updateStateFromMove(Map<String, dynamic> data) {
+    final players = data['players'] as List?;
+    if (players != null) {
+      _updatePiecesFromPlayers(players);
+      _playerCount = players.length;
+      _humanIndex = _svc.humanPlayerIndices.isNotEmpty
+          ? _svc.humanPlayerIndices.first
+          : 0;
+    }
+
+    _current = data['currentPlayerIndex'] as int? ?? _current;
+
+    if (data['moreMoves'] == true) {
+      _diceValues = (data['diceValues'] as List?)?.cast<int>() ?? [];
+      _dice = _diceValues.isNotEmpty ? _diceValues[0] : 0;
+      _legal = (data['legalPieceIds'] as List?)?.cast<int>() ?? [];
+      _legalMoves = (data['legalMoves'] as List?)
+          ?.cast<Map<String, dynamic>>() ?? [];
+      _waiting = false;
+      _selected = null;
+      setState(() {});
+      return;
+    }
+
+    _gameOver = data['gameOver'] as bool? ?? false;
+    if (_gameOver) {
+      final winnerUid = data['winner'] as String?;
+      _winner = (winnerUid != null && !_svc.humanPlayerIndices
+          .any((hi) => players != null && hi < players.length &&
+              (players[hi] as Map)['uid'] == winnerUid))
+          ? _current
+          : _humanIndex;
+      _legal = [];
+      _legalMoves = [];
+      _waiting = false;
+      _dice = 0;
+      _diceValues = [];
+    }
+
+    setState(() {});
+  }
+
+  void _applyBotAction(Map<String, dynamic> action) {
+    final actionType = action['action'] as String? ?? 'move';
+    final capture = action['capture'] as Map<String, dynamic>?;
+    final isWin = action['isWin'] as bool? ?? false;
+
+    _dice = action['diceValue'] as int? ?? 0;
+
+    if (capture != null) {
+      SoundService.instance.play(SoundType.capture);
+    }
+    if (actionType == 'reach_home') {
+      SoundService.instance.play(SoundType.pieceHome);
+    }
+
+    if (isWin) {
+      _gameOver = true;
+      _winner = action['playerIndex'] as int? ?? _current;
+      _legal = [];
+      _dice = 0;
+      SoundService.instance.play(SoundType.gameLose);
+    }
+  }
+
+  Future<void> _animateBotActions() async {
+    if (_pendingBotActions.isEmpty) return;
+    _botBusy = true;
+
+    final actions = List<Map<String, dynamic>>.from(_pendingBotActions);
+    _pendingBotActions.clear();
+
+    for (final action in actions) {
+      if (!mounted || _gameOver) break;
+      setState(() => _applyBotAction(action));
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (action['isWin'] == true) {
+        _botBusy = false;
+        _showGameOver();
+        return;
+      }
+    }
+
+    if (mounted && !_gameOver) {
+      setState(() {
+        _botBusy = false;
+        _waiting = true;
+        _legal = [];
+        _legalMoves = [];
+        _dice = 0;
+        _diceValues = [];
+      });
+    }
+  }
 
   Future<void> _humanRoll() async {
-    if (!_waiting || _rolling || _gameOver || !_isHuman) return;
+    if (!_waiting || _rolling || _gameOver || !_isHuman || _botBusy) return;
     setState(() => _rolling = true);
     SoundService.instance.play(SoundType.diceRoll);
     _diceCtrl.forward(from: 0);
 
-    final roll = Random().nextInt(6) + 1;
-    await Future.delayed(const Duration(milliseconds: 520));
+    try {
+      final data = await _svc.rollDice();
+      await Future.delayed(const Duration(milliseconds: 520));
 
-    _actionHistory.add(roll - 1); // chance action = roll - 1
-    setState(() {
-      _dice    = roll;
-      _waiting = false;
-      _rolling = false;
-      _legal   = _legalPieces();
-    });
+      if (!mounted) return;
 
-    // No moves → auto pass after short delay
-    if (_legal.isEmpty) {
-      await Future.delayed(const Duration(milliseconds: 600));
-      _doPass();
+      final diceValues = (data['diceValues'] as List?)?.cast<int>() ??
+          [data['diceValue'] as int];
+      final legal = (data['legalPieceIds'] as List).cast<int>();
+      final legalMoves = (data['legalMoves'] as List?)
+          ?.cast<Map<String, dynamic>>() ?? [];
+      final mustPass = data['mustPass'] as bool? ?? false;
+      final diceCount = data['diceCount'] as int? ?? 1;
+
+      setState(() {
+        _dice       = diceValues.isNotEmpty ? diceValues[0] : 0;
+        _diceValues = diceValues;
+        _diceCount  = diceCount;
+        _waiting    = mustPass;
+        _rolling    = false;
+        _legal      = legal;
+        _legalMoves = legalMoves;
+      });
+
+      if (mustPass) {
+        await Future.delayed(const Duration(milliseconds: 400));
+        if (!mounted) return;
+        await _sendPass();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _rolling = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Roll failed: $e'),
+            backgroundColor: Colors.redAccent));
     }
   }
 
-  // ─── MOVE LOGIC ──────────────────────────────────────────────
+  Future<void> _sendPass() async {
+    try {
+      final data = await _svc.movePiece(-1);
+      if (!mounted) return;
 
-  List<int> _legalPieces() {
-    final out = <int>[];
-    for (int i = 0; i < widget.tokenCount; i++) {
-      final p = _pieces[_current][i];
-      if (p.home) continue;
-      if (p.inBase) {
-        if (_dice == 6) out.add(i);
-      } else {
-        if (p.pos + _dice <= 57) out.add(i); // 57 = home (0-indexed max)
+      _updateStateFromMove(data);
+
+      if (_gameOver) { _showGameOver(); return; }
+
+      if (data['moreMoves'] == true) return;
+
+      final botActions = (data['botActions'] as List?)
+          ?.cast<Map<String, dynamic>>() ?? [];
+      _pendingBotActions = botActions;
+      await _animateBotActions();
+
+      if (mounted && !_gameOver) {
+        _checkPreRolled(data);
+      }
+    } catch (e) {
+      if (mounted) _setHumanTurn();
+    }
+  }
+
+  void _checkPreRolled(Map<String, dynamic> data) {
+    final diceRolled = data['diceRolled'] as bool? ?? false;
+    if (diceRolled) {
+      final diceValues = (data['diceValues'] as List?)?.cast<int>() ??
+          (data['diceValue'] != null ? [data['diceValue'] as int] : []);
+      final legal = (data['legalPieceIds'] as List?)?.cast<int>() ?? [];
+      setState(() {
+        _diceValues = diceValues;
+        _dice = diceValues.isNotEmpty ? diceValues[0] : 0;
+        _legal = legal;
+        _waiting = legal.isEmpty;
+      });
+      if (legal.isEmpty) {
+        _sendPass();
       }
     }
-    return out;
   }
 
-  void _onPieceTap(int idx) {
-    if (_waiting || !_isHuman || _gameOver) return;
+  Future<void> _onPieceTap(int idx) async {
+    if (_waiting || !_isHuman || _gameOver || _botBusy) return;
     if (!_legal.contains(idx)) return;
     setState(() => _selected = idx);
-    _applyMove(_current, idx);
-  }
 
-  void _applyMove(int player, int idx) {
-    _actionHistory.add(1 + idx); // kMovePieceBase + idx
+    final dv = _resolveDiceValue(idx);
 
-    setState(() {
-      final p    = _pieces[player][idx];
-      bool bonus = false;
+    try {
+      final data = await _svc.movePiece(idx, diceValue: dv);
+      if (!mounted) return;
 
-      if (p.inBase) {
-        p.inBase = false;
-        p.pos    = 0;
-      } else {
-        p.pos += _dice;
-        if (p.pos >= 57) { p.pos = 57; p.home = true; }
-      }
+      _updateStateFromMove(data);
 
-      // Capture (main path only, non-safety)
-      if (!p.home && p.pos < 52) {
-        final abs = (_kStart[player] + p.pos) % 52;
-        if (!_kSafe52.contains(abs)) {
-          for (int op = 0; op < 4; op++) {
-            if (op == player) continue;
-            for (int oi = 0; oi < widget.tokenCount; oi++) {
-              final o = _pieces[op][oi];
-              if (!o.inBase && !o.home && o.pos < 52) {
-                if ((_kStart[op] + o.pos) % 52 == abs) {
-                  o.inBase = true; o.pos = -1;
-                  bonus = true;
-                  SoundService.instance.play(SoundType.capture);
-                }
-              }
-            }
-          }
-        }
-      }
+      if (_gameOver) { _showGameOver(); return; }
 
-      // Home
-      if (p.home) SoundService.instance.play(SoundType.pieceHome);
+      if (data['moreMoves'] == true) return;
 
-      // Win?
-      if (_pieces[player].every((x) => x.home)) {
-        _gameOver = true; _winner = player;
-        _legal = []; _selected = null;
-        SoundService.instance.play(player <= 1 ? SoundType.gameWin : SoundType.gameLose);
+      if (data['extraTurn'] == true) {
+        setState(() { _waiting = true; _legal = []; _legalMoves = []; _dice = 0; _diceValues = []; _selected = null; });
         return;
       }
 
-      // Six bonus
-      if (_dice == 6) {
-        _consSixes++;
-        if (_consSixes < 3) bonus = true;
-        else _consSixes = 0;
-      } else {
-        _consSixes = 0;
-      }
-
-      if (!bonus) _current = (_current + 1) % 4;
-      _waiting  = true;
-      _legal    = [];
+      final botActions = (data['botActions'] as List?)
+          ?.cast<Map<String, dynamic>>() ?? [];
+      _pendingBotActions = botActions;
       _selected = null;
-      _dice     = 0;
-    });
+      await _animateBotActions();
 
-    if (_gameOver) { _showGameOver(); return; }
-    // If next player is bot, kick off bot loop
-    if (!_isHuman) _botTurn();
-  }
-
-  void _doPass() {
-    _actionHistory.add(0);
-    setState(() {
-      _consSixes = 0;
-      _current   = (_current + 1) % 4;
-      _waiting   = true;
-      _legal     = [];
-      _dice      = 0;
-    });
-    if (!_isHuman && !_gameOver) _botTurn();
-  }
-
-  // ─── BOT TURN ─────────────────────────────────────────────────
-  // Drives itself in a loop while it's still the bot's turn.
-  // Human taps _humanRoll() to start their own turn.
-  Future<void> _botTurn() async {
-    if (_botBusy || _gameOver) return;
-    _botBusy = true;
-
-    while (!_isHuman && !_gameOver && mounted) {
-      // 1 ─ Roll dice
-      await Future.delayed(const Duration(milliseconds: 650));
-      if (!mounted || _gameOver) break;
-
-      final roll = Random().nextInt(6) + 1;
-      _actionHistory.add(roll - 1);
-
-      SoundService.instance.play(SoundType.diceRoll);
-      if (mounted) setState(() { _dice = roll; _waiting = false; });
-      await Future.delayed(const Duration(milliseconds: 400));
-      if (!mounted || _gameOver) break;
-
-      // 2 ─ Compute legal moves locally (instant)
-      final lp = _legalPieces();
-
-      if (lp.isEmpty) {
-        // Pass
-        _actionHistory.add(0);
-        if (mounted) setState(() {
-          _consSixes = 0;
-          _current   = (_current + 1) % 4;
-          _waiting   = true;
-          _legal     = [];
-          _dice      = 0;
-        });
-        if (_isHuman) break;        // human's turn now
-        await Future.delayed(const Duration(milliseconds: 300));
-        continue;
+      if (mounted && !_gameOver) {
+        _checkPreRolled(data);
       }
-
-      // 3 ─ Ask server for move action
-      int action = -1;
-      try {
-        final res = await http.post(
-          Uri.parse('$_kAiBase/get_move'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'game_name': 'ludo', 'action_history': List<int>.from(_actionHistory), 'player_rating': widget.playerRating}),
-        ).timeout(const Duration(seconds: 6));
-        if (res.statusCode == 200) {
-          action = (jsonDecode(res.body)['action'] as num).toInt();
-        }
-      } catch (_) { /* fall through to random */ }
-
-      // Validate server action; fall back to random legal piece
-      final validPieceIdx = (action > 0 && lp.contains(action - 1)) ? action - 1 : lp[Random().nextInt(lp.length)];
-
-      // 4 ─ Apply move directly (no call to _applyMove to avoid recursion)
-      await Future.delayed(const Duration(milliseconds: 350));
-      if (!mounted || _gameOver) break;
-
-      _actionHistory.add(1 + validPieceIdx);
-
-      if (mounted) setState(() {
-        final pc   = _pieces[_current][validPieceIdx];
-        bool bonus = false;
-
-        if (pc.inBase) {
-          pc.inBase = false;
-          pc.pos    = 0;
-        } else {
-          pc.pos += _dice;
-          if (pc.pos >= 57) { pc.pos = 57; pc.home = true; }
-        }
-
-        // Capture
-        if (!pc.home && pc.pos < 52) {
-          final abs = (_kStart[_current] + pc.pos) % 52;
-          if (!_kSafe52.contains(abs)) {
-            for (int op = 0; op < 4; op++) {
-              if (op == _current) continue;
-              for (int oi = 0; oi < widget.tokenCount; oi++) {
-                final o = _pieces[op][oi];
-                if (!o.inBase && !o.home && o.pos < 52) {
-                  if ((_kStart[op] + o.pos) % 52 == abs) {
-                    o.inBase = true; o.pos = -1; bonus = true;
-                    SoundService.instance.play(SoundType.capture);
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        if (pc.home) SoundService.instance.play(SoundType.pieceHome);
-
-        // Win?
-        if (_pieces[_current].every((x) => x.home)) {
-          _gameOver = true; _winner = _current;
-          _legal = []; _dice = 0;
-          SoundService.instance.play(_current <= 1 ? SoundType.gameWin : SoundType.gameLose);
-          return;
-        }
-
-        // Six bonus
-        if (_dice == 6) {
-          _consSixes++;
-          if (_consSixes < 3) bonus = true; else _consSixes = 0;
-        } else {
-          _consSixes = 0;
-        }
-
-        if (!bonus) _current = (_current + 1) % 4;
-        _waiting = true;
-        _legal   = [];
-        _dice    = 0;
-      });
-
-      if (_gameOver) { _showGameOver(); break; }
-      if (_isHuman)  break;   // hand off to human
-      await Future.delayed(const Duration(milliseconds: 200));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _selected = null; });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Move failed: $e'),
+            backgroundColor: Colors.redAccent));
     }
-
-    _botBusy = false;
   }
 
-  // ─── GAME OVER ────────────────────────────────────────────────
+  int? _resolveDiceValue(int pieceId) {
+    if (_diceCount <= 1) return null;
+    if (_legalMoves.isEmpty) return null;
+    final matches = _legalMoves
+        .where((m) => m['pieceId'] == pieceId)
+        .map((m) => m['diceValue'] as int)
+        .toSet()
+        .toList();
+    if (matches.isEmpty) return null;
+    return matches.first;
+  }
+
+  void _setHumanTurn() {
+    setState(() {
+      _waiting = true;
+      _legal = [];
+      _legalMoves = [];
+      _dice = 0;
+      _diceValues = [];
+      _selected = null;
+    });
+  }
+
   void _showGameOver() {
-    final humanWon = _winner == 0 || _winner == 1;
+    final humanWon = _winner == _humanIndex;
     SoundService.instance.play(humanWon ? SoundType.gameWin : SoundType.gameLose);
     showDialog(
       context: context,
@@ -381,12 +483,12 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         backgroundColor: kBgCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
-          humanWon ? '🎉 You Win!' : '😞 You Lost',
+          humanWon ? '\u{1F389} You Win!' : '\u{1F61E} You Lost',
           style: const TextStyle(color: kTextPri, fontWeight: FontWeight.w800),
           textAlign: TextAlign.center,
         ),
         content: Text(
-          '${_kNames[_winner]} house wins!',
+          '${_kNames[_winner % 4]} house wins!',
           style: const TextStyle(color: kTextSec),
           textAlign: TextAlign.center,
         ),
@@ -396,6 +498,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
             onPressed: () {
               Navigator.pop(context);
               setState(() => _reset());
+              _startPractice();
             },
             child: const Text('Play Again',
                 style: TextStyle(color: kCyan, fontWeight: FontWeight.w700)),
@@ -409,21 +512,19 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     );
   }
 
-  // ─── STATUS TEXT ──────────────────────────────────────────────
   String get _statusText {
     if (_gameOver)   return 'Game Over';
-    if (_botBusy)    return '${_kNames[_current]} is thinking…';
+    if (_botBusy)    return 'Computer is thinking\u2026';
     if (!_isHuman)   return 'Computer\'s turn';
-    if (_waiting)    return 'Tap ⚄ to roll';
-    if (_legal.isEmpty) return 'No moves — passing…';
+    if (_waiting)    return 'Tap \u{1F3B2} to roll';
+    if (_legal.isEmpty) return 'Roll the dice first';
     return 'Tap a glowing piece to move';
   }
 
-  // ─── BUILD ────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final sw = MediaQuery.of(context).size.width;
-    final bs = sw - 16; // board size
+    final bs = sw - 16;
 
     return Scaffold(
       backgroundColor: context.bg,
@@ -435,33 +536,39 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               color: Colors.white, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Lúdò',
+        title: const Text('L\u00fad\u00f2',
             style: TextStyle(
                 color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
         centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white54),
-            onPressed: () => setState(() => _reset()),
+            onPressed: () {
+              _svc.endSession();
+              setState(() => _reset());
+              _startPractice();
+            },
           )
         ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // ── Bot player strip ───────────────────────────────
-            _Strip(
-              label: 'Computer',
-              colors: const [_kGreen, _kBlue],
-              active: !_isHuman && !_gameOver,
-              homes: [
-                _pieces[2].where((x) => x.home).length,
-                _pieces[3].where((x) => x.home).length,
-              ],
-              total: widget.tokenCount,
-            ),
-
-            // ── Board ──────────────────────────────────────────
+            ...List.generate(_playerCount, (i) {
+              final isHuman = i == _humanIndex;
+              final playerPieceList = i < _pieces.length ? _pieces[i] : <_Piece>[];
+              final uniqueColors = playerPieceList.map((p) => p.colorIdx).toSet().toList()..sort();
+              final colors = uniqueColors.map((ci) => _kColors[ci]).toList();
+              final homes = uniqueColors.map((ci) => playerPieceList.where((p) => p.colorIdx == ci && p.home).length).toList();
+              final perColorTotal = _tokenCount > 4 ? 4 : _tokenCount;
+              return _Strip(
+                label: isHuman ? 'You' : 'Computer',
+                colors: colors,
+                active: _current == i && !_gameOver,
+                homes: homes,
+                total: perColorTotal,
+              );
+            }),
             Expanded(
               child: Center(
                 child: AnimatedBuilder(
@@ -474,7 +581,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                         size: Size(bs, bs),
                         painter: _BoardPainter(
                           pieces: _pieces,
-                          tokenCount: widget.tokenCount,
+                          tokenCount: _tokenCount,
                           current: _current,
                           legal: _legal,
                           selected: _selected,
@@ -484,7 +591,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                       _TapLayer(
                         boardSize: bs,
                         pieces: _pieces,
-                        tokenCount: widget.tokenCount,
+                        tokenCount: _tokenCount,
                         current: _current,
                         legal: _legal,
                         isHuman: _isHuman,
@@ -496,22 +603,10 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 ),
               ),
             ),
-
-            // ── Human player strip ─────────────────────────────
-            _Strip(
-              label: 'You',
-              colors: const [_kRed, _kYellow],
-              active: _isHuman && !_gameOver,
-              homes: [
-                _pieces[0].where((x) => x.home).length,
-                _pieces[1].where((x) => x.home).length,
-              ],
-              total: widget.tokenCount,
-            ),
-
-            // ── Bottom bar ─────────────────────────────────────
             _BottomBar(
               dice: _dice,
+              diceValues: _diceValues,
+              diceCount: _diceCount,
               waiting: _waiting,
               isHuman: _isHuman,
               rolling: _rolling,
@@ -530,9 +625,6 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-//  BOARD PAINTER
-// ─────────────────────────────────────────────────────────────────
 class _BoardPainter extends CustomPainter {
   final List<List<_Piece>> pieces;
   final int tokenCount, current;
@@ -557,19 +649,15 @@ class _BoardPainter extends CustomPainter {
     _drawPieces(canvas, s, cell);
   }
 
-  // ── Board layout ─────────────────────────────────────────────
   void _drawBoard(Canvas canvas, double s, double cell) {
     final p = Paint();
 
-    // Background
     p.color = _kBoard;
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, s, s), const Radius.circular(14)),
       p,
     );
 
-    // ── Corners (6×6) ─────────────────────────────────────────
-    // Standard Ludo: Red=TL, Green=TR, Yellow=BL, Blue=BR
     final corners = [
       Offset(0, 0),
       Offset(9 * cell, 0),
@@ -582,7 +670,6 @@ class _BoardPainter extends CustomPainter {
       final o  = corners[i];
       final bg = cColors[i];
 
-      // Outer fill
       p.color = bg.withOpacity(0.15);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -591,7 +678,6 @@ class _BoardPainter extends CustomPainter {
         p,
       );
 
-      // Inner coloured yard
       p.color = bg.withOpacity(0.30);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -600,7 +686,6 @@ class _BoardPainter extends CustomPainter {
         p,
       );
 
-      // "Yard" circle overlay for each piece slot
       final slots = _baseSlots(cell, i);
       for (final sl in slots) {
         p.color = bg.withOpacity(0.55);
@@ -613,7 +698,6 @@ class _BoardPainter extends CustomPainter {
       }
     }
 
-    // ── Track cells ────────────────────────────────────────────
     final track = _track();
     for (int i = 0; i < track.length; i++) {
       final (row, col) = track[i];
@@ -629,31 +713,24 @@ class _BoardPainter extends CustomPainter {
           cell * 0.25, _kSafe.withOpacity(0.45));
     }
 
-    // ── Home stretches ─────────────────────────────────────────
     _drawStretches(canvas, cell);
-
-    // ── Centre home ────────────────────────────────────────────
     _drawCentre(canvas, cell);
   }
 
   void _drawStretches(Canvas canvas, double cell) {
     final p = Paint();
-    // Red:    row 7, cols 1-5  → right
     for (int c = 1; c <= 5; c++) {
       p.color = _kRed.withOpacity(0.35);
       canvas.drawRect(Rect.fromLTWH(c * cell, 7 * cell, cell, cell), p);
     }
-    // Green:  row 7, cols 9-13 ← left
     for (int c = 9; c <= 13; c++) {
       p.color = _kGreen.withOpacity(0.35);
       canvas.drawRect(Rect.fromLTWH(c * cell, 7 * cell, cell, cell), p);
     }
-    // Yellow: col 7, rows 9-13 ↑ up
     for (int r = 9; r <= 13; r++) {
       p.color = _kYellow.withOpacity(0.35);
       canvas.drawRect(Rect.fromLTWH(7 * cell, r * cell, cell, cell), p);
     }
-    // Blue:   col 7, rows 1-5  ↓ down
     for (int r = 1; r <= 5; r++) {
       p.color = _kBlue.withOpacity(0.35);
       canvas.drawRect(Rect.fromLTWH(7 * cell, r * cell, cell, cell), p);
@@ -680,25 +757,27 @@ class _BoardPainter extends CustomPainter {
     cp.color = _kSafe.withOpacity(0.55);
     cp.style = PaintingStyle.stroke; cp.strokeWidth = 2;
     canvas.drawCircle(Offset(cx, cy), cell * 0.78, cp);
-    _drawText(canvas, '★', Offset(cx, cy), _kSafe, cell * 0.65);
+    _drawText(canvas, '\u2605', Offset(cx, cy), _kSafe, cell * 0.65);
   }
 
-  // ── Pieces ────────────────────────────────────────────────────
   void _drawPieces(Canvas canvas, double s, double cell) {
     final track = _track();
 
-    for (int pl = 0; pl < 4; pl++) {
-      for (int i = 0; i < tokenCount; i++) {
-        final pc = pieces[pl][i];
+    for (int pl = 0; pl < pieces.length; pl++) {
+      final pieceList = pieces[pl];
+      for (int i = 0; i < pieceList.length; i++) {
+        final pc = pieceList[i];
         if (pc.home) continue;
+
+        final ci = pc.colorIdx;
 
         Offset center;
         if (pc.inBase) {
-          center = _baseSlots(cell, pl)[i < 4 ? i : 0];
+          center = _baseSlots(cell, pl)[i];
         } else if (pc.pos >= 52) {
-          center = _stretchPos(pl, pc.pos - 52, cell);
+          center = _stretchPos(ci, pc.pos - 52, cell);
         } else {
-          final abs = (_kStart[pl] + pc.pos) % 52;
+          final abs = pc.pos;
           final (row, col) = track[abs];
           center = Offset(col * cell + cell / 2, row * cell + cell / 2);
         }
@@ -710,12 +789,12 @@ class _BoardPainter extends CustomPainter {
 
         if (movable) {
           final gp = Paint()
-            ..color     = _kColors[pl].withOpacity(0.3)
+            ..color     = _kColors[ci].withOpacity(0.3)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
           canvas.drawCircle(center, radius + 5, gp);
         }
 
-        final fp = Paint()..color = _kColors[pl];
+        final fp = Paint()..color = _kColors[ci];
         canvas.drawCircle(center, radius, fp);
         fp.color = Colors.white.withOpacity(0.22);
         canvas.drawCircle(
@@ -731,9 +810,6 @@ class _BoardPainter extends CustomPainter {
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────
-
-  // 52-cell track positions on 15×15 grid
   List<(int, int)> _track() {
     final c = <(int, int)>[];
     for (int j = 0; j <= 5; j++) c.add((6, j));
@@ -751,15 +827,20 @@ class _BoardPainter extends CustomPainter {
     return c;
   }
 
-  // Base yard slot centres for player `pl` (4 slots max)
   List<Offset> _baseSlots(double cell, int pl) {
-    // yard inner pads at: TL=(1,1), TR=(10,1), BL=(1,10), BR=(10,10)  [row,col]
     final pads = [
-      Offset(cell, cell),           // Red   TL
-      Offset(10 * cell, cell),      // Green TR
-      Offset(cell, 10 * cell),      // Yellow BL
-      Offset(10 * cell, 10 * cell), // Blue  BR
+      Offset(cell, cell),
+      Offset(10 * cell, cell),
+      Offset(cell, 10 * cell),
+      Offset(10 * cell, 10 * cell),
     ];
+    if (tokenCount > 4) {
+      return List.generate(8, (i) {
+        final row = i < 4 ? 0.7 : 2.8;
+        final col = 0.6 + (i % 4) * 1.2;
+        return pads[pl] + Offset(cell * col, cell * row);
+      });
+    }
     final offs = [
       Offset(cell * 0.75, cell * 0.75),
       Offset(cell * 2.25, cell * 0.75),
@@ -771,10 +852,10 @@ class _BoardPainter extends CustomPainter {
 
   Offset _stretchPos(int pl, int step, double cell) {
     switch (pl) {
-      case 0: return Offset((1 + step) * cell + cell / 2, 7 * cell + cell / 2);   // Red
-      case 1: return Offset(7 * cell + cell / 2, (9 + step) * cell + cell / 2);   // Yellow
-      case 2: return Offset((9 + step) * cell + cell / 2, 7 * cell + cell / 2);   // Green
-      case 3: return Offset(7 * cell + cell / 2, (1 + step) * cell + cell / 2);   // Blue
+      case 0: return Offset((1 + step) * cell + cell / 2, 7 * cell + cell / 2);
+      case 1: return Offset(7 * cell + cell / 2, (9 + step) * cell + cell / 2);
+      case 2: return Offset((9 + step) * cell + cell / 2, 7 * cell + cell / 2);
+      case 3: return Offset(7 * cell + cell / 2, (1 + step) * cell + cell / 2);
       default: return Offset(7.5 * cell, 7.5 * cell);
     }
   }
@@ -810,9 +891,6 @@ class _BoardPainter extends CustomPainter {
   bool shouldRepaint(_BoardPainter o) => true;
 }
 
-// ─────────────────────────────────────────────────────────────────
-//  TAP LAYER
-// ─────────────────────────────────────────────────────────────────
 class _TapLayer extends StatelessWidget {
   final double boardSize;
   final List<List<_Piece>> pieces;
@@ -839,13 +917,14 @@ class _TapLayer extends StatelessWidget {
     return Stack(
       children: legal.map((idx) {
         final pc = pieces[current][idx];
+        final ci = pc.colorIdx;
         Offset c;
         if (pc.inBase) {
-          c = painter._baseSlots(cell, current)[idx < 4 ? idx : 0];
+          c = painter._baseSlots(cell, current)[idx];
         } else if (pc.pos >= 52) {
-          c = painter._stretchPos(current, pc.pos - 52, cell);
+          c = painter._stretchPos(ci, pc.pos - 52, cell);
         } else {
-          final abs = (_kStart[current] + pc.pos) % 52;
+          final abs = pc.pos;
           final (row, col) = track[abs];
           c = Offset(col * cell + cell / 2, row * cell + cell / 2);
         }
@@ -862,9 +941,6 @@ class _TapLayer extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-//  PLAYER STRIP
-// ─────────────────────────────────────────────────────────────────
 class _Strip extends StatelessWidget {
   final String label;
   final List<Color> colors;
@@ -933,11 +1009,10 @@ class _Strip extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-//  BOTTOM BAR
-// ─────────────────────────────────────────────────────────────────
 class _BottomBar extends StatelessWidget {
   final int dice;
+  final List<int> diceValues;
+  final int diceCount;
   final bool waiting, isHuman, rolling, busy, gameOver;
   final List<int> legal;
   final Animation<double> rot;
@@ -945,7 +1020,8 @@ class _BottomBar extends StatelessWidget {
   final VoidCallback onRoll;
 
   const _BottomBar({
-    required this.dice, required this.waiting, required this.isHuman,
+    required this.dice, required this.diceValues, required this.diceCount,
+    required this.waiting, required this.isHuman,
     required this.rolling, required this.busy, required this.gameOver,
     required this.legal, required this.rot, required this.status,
     required this.onRoll,
@@ -954,12 +1030,14 @@ class _BottomBar extends StatelessWidget {
   bool get _canRoll => isHuman && waiting && !gameOver && !busy;
 
   String _face(int r) {
-    const f = ['⚀','⚁','⚂','⚃','⚄','⚅'];
-    return (r >= 1 && r <= 6) ? f[r - 1] : '🎲';
+    const f = ['\u2680','\u2681','\u2682','\u2683','\u2684','\u2685'];
+    return (r >= 1 && r <= 6) ? f[r - 1] : '\u{1F3B2}';
   }
 
   @override
   Widget build(BuildContext context) {
+    final showTwoDice = diceCount >= 2 && diceValues.length >= 2;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -979,38 +1057,63 @@ class _BottomBar extends StatelessWidget {
               ),
             ),
           ),
-          AnimatedBuilder(
-            animation: rot,
-            builder: (_, __) => Transform.rotate(
-              angle: rolling ? rot.value : 0,
-              child: GestureDetector(
-                onTap: _canRoll ? onRoll : null,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 52, height: 52,
-                  decoration: BoxDecoration(
-                    color: _canRoll ? kOrange : kBgDeep,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _canRoll ? kOrange : kBorder, width: 2),
-                    boxShadow: _canRoll
-                        ? [BoxShadow(
-                              color: kOrange.withOpacity(0.45),
-                              blurRadius: 14, spreadRadius: 1)]
-                        : [],
-                  ),
-                  child: Center(
-                    child: dice == 0
-                        ? const Icon(Icons.casino_rounded,
-                            color: Colors.white, size: 26)
-                        : Text(_face(dice),
-                            style: const TextStyle(fontSize: 28)),
+          if (showTwoDice)
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              _dicePip(diceValues[0]),
+              const SizedBox(width: 6),
+              _dicePip(diceValues[1]),
+            ])
+          else
+            AnimatedBuilder(
+              animation: rot,
+              builder: (_, __) => Transform.rotate(
+                angle: rolling ? rot.value : 0,
+                child: GestureDetector(
+                  onTap: _canRoll ? onRoll : null,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 52, height: 52,
+                    decoration: BoxDecoration(
+                      color: _canRoll ? kOrange : kBgDeep,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _canRoll ? kOrange : kBorder, width: 2),
+                      boxShadow: _canRoll
+                          ? [BoxShadow(
+                                color: kOrange.withOpacity(0.45),
+                                blurRadius: 14, spreadRadius: 1)]
+                          : [],
+                    ),
+                    child: Center(
+                      child: dice == 0
+                          ? const Icon(Icons.casino_rounded,
+                              color: Colors.white, size: 26)
+                          : Text(_face(dice),
+                              style: const TextStyle(fontSize: 28)),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
+      ),
+    );
+  }
+
+  Widget _dicePip(int value) {
+    return Container(
+      width: 36, height: 36,
+      decoration: BoxDecoration(
+        color: kOrange,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: kOrange, width: 2),
+        boxShadow: [BoxShadow(
+            color: kOrange.withOpacity(0.45),
+            blurRadius: 8, spreadRadius: 0)],
+      ),
+      child: Center(
+        child: Text(_face(value),
+            style: const TextStyle(fontSize: 20)),
       ),
     );
   }
