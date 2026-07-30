@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../services/sound_service.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gamearn/config/api_config.dart';
 import '../../theme.dart';
 
@@ -264,7 +265,15 @@ class _BotService {
   static String get _nodeBase => ApiConfig.nodeBaseUrl;
   String? sessionId;
 
-  static final _headers = {'Content-Type': 'application/json'};
+  static Future<Map<String, String>> _authHeaders() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return {'Content-Type': 'application/json'};
+    final token = await user.getIdToken();
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
 
   /// Warm up the Node backend (like we did for Python)
   Future<void> _warmUp() async {
@@ -283,7 +292,7 @@ class _BotService {
         final res = await http
             .post(
               Uri.parse('$_nodeBase/api/v1/practice/whot/start'),
-              headers: _headers,
+              headers: await _authHeaders(),
               body: jsonEncode({
                 'playerRating': playerRating,
                 'startCards': startCards,
@@ -325,7 +334,7 @@ class _BotService {
       final res = await http
           .post(
             Uri.parse('$_nodeBase/api/v1/practice/whot/move'),
-            headers: _headers,
+            headers: await _authHeaders(),
             body: jsonEncode({
               'sessionId': sessionId,
               'move': move,
