@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:gamearn/config/api_config.dart';
 import '../../theme.dart';
@@ -49,10 +50,20 @@ class _PracticeDraughtsService {
   String? sessionId;
   List<int> humanPlayerIndices = [];
 
+  Future<Map<String, String>> _authHeaders() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return {'Content-Type': 'application/json'};
+    final token = await user.getIdToken();
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
+
   Future<Map<String, dynamic>> startGame({int playerRating = 1200}) async {
     final res = await http.post(
       Uri.parse('$_base/start'),
-      headers: {'Content-Type': 'application/json'},
+      headers: await _authHeaders(),
       body: jsonEncode({'playerRating': playerRating}),
     ).timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) throw Exception('Failed to start practice game');
@@ -82,7 +93,7 @@ class _PracticeDraughtsService {
 
     final res = await http.post(
       Uri.parse('$_base/move'),
-      headers: {'Content-Type': 'application/json'},
+      headers: await _authHeaders(),
       body: jsonEncode(body),
     ).timeout(const Duration(seconds: 15));
     if (res.statusCode == 404) throw Exception('Session expired');
@@ -96,7 +107,7 @@ class _PracticeDraughtsService {
   Future<Map<String, dynamic>> getState() async {
     final res = await http.get(
       Uri.parse('$_base/state/${Uri.encodeComponent(sessionId!)}'),
-      headers: {'Content-Type': 'application/json'},
+      headers: await _authHeaders(),
     ).timeout(const Duration(seconds: 10));
     if (res.statusCode == 404) throw Exception('Session expired');
     if (res.statusCode != 200) throw Exception('Failed to get state');

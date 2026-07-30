@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../../theme.dart';
 import '../../services/sound_service.dart';
@@ -53,10 +54,20 @@ class _PracticeLudoService {
   int diceCount = 1;
   bool dualHome = false;
 
+  Future<Map<String, String>> _authHeaders() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return {'Content-Type': 'application/json'};
+    final token = await user.getIdToken();
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
+
   Future<Map<String, dynamic>> startGame({int playerRating = 1200}) async {
     final res = await http.post(
       Uri.parse('$_base/start'),
-      headers: {'Content-Type': 'application/json'},
+      headers: await _authHeaders(),
       body: jsonEncode({'playerRating': playerRating}),
     ).timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) throw Exception('Failed to start practice game');
@@ -74,7 +85,7 @@ class _PracticeLudoService {
   Future<Map<String, dynamic>> rollDice() async {
     final res = await http.post(
       Uri.parse('$_base/roll'),
-      headers: {'Content-Type': 'application/json'},
+      headers: await _authHeaders(),
       body: jsonEncode({'sessionId': sessionId}),
     ).timeout(const Duration(seconds: 10));
     if (res.statusCode == 404) throw Exception('Session expired');
@@ -90,7 +101,7 @@ class _PracticeLudoService {
     if (diceValue != null) body['diceValue'] = diceValue;
     final res = await http.post(
       Uri.parse('$_base/move'),
-      headers: {'Content-Type': 'application/json'},
+      headers: await _authHeaders(),
       body: jsonEncode(body),
     ).timeout(const Duration(seconds: 15));
     if (res.statusCode == 404) throw Exception('Session expired');
