@@ -46,7 +46,7 @@ jobs:
           echo "storeFile=upload-keystore.jks" >> android/key.properties
 
       - name: 🏗️ Build release APK (Signed)
-        run: flutter build apk --release --no-tree-shake-icons --dart-define=BOT_API_BASE=${{ secrets.BOT_API_BASE }} --dart-define=NODE_API_BASE=${{ secrets.NODE_API_BASE }}
+        run: flutter build apk --release --no-tree-shake-icons --dart-define=NODE_API_BASE=${{ secrets.NODE_API_BASE }}
 
       - name: ✏️ Rename APK with version tag
         run: |
@@ -66,10 +66,11 @@ jobs:
 
             ### What's new
             - 🎵 Game sounds (card play, dice roll, captures, win/lose fanfares)
-            - 🤖 Bot difficulty scaling (beginner → expert based on player rating)
-            - 📦 Firestore models + service layer (8 models, central CRUD)
-            - 🔒 Security rules updated (11 new collection rules)
-            - 🐛 Bug fixes: draw loop / hand count runaway, win detection on empty hand
+            - 🤖 In-game bot with rating-based difficulty (beginner → expert)
+            - 📧 Email + phone registration with 6-digit OTP verification
+            - 🔐 MFA-protected withdrawals (email verification code required)
+            - 💳 Flutterwave payments: card, bank transfer, USSD deposits + withdrawals
+            - 🐛 Bug fixes: Ludo home-stretch crash, atomic entry-fee deduction
             - 🎨 Settings sound toggle wired to SharedPreferences
 
             ### Previous releases
@@ -82,10 +83,8 @@ jobs:
             - ✅ Settings & Preferences
             - **Whot, Draughts, Ayo, Ludo games with AI bot integration**
 
-            ### Bot API
-            Games require a running bot API service:
-            - Bot API: `https://gamearn-bot.onrender.com` (configurable via `BOT_API_BASE`)
-            - First load may take 30-60s (Render cold start) - app retries automatically
+            ### Bots
+            Bot opponents run inside the Gamearn backend — no separate service required.
 
             ### Install
             1. Download `${{ env.APK_NAME }}` below

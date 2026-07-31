@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
+import '../../services/api_service.dart';
+import '../auth/email_otp_screen.dart';
 
 class WithdrawScreen extends StatefulWidget {
   const WithdrawScreen({super.key});
@@ -12,18 +14,40 @@ class WithdrawScreen extends StatefulWidget {
 class _WithdrawScreenState extends State<WithdrawScreen> {
   final _amountCtrl = TextEditingController();
   final _accountCtrl = TextEditingController();
-  final _bankCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
   bool _loading = false;
   int _step = 0; // 0=amount, 1=bank details, 2=confirm
+
+  List<Map<String, dynamic>> _banks = const [];
+  bool _banksLoading = false;
+  String? _selectedBankCode;
+  String? _selectedBankName;
 
   @override
   void dispose() {
     _amountCtrl.dispose();
     _accountCtrl.dispose();
-    _bankCtrl.dispose();
     _nameCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadBanks() async {
+    if (_banks.isNotEmpty || _banksLoading) return;
+    setState(() => _banksLoading = true);
+    try {
+      final banks = await ApiService.getBanks();
+      if (!mounted) return;
+      setState(() => _banks = banks);
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not load banks: ${e.message}'),
+          backgroundColor: context.orange,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _banksLoading = false);
+    }
   }
 
   @override
@@ -145,6 +169,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         _primaryBtn(context, 'Continue', () {
           if (_amountCtrl.text.isEmpty) return;
           setState(() => _step = 1);
+          _loadBanks();
         }),
       ],
     );
@@ -160,7 +185,59 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         Text('Bank Name',
             style: TextStyle(color: context.subText, fontSize: 13)),
         const SizedBox(height: 8),
-        _inputField(context, _bankCtrl, 'e.g. First Bank'),
+        _banksLoading
+            ? Container(
+                height: 52,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: context.surface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const SizedBox(
+                  width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : _banks.isEmpty
+                ? _inputField(context, null, 'Loading banks failed — try again',
+                    readOnly: true)
+                : DropdownButtonFormField<String>(
+                    value: _selectedBankCode,
+                    dropdownColor: context.card,
+                    style: TextStyle(color: context.txtPri),
+                    decoration: InputDecoration(
+                      hintText: 'Select bank',
+                      hintStyle: TextStyle(color: context.subText),
+                      filled: true,
+                      fillColor: context.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                    ),
+                    items: _banks
+                        .map((b) => DropdownMenuItem(
+                              value: b['code'] as String?,
+                              child: Text(
+                                b['name'] as String? ?? 'Unknown bank',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: (code) {
+                      if (code == null) return;
+                      setState(() {
+                        _selectedBankCode = code;
+                        _selectedBankName = _banks
+                            .firstWhere(
+                              (b) => b['code'] == code,
+                              orElse: () => const {'name': 'Unknown bank'},
+                            )['name'] as String?;
+                      });
+                    },
+                  ),
         const SizedBox(height: 16),
         Text('Account Number',
             style: TextStyle(color: context.subText, fontSize: 13)),
@@ -174,7 +251,9 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         _inputField(context, _nameCtrl, 'Full name'),
         const SizedBox(height: 32),
         _primaryBtn(context, 'Continue', () {
-          if (_accountCtrl.text.isEmpty || _bankCtrl.text.isEmpty) return;
+          if (_selectedBankCode == null ||
+              _accountCtrl.text.isEmpty ||
+              _nameCtrl.text.isEmpty) return;
           setState(() => _step = 2);
         }),
       ],
@@ -189,7 +268,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
             style: context.titleStyle.copyWith(fontSize: 20)),
         const SizedBox(height: 24),
         _summaryRow(context, 'Amount', '₦${_amountCtrl.text}'),
-        _summaryRow(context, 'Bank', _bankCtrl.text),
+        _summaryRow(context, 'Bank', _selectedBankName ?? ''),
         _summaryRow(context, 'Account', _accountCtrl.text),
         _summaryRow(context, 'Name', _nameCtrl.text),
         const SizedBox(height: 8),
@@ -206,7 +285,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Withdrawals are processed within 24 hours.',
+                  'A verification code will be sent to your email before processing.',
                   style: TextStyle(color: context.orange, fontSize: 12),
                 ),
               ),
@@ -243,49 +322,94 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
     );
   }
 
+  /// MFA gate → backend withdrawal.
+  ///
+  /// 1. Send a 6-digit OTP to the user's email (purpose: withdrawal)
+  /// 2. Collect the code via [EmailOtpScreen] → returns an mfaProof
+  /// 3. POST /wallet/withdraw with the mfaProof + bank details
   Future<void> _submit() async {
     setState(() => _loading = true);
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return;
-      final amount = double.tryParse(_amountCtrl.text) ?? 0;
-      // Write withdrawal request — backend verifies via Paystack
-      await FirebaseFirestore.instance
-          .collection('withdrawal_requests')
-          .add({
-        'uid': uid,
-        'amount': amount,
-        'bank': _bankCtrl.text,
-        'accountNumber': _accountCtrl.text,
-        'accountName': _nameCtrl.text,
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Withdrawal request submitted!'),
-            backgroundColor: context.cyan,
+      final user = FirebaseAuth.instance.currentUser;
+      final email = user?.email;
+      if (user == null) return;
+      if (email == null || email.isEmpty) {
+        throw ApiException(
+          code: 'NO_EMAIL',
+          message: 'Add an email to your account to withdraw.',
+        );
+      }
+
+      // 1. Send verification code to the user's email.
+      await ApiService.sendEmailOtp(email: email, purpose: 'withdrawal');
+
+      if (!mounted) {
+        setState(() => _loading = false);
+        return;
+      }
+
+      // 2. Collect the 6-digit code. Screen pops with the mfaProof on success.
+      final mfaProof = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => EmailOtpScreen(
+            email: email,
+            name: user.displayName ?? '',
+            purpose: 'withdrawal',
           ),
-        );
-        Navigator.maybePop(context);
+        ),
+      );
+
+      if (!mounted) return;
+      if (mfaProof == null || mfaProof.isEmpty) {
+        setState(() => _loading = false);
+        return; // cancelled / failed verification
       }
+
+      // 3. Submit the withdrawal to the backend.
+      final amount = double.tryParse(_amountCtrl.text.trim()) ?? 0;
+      await ApiService.withdraw(
+        amount: amount,
+        accountNumber: _accountCtrl.text.trim(),
+        bankCode: _selectedBankCode ?? '',
+        accountName: _nameCtrl.text.trim(),
+        mfaProof: mfaProof,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Withdrawal request submitted!'),
+          backgroundColor: context.cyan,
+        ),
+      );
+      Navigator.maybePop(context);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: context.orange,
+        ),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'),
-              backgroundColor: context.orange),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: context.orange,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Widget _inputField(BuildContext context, TextEditingController ctrl,
-      String hint, {TextInputType? keyboardType}) {
+  Widget _inputField(BuildContext context, TextEditingController? ctrl,
+      String hint, {TextInputType? keyboardType, bool readOnly = false}) {
     return TextField(
       controller: ctrl,
+      readOnly: readOnly,
       keyboardType: keyboardType,
       style: TextStyle(color: context.txtPri),
       decoration: InputDecoration(

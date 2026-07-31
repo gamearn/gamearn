@@ -40,7 +40,7 @@ jobs:
         continue-on-error: true
 
       - name: 🏗️ Build debug APK
-        run: flutter build apk --debug --no-tree-shake-icons --dart-define=BOT_API_BASE=${{ secrets.BOT_API_BASE }} --dart-define=NODE_API_BASE=${{ secrets.NODE_API_BASE }}
+        run: flutter build apk --debug --no-tree-shake-icons --dart-define=NODE_API_BASE=${{ secrets.NODE_API_BASE }}
 
       - name: 📤 Upload debug APK as artifact
         uses: actions/upload-artifact@v4

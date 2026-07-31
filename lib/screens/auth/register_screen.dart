@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
+import '../../services/api_service.dart';
 import 'login_screen.dart';
 import 'otp_screen.dart';
+import 'email_otp_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -19,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loading    = false;
   bool _obscure    = true;
   bool _agreed     = false;
+  int _mode        = 0; // 0 = phone, 1 = email
 
   @override
   void dispose() {
@@ -45,13 +48,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ));
       return;
     }
-    
+
     final email = _emailCtrl.text.trim();
     final password = _passCtrl.text;
     final name = _nameCtrl.text.trim();
-    final rawPhone = _phoneCtrl.text.trim();
 
-    if (email.isEmpty || password.isEmpty || name.isEmpty || rawPhone.isEmpty) {
+    if (email.isEmpty || password.isEmpty || name.isEmpty ||
+        (_mode == 0 && _phoneCtrl.text.trim().isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Please fill all fields'),
         backgroundColor: Colors.redAccent,
@@ -60,9 +63,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    final formattedPhone = _formatNigerianNumber(rawPhone);
-
     setState(() => _loading = true);
+
+    // ── Email + password flow: verify email with a 6-digit OTP ──
+    if (_mode == 1) {
+      try {
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+        await FirebaseAuth.instance.currentUser?.updateDisplayName(name);
+        await ApiService.sendEmailOtp(email: email, purpose: 'email_verification');
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EmailOtpScreen(
+              email: email,
+              name: name,
+              purpose: 'email_verification',
+            ),
+          ),
+        );
+      } on FirebaseAuthException catch (e) {
+        if (!mounted) return;
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.message ?? 'Registration failed'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ));
+      } on ApiException catch (e) {
+        if (!mounted) return;
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+      return;
+    }
+
+    // ── Phone flow: SMS OTP via Firebase ──
+    final formattedPhone = _formatNigerianNumber(_phoneCtrl.text.trim());
 
     await FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: formattedPhone,
@@ -164,6 +208,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 32),
 
+                // Register method toggle: Phone / Email
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: kLightCard,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _MethodTab(
+                          label: 'Phone',
+                          icon: Icons.phone_iphone,
+                          selected: _mode == 0,
+                          onTap: () => setState(() => _mode = 0),
+                        ),
+                      ),
+                      Expanded(
+                        child: _MethodTab(
+                          label: 'Email',
+                          icon: Icons.alternate_email,
+                          selected: _mode == 1,
+                          onTap: () => setState(() => _mode = 1),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
                 // Full Name
                 _Label('Full Name'),
                 _Field(
@@ -181,33 +255,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     keyboardType: TextInputType.emailAddress),
                 const SizedBox(height: 16),
 
-                // Phone with +234 prefix context
-                _Label('Phone Number'),
-                Row(children: [
-                  Container(
-                    width: 64,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: kLightCard,
-                      borderRadius: BorderRadius.circular(12),
+                // Phone with +234 prefix context (phone mode only)
+                if (_mode == 0) ...[
+                  _Label('Phone Number'),
+                  Row(children: [
+                    Container(
+                      width: 64,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: kLightCard,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text('+234',
+                          style: TextStyle(
+                              color: kLightText,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14)),
                     ),
-                    alignment: Alignment.center,
-                    child: const Text('+234',
-                        style: TextStyle(
-                            color: kLightText,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14)),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _Field(
-                        controller: _phoneCtrl,
-                        hint: '801 234 5678',
-                        icon: null,
-                        keyboardType: TextInputType.phone),
-                  ),
-                ]),
-                const SizedBox(height: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _Field(
+                          controller: _phoneCtrl,
+                          hint: '801 234 5678',
+                          icon: null,
+                          keyboardType: TextInputType.phone),
+                    ),
+                  ]),
+                  const SizedBox(height: 16),
+                ],
 
                 // Password
                 _Label('Password'),
@@ -336,6 +412,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MethodTab extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _MethodTab({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 44,
+        decoration: BoxDecoration(
+          color: selected ? kOrange : Colors.transparent,
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon,
+                color: selected ? Colors.white : kLightSub, size: 18),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    color: selected ? Colors.white : kLightSub,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14)),
+          ],
         ),
       ),
     );
