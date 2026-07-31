@@ -1,4 +1,4 @@
-package com.gamearn.gaming_platform
+package com.gamearn
 
 import io.flutter.embedding.android.FlutterActivity
 
