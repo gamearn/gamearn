@@ -70,6 +70,7 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
   bool   _vsBot   = false;
   int _players    = 4;   // 2 or 4
   int _tokens     = 4;   // 1-4
+  int _dice       = 1;   // 1 or 2
   double _timer   = 2.0; // 0.5=30s 1=1m 2=2m 3=3m
 
   @override
@@ -130,6 +131,24 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
         ),
         const SizedBox(height: 24),
 
+        // ── Dice Count ────────────────────────────────────────────
+        _SectionContainer(
+          iconUrl: _kLudoTokens,
+          iconW: 18, iconH: 20,
+          title: 'Dice Count',
+          child: _SegmentedPicker(
+            options: const ['1', '2'],
+            selected: _dice.toString(),
+            activeColor: const Color(0xFFFFC107),
+            activeTextColor: const Color(0xFF0B0E1A),
+            inactiveTextColor: const Color(0xE6FFFFFF),
+            containerRx: 12,
+            activeRx: 8,
+            onChanged: (v) => setState(() => _dice = int.parse(v)),
+          ),
+        ),
+        const SizedBox(height: 24),
+
         // ── Turn Timer ────────────────────────────────────────────
         _TurnTimerSection(
           value: _timer,
@@ -145,7 +164,7 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
     if (_vsBot) {
       // Bot play — skip matchmaking, go straight to game
       Navigator.push(context, MaterialPageRoute(
-        builder: (_) => LudoGameScreen(tokenCount: _tokens),
+        builder: (_) => LudoGameScreen(tokenCount: _tokens, diceCount: _dice),
       ));
       return;
     }
@@ -162,7 +181,7 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
           Navigator.push(context, MaterialPageRoute(
-            builder: (_) => LudoGameScreen(tokenCount: _tokens),
+            builder: (_) => LudoGameScreen(tokenCount: _tokens, diceCount: _dice),
           ));
         },
       ),

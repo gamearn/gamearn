@@ -64,11 +64,11 @@ class _PracticeLudoService {
     };
   }
 
-  Future<Map<String, dynamic>> startGame({int playerRating = 1200}) async {
+  Future<Map<String, dynamic>> startGame({int playerRating = 1200, int diceCount = 1}) async {
     final res = await http.post(
       Uri.parse('$_base/start'),
       headers: await _authHeaders(),
-      body: jsonEncode({'playerRating': playerRating}),
+      body: jsonEncode({'playerRating': playerRating, 'diceCount': diceCount}),
     ).timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) throw Exception('Failed to start practice game');
     final body = jsonDecode(res.body) as Map<String, dynamic>;
@@ -126,7 +126,8 @@ class _PracticeLudoService {
 class LudoGameScreen extends StatefulWidget {
   final int tokenCount;
   final int playerRating;
-  const LudoGameScreen({super.key, this.tokenCount = 4, this.playerRating = 1200});
+  final int diceCount;
+  const LudoGameScreen({super.key, this.tokenCount = 4, this.playerRating = 1200, this.diceCount = 1});
   @override State<LudoGameScreen> createState() => _LudoGameScreenState();
 }
 
@@ -219,7 +220,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   Future<void> _startPractice() async {
     try {
       setState(() => _waiting = false);
-      final data = await _svc.startGame(playerRating: widget.playerRating);
+      final data = await _svc.startGame(
+          playerRating: widget.playerRating, diceCount: widget.diceCount);
       final players = data['players'] as List;
       _playerCount = players.length;
       _humanIndex = _svc.humanPlayerIndices.isNotEmpty
