@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pinput/pinput.dart';
 import '../../theme.dart';
 import '../../services/api_service.dart';
 import 'profile_setup_screen.dart';
+
+final _clipCodeRegex = RegExp(r'(^|\D)(\d{6})(\D|$)');
 
 /// Email 6-digit OTP screen.
 ///
@@ -33,6 +36,8 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
 
   int _secondsLeft = 60;
   Timer? _timer;
+  Timer? _clipWatcher;
+  String? _lastClipText;
   bool _loading = false;
 
   bool get _isWithdrawal => widget.purpose == 'withdrawal';
@@ -41,6 +46,7 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
   void initState() {
     super.initState();
     _startTimer();
+    _startClipWatcher();
     WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode.requestFocus());
   }
 
@@ -56,11 +62,39 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
     });
   }
 
+  /// Watches the clipboard so the code auto-fills when copied from the email.
+  void _startClipWatcher() {
+    _clipWatcher = Timer.periodic(
+        const Duration(milliseconds: 1500), (_) => _checkClipboard());
+  }
+
+  Future<void> _checkClipboard() async {
+    if (_loading) return;
+    if (_pinController.text.isNotEmpty) return;
+
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim() ?? '';
+    if (text == _lastClipText) return;
+    _lastClipText = text;
+    if (text.isEmpty) return;
+
+    final match = _clipCodeRegex.firstMatch(text);
+    final code = match?.group(2);
+    if (code == null) return;
+
+    _pinController.text = code;
+    if (mounted) {
+      _showSnack('Code detected — verifying...', color: kCyan);
+    }
+    _verify(code);
+  }
+
   @override
   void dispose() {
     _pinController.dispose();
     _focusNode.dispose();
     _timer?.cancel();
+    _clipWatcher?.cancel();
     super.dispose();
   }
 
@@ -110,6 +144,7 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
 
       if (_isWithdrawal) {
         // Pop with the MFA proof so the withdraw screen can submit.
+        if (!mounted) return;
         Navigator.pop(context, result);
         return;
       }
@@ -195,6 +230,17 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
                   ),
                 ),
                 onCompleted: _verify,
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.content_paste_go,
+                      color: context.txtSec, size: 16),
+                  const SizedBox(width: 6),
+                  Text('Tip: copy the code from the email — it fills in automatically',
+                      style: TextStyle(color: context.txtSec, fontSize: 12)),
+                ],
               ),
               const SizedBox(height: 32),
               Container(
