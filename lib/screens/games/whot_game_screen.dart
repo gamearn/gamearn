@@ -514,7 +514,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       _effectiveSuit = topCard.shape;
       _effectiveRank = topCard.number;
       _pendingDraw = 0;
-      _isMyTurn = currentPlayerUid == widget.playerId;
+      _isMyTurn = _isMe(currentPlayerUid);
       _isDealing = false;
       _dealFailed = false;
       _botBusy = false;
@@ -864,7 +864,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       return;
     }
 
-    final isMyTurn = currentPlayerUid == widget.playerId;
+    final isMyTurn = _isMe(currentPlayerUid);
     setState(() {
       _isMyTurn = isMyTurn;
       _botBusy = false;
@@ -876,6 +876,16 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
   // Stub for multiplayer socket handlers (unused in practice mode)
   void _addDrawnCards(int count) {}
+
+  /// True when [uid] refers to this screen's human player.
+  /// Practice mode falls back to 'practice_anon' when Firebase can't
+  /// verify the token server-side, so treat it as "me".
+  bool _isMe(String? uid) {
+    if (uid == null) return false;
+    if (uid == widget.playerId) return true;
+    if (uid == 'practice_anon') return true;
+    return false;
+  }
 
   void _callCard() {
     widget.socketService?.emitCallCard(widget.roomId, widget.playerId);

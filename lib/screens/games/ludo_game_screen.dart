@@ -218,6 +218,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
   Future<void> _startPractice() async {
     try {
+      setState(() => _waiting = false);
       final data = await _svc.startGame(playerRating: widget.playerRating);
       final players = data['players'] as List;
       _playerCount = players.length;
@@ -231,7 +232,9 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           : 4;
       _updatePiecesFromPlayers(players);
       _current = data['currentPlayerIndex'] as int? ?? 0;
-      if (mounted) setState(() {});
+      if (mounted) setState(() {
+        _waiting = true;
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -337,6 +340,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   }
 
   Future<void> _humanRoll() async {
+    if (_svc.sessionId == null) return;
     if (!_waiting || _rolling || _gameOver || !_isHuman || _botBusy) return;
     setState(() => _rolling = true);
     SoundService.instance.play(SoundType.diceRoll);
