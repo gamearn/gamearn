@@ -44,6 +44,7 @@ app.*.map.json
 
 # Firebase - never commit this
 google-services.json
+ios/Runner/GoogleService-Info.plist
 
 # Signing files
 android/key.properties
