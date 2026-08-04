@@ -218,24 +218,26 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SocialLoginBtn(
-                      type: BrandType.apple,
-                      onTap: () async {
-                        setState(() => _loading = true);
-                        try {
-                          await SocialAuthService.instance.signInWithApple();
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                  if (Theme.of(context).platform == TargetPlatform.iOS) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _SocialLoginBtn(
+                        type: BrandType.apple,
+                        onTap: () async {
+                          setState(() => _loading = true);
+                          try {
+                            await SocialAuthService.instance.signInWithApple();
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                            }
+                          } finally {
+                            if (mounted) setState(() => _loading = false);
                           }
-                        } finally {
-                          if (mounted) setState(() => _loading = false);
-                        }
-                      },
+                        },
+                      ),
                     ),
-                  ),
+                  ],
                   const SizedBox(width: 12),
                   Expanded(
                     child: _SocialLoginBtn(
