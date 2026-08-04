@@ -45,8 +45,15 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=upload-keystore.jks" >> android/key.properties
 
-      - name: 🏗️ Build release APK (Signed)
-        run: flutter build apk --release --no-tree-shake-icons --dart-define=NODE_API_BASE=${{ secrets.NODE_API_BASE }}
+      - name: 🏗️ Build release APK (Signed + Obfuscated)
+        run: flutter build apk --release --no-tree-shake-icons --obfuscate --split-debug-info=./debug_symbols --dart-define=NODE_API_BASE=${{ secrets.NODE_API_BASE }}
+
+      - name: 📦 Upload debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug_symbols-${{ github.ref_name }}
+          path: ./debug_symbols
+          retention-days: 90
 
       - name: ✏️ Rename APK with version tag
         run: |
