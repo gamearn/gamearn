@@ -75,6 +75,12 @@
 				<string>fbYOUR_FACEBOOK_APP_ID</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.600025492198-2g641acpvmhl1bm0m3f535kcodvhmt8k</string>
+			</array>
+		</dict>
 	</array>
 	<key>FacebookAppID</key>
 	<string>YOUR_FACEBOOK_APP_ID</string>

@@ -76,6 +76,12 @@ class SocialAuthService {
           AppleIDAuthorizationScopes.fullName,
         ],
         nonce: nonce,
+        webAuthenticationOptions: WebAuthenticationOptions(
+          clientId: 'com.gamearn.service',
+          redirectUri: Uri.parse(
+            'https://gamearn-app.firebaseapp.com/__/auth/handler',
+          ),
+        ),
       );
 
       final oauthCredential = OAuthProvider('apple.com').credential(
