@@ -9,6 +9,6 @@ class ApiConfig {
   /// Node.js backend — Socket.io + REST matchmaking + Flutterwave webhooks
   static const nodeBaseUrl = String.fromEnvironment(
     'NODE_API_BASE',
-    defaultValue: 'https://backend-manager-vftt.onrender.com',
+    defaultValue: 'https://gamearn-backend.onrender.com',
   );
 }
