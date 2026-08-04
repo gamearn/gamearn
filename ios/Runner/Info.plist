@@ -72,7 +72,7 @@
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>fbYOUR_FACEBOOK_APP_ID</string>
+				<string>fb1762055368454928</string>
 			</array>
 		</dict>
 		<dict>
@@ -83,9 +83,9 @@
 		</dict>
 	</array>
 	<key>FacebookAppID</key>
-	<string>YOUR_FACEBOOK_APP_ID</string>
+	<string>1762055368454928</string>
 	<key>FacebookClientToken</key>
-	<string>YOUR_FACEBOOK_CLIENT_TOKEN</string>
+	<string>2d00aeac07f93e470965ea94ad521883</string>
 	<key>FacebookDisplayName</key>
 	<string>Gamearn</string>
 	<key>LSApplicationQueriesSchemes</key>
