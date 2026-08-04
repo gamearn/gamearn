@@ -29,6 +29,15 @@ class ApiService {
     return _request('GET', path, auth: auth);
   }
 
+  /// PATCH a backend path with the user's Firebase ID token.
+  static Future<dynamic> patch(
+    String path,
+    Map<String, dynamic> body, {
+    bool auth = true,
+  }) async {
+    return _request('PATCH', path, body: body, auth: auth);
+  }
+
   static Future<dynamic> _request(
     String method,
     String path, {
@@ -47,9 +56,11 @@ class ApiService {
       }
 
       final uri = Uri.parse('$_base$path');
-      final res = method == 'GET'
-          ? await http.get(uri, headers: headers)
-          : await http.post(uri, headers: headers, body: jsonEncode(body ?? {}));
+      final res = switch (method) {
+        'GET' => await http.get(uri, headers: headers),
+        'PATCH' => await http.patch(uri, headers: headers, body: jsonEncode(body ?? {})),
+        _ => await http.post(uri, headers: headers, body: jsonEncode(body ?? {})),
+      };
 
       final decoded = jsonDecode(res.body);
       final json = decoded is Map<String, dynamic>

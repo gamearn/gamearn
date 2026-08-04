@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'theme.dart';
 import 'services/sound_service.dart';
+import 'services/push_service.dart';
 import 'screens/auth/landing_screen.dart';
 import 'screens/auth/profile_setup_screen.dart';
 import 'screens/auth/splash_screen.dart';
@@ -14,6 +15,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await SoundService.instance.init();
+  await PushService.instance.init();
   runApp(const GamearnApp());
 }
 
