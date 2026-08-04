@@ -31,6 +31,10 @@ jobs:
       - name: 🔑 Inject google-services.json
         run: echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
 
+      - name: 🔑 Restore debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 --decode > "$HOME/.android/debug.keystore"
 
       - name: 📦 Get dependencies
         run: flutter pub get
