@@ -110,6 +110,26 @@ class ApiService {
 
   // ── Wallet / payments ───────────────────────────────────────────────────────
 
+  /// Initiate a Paystack top-up. Returns `{ txRef, paymentLink, amount, currency }`.
+  static Future<Map<String, dynamic>> initiateTopUp({
+    required double amount,
+    String paymentMethod = 'card',
+  }) async {
+    final data = await post('/pay/initiate', {
+      'amount': amount,
+      'currency': 'NGN',
+      'paymentMethod': paymentMethod,
+      'metadata': {'purpose': 'wallet_topup'},
+    });
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  /// Poll the status of a pending transaction until it settles.
+  static Future<Map<String, dynamic>> verifyTransaction(String txRef) async {
+    final data = await get('/pay/verify/$txRef');
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
   static Future<void> withdraw({
     required double amount,
     required String accountNumber,
@@ -124,7 +144,7 @@ class ApiService {
     });
   }
 
-  /// Nigerian banks list from Flutterwave (for the withdrawal bank picker).
+  /// Nigerian banks list from Paystack (for the withdrawal bank picker).
   static Future<List<Map<String, dynamic>>> getBanks() async {
     final data = await get('/pay/banks');
     if (data is List) {

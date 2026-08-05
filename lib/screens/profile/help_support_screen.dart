@@ -25,7 +25,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     {
       'q': 'What payment methods are supported?',
       'a':
-          'We support bank transfers, debit/credit cards (Visa, Mastercard), and USSD payments. All payments are processed securely through Flutterwave.',
+          'We support bank transfers, debit/credit cards (Visa, Mastercard), and USSD payments. All payments are processed securely through Paystack.',
     },
     {
       'q': 'How do tournaments work?',

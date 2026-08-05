@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../theme.dart';
+import '../../services/api_service.dart';
 
 // ---------------------------------------------------------------------------
 // BuyCoinsScreen
-// Stack: Flutter + Flutterwave (backend handles charge initiation)
+// Stack: Flutter + Paystack (backend handles charge initiation + webhook)
 // Color system: bg=#0B0E1A  cyan=#22D1EE  orange=#FF5E00
 // ---------------------------------------------------------------------------
 
@@ -69,13 +71,79 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen>
     setState(() => _isLoading = true);
     HapticFeedback.mediumImpact();
 
-    // TODO: call backend → POST /api/payments/initiate-coin-purchase
-    // Body: { bundle_id: _selectedIndex, amount: bundle['price'] }
-    // Backend uses Flutterwave Standard/Inline to open payment modal
-    // On success webhook: credit coins to user's Firestore wallet
-    await Future.delayed(const Duration(seconds: 2)); // placeholder
+    final bundle = _bundles[_selectedIndex];
+    try {
+      // 1. Initiate Paystack payment on the backend
+      final init = await ApiService.initiateTopUp(
+        amount: (bundle['price'] as int).toDouble(),
+        paymentMethod: 'card',
+      );
+      final paymentLink = init['paymentLink'] as String?;
+      final txRef = init['txRef'] as String?;
+      if (paymentLink == null || txRef == null) {
+        throw ApiException(
+          code: 'INIT_FAILED',
+          message: 'Could not start payment. Please try again.',
+        );
+      }
 
-    if (mounted) setState(() => _isLoading = false);
+      // 2. Open the Paystack hosted page
+      final launched = await launchUrl(
+        Uri.parse(paymentLink),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        throw ApiException(
+          code: 'LAUNCH_FAILED',
+          message: 'Could not open the payment page.',
+        );
+      }
+
+      // 3. Poll backend until the payment settles (or times out)
+      const attempts = 30; // ~90s
+      for (var i = 0; i < attempts; i++) {
+        await Future.delayed(const Duration(seconds: 3));
+        final status = await ApiService.verifyTransaction(txRef);
+        final state = status['status'] as String?;
+        if (state == 'completed') {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Top-up of ${bundle['coins']} coins successful!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.maybePop(context);
+          return;
+        }
+        if (state == 'failed') {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Payment failed. Please try again.')),
+          );
+          return;
+        }
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Payment still pending. Check your wallet shortly.')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: Colors.orange),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -430,7 +498,7 @@ class _BottomBar extends StatelessWidget {
                   : Text(
                       bundle == null
                           ? 'Select a Bundle'
-                          : 'Pay with Flutterwave',
+                          : 'Pay with Paystack',
                       style: const TextStyle(
                         color: Colors.black,
                         fontWeight: FontWeight.w800,
@@ -441,7 +509,7 @@ class _BottomBar extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text('Secured by Flutterwave  •  Instant credit',
+          const Text('Secured by Paystack  •  Instant credit',
               style: TextStyle(color: Colors.white38, fontSize: 11)),
         ],
       ),
