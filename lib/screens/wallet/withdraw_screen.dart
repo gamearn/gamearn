@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 import '../../services/api_service.dart';
-import '../auth/email_otp_screen.dart';
+import '../../services/social_auth_service.dart';
 
 class WithdrawScreen extends StatefulWidget {
   const WithdrawScreen({super.key});
@@ -285,7 +285,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'A verification code will be sent to your email before processing.',
+                  'You will be asked to confirm your identity before this withdrawal is processed.',
                   style: TextStyle(color: context.orange, fontSize: 12),
                 ),
               ),
@@ -324,56 +324,36 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
 
   /// MFA gate → backend withdrawal.
   ///
-  /// 1. Send a 6-digit OTP to the user's email (purpose: withdrawal)
-  /// 2. Collect the code via [EmailOtpScreen] → returns an mfaProof
-  /// 3. POST /wallet/withdraw with the mfaProof + bank details
+  /// The backend requires a fresh ID token (`auth_time` < 10 min). If the
+  /// current session is stale, re-authenticate before submitting:
+  /// - password users → password dialog → `reauthenticateWithCredential`
+  /// - Google / Facebook / Apple users → fresh provider re-auth via
+  ///   [SocialAuthService] (native OAuth / Apple sheet)
+  /// Then POST /wallet/withdraw with the bank details.
   Future<void> _submit() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
     setState(() => _loading = true);
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      final email = user?.email;
-      if (user == null) return;
-      if (email == null || email.isEmpty) {
-        throw ApiException(
-          code: 'NO_EMAIL',
-          message: 'Add an email to your account to withdraw.',
-        );
+      // Only prompt for identity when auth_time is actually stale, so users
+      // who signed in recently aren't interrupted.
+      final tokenResult = await user.getIdTokenResult();
+      final authTime =
+          tokenResult.authTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final isFresh = DateTime.now().difference(authTime).inSeconds < 10 * 60;
+      if (!isFresh) {
+        final reauthed = await _reauthenticate(user);
+        if (!reauthed) return; // cancelled / failed — snackbar already shown
+        await user.getIdToken(true); // cached token now carries fresh auth_time
       }
 
-      // 1. Send verification code to the user's email.
-      await ApiService.sendEmailOtp(email: email, purpose: 'withdrawal');
-
-      if (!mounted) {
-        setState(() => _loading = false);
-        return;
-      }
-
-      // 2. Collect the 6-digit code. Screen pops with the mfaProof on success.
-      final mfaProof = await Navigator.push<String>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => EmailOtpScreen(
-            email: email,
-            name: user.displayName ?? '',
-            purpose: 'withdrawal',
-          ),
-        ),
-      );
-
-      if (!mounted) return;
-      if (mfaProof == null || mfaProof.isEmpty) {
-        setState(() => _loading = false);
-        return; // cancelled / failed verification
-      }
-
-      // 3. Submit the withdrawal to the backend.
       final amount = double.tryParse(_amountCtrl.text.trim()) ?? 0;
       await ApiService.withdraw(
         amount: amount,
         accountNumber: _accountCtrl.text.trim(),
         bankCode: _selectedBankCode ?? '',
         accountName: _nameCtrl.text.trim(),
-        mfaProof: mfaProof,
       );
 
       if (!mounted) return;
@@ -403,6 +383,116 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Re-authenticates [user] based on their sign-in provider.
+  /// Returns `false` (and shows a message) if the user cancels or fails.
+  Future<bool> _reauthenticate(User user) async {
+    final providers = user.providerData.map((p) => p.providerId).toSet();
+
+    if (providers.contains('password')) {
+      final email = user.email;
+      if (email == null || email.isEmpty) {
+        _showSnack('Add an email to your account to withdraw.');
+        return false;
+      }
+      final password = await _promptPassword(context);
+      if (password == null) return false; // cancelled
+
+      try {
+        final credential =
+            EmailAuthProvider.credential(email: email, password: password);
+        await user.reauthenticateWithCredential(credential);
+        return true;
+      } on FirebaseAuthException catch (e) {
+        _showSnack(e.message ?? 'Incorrect password.');
+        return false;
+      }
+    }
+
+    try {
+      if (providers.contains('google.com')) {
+        await SocialAuthService.instance.reauthenticateWithGoogle();
+        return true;
+      }
+      if (providers.contains('facebook.com')) {
+        await SocialAuthService.instance.reauthenticateWithFacebook();
+        return true;
+      }
+      if (providers.contains('apple.com')) {
+        await SocialAuthService.instance.reauthenticateWithApple();
+        return true;
+      }
+      // Unknown provider — nothing to re-auth, let the backend decide.
+      return true;
+    } on AuthException catch (e) {
+      _showSnack(e.message);
+      return false;
+    }
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: context.orange,
+      ),
+    );
+  }
+
+  Future<String?> _promptPassword(BuildContext context) {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.card,
+        title: const Text('Confirm Password',
+            style: TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Enter your password to confirm this withdrawal.',
+              style: TextStyle(color: context.subText, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              obscureText: true,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: '••••••••',
+                hintStyle: TextStyle(color: context.subText),
+                filled: true,
+                fillColor: context.surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 14),
+              ),
+              onSubmitted: (value) => Navigator.pop(ctx, value),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: const Text('Confirm',
+                style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _inputField(BuildContext context, TextEditingController? ctrl,

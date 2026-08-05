@@ -108,31 +108,6 @@ class ApiService {
     return data is Map<String, dynamic> ? data : <String, dynamic>{};
   }
 
-  /// Send a 6-digit OTP to [email]. Withdrawal purpose requires auth.
-  static Future<void> sendEmailOtp({
-    required String email,
-    required String purpose, // 'email_verification' | 'withdrawal'
-  }) async {
-    await post('/auth/otp/send', {'email': email, 'purpose': purpose},
-        auth: purpose == 'withdrawal');
-  }
-
-  /// Verify a 6-digit OTP. Returns the MFA proof for the withdrawal purpose.
-  static Future<String?> verifyEmailOtp({
-    required String email,
-    required String purpose,
-    required String code,
-  }) async {
-    final data = await post('/auth/otp/verify',
-        {'email': email, 'purpose': purpose, 'code': code},
-        auth: purpose == 'withdrawal');
-    final map = data is Map<String, dynamic> ? data : <String, dynamic>{};
-    if (purpose == 'withdrawal') {
-      return map['mfaProof'] as String?;
-    }
-    return map['verified'] == true ? 'verified' : null;
-  }
-
   // ── Wallet / payments ───────────────────────────────────────────────────────
 
   static Future<void> withdraw({
@@ -140,14 +115,12 @@ class ApiService {
     required String accountNumber,
     required String bankCode,
     required String accountName,
-    required String mfaProof,
   }) async {
     await post('/wallet/withdraw', {
       'amount': amount,
       'accountNumber': accountNumber,
       'bankCode': bankCode,
       'accountName': accountName,
-      'mfaProof': mfaProof,
     });
   }
 

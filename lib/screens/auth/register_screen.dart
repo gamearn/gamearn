@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
-import '../../services/api_service.dart';
 import 'login_screen.dart';
 import 'otp_screen.dart';
-import 'email_otp_screen.dart';
+import 'email_verify_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -65,7 +64,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _loading = true);
 
-    // ── Email + password flow: verify email with a 6-digit OTP ──
+    // ── Email + password flow: verify email via Firebase link ──
     if (_mode == 1) {
       try {
         await FirebaseAuth.instance.createUserWithEmailAndPassword(
@@ -73,15 +72,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
           password: password,
         );
         await FirebaseAuth.instance.currentUser?.updateDisplayName(name);
-        await ApiService.sendEmailOtp(email: email, purpose: 'email_verification');
+        await FirebaseAuth.instance.currentUser?.sendEmailVerification(
+          ActionCodeSettings(
+            url: 'https://gamearn-app.web.app/verify',
+            handleCodeInApp: true,
+            androidPackageName: 'com.gamearn',
+          ),
+        );
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => EmailOtpScreen(
+            builder: (_) => EmailVerifyScreen(
               email: email,
               name: name,
-              purpose: 'email_verification',
             ),
           ),
         );
@@ -90,14 +94,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(e.message ?? 'Registration failed'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ));
-      } on ApiException catch (e) {
-        if (!mounted) return;
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(e.message),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
         ));

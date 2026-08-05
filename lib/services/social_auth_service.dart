@@ -102,6 +102,94 @@ class SocialAuthService {
     }
   }
 
+  // ── Re-authentication (withdrawal MFA, security changes) ─────────────────────
+  // Social users have no password, so "re-confirm identity" = fresh provider
+  // re-auth. Already-signed-in sessions resolve silently for Google/Facebook;
+  // Apple always shows its system sheet.
+
+  Future<void> reauthenticateWithGoogle() async {
+    try {
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) throw AuthException('Google re-auth cancelled.');
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      final current = _auth.currentUser;
+      if (current == null) throw AuthException('Not signed in.');
+      await current.reauthenticateWithCredential(credential);
+    } on AuthException {
+      rethrow;
+    } catch (e) {
+      throw AuthException('Google re-authentication failed. Please try again.');
+    }
+  }
+
+  Future<void> reauthenticateWithFacebook() async {
+    try {
+      final result = await FacebookAuth.instance.login(
+        permissions: ['email', 'public_profile'],
+      );
+      if (result.status == LoginStatus.cancelled) {
+        throw AuthException('Facebook re-auth cancelled.');
+      }
+      if (result.status != LoginStatus.success) {
+        throw AuthException('Facebook re-auth failed: ${result.message}');
+      }
+      final token = result.accessToken?.tokenString;
+      if (token == null) {
+        throw AuthException('Facebook re-auth failed: no token received.');
+      }
+      final credential = FacebookAuthProvider.credential(token);
+      final current = _auth.currentUser;
+      if (current == null) throw AuthException('Not signed in.');
+      await current.reauthenticateWithCredential(credential);
+    } on AuthException {
+      rethrow;
+    } catch (e) {
+      throw AuthException('Facebook re-authentication failed. Please try again.');
+    }
+  }
+
+  Future<void> reauthenticateWithApple() async {
+    try {
+      final rawNonce = _generateNonce();
+      final nonce = _sha256ofString(rawNonce);
+
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: nonce,
+        webAuthenticationOptions: WebAuthenticationOptions(
+          clientId: 'com.gamearn.service',
+          redirectUri: Uri.parse(
+            'https://gamearn-app.firebaseapp.com/__/auth/handler',
+          ),
+        ),
+      );
+
+      final oauthCredential = OAuthProvider('apple.com').credential(
+        idToken: appleCredential.identityToken,
+        rawNonce: rawNonce,
+      );
+      final current = _auth.currentUser;
+      if (current == null) throw AuthException('Not signed in.');
+      await current.reauthenticateWithCredential(oauthCredential);
+    } on AuthException {
+      rethrow;
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        throw AuthException('Apple re-auth cancelled.');
+      }
+      throw AuthException('Apple re-authentication failed. Please try again.');
+    } catch (e) {
+      throw AuthException('Apple re-authentication failed. Please try again.');
+    }
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────────
   String _generateNonce([int length = 32]) {
     const charset =
