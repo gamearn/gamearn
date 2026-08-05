@@ -34,7 +34,10 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailCtrl.text.trim(),
         password: _passCtrl.text,
       );
-      // AuthGate handles navigation
+      // AuthGate handles navigation — pop back to the root route so the
+      // auth-gated home (profile setup / shell) is what the user sees.
+      if (!mounted) return;
+      Navigator.of(context).popUntil((r) => r.isFirst);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -208,6 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         setState(() => _loading = true);
                         try {
                           await SocialAuthService.instance.signInWithGoogle();
+                          if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
                         } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -227,6 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           setState(() => _loading = true);
                           try {
                             await SocialAuthService.instance.signInWithApple();
+                            if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
                           } catch (e) {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -246,6 +251,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         setState(() => _loading = true);
                         try {
                           await SocialAuthService.instance.signInWithFacebook();
+                          if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
                         } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));

@@ -126,14 +126,34 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       return;
     }
 
-    if (_usernameCtrl.text.trim().isEmpty || !_usernameAvailable) return;
+    final username = _usernameCtrl.text.trim();
+    if (username.isEmpty) {
+      showAppError(context,
+          ApiException(code: 'VALIDATION_ERROR', message: 'Please enter a username to continue.'));
+      return;
+    }
+    if (username.length < 4) {
+      showAppError(context,
+          ApiException(code: 'VALIDATION_ERROR', message: 'Username must be at least 4 characters.'));
+      return;
+    }
+    if (!_usernameAvailable) {
+      if (_usernameError == null) {
+        await _checkUsernameAvailability(username);
+        if (!mounted) return;
+      }
+      if (!_usernameAvailable) {
+        showAppError(context,
+            ApiException(code: 'VALIDATION_ERROR', message: _usernameError ?? 'That username is not available.'));
+        return;
+      }
+    }
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     setState(() => _loading = true);
     try {
-      final username = _usernameCtrl.text.trim();
-
       // Register in the Postgres backend (creates the users row + wallet).
       // Required for push notifications and matchmaking lookups. Idempotent.
       try {

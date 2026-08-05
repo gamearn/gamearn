@@ -139,9 +139,12 @@ class _OtpScreenState extends State<OtpScreen> {
         }
       }
       
-      // SUCCESS! 
-      // Main.dart AuthGate will automatically detect the authState change
-      // and redirect the user to ProfileSetupScreen. We don't need to push!
+      // SUCCESS!
+      // This screen is pushed on top of the landing/register route, so pop
+      // back to the root. Main.dart AuthGate detects the authState change
+      // and shows ProfileSetupScreen (or Shell) as the home route.
+      if (!mounted) return;
+      Navigator.of(context).popUntil((r) => r.isFirst);
       
     } on FirebaseAuthException catch (e) {
       if (mounted) {
