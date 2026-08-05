@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.gamearn",
+    "sha256_cert_fingerprints": ["5B:BF:8C:EF:A7:7C:E3:D7:E7:72:9A:9E:8D:D6:ED:F9:D3:FA:91:11:9E:43:0A:B9:44:4B:68:6D:87:05:81:35"]
+  }
+}]

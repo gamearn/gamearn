@@ -200,7 +200,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         'createdAt'  : FieldValue.serverTimestamp(),
       });
 
-      // AuthGate will auto-navigate to Shell
+      // AuthGate swaps the home widget to Shell once the Firestore doc emits,
+      // but this screen may have been pushed on top of it (email flow via
+      // pushAndRemoveUntil), so pop back to the root route to reveal it.
+      if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
     } catch (e) {
       _handleSaveFailure(e);
     } finally {
