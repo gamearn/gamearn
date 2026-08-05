@@ -7,6 +7,7 @@ import 'theme.dart';
 import 'services/sound_service.dart';
 import 'services/push_service.dart';
 import 'screens/auth/landing_screen.dart';
+import 'screens/auth/email_otp_screen.dart';
 import 'screens/auth/profile_setup_screen.dart';
 import 'screens/auth/splash_screen.dart';
 import 'screens/shell.dart';
@@ -74,6 +75,21 @@ class _AuthGate extends StatelessWidget {
         }
         final user = authSnap.data;
         if (user == null) return const LandingScreen();
+
+        // Email/password users must verify their email before proceeding.
+        // The backend also enforces this server-side on /auth/register.
+        final isPasswordUser = user.providerData.any((p) => p.providerId == 'password');
+        final email = user.email;
+        if (isPasswordUser &&
+            !(user.emailVerified ?? false) &&
+            email != null &&
+            email.isNotEmpty) {
+          return EmailOtpScreen(
+            email: email,
+            name: user.displayName ?? '',
+            purpose: 'email_verification',
+          );
+        }
 
         return StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
