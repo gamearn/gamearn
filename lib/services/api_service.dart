@@ -88,6 +88,26 @@ class ApiService {
 
   // ── Auth / OTP ──────────────────────────────────────────────────────────────
 
+  /// Register the signed-in user in the backend.
+  /// Sends the Firebase ID token in the body (route has no Bearer auth).
+  /// Throws [ApiException] with code `CONFLICT` if the user already exists.
+  static Future<Map<String, dynamic>> registerBackendUser({
+    required String phoneNumber,
+    required String displayName,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw ApiException(code: 'AUTH_MISSING', message: 'Not signed in.');
+    }
+    final idToken = await user.getIdToken(true);
+    final data = await post('/auth/register', {
+      'phoneNumber': phoneNumber,
+      'displayName': displayName,
+      'idToken': idToken,
+    }, auth: false);
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
   /// Send a 6-digit OTP to [email]. Withdrawal purpose requires auth.
   static Future<void> sendEmailOtp({
     required String email,

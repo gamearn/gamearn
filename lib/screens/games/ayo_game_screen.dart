@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gamearn/config/api_config.dart';
 import '../../theme.dart';
+import '../../utils/error_utils.dart';
 import '../../services/sound_service.dart';
 
 // ── Palette (matches Gamearn design tokens) ───────────────────────────────────
@@ -141,6 +142,10 @@ class _AyoGameScreenState extends State<AyoGameScreen>
   bool       _loadFailed     = false;
   String     _statusMsg      = 'Loading…';
 
+  // Turn timeout (auto-move so an idle player never stalls the game)
+  Timer?     _turnTimer;
+  int        _turnTimerSec   = 20;
+
   // Last move highlight
   int        _lastPit        = -1;
   int        _lastLandPit    = -1;
@@ -166,12 +171,14 @@ class _AyoGameScreenState extends State<AyoGameScreen>
     _svc.deleteSession();
     _glowCtrl.dispose();
     _highlightTimer?.cancel();
+    _turnTimer?.cancel();
     super.dispose();
   }
 
   // ── Start game ────────────────────────────────────────────────────────────
   Future<void> _startGame() async {
     setState(() { _isLoading = true; _loadFailed = false; });
+    _turnTimer?.cancel();
 
     try {
       final data = await _svc.startGame(playerRating: widget.playerRating);
@@ -191,6 +198,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
         _isLoading          = false;
         _statusMsg          = 'Your turn — pick a pit';
       });
+      _startTurnTimer();
     } catch (e) {
       if (mounted) setState(() { _isLoading = false; _loadFailed = true; });
     }
@@ -212,6 +220,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
     if (_selectedHole < 0 || _currentPlayerIndex != 0 || _botBusy) return;
 
     final hole = _selectedHole;
+    _turnTimer?.cancel();
     setState(() {
       _selectedHole = -1;
       _botBusy = true;
@@ -248,7 +257,10 @@ class _AyoGameScreenState extends State<AyoGameScreen>
       }
 
       if (gameOver || _isTerminal) {
-        _showGameOver();
+        _showGameOver(
+          winner: data['winner'] as String?,
+          finalScores: data['finalScores'] as Map<String, dynamic>?,
+        );
         return;
       }
 
@@ -257,13 +269,15 @@ class _AyoGameScreenState extends State<AyoGameScreen>
         _botBusy   = false;
         _statusMsg = 'Your turn — pick a pit';
       });
+      _startTurnTimer();
     } catch (e) {
       if (!mounted) return;
-      _toast(e.toString().replaceFirst('Exception: ', ''));
+      showAppError(context, e);
       setState(() {
         _botBusy   = false;
         _statusMsg = 'Your turn — pick a pit';
       });
+      _startTurnTimer();
     }
   }
 
@@ -301,13 +315,20 @@ class _AyoGameScreenState extends State<AyoGameScreen>
   }
 
   // ── Game over ─────────────────────────────────────────────────────────────
-  void _showGameOver() {
+  void _showGameOver({String? winner, Map<String, dynamic>? finalScores}) {
     if (!mounted) return;
+    _turnTimer?.cancel();
     setState(() { _isTerminal = true; _botBusy = false; });
 
-    final humanScore = _stores[0];
-    final botScore   = _stores[1];
-    final isWinner   = humanScore > botScore;
+    // Server decides the winner (its finalScores include leftover board
+    // seeds); fall back to store comparison only if no winner is given.
+    final isWinner = winner != null
+        ? _isMe(winner)
+        : _stores[0] > _stores[1];
+    final humanScore =
+        (finalScores?['player0'] as num?)?.toInt() ?? _stores[0];
+    final botScore =
+        (finalScores?['player1'] as num?)?.toInt() ?? _stores[1];
 
     SoundService.instance.play(isWinner ? SoundType.gameWin : SoundType.gameLose);
 
@@ -327,6 +348,51 @@ class _AyoGameScreenState extends State<AyoGameScreen>
         },
       ),
     );
+  }
+
+  /// True when [uid] refers to this screen's human player.
+  /// Practice mode falls back to 'practice_anon' when Firebase can't
+  /// verify the token server-side, so treat it as "me".
+  bool _isMe(String? uid) {
+    if (uid == null) return false;
+    if (uid == widget.playerId) return true;
+    if (uid == 'practice_anon') return true;
+    return false;
+  }
+
+  // ── Turn timeout ──────────────────────────────────────────────────────────
+  void _startTurnTimer() {
+    _turnTimer?.cancel();
+    if (!mounted || _isTerminal || _botBusy || _currentPlayerIndex != 0) return;
+    _turnTimerSec = 20;
+    _turnTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      if (_turnTimerSec <= 1) {
+        t.cancel();
+        _forceMoveOnTimeout();
+        return;
+      }
+      setState(() {
+        _turnTimerSec--;
+        if (_statusMsg.startsWith('Your turn')) {
+          _statusMsg = 'Your turn — pick a pit · ${_turnTimerSec}s';
+        }
+      });
+    });
+  }
+
+  void _forceMoveOnTimeout() {
+    if (!mounted || _botBusy || _isTerminal || _currentPlayerIndex != 0) return;
+    for (int i = 0; i < _kHolesEach; i++) {
+      if (_board[i] > 0) {
+        _selectedHole = i;
+        _executeHumanMove();
+        return;
+      }
+    }
   }
 
   void _toast(String msg) {

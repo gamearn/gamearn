@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pinput/pinput.dart';
 import '../../theme.dart';
+import '../../utils/error_utils.dart';
 
 class OtpScreen extends StatefulWidget {
   final String verificationId;
@@ -80,11 +81,7 @@ class _OtpScreenState extends State<OtpScreen> {
       verificationFailed: (FirebaseAuthException e) {
         if (!mounted) return;
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(e.message ?? 'Resend failed'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ));
+        showAppError(context, e);
       },
       codeSent: (String verificationId, int? resendToken) {
         if (!mounted) return;
@@ -149,11 +146,7 @@ class _OtpScreenState extends State<OtpScreen> {
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(e.message ?? 'Invalid verification code'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ));
+        showAppError(context, e);
         _pinController.clear();
         _focusNode.requestFocus();
       }

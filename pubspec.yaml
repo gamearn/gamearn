@@ -28,6 +28,9 @@ dependencies:
   intl: ^0.19.0
   pinput: ^6.0.2
   flutter_svg: ^2.3.0
+
+  # International phone input (format-agnostic, libphonenumber-backed)
+  intl_phone_number_input: ^0.7.5
    
   # Networking to Backend
   http: ^1.2.0
@@ -74,3 +77,5 @@ flutter:
     - assets/games/draughts.jpg
     # Audio — replace .mp3 files with real assets
     - assets/audio/sfx/
+    # Phone input country flags
+    - packages/intl_phone_number_input/assets/flags/

@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:gamearn/config/api_config.dart';
 import '../../theme.dart';
+import '../../utils/error_utils.dart';
 import '../../services/sound_service.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -183,6 +184,10 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
   bool       _loadFailed     = false;
   String     _statusMsg      = 'Loading…';
 
+  // Turn timeout (auto-move so an idle player never stalls the game)
+  Timer?     _turnTimer;
+  int        _turnTimerSec   = 20;
+
   // Last move highlight
   int        _lastFrom       = -1;
   int        _lastTo         = -1;
@@ -206,12 +211,14 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
   void dispose() {
     _svc.deleteSession();
     _glowCtrl.dispose();
+    _turnTimer?.cancel();
     super.dispose();
   }
 
   // ── Start game ────────────────────────────────────────────────────────────
   Future<void> _startGame() async {
     setState(() { _isLoading = true; _loadFailed = false; });
+    _turnTimer?.cancel();
 
     try {
       final data = await _svc.startGame(playerRating: widget.playerRating);
@@ -234,6 +241,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
         _isLoading     = false;
         _statusMsg     = 'Your turn — select a piece';
       });
+      _startTurnTimer();
     } catch (e) {
       if (mounted) setState(() { _isLoading = false; _loadFailed = true; });
     }
@@ -274,6 +282,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
   // ── Execute human move ────────────────────────────────────────────────────
   Future<void> _executeHumanMove(int from, int to) async {
     HapticFeedback.lightImpact();
+    _turnTimer?.cancel();
     setState(() { _botBusy = true; _statusMsg = 'Sending move…'; });
 
     try {
@@ -304,11 +313,16 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
           _botBusy   = false;
           _statusMsg = 'Continue capturing';
         });
+        _startTurnTimer();
         return;
       }
 
       if (data['gameOver'] == true) {
-        _endGame(humanWins: _currentPlayer != 1);
+        if (data['draw'] == true) {
+          _endDraw();
+        } else {
+          _endGame(humanWins: _currentPlayer != 1);
+        }
         return;
       }
 
@@ -316,11 +330,12 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
       await _animateBotActions(botActions);
     } catch (e) {
       if (!mounted) return;
-      _toast(e.toString().replaceFirst('Exception: ', ''));
+      showAppError(context, e);
       setState(() {
         _botBusy   = false;
         _statusMsg = 'Your turn — select a piece';
       });
+      _startTurnTimer();
     }
   }
 
@@ -350,6 +365,10 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
         _endGame(humanWins: false);
         return;
       }
+      if (a['isDraw'] == true) {
+        _endDraw();
+        return;
+      }
     }
 
     if (!mounted || _isTerminal) return;
@@ -357,6 +376,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
       _botBusy   = false;
       _statusMsg = 'Your turn — select a piece';
     });
+    _startTurnTimer();
   }
 
   // ── Hint generators (render-only — server validates) ──────────────────────
@@ -452,6 +472,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
 
   void _endGame({required bool humanWins}) {
     if (!mounted) return;
+    _turnTimer?.cancel();
     SoundService.instance.play(humanWins ? SoundType.gameWin : SoundType.gameLose);
     setState(() { _isTerminal = true; _botBusy = false; });
     showDialog(
@@ -469,16 +490,63 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
     );
   }
 
-  void _toast(String msg) {
+  void _endDraw() {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg,
-          style: const TextStyle(color: _txtPri, fontWeight: FontWeight.w600)),
-      backgroundColor: _navy,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      duration: const Duration(seconds: 2),
-    ));
+    _turnTimer?.cancel();
+    SoundService.instance.play(SoundType.gameLose);
+    setState(() { _isTerminal = true; _botBusy = false; });
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _GameOverDialog(
+        isWinner:     false,
+        isDraw:       true,
+        humanPieces:  _humanPieces,
+        botPieces:    _botPieces,
+        prizePool:    widget.prizePool,
+        opponentName: widget.opponentName,
+        onClose:  widget.onBack ?? () => Navigator.maybePop(context),
+        onRematch: () { Navigator.pop(context); _startGame(); },
+      ),
+    );
+  }
+
+  // ── Turn timeout ──────────────────────────────────────────────────────────
+  void _startTurnTimer() {
+    _turnTimer?.cancel();
+    if (!mounted || _isTerminal || _botBusy || _currentPlayer != 0) return;
+    _turnTimerSec = 20;
+    _turnTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      if (_turnTimerSec <= 1) {
+        t.cancel();
+        _forceMoveOnTimeout();
+        return;
+      }
+      setState(() {
+        _turnTimerSec--;
+        if (_statusMsg.startsWith('Your turn')) {
+          _statusMsg = 'Your turn — select a piece · ${_turnTimerSec}s';
+        }
+      });
+    });
+  }
+
+  void _forceMoveOnTimeout() {
+    if (!mounted || _botBusy || _isTerminal || _currentPlayer != 0) return;
+    final anyCapture = _anyPieceHasCapture();
+    for (int sq = 0; sq < _kCells; sq++) {
+      final c = _board[sq];
+      if (c == _kHumanMan || c == _kHumanKing) {
+        final legal = anyCapture ? _getCapturesFrom(sq) : _getMovesFrom(sq);
+        if (legal.isEmpty) continue;
+        _executeHumanMove(sq, legal.first);
+        return;
+      }
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -909,6 +977,7 @@ class _PieceWidget extends StatelessWidget {
 // ═════════════════════════════════════════════════════════════════════════════
 class _GameOverDialog extends StatelessWidget {
   final bool   isWinner;
+  final bool   isDraw;
   final int    humanPieces;
   final int    botPieces;
   final String prizePool;
@@ -918,6 +987,7 @@ class _GameOverDialog extends StatelessWidget {
 
   const _GameOverDialog({
     required this.isWinner,
+    this.isDraw = false,
     required this.humanPieces,
     required this.botPieces,
     required this.prizePool,
@@ -935,15 +1005,18 @@ class _GameOverDialog extends StatelessWidget {
         color: _navy,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
-            color: isWinner
-                ? _cyan.withOpacity(0.5)
-                : _orange.withOpacity(0.4)),
+            color: isDraw
+                ? _border
+                : (isWinner
+                    ? _cyan.withOpacity(0.5)
+                    : _orange.withOpacity(0.4))),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(isWinner ? '🏆 You Win!' : '💀 You Lost',
+        Text(isDraw
+            ? "It's a Draw!"
+            : (isWinner ? '🏆 You Win!' : '💀 You Lost'),
             style: const TextStyle(
-                color: _txtPri, fontSize: 26,
-                fontWeight: FontWeight.w900)),
+                color: _txtPri, fontSize: 26, fontWeight: FontWeight.w900)),
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../../theme.dart';
+import '../../utils/error_utils.dart';
 import '../../services/sound_service.dart';
 import '../../config/api_config.dart';
 
@@ -238,11 +239,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         _waiting = true;
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to start: $e'),
-              backgroundColor: Colors.redAccent));
-      }
+      if (mounted) showAppError(context, e);
     }
   }
 
@@ -380,9 +377,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() => _rolling = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Roll failed: $e'),
-            backgroundColor: Colors.redAccent));
+      showAppError(context, e);
     }
   }
 
@@ -462,9 +457,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() { _selected = null; });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Move failed: $e'),
-            backgroundColor: Colors.redAccent));
+      showAppError(context, e);
     }
   }
 

@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gamearn/config/api_config.dart';
 import '../../theme.dart';
+import '../../utils/error_utils.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _bg = Color(0xFF0A0D1C);
@@ -669,7 +670,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   }
 
   @override
-  void onError(String m) => _toast(m);
+  void onError(String m) => showAppError(context, m);
 
   bool _canPlay(WhotCard c) {
     if (c.isWhot) return true;
@@ -847,7 +848,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     if (gameOver) {
       _timer?.cancel();
       _botBusy = false;
-      if (winner == widget.playerId) {
+      if (_isMe(winner)) {
         SoundService.instance.play(SoundType.gameWin);
         if (mounted) {
           showDialog(

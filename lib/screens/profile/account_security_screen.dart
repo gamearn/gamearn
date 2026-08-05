@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
+import '../../utils/error_utils.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  ACCOUNT SECURITY SCREEN — Figma matched (390×844)
@@ -374,8 +375,7 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                     ?.updatePassword(_newCtrl.text);
                 if (context.mounted) Navigator.pop(context);
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('$e')));
+                if (context.mounted) showAppError(context, e);
               }
             },
             child: Container(

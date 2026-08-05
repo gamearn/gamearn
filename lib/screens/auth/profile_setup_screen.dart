@@ -2,7 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl_phone_number_input/intl_phone_number_input.dart';
+import '../../services/api_service.dart';
+import '../../services/geo_service.dart';
 import '../../theme.dart';
+import '../../utils/error_utils.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -14,6 +18,11 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _usernameCtrl = TextEditingController();
   final _bioCtrl      = TextEditingController();
+  final _phoneCtrl    = TextEditingController();
+  String  _phoneIso = 'NG';
+  PhoneNumber? _parsedPhone;
+  bool _phoneValid = false;
+  bool _phoneUserTyped = false;
   int   _selectedAvatar = 0;
   bool _loading = false;
   bool _usernameAvailable = false;
@@ -22,9 +31,44 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Timer? _debounceTimer;
 
   @override
+  void initState() {
+    super.initState();
+    final fbPhone = FirebaseAuth.instance.currentUser?.phoneNumber;
+    if (fbPhone != null && fbPhone.isNotEmpty) {
+      // Phone auth — prefill the verified number, resolve its region.
+      _resolveRegionFor(fbPhone);
+      _phoneCtrl.text = fbPhone;
+    } else {
+      // Email/social auth — default NG, refine via IP when it resolves.
+      _prefillFromIp();
+    }
+  }
+
+  Future<void> _resolveRegionFor(String phone) async {
+    try {
+      final parsed =
+          await PhoneNumber.getRegionInfoFromPhoneNumber(phone, 'NG');
+      if (!mounted || parsed.isoCode == null) return;
+      setState(() => _phoneIso = parsed.isoCode!);
+    } catch (_) {
+      // Unknown region — keep the current default.
+    }
+  }
+
+  Future<void> _prefillFromIp() async {
+    final iso = await GeoCountryService.getCountryIso();
+    if (!mounted || iso == null) return;
+    // Only apply while the user hasn't started typing.
+    if (!_phoneUserTyped && iso != _phoneIso) {
+      setState(() => _phoneIso = iso);
+    }
+  }
+
+  @override
   void dispose() {
     _usernameCtrl.dispose();
     _bioCtrl.dispose();
+    _phoneCtrl.dispose();
     _debounceTimer?.cancel();
     super.dispose();
   }
@@ -64,18 +108,50 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Future<void> _save() async {
+    // Phone is format-agnostic — any of +234..., 234..., 08..., 8... resolves.
+    final parsed = _parsedPhone;
+    final phone = (parsed != null && (parsed.phoneNumber ?? '').isNotEmpty)
+        ? parsed.phoneNumber!
+        : _phoneCtrl.text.trim();
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 7 || digits.length > 15) {
+      showAppError(
+        context,
+        ApiException(
+          code: 'VALIDATION_ERROR',
+          message:
+              'Enter a valid phone number, e.g. +234 803 123 4567 or 0803 123 4567.',
+        ),
+      );
+      return;
+    }
+
     if (_usernameCtrl.text.trim().isEmpty || !_usernameAvailable) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     setState(() => _loading = true);
     try {
+      final username = _usernameCtrl.text.trim();
+
+      // Register in the Postgres backend (creates the users row + wallet).
+      // Required for push notifications and matchmaking lookups. Idempotent.
+      try {
+        await ApiService.registerBackendUser(
+          phoneNumber: phone,
+          displayName: username,
+        );
+      } on ApiException catch (e) {
+        if (e.code != 'CONFLICT') rethrow; // already registered → proceed
+      }
+
       final avatar = kAvatars[_selectedAvatar];
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'username'    : _usernameCtrl.text.trim(),
+        'username'    : username,
         'bio'         : _bioCtrl.text.trim(),
         'avatar'      : avatar['name'],
         'email'       : user.email,
+        'phoneNumber' : phone,
         'isAdmin'     : false,
         'isActive'    : true,
         'memberStatus': 'Active Member',
@@ -106,13 +182,19 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
       // AuthGate will auto-navigate to Shell
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-      }
+      _handleSaveFailure(e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _handleSaveFailure(Object e) {
+    if (!mounted) return;
+    showAppError(
+      context,
+      e,
+      onRetry: isRetryable(e) ? _save : null,
+    );
   }
 
   @override
@@ -303,6 +385,52 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           fontSize: 12,
                           fontWeight: FontWeight.w600)),
                 ),
+              const SizedBox(height: 20),
+
+              // Phone number (format-agnostic — resolved to +E.164)
+              Text('Phone Number',
+                  style: TextStyle(
+                      color: context.txtPri,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16)),
+              const SizedBox(height: 8),
+              InternationalPhoneNumberInput(
+                key: ValueKey('phone-$_phoneIso'),
+                textFieldController: _phoneCtrl,
+                initialValue: PhoneNumber(isoCode: _phoneIso),
+                onInputChanged: (PhoneNumber number) {
+                  setState(() {
+                    _parsedPhone = number;
+                    _phoneValid = _phoneValid ||
+                        (number.phoneNumber ?? '').isNotEmpty;
+                  });
+                },
+                onInputValidated: (bool isValid) {
+                  _phoneValid = isValid;
+                  _phoneUserTyped = true;
+                },
+                onFieldSubmitted: (_) => _phoneUserTyped = true,
+                ignoreBlank: false,
+                autoValidateMode: AutovalidateMode.disabled,
+                selectorConfig: const SelectorConfig(
+                  selectorType: PhoneInputSelectorType.BOTTOM_SHEET,
+                ),
+                selectorTextStyle: TextStyle(
+                    color: context.txtPri, fontWeight: FontWeight.w600),
+                textStyle: TextStyle(color: context.txtPri, fontSize: 15),
+                inputDecoration: InputDecoration(
+                  hintText: '803 123 4567',
+                  hintStyle: TextStyle(color: context.txtSec, fontSize: 13),
+                  filled: true,
+                  fillColor: context.card,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 14),
+                ),
+              ),
               const SizedBox(height: 20),
 
               // Bio & Tags

@@ -8,6 +8,7 @@ import 'ayo_game_screen.dart';
 import 'draughts_game_screen.dart';
 import 'whot_game_screen.dart';
 import '../../services/socket_service.dart';
+import '../../utils/error_utils.dart';
 import 'dart:async';
 
 // ════════════════════════════════════════════════════════════════
@@ -1498,6 +1499,7 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
     implements GameEventHandler {
   final _socket = GamearnSocketService();
   int _elapsed = 0;
+  int _errorCount = 0;
   Timer? _ticker;
   String _status = 'Searching for opponent...';
 
@@ -1533,11 +1535,40 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
 
   @override
   void onConnected() {
+    _errorCount = 0;
     if (mounted) setState(() => _status = 'Connected — searching...');
     MatchmakingService.joinQueue(
       gameType: widget.gameType,
       entryFee: widget.entryFee,
     );
+  }
+
+  Future<void> _retry() async {
+    await _socket.disconnect();
+    if (!mounted) return;
+    setState(() {
+      _errorCount = 0;
+      _status = 'Reconnecting...';
+    });
+    _socket.connect(this);
+  }
+
+  @override
+  void onError(String message) {
+    if (!mounted) return;
+    _errorCount++;
+    setState(() => _status = 'Error: $message');
+    showAppError(
+      context,
+      message,
+      onRetry: _retry,
+    );
+    if (_errorCount >= 3) {
+      // Auto-exit the queue after 3 consecutive failures.
+      Future.delayed(const Duration(milliseconds: 2500), () {
+        if (mounted) _cancel();
+      });
+    }
   }
 
   @override
@@ -1546,11 +1577,6 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
     _socket.joinRoom(roomId, onAck: (data) {
       widget.onMatchFound(roomId, opponent, prizePool);
     });
-  }
-
-  @override
-  void onError(String message) {
-    if (mounted) setState(() => _status = 'Error: $message');
   }
 
   @override void onDisconnected(String reason) {

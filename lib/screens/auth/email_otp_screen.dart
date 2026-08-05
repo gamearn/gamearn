@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:pinput/pinput.dart';
 import '../../theme.dart';
 import '../../services/api_service.dart';
+import '../../utils/error_utils.dart';
 import 'profile_setup_screen.dart';
 
 final _clipCodeRegex = RegExp(r'(^|\D)(\d{6})(\D|$)');
@@ -122,7 +123,7 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
       _startTimer();
       _showSnack('A new code was sent!', color: kCyan);
     } on ApiException catch (e) {
-      _showSnack(e.message);
+      showAppError(context, e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -156,7 +157,7 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
         (route) => false,
       );
     } on ApiException catch (e) {
-      _showSnack(e.message);
+      showAppError(context, e);
       _pinController.clear();
       _focusNode.requestFocus();
     } finally {

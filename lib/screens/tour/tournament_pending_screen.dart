@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
+import '../../utils/error_utils.dart';
 import 'live_tournament_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
@@ -104,10 +105,7 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
         ),
       );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to join: $e')));
-      }
+      if (mounted) showAppError(context, e);
     } finally {
       if (mounted) setState(() => _joining = false);
     }
