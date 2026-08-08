@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -23,6 +24,14 @@ class SocialAuthService {
       if (googleUser == null) throw AuthException('Google sign-in cancelled.');
 
       final googleAuth = await googleUser.authentication;
+      if (googleAuth.idToken == null) {
+        debugPrint('[Auth] Google idToken is null (accessToken present: '
+            '${googleAuth.accessToken != null}). Firebase needs an ID token, which '
+            'is minted for the Web OAuth client (type 2) in google-services.json.');
+        throw AuthException(
+            'Google sign-in failed: no ID token returned. Ensure the Firebase '
+            'Web OAuth client (type 2) is present in google-services.json.');
+      }
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
@@ -30,8 +39,12 @@ class SocialAuthService {
       return await _auth.signInWithCredential(credential);
     } on AuthException {
       rethrow;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('[Auth] Google FirebaseAuthException: ${e.code} — ${e.message}');
+      throw AuthException(_googleError(e));
     } catch (e) {
-      throw AuthException('Google sign-in failed. Please try again.');
+      debugPrint('[Auth] Google sign-in unexpected error: $e');
+      throw AuthException('Google sign-in failed: $e');
     }
   }
 
@@ -112,6 +125,9 @@ class SocialAuthService {
       final googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) throw AuthException('Google re-auth cancelled.');
       final googleAuth = await googleUser.authentication;
+      if (googleAuth.idToken == null) {
+        throw AuthException('Google re-auth failed: no ID token returned.');
+      }
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
@@ -121,8 +137,12 @@ class SocialAuthService {
       await current.reauthenticateWithCredential(credential);
     } on AuthException {
       rethrow;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('[Auth] Google re-auth FirebaseAuthException: ${e.code} — ${e.message}');
+      throw AuthException(_googleError(e));
     } catch (e) {
-      throw AuthException('Google re-authentication failed. Please try again.');
+      debugPrint('[Auth] Google re-auth unexpected error: $e');
+      throw AuthException('Google re-authentication failed: $e');
     }
   }
 
@@ -191,6 +211,23 @@ class SocialAuthService {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
+  String _googleError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-credential':
+        return 'Google sign-in failed: credentials were rejected. Verify the Web '
+            'OAuth client (type 2) is present in google-services.json.';
+      case 'account-exists-with-different-credential':
+        return 'An account with this email already exists using a different '
+            'sign-in method. Sign in with that method first.';
+      case 'user-disabled':
+        return 'This Google account has been disabled.';
+      case 'operation-not-allowed':
+        return 'Google sign-in is not enabled in the Firebase console.';
+      default:
+        return 'Google sign-in failed: ${e.code} (${e.message}).';
+    }
+  }
+
   String _generateNonce([int length = 32]) {
     const charset =
         '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
