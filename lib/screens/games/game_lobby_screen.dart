@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme.dart';
 import 'ludo_game_screen.dart';
 import 'ayo_game_screen.dart';
@@ -59,11 +60,13 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
 
     return Scaffold(
       backgroundColor: context.bg,
-      body: Column(children: [
+      body: LayoutBuilder(builder: (_, c) {
+        final heroH = (c.maxHeight * 0.28).clamp(110.0, 220.0);
+        return Column(children: [
 
         // ── HERO IMAGE (Figma Match) ───────────────────────────────────────────
         SizedBox(
-          height: 220,
+          height: heroH,
           child: Stack(fit: StackFit.expand, children: [
             Image.asset(_asset, fit: BoxFit.cover),
             Container(
@@ -78,29 +81,20 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
             ),
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
                 child: Row(children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 38, height: 38,
-                      decoration: BoxDecoration(
-                        color: Colors.black38,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white24),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white, size: 16),
-                    ),
+                    child: Icon(Icons.close_rounded,
+                        color: const Color(0xFFF1F5F9), size: 20.w),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12.w),
                   Text(widget.gameTitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
+                          fontSize: 18.sp,
                           fontWeight: FontWeight.w900,
-                          shadows: [Shadow(blurRadius: 8)])),
+                          shadows: const [Shadow(blurRadius: 8)])),
                 ]),
               ),
             ),
@@ -110,7 +104,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
         // ── SCROLLABLE OPTIONS AREA ─────────────────────────────────────────────
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            padding: EdgeInsets.fromLTRB(24.w, 16.h, 24.w, 24.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -118,10 +112,10 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                 // ── GAME MODE ROW (Figma: 342×48 rx=8 #0B0E1A) ──────────────────
                 _sectionLabel('Game Mode'),
                   Container(
-                    height: 48,
+                    height: 48.h,
                     decoration: BoxDecoration(
                       color: context.card,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(8.r),
                       border: Border.all(color: context.border),
                     ),
                   child: Row(children: [
@@ -132,7 +126,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                   ]),
                 ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: 16.h),
 
                 // ── DYNAMIC GAME-SPECIFIC CUSTOM CONFIGURATIONS ─────────────────
                 if (widget.gameKey == 'whot') ...[
@@ -142,7 +136,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                     selected: _whotHandSize.toString(),
                     onSelect: (v) => setState(() => _whotHandSize = int.parse(v)),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16.h),
                 ] else if (widget.gameKey == 'ludo') ...[
                   _sectionLabel('Token Count'),
                   _optionRow(
@@ -150,7 +144,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                     selected: '$_ludoTokens Tokens',
                     onSelect: (v) => setState(() => _ludoTokens = int.parse(v.split(' ')[0])),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16.h),
                 ],
 
                 // ── PLAYER COUNT SELECTOR (Hidden in Vs Computer) ───────────────
@@ -161,20 +155,20 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                     selected: '$_selectedPlayers',
                     onSelect: (v) => setState(() => _selectedPlayers = int.parse(v)),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16.h),
 
                   // ── STAKE SELECTOR ROW (Figma: 342×48 rx=12 #0B0E1A) ──────────
                   _sectionLabel('Stake Amount'),
                   Container(
-                    height: 48,
+                    height: 48.h,
                     decoration: BoxDecoration(
                       color: context.card,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(12.r),
                       border: Border.all(color: context.border),
                     ),
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: EdgeInsets.symmetric(horizontal: 8.w),
                       itemCount: _stakeOptions.length,
                       physics: const BouncingScrollPhysics(),
                       itemBuilder: (context, index) {
@@ -187,17 +181,17 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 140),
-                            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            margin: EdgeInsets.symmetric(horizontal: 4.w, vertical: 6.h),
+                            padding: EdgeInsets.symmetric(horizontal: 16.w),
                             decoration: BoxDecoration(
                               color: active ? kCyan : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(8.r),
                             ),
                             child: Center(
                               child: Text(_fmt(s),
                                   style: TextStyle(
                                       color: active ? const Color(0xFF0B0E1A) : Colors.white70,
-                                      fontSize: 13,
+                                      fontSize: 13.sp,
                                       fontWeight: active ? FontWeight.w900 : FontWeight.w500)),
                             ),
                           ),
@@ -205,15 +199,15 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16.h),
                 ],
 
                 // ── LIVE POT INFO CARD (Figma: 342×78 rx=12 #22D1EE) ───────────
                 Container(
-                  height: 78,
+                  height: 78.h,
                   decoration: BoxDecoration(
                     color: kCyan,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12.r),
                     boxShadow: [
                       BoxShadow(
                         color: kCyan.withOpacity(0.15),
@@ -223,7 +217,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                     ],
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -231,30 +225,30 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text('Total Pot',
+                            Text('Total Pot',
                                 style: TextStyle(
-                                    color: Color(0xFF0B0E1A),
-                                    fontSize: 12,
+                                    color: const Color(0xFF0B0E1A),
+                                    fontSize: 12.sp,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0.5)),
-                            const SizedBox(height: 2),
+                            SizedBox(height: 2.h),
                             Text(dynamicPotStr,
-                                style: const TextStyle(
-                                    color: Color(0xFF0B0E1A),
-                                    fontSize: 24,
+                                style: TextStyle(
+                                    color: const Color(0xFF0B0E1A),
+                                    fontSize: 24.sp,
                                     fontWeight: FontWeight.w900)),
                           ],
                         ),
                         Container(
-                          width: 42, height: 42,
+                          width: 42.w, height: 42.w,
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.25),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.emoji_events_rounded,
                             color: Colors.white,
-                            size: 22),
+                            size: 22.w),
                         ),
                       ],
                     ),
@@ -267,7 +261,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
 
         // ── ACTION PLAY CTA (Figma: 342×60 rx=12 #FF5E00) ───────────────────────
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+          padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 28.h),
           child: GestureDetector(
             onTap: () {
               HapticFeedback.vibrate();
@@ -306,10 +300,10 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
               );
             },
             child: Container(
-              height: 60,
+              height: 60.h,
               decoration: BoxDecoration(
                 color: kOrange,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.r),
                 boxShadow: [
                   BoxShadow(
                       color: kOrange.withOpacity(0.4),
@@ -317,18 +311,19 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                       offset: const Offset(0, 6)),
                 ],
               ),
-              child: const Center(
+              child: Center(
                 child: Text('Play Now',
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: 16.sp,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 0.8)),
               ),
+              ),
             ),
           ),
-        ),
-      ]),
+        ]);
+      }),
     );
   }
 
@@ -341,18 +336,18 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
             onTap();
           },
           child: Padding(
-            padding: const EdgeInsets.all(5),
+            padding: EdgeInsets.all(5.r),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               decoration: BoxDecoration(
                 color: active ? kCyan : Colors.transparent,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(6.r),
               ),
               child: Center(
                 child: Text(label,
                     style: TextStyle(
                         color: active ? const Color(0xFF0B0E1A) : const Color(0xFF9A9A9A),
-                        fontSize: 13,
+                        fontSize: 13.sp,
                         fontWeight: active ? FontWeight.w900 : FontWeight.w600)),
               ),
             ),
@@ -367,11 +362,11 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     required ValueChanged<String> onSelect,
   }) =>
       Container(
-        height: 48,
-        padding: const EdgeInsets.all(5),
+        height: 48.h,
+        padding: EdgeInsets.all(5.r),
         decoration: BoxDecoration(
           color: context.card,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(8.r),
           border: Border.all(color: context.border),
         ),
         child: Row(
@@ -387,13 +382,13 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                   duration: const Duration(milliseconds: 140),
                   decoration: BoxDecoration(
                     color: active ? kCyan : Colors.transparent,
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(6.r),
                   ),
                   child: Center(
                     child: Text(o,
                         style: TextStyle(
                             color: active ? const Color(0xFF0B0E1A) : const Color(0xFF9A9A9A),
-                            fontSize: 12,
+                            fontSize: 12.sp,
                             fontWeight: active ? FontWeight.w900 : FontWeight.w600)),
                   ),
                 ),
@@ -404,11 +399,11 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       );
 
   Widget _sectionLabel(String t) => Padding(
-    padding: const EdgeInsets.only(top: 20, bottom: 8),
+    padding: EdgeInsets.only(top: 20.h, bottom: 8.h),
     child: Text(t,
         style: TextStyle(
             color: context.txtSec,
-            fontSize: 11,
+            fontSize: 11.sp,
             fontWeight: FontWeight.w900,
             letterSpacing: 1.2)),
   );

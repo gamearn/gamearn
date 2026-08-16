@@ -1,23 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme.dart';
 import '../../services/sound_service.dart';
+import '../wallet/wallet_screen.dart';
 import 'account_security_screen.dart';
 import 'privacy_security_screen.dart';
 import 'language_screen.dart';
 import 'help_support_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
-//  SETTINGS SCREEN — Figma matched (390×844)
-//
-//  y=123: 342×141 rx=12 #1E293B — section card
-//    y=137: 40×40 rx=8 #22D1EE icon box (notifications row)
-//    y=211: 40×40 rx=8 #22D1EE icon box (sound row)
-//  y=316: 342×353 rx=12 #1E293B — section card (account)
-//    y=329: 40×40 rx=8 #22D1EE icon + toggle 44×24 rx=12 #22D1EE (dark mode)
-//    y=402: 40×40 rx=8 #22D1EE icon + toggle 44×24 rx=12 #334155 (off)
-//    y=480,548,616: nav rows with 40×40 icons
+//  SETTINGS & PREFERENCES — Figma matched (1744:1001, 390×844)
+//  Responsive via flutter_screenutil (design size 390×844)
 // ════════════════════════════════════════════════════════════════
 
 class SettingsScreen extends StatefulWidget {
@@ -27,14 +22,14 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _notifications = true;
-  bool _sounds        = true;
-  bool _vibration     = false;
+  bool _emailAlerts = false;
+  bool _sounds      = true;
+  bool _vibration   = false;
 
-  String get _themeLabel {
+  bool get _isDarkNow {
     final f = ThemeNotifier.instance.forceDark;
-    if (f == null) return 'System';
-    return f ? 'Dark' : 'Light';
+    if (f != null) return f;
+    return Theme.of(context).brightness == Brightness.dark;
   }
 
   IconData get _themeIcon {
@@ -46,11 +41,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _cycleTheme() {
     final f = ThemeNotifier.instance.forceDark;
     if (f == null) {
-      ThemeNotifier.instance.setTheme(true);   // system → dark
+      ThemeNotifier.instance.setTheme(true);
     } else if (f == true) {
-      ThemeNotifier.instance.setTheme(false);  // dark → light
+      ThemeNotifier.instance.setTheme(false);
     } else {
-      ThemeNotifier.instance.setTheme(null);   // light → system
+      ThemeNotifier.instance.setTheme(null);
     }
   }
 
@@ -65,6 +60,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final sp = await SharedPreferences.getInstance();
     setState(() {
       _sounds = sp.getBool('sound_enabled') ?? true;
+      _vibration = sp.getBool('vibration_enabled') ?? false;
+      _emailAlerts = sp.getBool('email_alerts') ?? false;
     });
     SoundService.instance.setEnabled(_sounds);
   }
@@ -74,6 +71,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
     SoundService.instance.setEnabled(val);
     final sp = await SharedPreferences.getInstance();
     await sp.setBool('sound_enabled', val);
+  }
+
+  Future<void> _toggleVibration(bool val) async {
+    setState(() => _vibration = val);
+    final sp = await SharedPreferences.getInstance();
+    await sp.setBool('vibration_enabled', val);
+  }
+
+  Future<void> _toggleEmailAlerts(bool val) async {
+    setState(() => _emailAlerts = val);
+    final sp = await SharedPreferences.getInstance();
+    await sp.setBool('email_alerts', val);
+  }
+
+  void _openSoundSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.card,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
+      builder: (_) => Padding(
+        padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 28.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(bottom: 12.h),
+              child: Text('Sound & Vibration',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17.sp, fontWeight: FontWeight.w800)),
+            ),
+            _sheetToggle('Sound Effects', _sounds, _toggleSound),
+            _sheetToggle('Vibration', _vibration, _toggleVibration),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetToggle(String label, bool value, ValueChanged<bool> onChanged) {
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(label,
+          style: TextStyle(
+              color: Colors.white, fontSize: 15.sp, fontWeight: FontWeight.w600)),
+      value: value,
+      onChanged: onChanged,
+      activeColor: kCyan,
+      activeTrackColor: kCyan.withOpacity(0.3),
+      inactiveThumbColor: context.txtSec,
+      inactiveTrackColor: context.border,
+    );
   }
 
   @override
@@ -89,149 +140,143 @@ class _SettingsScreenState extends State<SettingsScreen> {
     backgroundColor: context.bg,
     body: SafeArea(
       child: Column(children: [
-        // Header
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
+          decoration: const BoxDecoration(
+            color: Color(0xE60B0E1A),
+            border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+          ),
           child: Row(children: [
             GestureDetector(
               onTap: () => Navigator.maybePop(context),
-              child: Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  color: context.card,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: context.border),
-                ),
-                child: Icon(Icons.arrow_back_ios_new_rounded,
-                    color: context.txtPri, size: 16),
-              ),
+              child: Icon(Icons.close_rounded,
+                  color: const Color(0xFFF1F5F9), size: 20.w),
             ),
-            const SizedBox(width: 14),
-            Text('Settings',
-                style: TextStyle(
-                    color: context.txtPri,
-                    fontSize: 17, fontWeight: FontWeight.w800)),
+            Expanded(
+              child: Text('Settings & Preferences',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: const Color(0xFFF1F5F9),
+                      fontSize: 18.sp, fontWeight: FontWeight.w700)),
+            ),
+            SizedBox(width: 20.w),
           ]),
         ),
 
-        const SizedBox(height: 20),
-
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
             children: [
 
-              // ── SECTION 1: Preferences — Figma: 342×141 rx=12 #1E293B ──
-              _sectionLabel('Preferences'),
-              _SectionCard(children: [
-                _IconToggle(
-                  icon: Icons.notifications_outlined,
-                  label: 'Push Notifications',
-                  value: _notifications,
-                  onChanged: (v) => setState(() => _notifications = v),
-                ),
-                _divider(),
-                _IconToggle(
-                  icon: Icons.volume_up_outlined,
-                  label: 'Sound Effects',
-                  value: _sounds,
-                  onChanged: _toggleSound,
-                ),
-              ]),
+              SizedBox(height: 32.h),
 
-              const SizedBox(height: 14),
-
-              // ── SECTION 2: Account — Figma: 342×353 rx=12 #1E293B ──────
-              _sectionLabel('Account'),
+              _sectionLabel('Account & Security'),
               _SectionCard(children: [
-                // Theme — tap to cycle: System → Dark → Light → System
-                _IconNav(
-                  icon: _themeIcon,
-                  label: 'Theme  ($_themeLabel)',
-                  onTap: _cycleTheme,
-                ),
-                _divider(),
-                _IconToggle(
-                  icon: Icons.vibration_outlined,
-                  label: 'Vibration',
-                  value: _vibration,
-                  onChanged: (v) => setState(() => _vibration = v),
-                ),
-                _divider(),
-                _IconNav(
-                  icon: Icons.lock_outline_rounded,
-                  label: 'Account Security',
+                _NavRow(
+                  icon: Icons.shield_outlined,
+                  title: 'Account Security',
+                  sub: 'Password, 2FA and sessions',
                   onTap: () => Navigator.push(context,
                       MaterialPageRoute(
                           builder: (_) => const AccountSecurityScreen())),
                 ),
                 _divider(),
-                _IconNav(
+                _NavRow(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: 'Payout Methods',
+                  sub: 'Bank accounts & wallets',
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(
+                          builder: (_) => const WalletScreen())),
+                ),
+              ]),
+
+              SizedBox(height: 32.h),
+
+              _sectionLabel('Game Preferences'),
+              _SectionCard(children: [
+                _ToggleRow(
+                  icon: _themeIcon,
+                  title: 'Theme Preference',
+                  sub: 'Dark & Light mode',
+                  value: _isDarkNow,
+                  onChanged: (_) => _cycleTheme(),
+                ),
+                _divider(),
+                _ToggleRow(
+                  icon: Icons.email_outlined,
+                  title: 'Email Alerts',
+                  sub: 'Weekly rewards summary',
+                  value: _emailAlerts,
+                  onChanged: _toggleEmailAlerts,
+                ),
+                _divider(),
+                _NavRow(
+                  icon: Icons.volume_up_outlined,
+                  title: 'Sound & Vibration',
+                  sub: 'Game effects and haptics',
+                  onTap: _openSoundSheet,
+                ),
+                _divider(),
+                _NavRow(
+                  icon: Icons.language_outlined,
+                  title: 'Language',
+                  sub: 'English (NG)',
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(
+                          builder: (_) => const LanguageScreen())),
+                ),
+                _divider(),
+                _NavRow(
                   icon: Icons.privacy_tip_outlined,
-                  label: 'Privacy & Security',
+                  title: 'Privacy & Security',
+                  sub: 'Game security update',
                   onTap: () => Navigator.push(context,
                       MaterialPageRoute(
                           builder: (_) => const PrivacySecurityScreen())),
                 ),
                 _divider(),
-                _IconNav(
-                  icon: Icons.language_outlined,
-                  label: 'Language',
+                _NavRow(
+                  icon: Icons.help_outline_rounded,
+                  title: 'Help & Support',
+                  sub: 'Get important information',
                   onTap: () => Navigator.push(context,
                       MaterialPageRoute(
-                          builder: (_) => const LanguageScreen())),
+                          builder: (_) => const HelpSupportScreen())),
                 ),
               ]),
 
-              const SizedBox(height: 14),
+              SizedBox(height: 32.h),
 
-              // ── SECTION 3: Support ─────────────────────────────────────
-              _sectionLabel('Support'),
-              _SectionCard(children: [
-                _IconNav(
-                    icon: Icons.help_outline_rounded,
-                    label: 'Help & Support',
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(
-                            builder: (_) => const HelpSupportScreen()))),
-                _divider(),
-                _IconNav(
-                    icon: Icons.question_answer_outlined,
-                    label: 'FAQs',
-                    onTap: () {}),
-              ]),
-
-              const SizedBox(height: 16),
-
-              // Sign out
               GestureDetector(
                 onTap: () => FirebaseAuth.instance.signOut(),
                 child: Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: kOrange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border:
-                        Border.all(color: kOrange.withOpacity(0.35)),
-                  ),
-                  child: const Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.logout_rounded,
-                            color: kOrange, size: 18),
-                        SizedBox(width: 8),
-                        Text('Sign Out',
-                            style: TextStyle(
-                                color: kOrange,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700)),
-                      ],
-                    ),
+                  height: 56.h,
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.logout_rounded,
+                          color: const Color(0xFF94A3B8), size: 15.w),
+                      SizedBox(width: 8.w),
+                      Text('Logout',
+                          style: TextStyle(
+                              color: const Color(0xFF94A3B8),
+                              fontSize: 16.sp, fontWeight: FontWeight.w500)),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+
+              SizedBox(height: 12.h),
+              Center(
+                child: Text('GAMEARN Premium v2.4.1',
+                    style: TextStyle(
+                        color: const Color(0xFF475569),
+                        fontSize: 12.sp, fontWeight: FontWeight.w400)),
+              ),
+              SizedBox(height: 32.h),
             ],
           ),
         ),
@@ -240,19 +285,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   );
 
   Widget _sectionLabel(String t) => Padding(
-    padding: const EdgeInsets.only(left: 4, bottom: 8),
+    padding: EdgeInsets.only(left: 4.w, bottom: 10.h),
     child: Text(t.toUpperCase(),
         style: TextStyle(
-            color: context.txtSec,
-            fontSize: 11, fontWeight: FontWeight.w700,
-            letterSpacing: 1.2)),
+            color: kCyan,
+            fontSize: 12.sp, fontWeight: FontWeight.w700,
+            letterSpacing: 0.4.w)),
   );
 
-  Widget _divider() => Divider(
-      height: 1, indent: 72, color: context.border);
+  Widget _divider() => Container(
+      height: 1.h, margin: EdgeInsets.symmetric(horizontal: 16.w),
+      color: kCyan.withOpacity(0.05));
 }
 
-// ── SECTION CARD — Figma: 342×var rx=12 #1E293B ──────────────────
+// ── SECTION CARD — Figma: 342×var rx=12 #1E293B@45 ───────────────
 class _SectionCard extends StatelessWidget {
   final List<Widget> children;
   const _SectionCard({required this.children});
@@ -261,78 +307,86 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
       color: context.card,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(12.r),
     ),
     child: Column(children: children),
   );
 }
 
-// ── ICON TOGGLE — Figma: 40×40 rx=8 #22D1EE icon box
-//                         toggle 44×24 rx=12 ─────────────────────
-class _IconToggle extends StatelessWidget {
+// ── NAV ROW — Figma: 40×40 rx=8 #22D1EE@10 box, chevron ──────────
+class _NavRow extends StatelessWidget {
   final IconData icon;
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  const _IconToggle(
-      {required this.icon, required this.label,
-       required this.value, required this.onChanged});
+  final String title;
+  final String sub;
+  final VoidCallback onTap;
+  const _NavRow(
+      {required this.icon, required this.title,
+       required this.sub, required this.onTap});
 
   @override
   Widget build(BuildContext context) => ListTile(
-    contentPadding:
-        const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+    onTap: onTap,
+    contentPadding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
     leading: Container(
-      // Figma: 40×40 rx=8 #22D1EE
-      width: 40, height: 40,
+      width: 40.w, height: 40.w,
       decoration: BoxDecoration(
-        color: kCyan,
-        borderRadius: BorderRadius.circular(8),
+        color: kCyan.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8.r),
       ),
-      child: Icon(icon, color: const Color(0xFF0B0E1A), size: 20),
+      child: Icon(icon, color: kCyan, size: 20.w),
     ),
-    title: Text(label,
+    title: Text(title,
         style: TextStyle(
-            color: context.txtPri, fontSize: 14,
+            color: Colors.white, fontSize: 16.sp,
+            fontWeight: FontWeight.w600)),
+    subtitle: Text(sub,
+        style: TextStyle(
+            color: const Color(0x80FFFFFF), fontSize: 12.sp,
+            fontWeight: FontWeight.w500)),
+    trailing: Icon(Icons.chevron_right_rounded,
+        color: const Color(0x80FFFFFF), size: 16.w),
+  );
+}
+
+// ── TOGGLE ROW — Figma: switch 44×24 (on #22D1EE / off #334155) ──
+class _ToggleRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String sub;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _ToggleRow(
+      {required this.icon, required this.title,
+       required this.sub, required this.value,
+       required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    onTap: () => onChanged(!value),
+    contentPadding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
+    leading: Container(
+      width: 40.w, height: 40.w,
+      decoration: BoxDecoration(
+        color: kCyan.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Icon(icon, color: kCyan, size: 20.w),
+    ),
+    title: Text(title,
+        style: TextStyle(
+            color: Colors.white, fontSize: 16.sp,
+            fontWeight: FontWeight.w600)),
+    subtitle: Text(sub,
+        style: TextStyle(
+            color: const Color(0x80FFFFFF), fontSize: 12.sp,
             fontWeight: FontWeight.w500)),
     trailing: Switch(
       value: value,
       onChanged: onChanged,
-      // Figma: active #22D1EE, inactive #334155
       activeColor: kCyan,
       activeTrackColor: kCyan.withOpacity(0.3),
       inactiveThumbColor: context.txtSec,
       inactiveTrackColor: context.border,
     ),
-  );
-}
-
-// ── ICON NAV ─────────────────────────────────────────────────────
-class _IconNav extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _IconNav(
-      {required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-    onTap: onTap,
-    contentPadding:
-        const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-    leading: Container(
-      width: 40, height: 40,
-      decoration: BoxDecoration(
-        color: kCyan,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(icon, color: const Color(0xFF0B0E1A), size: 20),
-    ),
-    title: Text(label,
-        style: TextStyle(
-            color: context.txtPri, fontSize: 14,
-            fontWeight: FontWeight.w500)),
-    trailing: Icon(Icons.chevron_right_rounded,
-        color: context.txtSec, size: 20),
   );
 }

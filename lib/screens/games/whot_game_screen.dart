@@ -7,12 +7,13 @@ import '../../services/sound_service.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gamearn/config/api_config.dart';
 import '../../theme.dart';
 import '../../utils/error_utils.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
-const _bg = Color(0xFF0A0D1C);
+const _bg = Color(0xFF0B0E1A);
 const _navy = Color(0xFF0D1B4B);
 const _navyDeep = Color(0xFF060D2E);
 const _cyan = Color(0xFF22D1EE);
@@ -901,7 +902,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg,
-          style: const TextStyle(color: _txtPri, fontWeight: FontWeight.w600)),
+          style: TextStyle(color: _txtPri, fontWeight: FontWeight.w600)),
       backgroundColor: _navy,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -915,7 +916,9 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       backgroundColor: context.bg,
       body: Stack(children: [
         _BokehBg(ctrl: _bokehCtrl, bokeh: _bokeh),
-        _portrait(),
+        MediaQuery.of(context).orientation == Orientation.landscape
+            ? _landscape()
+            : _portrait(),
         if (_isDealing)  _loadingOverlay(),
         if (_dealFailed) _errorOverlay(),
         if (_showShapeChooser) _shapeChooser(),
@@ -927,19 +930,12 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   Widget _portrait() => SafeArea(
     child: Column(children: [
       Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
         child: Row(children: [
           GestureDetector(
-            onTap: widget.onBack ?? () => Navigator.maybePop(context),
-            child: Container(
-              width: 37, height: 37,
-              decoration: BoxDecoration(
-                color: _orange,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Icon(Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white, size: 16),
-            ),
+            onTap: () => Navigator.pop(context),
+            child: Icon(Icons.close_rounded,
+                color: const Color(0xFFF1F5F9), size: 20.w),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -947,14 +943,14 @@ class _WhotGameScreenState extends State<WhotGameScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(widget.tournamentTitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: _orange,
-                        fontSize: 16,
+                        fontSize: 16.sp,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 0.8)),
                 Text('Prize Pool: ${widget.prizePool}',
-                    style: const TextStyle(
-                        color: _cyan, fontSize: 11,
+                    style: TextStyle(
+                        color: _cyan, fontSize: 11.sp,
                         fontWeight: FontWeight.w500)),
               ],
             ),
@@ -1002,7 +998,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
           ),
           const SizedBox(height: 4),
           Text(widget.opponentName,
-              style: const TextStyle(
+              style: TextStyle(
                   color: _txtPri, fontSize: 11,
                   fontWeight: FontWeight.w600)),
           if (_botBusy)
@@ -1025,7 +1021,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
           ),
           child: Center(
             child: Text('$_oppCount',
-                style: const TextStyle(
+                style: TextStyle(
                     color: _cyan,
                     fontSize: 14, fontWeight: FontWeight.w800)),
           ),
@@ -1327,7 +1323,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
                     border: Border.all(color: _cyan.withOpacity(0.2)),
                   ),
                   child: Center(child: Text(s.$2,
-                      style: const TextStyle(color: Colors.white,
+                      style: TextStyle(color: Colors.white,
                           fontSize: 16, fontWeight: FontWeight.w600))),
                 ),
               )),
@@ -1753,7 +1749,7 @@ class _PileBtn extends StatelessWidget {
           decoration: BoxDecoration(
               color: _orange, borderRadius: BorderRadius.circular(8)),
           child: Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   color: _white,
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
@@ -1857,12 +1853,12 @@ class _GameOverDialog extends StatelessWidget {
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text(isWinner ? '🏆 You Win!' : '💀 You Lost',
-                style: const TextStyle(
+                style: TextStyle(
                     color: _txtPri, fontSize: 26, fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             if (isWinner)
               Text('Prize: $prizePool',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: _orange,
                       fontSize: 18,
                       fontWeight: FontWeight.w700)),

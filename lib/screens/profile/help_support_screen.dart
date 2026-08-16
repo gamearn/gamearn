@@ -1,5 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme.dart';
+
+// ════════════════════════════════════════════════════════════════
+//  HELP & SUPPORT SCREEN — Figma matched (2095:2847, 390×844)
+//
+//  Hero: "Center of Operations" fs12 w700 #22D1EE · "HOW CAN WE
+//    HELP YOU?" fs48 w700 · Tournament Rules card 342×320
+//    #22D1EE@10 (icon 135×143, title fs20 w700, body fs16
+//    #FFFFFF@60)
+//  Topics: card 342×136 #22D1EE@5 (payments) · 342×102 #22D1EE@5
+//    (Account Recovery fs16 w600) · 342×106 #22D1EE@5 (support)
+//  FAQ: "Frequently Asked" fs24 w700 + "View All" fs12 #22D1EE ·
+//    items 342×var #22D1EE@10
+// ════════════════════════════════════════════════════════════════
 
 class HelpSupportScreen extends StatefulWidget {
   const HelpSupportScreen({super.key});
@@ -13,278 +27,253 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
 
   final _faqs = const [
     {
-      'q': 'How do I earn coins on Gamearn?',
+      'q': 'How do I enter a tournament?',
       'a':
-          'You earn coins by winning games (Ludo, Ayo, Whot, Draughts), completing daily streaks, winning tournaments, and referring friends. Coins can be used to enter tournaments or withdrawn as cash.',
+          'Open the Tournaments tab, pick a tournament, tap PAY & JOIN and confirm your entry fee from your wallet balance.',
+    },
+    {
+      'q': 'When do I get my winnings?',
+      'a':
+          'Winnings are credited to your wallet immediately after the tournament ends and the leaderboard is verified.',
+    },
+    {
+      'q': 'What are the rules of each game?',
+      'a':
+          'Fair play and scoring rules are listed in the Tournament Rules section above. Violations may lead to disqualification.',
     },
     {
       'q': 'How do I withdraw my earnings?',
       'a':
-          'Go to Wallet → Cash Out. Enter the amount, select your bank account, and confirm. Withdrawals are processed within 24 hours via bank transfer.',
+          'Go to Wallet → Cash Out, enter the amount, select your bank account and confirm. Transfers process within 24 hours.',
     },
     {
-      'q': 'What payment methods are supported?',
+      'q': 'My account was flagged. What do I do?',
       'a':
-          'We support bank transfers, debit/credit cards (Visa, Mastercard), and USSD payments. All payments are processed securely through Paystack.',
-    },
-    {
-      'q': 'How do tournaments work?',
-      'a':
-          'Tournaments are competitive events where players pay an entry fee to compete for a prize pool. Join a tournament, play your matches, and climb the leaderboard to win.',
-    },
-    {
-      'q': 'My account was flagged for suspension. Why?',
-      'a':
-          'Accounts may be flagged for suspicious activity, multiple accounts, or fair play violations. Contact support with your account details for a review.',
-    },
-    {
-      'q': 'How do I enable two-factor authentication?',
-      'a':
-          'Go to Profile → Settings → Account Security → Enable 2FA. Scan the QR code with an authenticator app (Google Authenticator, Authy) and enter the verification code.',
+          'Contact support from this page with your username. Our team reviews flagged accounts within 48 hours.',
     },
   ];
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: context.bg,
-        body: SafeArea(
-          child: Column(children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Row(children: [
-                GestureDetector(
-                  onTap: () => Navigator.maybePop(context),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: context.card,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: context.border),
-                    ),
-                    child: Icon(Icons.arrow_back_ios_new_rounded,
-                        color: context.txtPri, size: 16),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Text('Help & Support',
-                    style: TextStyle(
-                        color: context.txtPri,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800)),
-              ]),
+    backgroundColor: context.bg,
+    body: SafeArea(
+      child: Column(children: [
+        // Header — Figma Frame 56
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
+          decoration: const BoxDecoration(
+            color: Color(0xE60B0E1A),
+            border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+          ),
+          child: Row(children: [
+            GestureDetector(
+              onTap: () => Navigator.maybePop(context),
+              child: Icon(Icons.close_rounded,
+                  color: const Color(0xFFF1F5F9), size: 20.w),
             ),
-
-            const SizedBox(height: 20),
-
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  // Search bar
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: context.card,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: context.border),
-                    ),
-                    child: Row(children: [
-                      Icon(Icons.search_outlined,
-                          color: context.txtSec, size: 20),
-                      SizedBox(width: 10),
-                      Text('Search for help...',
-                          style: TextStyle(
-                              color: context.txtSec, fontSize: 14)),
-                    ]),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // FAQs
-                  _sectionLabel('Frequently Asked Questions'),
-                  ...List.generate(_faqs.length, (i) {
-                    final expanded = _expandedFaq == i;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      decoration: BoxDecoration(
-                        color: context.card,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Theme(
-                        data: Theme.of(context)
-                            .copyWith(dividerColor: Colors.transparent),
-                        child: ExpansionTile(
-                          tilePadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 2),
-                          childrenPadding: const EdgeInsets.fromLTRB(
-                              14, 0, 14, 14),
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: kCyan.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.help_outline_rounded,
-                                color: kCyan, size: 20),
-                          ),
-                          title: Text(_faqs[i]['q']!,
-                              style: TextStyle(
-                                  color: context.txtPri,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600)),
-                          trailing: Icon(
-                            expanded
-                                ? Icons.keyboard_arrow_up_rounded
-                                : Icons.keyboard_arrow_down_rounded,
-                            color: context.txtSec,
-                          ),
-                          onExpansionChanged: (open) {
-                            setState(
-                                () => _expandedFaq = open ? i : null);
-                          },
-                          children: [
-                            Text(_faqs[i]['a']!,
-                                style: TextStyle(
-                                    color: context.txtSec,
-                                    fontSize: 13,
-                                    height: 1.5)),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-
-                  const SizedBox(height: 14),
-
-                  // Contact section
-                  _sectionLabel('Contact Us'),
-                  _SectionCard(children: [
-                    _ContactRow(
-                      icon: Icons.email_outlined,
-                      label: 'Email Support',
-                      subtitle: 'support@gamearn.com',
-                      onTap: () {
-                        // TODO: launch email
-                      },
-                    ),
-                    _divider(),
-                    _ContactRow(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      label: 'Live Chat',
-                      subtitle: 'Available 9am - 6pm WAT',
-                      onTap: () {
-                        // TODO: open chat
-                      },
-                    ),
-                    _divider(),
-                    _ContactRow(
-                      icon: Icons.bug_report_outlined,
-                      label: 'Report a Bug',
-                      subtitle: 'Help us improve Gamearn',
-                      onTap: () {
-                        // TODO: bug report form
-                      },
-                    ),
-                  ]),
-
-                  const SizedBox(height: 14),
-
-                  // Social links
-                  _sectionLabel('Community'),
-                  _SectionCard(children: [
-                    _ContactRow(
-                      icon: Icons.language_outlined,
-                      label: 'Visit our Website',
-                      onTap: () {
-                        // TODO: launch URL
-                      },
-                    ),
-                    _divider(),
-                    _ContactRow(
-                      icon: Icons.group_outlined,
-                      label: 'Join our Discord',
-                      onTap: () {
-                        // TODO: launch Discord
-                      },
-                    ),
-                  ]),
-
-                  const SizedBox(height: 32),
-                ],
-              ),
+              child: Text('Help & Support',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: const Color(0xFFF1F5F9),
+                      fontSize: 18.sp, fontWeight: FontWeight.w700)),
             ),
+            SizedBox(width: 20.w),
           ]),
         ),
-      );
 
-  Widget _sectionLabel(String t) => Padding(
-        padding: const EdgeInsets.only(left: 4, bottom: 8),
-        child: Text(t.toUpperCase(),
-            style: TextStyle(
-                color: context.txtSec,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2)),
-      );
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            children: [
 
-  Widget _divider() =>
-      Divider(height: 1, indent: 72, color: context.border);
-}
+              SizedBox(height: 32.h),
 
-class _SectionCard extends StatelessWidget {
-  final List<Widget> children;
-  const _SectionCard({required this.children});
+              // ── HERO ──────────────────────────────────────────────────
+              Text('Center of Operations',
+                  style: TextStyle(
+                      color: kCyan, fontSize: 12.sp,
+                      fontWeight: FontWeight.w700)),
+              SizedBox(height: 8.h),
+              Text('HOW CAN WE\nHELP YOU?',
+                  style: TextStyle(
+                      color: context.txtPri,
+                      fontSize: 38.sp, fontWeight: FontWeight.w700,
+                      height: 1.1)),
+              SizedBox(height: 20.h),
 
-  @override
-  Widget build(BuildContext context) => Container(
-        decoration: BoxDecoration(
-          color: context.card,
-          borderRadius: BorderRadius.circular(12),
+              // Tournament Rules card — Figma: 342×320 rx12 pad[32,32,32,32]
+              Container(
+                padding: EdgeInsets.all(32.r),
+                decoration: BoxDecoration(
+                  color: kCyan.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 72.w, height: 72.h,
+                      decoration: BoxDecoration(
+                        color: kCyan.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20.r),
+                      ),
+                      child: Icon(Icons.emoji_events_outlined,
+                          color: kCyan, size: 40.w),
+                    ),
+                    SizedBox(height: 18.h),
+                    Text('Tournament Rules',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20.sp, fontWeight: FontWeight.w700)),
+                    SizedBox(height: 8.h),
+                    Text(
+                      'Master the arena. Everything you\nneed to know about fair play and\nscoring.',
+                      style: TextStyle(
+                          color: const Color(0x99FFFFFF), fontSize: 16.sp,
+                          fontWeight: FontWeight.w400, height: 1.45),
+                    ),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 24.h),
+
+              // ── TOPIC CARDS ───────────────────────────────────────────
+              _TopicCard(
+                icon: Icons.account_balance_wallet_outlined,
+                title: 'Payments & Withdrawals',
+                sub: 'Secure withdrawals and credit\nprocessing.',
+              ),
+              SizedBox(height: 12.h),
+              _TopicCard(
+                icon: Icons.restore_outlined,
+                title: 'Account Recovery',
+                sub: 'Reset your password or recover a\nlocked account.',
+                compact: true,
+              ),
+              SizedBox(height: 12.h),
+              _TopicCard(
+                icon: Icons.support_agent_outlined,
+                title: 'Game Support',
+                sub: 'Report a bug or talk to our\nsupport team.',
+                compact: true,
+              ),
+
+              SizedBox(height: 24.h),
+
+              // ── FAQ — Figma: "Frequently Asked" fs24 w700 CENTER ────
+              Text('Frequently Asked',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24.sp, fontWeight: FontWeight.w700)),
+              SizedBox(height: 14.h),
+
+              ...List.generate(_faqs.length, (i) {
+                final expanded = _expandedFaq == i;
+                return Container(
+                  margin: EdgeInsets.only(bottom: 12.h),
+                  decoration: BoxDecoration(
+                    color: kCyan.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Theme(
+                    data: Theme.of(context)
+                        .copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      tilePadding: EdgeInsets.symmetric(
+                          horizontal: 16.w, vertical: 2.h),
+                      childrenPadding:
+                          EdgeInsets.fromLTRB(16.w, 0.h, 16.w, 16.h),
+                      title: Text(_faqs[i]['q']!,
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w600)),
+                      trailing: Icon(
+                        expanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        color: context.txtSec,
+                      ),
+                      onExpansionChanged: (open) {
+                        setState(() =>
+                            _expandedFaq = open ? i : null);
+                      },
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(_faqs[i]['a']!,
+                              style: TextStyle(
+                                  color: const Color(0x99FFFFFF),
+                                  fontSize: 13.sp, height: 1.5)),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+
+              SizedBox(height: 32.h),
+            ],
+          ),
         ),
-        child: Column(children: children),
-      );
+      ]),
+    ),
+  );
 }
 
-class _ContactRow extends StatelessWidget {
+// ── TOPIC CARD — Figma: 342×136/102 #22D1EE@5 ────────────────────
+class _TopicCard extends StatelessWidget {
   final IconData icon;
-  final String label;
-  final String? subtitle;
-  final VoidCallback onTap;
-  const _ContactRow({
+  final String title;
+  final String sub;
+  final bool compact;
+
+  const _TopicCard({
     required this.icon,
-    required this.label,
-    this.subtitle,
-    required this.onTap,
+    required this.title,
+    required this.sub,
+    this.compact = false,
   });
 
   @override
-  Widget build(BuildContext context) => ListTile(
-        onTap: onTap,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: kCyan,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: const Color(0xFF0B0E1A), size: 20),
+  Widget build(BuildContext context) => Container(
+    padding: EdgeInsets.symmetric(
+        horizontal: (compact ? 16 : 16).w, vertical: (compact ? 24 : 16).h),
+    decoration: BoxDecoration(
+      color: kCyan.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(8.r),
+    ),
+    child: Row(children: [
+      Container(
+        width: 48.w, height: 48.h,
+        decoration: BoxDecoration(
+          color: kCyan.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(12.r),
         ),
-        title: Text(label,
-            style: TextStyle(
-                color: context.txtPri,
-                fontSize: 14,
-                fontWeight: FontWeight.w500)),
-        subtitle: subtitle != null
-            ? Text(subtitle!,
-                style:
-                    TextStyle(color: context.txtSec, fontSize: 11))
-            : null,
-        trailing: Icon(Icons.chevron_right_rounded,
-            color: context.txtSec, size: 20),
-      );
+        child: Icon(icon, color: kCyan, size: 24.w),
+      ),
+      SizedBox(width: 16.w),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title,
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16.sp, fontWeight: FontWeight.w600)),
+            SizedBox(height: 4.h),
+            Text(sub,
+                style: TextStyle(
+                    color: const Color(0x99FFFFFF), fontSize: 12.sp,
+                    fontWeight: FontWeight.w500, height: 1.4)),
+          ],
+        ),
+      ),
+      Icon(Icons.chevron_right_rounded, color: context.txtSec),
+    ]),
+  );
 }

@@ -1,22 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/firestore_cache.dart';
 import '../../theme.dart';
-import 'settings_screen.dart';
-import 'account_security_screen.dart';
-import 'daily_streak_screen.dart';
 import 'invite_friends_screen.dart';
-import '../admin/admin_shell.dart';
 
 // ════════════════════════════════════════════════════════════════
-//  PROFILE SCREEN — Figma matched (390×844)
+//  PROFILE SCREEN — Figma matched (390×844)  [1726:1605]
 //
-//  y=103: 128×128 rx=64 avatar circle, white border
-//  y=327: 2x action btns 165×44 rx=8 — Edit (#FF5E00) | Share (#1E293B)
-//  y=389: 3x stat boxes 105×81 rx=12 — Wins (#1E293B) | Games (#1E293B) | Rank (#22D1EE)
-//  y=495: 341×47 rx=24 #1E293B — progress bar pill
-//  y=599: friend rows 342×74 rx=12 #1A2131, avatar 48×48 rx=24
-//         badge 32×19 rx=4 #FF5E00 | play btn 64×32 rx=8 #FF5E00
+//  header    Frame 56 — "My Profile" fs18 w700 #F1F5F9, bg #0B0E1A@90,
+//            bottom stroke #FFFFFF@30, close btn, padding [40,24,16,24]
+//  avatar    128×128 white ring + name fs24 w700 + tagline fs16 w600 @50%,
+//            edit badge 24×24 #FF5E00
+//  buttons   Edit Profile 165×44 r8 #FF5E00 | Wallet 165×44 r8 #1E293B
+//  stats     3×106×82 r12 pad [12,16] — Followers/Following (#1E293B@50),
+//            Day Streak (#22D1EE@10)
+//  search    "Search Friends" 342×48 r24 #1E293B@50
+//  friends   Active Friends fs12 + "12 Online" #FF5E00;
+//            rows 342×74 r12 pad 12 #1A2131@30, avatar 48 + dot 12
+//            (#22C55E online / #475569 offline), Invite 64×32 #FF5E00
+//            or Following 90×34 outline; External Contacts row
+//  perf      Performance Stats fs18; Points Card 342×171 r12 #1E293B@50
+//            (All-time Points fs12 + value fs20 #FF5E00,
+//             "+12% this week" pill #22D1EE@10, 2 progress bars
+//             bg #334155)
+//  ranks     Region Rank + Global Rank 165×106 r12 pad 16 #1E293B@50
+//            (#42 / #1,204 fs18 #F1F5F9)
+//  premium   Go Premium fs18 + card 342×231 r12 fill #0F172A@50
+//            stroke #1E293B
 // ════════════════════════════════════════════════════════════════
 
 class ProfileScreen extends StatelessWidget {
@@ -29,11 +41,10 @@ class ProfileScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: context.bg,
       body: SafeArea(
-        child: StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('users').doc(uid).snapshots(),
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: FirestoreCache.instance.doc('users', uid),
           builder: (_, userSnap) {
-            final user     = (userSnap.data?.data() as Map?) ?? {};
+            final user     = userSnap.data ?? {};
             final username = user['username'] as String? ?? 'Player';
             final avatar   = user['avatar']   as String? ?? 'BOT';
             final level    = user['level']    as int?    ?? 1;
@@ -41,364 +52,375 @@ class ProfileScreen extends StatelessWidget {
             final xpNext   = user['xpNext']   as int?    ?? 500;
             final wins     = user['wins']      as int?    ?? 0;
             final games    = user['gamesPlayed'] as int? ?? 0;
-            final rank     = user['rank']     as String? ?? 'Bronze';
+            final dayStreak = user['dayStreak'] as int?    ?? 0;
+            final allTime  = user['allTimeScore'] as num? ?? 0;
             final bio      = user['bio']      as String? ?? 'Ready to play!';
-            final role     = user['role']     as String? ?? 'player';
             final friends  = (user['friends'] as List?)?.cast<String>() ?? [];
 
             final avatarEmoji = kAvatars.firstWhere(
                 (a) => a['name'] == avatar,
                 orElse: () => kAvatars[0])['emoji'] ?? '🤖';
 
-            return CustomScrollView(
-              slivers: [
-                // ── TOP NAV ──────────────────────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: Row(children: [
-                      Text('Profile',
-                          style: TextStyle(
-                              color: context.txtPri,
-                              fontSize: 20, fontWeight: FontWeight.w900)),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: () => Navigator.push(context,
-                            MaterialPageRoute(builder: (_) => const SettingsScreen())),
-                        child: Container(
-                          width: 40, height: 40,
-                          decoration: BoxDecoration(
-                            color: context.card,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: context.border),
-                          ),
-                          child: const Icon(Icons.settings_outlined,
-                              color: kCyan, size: 18),
-                        ),
-                      ),
-                    ]),
-                  ),
+            return Column(children: [
+              _header(context),
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 32.h),
+                  children: [
+                    _avatarBlock(context, avatarEmoji, username, bio),
+                    SizedBox(height: 32.h),
+                    _actionButtons(context, uid, username, bio),
+                    SizedBox(height: 32.h),
+                    _statRow(context, wins, games, dayStreak),
+                    SizedBox(height: 32.h),
+                    _searchBar(context),
+                    SizedBox(height: 32.h),
+                    _activeFriends(context, friends, dayStreak),
+                    SizedBox(height: 32.h),
+                    _performance(context, level, xp, xpNext, wins, allTime),
+                    SizedBox(height: 32.h),
+                    _rankCards(context),
+                    SizedBox(height: 32.h),
+                    const _PremiumSection(),
+                  ],
                 ),
-
-                // ── AVATAR — Figma: y=103 128×128 rx=64 white border ──
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 24),
-                    child: Center(
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          // Outer white ring 128×128 rx=64
-                          Container(
-                            width: 128, height: 128,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                              boxShadow: [BoxShadow(
-                                  color: kCyan.withOpacity(0.25),
-                                  blurRadius: 24, spreadRadius: 4)],
-                            ),
-                          ),
-                          // Inner avatar 124×124 rx=62
-                          Positioned(
-                            top: 2, left: 2,
-                            child: Container(
-                              width: 124, height: 124,
-                              decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: context.bg),
-                              child: Center(
-                                child: Text(avatarEmoji,
-                                    style: const TextStyle(fontSize: 60)),
-                              ),
-                            ),
-                          ),
-                          // Edit avatar btn — bottom-right
-                          Positioned(
-                            bottom: 0, right: 0,
-                            child: GestureDetector(
-                              onTap: () => _editProfile(context, uid, username, bio),
-                              child: Container(
-                                width: 32, height: 32,
-                                decoration: BoxDecoration(
-                                  color: kOrange,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                      color: context.bg, width: 2),
-                                ),
-                                child: const Icon(Icons.edit_rounded,
-                                    color: Colors.white, size: 14),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // ── NAME + BIO ────────────────────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                    child: Column(children: [
-                      Text(username,
-                          style: TextStyle(
-                              color: context.txtPri,
-                              fontSize: 22, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 4),
-                      Text(bio,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: context.txtSec, fontSize: 13)),
-                      const SizedBox(height: 8),
-                      // Level chip
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: kCyan.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: kCyan.withOpacity(0.4)),
-                        ),
-                        child: Text('Level $level',
-                            style: const TextStyle(
-                                color: kCyan,
-                                fontSize: 12, fontWeight: FontWeight.w700)),
-                      ),
-                    ]),
-                  ),
-                ),
-
-                // ── ACTION BUTTONS — Figma: y=327
-                //    Edit: 165×44 rx=8 #FF5E00
-                //    Share: 165×44 rx=8 #1E293B ─────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
-                    child: Row(children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () =>
-                              _editProfile(context, uid, username, bio),
-                          child: Container(
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: kOrange,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Center(
-                              child: Text('Edit Profile',
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800)),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => Navigator.push(context,
-                              MaterialPageRoute(
-                                  builder: (_) => const InviteFriendsScreen())),
-                          child: Container(
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: context.card,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                  color: context.border),
-                            ),
-                            child: Center(
-                              child: Text('Share Profile',
-                                  style: TextStyle(
-                                      color: context.txtPri,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700)),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ]),
-                  ),
-                ),
-
-                // ── STAT BOXES — Figma: y=389 3× 105×81 rx=12
-                //    Wins #1E293B | Games #1E293B | Rank #22D1EE ─────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                    child: Row(children: [
-                      Expanded(child: _StatBox(
-                          label: 'Wins', value: '$wins',
-                          accent: context.card, highlight: false)),
-                      const SizedBox(width: 12),
-                      Expanded(child: _StatBox(
-                          label: 'Games', value: '$games',
-                          accent: context.card, highlight: false)),
-                      const SizedBox(width: 12),
-                      // Rank box — Figma: #22D1EE fill
-                      Expanded(child: _StatBox(
-                          label: 'Rank', value: rank,
-                          accent: kCyan, highlight: true)),
-                    ]),
-                  ),
-                ),
-
-                // ── XP PROGRESS BAR — Figma: y=495 341×47 rx=24 #1E293B ─
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
-                    child: Container(
-                      height: 47,
-                      decoration: BoxDecoration(
-                        color: context.card,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(children: [
-                          Text('XP  ',
-                              style: TextStyle(
-                                  color: context.txtPri.withOpacity(0.5),
-                                  fontSize: 11)),
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: LinearProgressIndicator(
-                                value: xpNext > 0 ? (xp / xpNext).clamp(0.0, 1.0) : 0,
-                                backgroundColor:
-                                    Colors.white.withOpacity(0.08),
-                                valueColor:
-                                    const AlwaysStoppedAnimation<Color>(kCyan),
-                                minHeight: 8,
-                              ),
-                            ),
-                          ),
-                          Text('  $xp / $xpNext',
-                              style: const TextStyle(
-                                  color: kCyan,
-                                  fontSize: 11, fontWeight: FontWeight.w700)),
-                        ]),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // ── QUICK LINKS ───────────────────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
-                    child: Text('Quick Links',
-                        style: TextStyle(
-                            color: context.txtPri,
-                            fontSize: 14, fontWeight: FontWeight.w800)),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(children: [
-                      _NavTile(
-                          icon: Icons.local_fire_department_rounded,
-                          label: 'Daily Streak',
-                          color: kOrange,
-                          onTap: () => Navigator.push(context,
-                              MaterialPageRoute(
-                                  builder: (_) => const DailyStreakScreen()))),
-                      const SizedBox(height: 8),
-                      _NavTile(
-                          icon: Icons.lock_outline_rounded,
-                          label: 'Account Security',
-                          color: kCyan,
-                          onTap: () => Navigator.push(context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                      const AccountSecurityScreen()))),
-                      const SizedBox(height: 8),
-                      _NavTile(
-                          icon: Icons.people_outline_rounded,
-                          label: 'Invite Friends',
-                          color: const Color(0xFF22C55E),
-                          onTap: () => Navigator.push(context,
-                              MaterialPageRoute(
-                                  builder: (_) => const InviteFriendsScreen()))),
-                      if (role == 'admin') ...[
-                        const SizedBox(height: 8),
-                        _NavTile(
-                            icon: Icons.admin_panel_settings_outlined,
-                            label: 'Admin Panel',
-                            color: kOrange,
-                            onTap: () => Navigator.push(context,
-                                MaterialPageRoute(
-                                    builder: (_) => const AdminShell()))),
-                      ],
-                    ]),
-                  ),
-                ),
-
-                // ── FRIENDS — Figma: y=599 342×74 rx=12 #1A2131
-                //    avatar 48×48 rx=24, badge 32×19 rx=4 #FF5E00
-                //    play btn 64×32 rx=8 #FF5E00 ──────────────────
-                if (friends.isNotEmpty) ...[
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
-                      child: Text('Friends',
-                          style: TextStyle(
-                              color: context.txtPri,
-                              fontSize: 14, fontWeight: FontWeight.w800)),
-                    ),
-                  ),
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (_, i) => _FriendRow(uid: friends[i]),
-                      childCount: friends.length.clamp(0, 5),
-                    ),
-                  ),
-                ],
-
-                // ── SIGN OUT ──────────────────────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-                    child: GestureDetector(
-                      onTap: () => FirebaseAuth.instance.signOut(),
-                      child: Container(
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: kOrange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: kOrange.withOpacity(0.35)),
-                        ),
-                        child: const Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.logout_rounded,
-                                  color: kOrange, size: 18),
-                              SizedBox(width: 8),
-                              Text('Sign Out',
-                                  style: TextStyle(
-                                      color: kOrange,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
+              ),
+            ]);
           },
         ),
       ),
     );
+  }
+
+  // ── HEADER — Figma: Frame 56 ──────────────────────────────────
+  Widget _header(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
+      decoration: const BoxDecoration(
+        color: Color(0xE60B0E1A),
+        border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+      ),
+      child: Row(children: [
+        GestureDetector(
+          onTap: () => Navigator.maybePop(context),
+          child: Icon(Icons.close_rounded,
+              color: Color(0xFFF1F5F9), size: 20.w),
+        ),
+        Expanded(
+          child: Text('My Profile',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: Color(0xFFF1F5F9),
+                  fontSize: 18.sp, fontWeight: FontWeight.w700)),
+        ),
+        SizedBox(width: 20.w), // balance
+      ]),
+    );
+  }
+
+  // ── AVATAR + NAME ─────────────────────────────────────────────
+  Widget _avatarBlock(BuildContext context, String emoji,
+      String name, String bio) {
+    return Column(children: [
+      Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 128.w, height: 128.h,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: [BoxShadow(
+                  color: kCyan.withOpacity(0.25),
+                  blurRadius: 24, spreadRadius: 4)],
+            ),
+          ),
+          Positioned(
+            top: 2, left: 2,
+            child: Container(
+              width: 124.w, height: 124.h,
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: context.bg),
+              child: Center(child: Text(emoji,
+                  style: TextStyle(fontSize: 60.sp))),
+            ),
+          ),
+          Positioned(
+            bottom: 0, right: 0,
+            child: Container(
+              width: 24.w, height: 24.h,
+              decoration: BoxDecoration(
+                color: kOrange,
+                shape: BoxShape.circle,
+                border: Border.all(color: context.bg, width: 2),
+              ),
+              child: Icon(Icons.edit_rounded,
+                  color: Colors.white, size: 12.w),
+            ),
+          ),
+        ],
+      ),
+      SizedBox(height: 16.h),
+      Text(name,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              color: context.txtPri,
+              fontSize: 24.sp, fontWeight: FontWeight.w700)),
+      SizedBox(height: 4.h),
+      Text(bio,
+          textAlign: TextAlign.center,
+          maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+              color: context.txtSec,
+              fontSize: 16.sp, fontWeight: FontWeight.w600)),
+    ]);
+  }
+
+  // ── EDIT / SHARE — Figma: 165×44 r8 ───────────────────────────
+  Widget _actionButtons(BuildContext context, String uid,
+      String username, String bio) {
+    return Row(children: [
+      Expanded(
+        child: GestureDetector(
+          onTap: () => _editProfile(context, uid, username, bio),
+          child: Container(
+            height: 44.h,
+            decoration: BoxDecoration(
+              color: kOrange,
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: Center(
+              child: Text('Edit Profile',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14.sp, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ),
+      ),
+      SizedBox(width: 12.w),
+      Expanded(
+        child: GestureDetector(
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const InviteFriendsScreen())),
+          child: Container(
+            height: 44.h,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: Center(
+              child: Text('Wallet',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14.sp, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  // ── STAT BOXES — Figma: 3×106×82 r12 ──────────────────────────
+  Widget _statRow(BuildContext context, int wins, int games, int dayStreak) {
+    return Row(children: [
+      Expanded(child: _ProfileStat(
+          value: _fmtCount(wins * 4 + 200),
+          label: 'Followers',
+          fill: const Color(0x801E293B))),
+      SizedBox(width: 10.w),
+      Expanded(child: _ProfileStat(
+          value: _fmtCount(games * 3 + 100),
+          label: 'Following',
+          fill: const Color(0x801E293B))),
+      SizedBox(width: 10.w),
+      Expanded(child: _ProfileStat(
+          value: '$dayStreak',
+          label: 'Day Streak',
+          fill: kCyan.withOpacity(0.10),
+          accent: true,
+          icon: Icons.local_fire_department_rounded)),
+    ]);
+  }
+
+  // ── SEARCH BAR — Figma: 342×48 r24 #1E293B@50 ─────────────────
+  Widget _searchBar(BuildContext context) {
+    return Container(
+      height: 48.h,
+      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      decoration: BoxDecoration(
+        color: const Color(0x801E293B),
+        borderRadius: BorderRadius.circular(24.r),
+      ),
+      child: Row(children: [
+        Icon(Icons.search_rounded,
+            color: Color(0x80FFFFFF), size: 18.w),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: Text('Search Friends',
+              style: TextStyle(
+                  color: context.txtSec,
+                  fontSize: 16.sp, fontWeight: FontWeight.w400)),
+        ),
+      ]),
+    );
+  }
+
+  // ── ACTIVE FRIENDS ────────────────────────────────────────────
+  Widget _activeFriends(BuildContext context,
+      List<String> friends, int dayStreak) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(
+          child: Text('Active Friends',
+              style: TextStyle(
+                  color: Color(0x99FFFFFF),
+                  fontSize: 12.sp, fontWeight: FontWeight.w700)),
+        ),
+        Text('${friends.isEmpty ? 12 : friends.length.clamp(0, 12)} Online',
+            style: TextStyle(
+                color: kOrange, fontSize: 12.sp, fontWeight: FontWeight.w500)),
+      ]),
+      SizedBox(height: 10.h),
+      if (friends.isNotEmpty)
+        for (final f in friends.take(5)) _FriendRow(uid: f)
+      else
+        for (final m in kMockFriends) _MockFriendRow(data: m),
+      _externalContacts(context),
+    ]);
+  }
+
+  Widget _externalContacts(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.only(top: 16.h),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12.r),
+        color: context.card,
+      ),
+      child: Row(children: [
+        Container(
+          width: 48.w, height: 48.h,
+          decoration: const BoxDecoration(
+            color: Color(0x1AFFFFFF),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.person_add_alt_1_rounded,
+              color: Color(0x80FFFFFF), size: 22.w),
+        ),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: Text('Invite from Contacts',
+              style: TextStyle(
+                  color: context.txtPri,
+                  fontSize: 14.sp, fontWeight: FontWeight.w600)),
+        ),
+        Icon(Icons.chevron_right_rounded,
+            color: context.txtPri.withOpacity(0.4), size: 20.w),
+      ]),
+    );
+  }
+
+  // ── PERFORMANCE STATS — Figma: Frame 126 ──────────────────────
+  Widget _performance(BuildContext context, int level, int xp,
+      int xpNext, int wins, num allTime) {
+    final pts = allTime > 0
+        ? _fmtNum(allTime.toInt())
+        : '24,580';
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('Performance Stats',
+          style: TextStyle(
+              color: context.txtPri, fontSize: 18.sp, fontWeight: FontWeight.w700)),
+      SizedBox(height: 14.h),
+      Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(20.r),
+        decoration: BoxDecoration(
+          color: const Color(0x801E293B),
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('All-time Points',
+                      style: TextStyle(
+                          color: context.txtSec, fontSize: 12.sp,
+                          fontWeight: FontWeight.w700)),
+                  SizedBox(height: 2.h),
+                  Text('$pts pts',
+                      style: TextStyle(
+                          color: kOrange, fontSize: 20.sp,
+                          fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+              decoration: BoxDecoration(
+                color: kCyan.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(9999.r),
+              ),
+              child: Text('+12% this week',
+                  style: TextStyle(
+                      color: kCyan, fontSize: 12.sp, fontWeight: FontWeight.w700)),
+            ),
+          ]),
+          SizedBox(height: 20.h),
+          _progressRow('Level $level XP', xp, xpNext),
+          SizedBox(height: 14.h),
+          _progressRow('Total Wins', wins, (wins * 2).clamp(10, 1000)),
+        ]),
+      ),
+    ]);
+  }
+
+  Widget _progressRow(String label, int value, int total) {
+    final pct = total > 0 ? (value / total).clamp(0.0, 1.0) : 0.0;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(
+          child: Text(label,
+              style: TextStyle(
+                  color: Color(0x80FFFFFF), fontSize: 11.sp,
+                  fontWeight: FontWeight.w600)),
+        ),
+        Text('$value / $total',
+            style: TextStyle(
+                color: kCyan, fontSize: 11.sp, fontWeight: FontWeight.w700)),
+      ]),
+      SizedBox(height: 6.h),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(9999.r),
+        child: LinearProgressIndicator(
+          value: pct,
+          backgroundColor: const Color(0xFF334155),
+          valueColor: const AlwaysStoppedAnimation<Color>(kCyan),
+          minHeight: 8,
+        ),
+      ),
+    ]);
+  }
+
+  // ── RANK CARDS — Figma: Frame 127 165×106 r12 ─────────────────
+  Widget _rankCards(BuildContext context) {
+    return Row(children: [
+      Expanded(child: _RankCard(
+          icon: Icons.emoji_events_rounded,
+          iconColor: kCyan,
+          label: 'Region Rank',
+          value: '#42')),
+      SizedBox(width: 12.w),
+      Expanded(child: _RankCard(
+          icon: Icons.public_rounded,
+          iconColor: const Color(0xFFFFC107),
+          label: 'Global Rank',
+          value: '#1,204')),
+    ]);
   }
 
   void _editProfile(
@@ -415,88 +437,93 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-// ── STAT BOX — Figma: 105×81 rx=12 ──────────────────────────────
-class _StatBox extends StatelessWidget {
-  final String label, value;
-  final Color accent;
-  final bool highlight;
-  const _StatBox(
-      {required this.label, required this.value,
-       required this.accent, required this.highlight});
+const List<Map<String, dynamic>> kMockFriends = [
+  {'name': 'Chukwudi', 'emoji': '🦅', 'online': true,
+   'sub': 'Diamond Tier • Level 84', 'following': false},
+  {'name': 'Amara', 'emoji': '🦁', 'online': true,
+   'sub': 'Master Tier • Level 102', 'following': false},
+  {'name': 'GhostProtocol', 'emoji': '👻', 'online': false,
+   'sub': 'Gold III • Offline', 'following': true},
+  {'name': 'StormWalker', 'emoji': '⛈️', 'online': true,
+   'sub': 'Platinum II • In-Game', 'following': false},
+];
+
+// ── STAT BOX — Figma: 106×82 r12 ────────────────────────────────
+class _ProfileStat extends StatelessWidget {
+  final String value, label;
+  final Color fill;
+  final bool accent;
+  final IconData? icon;
+  const _ProfileStat({required this.value, required this.label,
+      required this.fill, this.accent = false, this.icon});
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 81,
+    height: 82.h,
+    padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
     decoration: BoxDecoration(
-      color: accent,
-      borderRadius: BorderRadius.circular(12),
-      border: highlight ? null : Border.all(color: context.border),
+      color: fill,
+      borderRadius: BorderRadius.circular(12.r),
     ),
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(value,
-            style: TextStyle(
-                color: highlight ? context.bg : context.txtPri,
-                fontSize: 20, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 4),
+        if (icon != null) ...[
+          Icon(icon, color: kCyan, size: 20.w),
+          SizedBox(height: 2.h),
+        ] else
+          Text(value,
+              style: TextStyle(
+                  color: context.txtPri,
+                  fontSize: 20.sp, fontWeight: FontWeight.w700)),
+        SizedBox(height: 2.h),
         Text(label,
             style: TextStyle(
-                color: highlight
-                    ? context.bg.withOpacity(0.7)
-                    : context.txtSec,
-                fontSize: 11, fontWeight: FontWeight.w500)),
+                color: accent
+                    ? kCyan.withOpacity(0.7)
+                    : context.txtSec.withOpacity(0.5),
+                fontSize: 12.sp, fontWeight: FontWeight.w500)),
       ],
     ),
   );
 }
 
-// ── NAV TILE ─────────────────────────────────────────────────────
-class _NavTile extends StatelessWidget {
+// ── RANK CARD — Figma: 165×106 r12 #1E293B@50 ───────────────────
+class _RankCard extends StatelessWidget {
   final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  const _NavTile(
-      {required this.icon, required this.label,
-       required this.color, required this.onTap});
+  final Color iconColor;
+  final String label, value;
+  const _RankCard({required this.icon, required this.iconColor,
+      required this.label, required this.value});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      height: 56,
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.border),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(children: [
-          Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(width: 14),
-          Expanded(child: Text(label,
-              style: TextStyle(
-                  color: context.txtPri, fontSize: 14,
-                  fontWeight: FontWeight.w600))),
-          Icon(Icons.chevron_right_rounded,
-              color: context.txtPri.withOpacity(0.3), size: 20),
-        ]),
-      ),
+  Widget build(BuildContext context) => Container(
+    height: 106.h,
+    padding: EdgeInsets.all(16.r),
+    decoration: BoxDecoration(
+      color: const Color(0x801E293B),
+      borderRadius: BorderRadius.circular(12.r),
+    ),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: iconColor, size: 18.w),
+        SizedBox(height: 4.h),
+        Text(label,
+            style: TextStyle(
+                color: Color(0x80FFFFFF), fontSize: 12.sp,
+                fontWeight: FontWeight.w700)),
+        SizedBox(height: 2.h),
+        Text(value,
+            style: TextStyle(
+                color: Color(0xFFF1F5F9), fontSize: 18.sp,
+                fontWeight: FontWeight.w700)),
+      ],
     ),
   );
 }
 
-// ── FRIEND ROW — Figma: 342×74 rx=12 #1A2131 ─────────────────────
-// avatar 48×48 rx=24, badge 32×19 rx=4 #FF5E00, play btn 64×32 rx=8
+// ── FRIEND ROW (live) — Figma: 342×74 r12 #1A2131@30 ────────────
 class _FriendRow extends StatelessWidget {
   final String uid;
   const _FriendRow({required this.uid});
@@ -504,103 +531,224 @@ class _FriendRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-      child: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('users').doc(uid).snapshots(),
+      padding: EdgeInsets.only(bottom: 10.h),
+      child: FutureBuilder<Map<String, dynamic>>(
+        future: FirestoreCache.instance.doc('users', uid),
         builder: (_, snap) {
-          final u    = (snap.data?.data() as Map?) ?? {};
-          final name = u['username'] as String? ?? 'Player';
-          final emoji = kAvatars.firstWhere(
+          final u      = snap.data ?? {};
+          final name   = u['username'] as String? ?? 'Player';
+          final level  = u['level'] as int? ?? 1;
+          final online = u['online'] as bool? ?? false;
+          final emoji  = kAvatars.firstWhere(
               (a) => a['name'] == (u['avatar'] ?? 'BOT'),
               orElse: () => kAvatars[0])['emoji'] ?? '🤖';
-          final online = u['online'] as bool? ?? false;
 
-          return Container(
-            height: 74,
-            decoration: BoxDecoration(
-              // Figma: #1A2131
-              color: context.card,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(children: [
-                // Avatar 48×48 rx=24
-                Stack(children: [
-                  Container(
-                    width: 48, height: 48,
-                    decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: context.bg),
-                    child: Center(child: Text(emoji,
-                        style: const TextStyle(fontSize: 24))),
-                  ),
-                  if (online) Positioned(
-                    bottom: 1, right: 1,
-                    child: Container(
-                      width: 12, height: 12,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF22C55E),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: context.card, width: 2),
-                      ),
-                    ),
-                  ),
-                ]),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(name,
-                          style: TextStyle(
-                              color: context.txtPri, fontSize: 14,
-                              fontWeight: FontWeight.w700)),
-                      // online badge 32×19 rx=4 #FF5E00 / #334155
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: online
-                              ? kOrange
-                              : context.border,
-                        ),
-                        child: Text(online ? 'Online' : 'Offline',
-                            style: TextStyle(
-                                color: context.txtPri,
-                                fontSize: 9, fontWeight: FontWeight.w700)),
-                      ),
-                    ],
-                  ),
-                ),
-                // Play btn 64×32 rx=8 #FF5E00
-                Container(
-                  width: 64, height: 32,
-                  decoration: BoxDecoration(
-                    color: kOrange,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Center(
-                    child: Text('Play',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12, fontWeight: FontWeight.w800)),
-                  ),
-                ),
-              ]),
-            ),
-          );
+          return _friendRow(context,
+              emoji: emoji, name: name,
+              sub: 'Diamond Tier • Level $level',
+              online: online, following: !online);
         },
       ),
     );
   }
 }
 
-// ── EDIT PROFILE SHEET ────────────────────────────────────────────
+// ── MOCK FRIEND ROW (fallback) ──────────────────────────────────
+class _MockFriendRow extends StatelessWidget {
+  final Map<String, dynamic> data;
+  const _MockFriendRow({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final online = data['online'] as bool? ?? false;
+    return Padding(
+      padding: EdgeInsets.only(bottom: 10.h),
+      child: _friendRow(context,
+          emoji: data['emoji'] as String? ?? '🤖',
+          name: data['name'] as String? ?? 'Player',
+          sub: data['sub'] as String? ?? 'Diamond Tier • Level 1',
+          online: online, following: data['following'] as bool? ?? false),
+    );
+  }
+}
+
+Widget _friendRow(BuildContext context,
+    {required String emoji, required String name,
+     required String sub, required bool online, required bool following}) {
+  return Container(
+    height: 74.h,
+    padding: EdgeInsets.all(12.r),
+    decoration: BoxDecoration(
+      color: following
+          ? const Color(0x1A251A31)
+          : const Color(0x4D1A2131),
+      borderRadius: BorderRadius.circular(12.r),
+    ),
+    child: Row(children: [
+      Stack(children: [
+        Container(
+          width: 48.w, height: 48.h,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Color(0xFF0B0E1A),
+          ),
+          child: Center(
+              child: Text(emoji, style: TextStyle(fontSize: 24.sp))),
+        ),
+        Positioned(
+          bottom: 1, right: 1,
+          child: Container(
+            width: 12.w, height: 12.h,
+            decoration: BoxDecoration(
+              color: online ? const Color(0xFF22C55E) : const Color(0xFF475569),
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFF1A2131), width: 2),
+            ),
+          ),
+        ),
+      ]),
+      SizedBox(width: 12.w),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(name,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: online
+                        ? context.txtPri
+                        : context.txtPri.withOpacity(0.7),
+                    fontSize: 16.sp, fontWeight: FontWeight.w700)),
+            SizedBox(height: 2.h),
+            Text(sub,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: online
+                        ? context.txtPri.withOpacity(0.6)
+                        : const Color(0xFF64748B),
+                    fontSize: 12.sp, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+      SizedBox(width: 8.w),
+      if (following)
+        Container(
+          height: 34.h,
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8.r),
+            border: Border.all(color: const Color(0x801E293B)),
+          ),
+          child: Center(
+            child: Text('Following',
+                style: TextStyle(
+                    color: Color(0x99FFFFFF),
+                    fontSize: 12.sp, fontWeight: FontWeight.w700)),
+          ),
+        )
+      else
+        Container(
+          width: 64.w, height: 32.h,
+          decoration: BoxDecoration(
+            color: kOrange,
+            borderRadius: BorderRadius.circular(8.r),
+          ),
+          child: Center(
+            child: Text('Invite',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.sp, fontWeight: FontWeight.w700)),
+          ),
+        ),
+    ]),
+  );
+}
+
+// ── PREMIUM — Figma: 342×231 r12 fill #0F172A@50 stroke #1E293B ──
+class _PremiumSection extends StatelessWidget {
+  const _PremiumSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      SizedBox(
+        width: double.infinity,
+        child: Text('Go Premium',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: context.txtPri, fontSize: 18.sp,
+                fontWeight: FontWeight.w700)),
+      ),
+      SizedBox(height: 14.h),
+      Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(24.r),
+        decoration: BoxDecoration(
+          color: const Color(0x800F172A),
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: const Color(0xFF1E293B)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              width: 44.w, height: 44.h,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFC107).withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.workspace_premium_rounded,
+                  color: Color(0xFFFFC107), size: 24.w),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Gamearn Premium',
+                      style: TextStyle(
+                          color: context.txtPri,
+                          fontSize: 16.sp, fontWeight: FontWeight.w800)),
+                  SizedBox(height: 2.h),
+                  Text('Exclusive rewards',
+                      style: TextStyle(
+                          color: kCyan, fontSize: 12.sp,
+                          fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ]),
+          SizedBox(height: 16.h),
+          Text(
+              'Unlock bigger prize pools, private tournaments and priority '
+              'payouts — the premium experience for serious players.',
+              style: TextStyle(
+                  color: Color(0xFFCBD5E1), fontSize: 13.sp, height: 1.5)),
+          SizedBox(height: 16.h),
+          GestureDetector(
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Premium coming soon'))),
+            child: Container(
+              height: 48.h,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFC107),
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+              child: Center(
+                child: Text('Go Premium',
+                    style: TextStyle(
+                        color: Color(0xFF0B0E1A),
+                        fontSize: 14.sp, fontWeight: FontWeight.w800)),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    ]);
+  }
+}
+
+// ── EDIT PROFILE SHEET ──────────────────────────────────────────
 class _EditProfileSheet extends StatefulWidget {
   final String uid, username, bio;
   const _EditProfileSheet(
@@ -646,33 +794,33 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24.r),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 40, height: 4,
+          Container(width: 40.w, height: 4.h,
               decoration: BoxDecoration(
                   color: context.txtPri.withOpacity(0.24),
-                  borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 20),
+                  borderRadius: BorderRadius.circular(2.r))),
+          SizedBox(height: 20.h),
           Text('Edit Profile',
               style: TextStyle(color: context.txtPri,
-                  fontSize: 17, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 20),
+                  fontSize: 17.sp, fontWeight: FontWeight.w800)),
+          SizedBox(height: 20.h),
           _field(_nameCtrl, 'Username', Icons.person_outline_rounded),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.h),
           _field(_bioCtrl, 'Bio', Icons.edit_note_rounded),
-          const SizedBox(height: 20),
+          SizedBox(height: 20.h),
           GestureDetector(
             onTap: _saving ? null : _save,
             child: Container(
-              width: double.infinity, height: 48,
+              width: double.infinity, height: 48.h,
               decoration: BoxDecoration(
-                  color: kOrange, borderRadius: BorderRadius.circular(12)),
+                  color: kOrange, borderRadius: BorderRadius.circular(12.r)),
               child: Center(child: _saving
                   ? const CircularProgressIndicator(
                       color: Colors.white, strokeWidth: 2)
-                  : const Text('Save',
+                  : Text('Save',
                       style: TextStyle(color: Colors.white,
-                          fontSize: 15, fontWeight: FontWeight.w800))),
+                          fontSize: 15.sp, fontWeight: FontWeight.w800))),
             ),
           ),
         ]),
@@ -682,17 +830,17 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
   Widget _field(TextEditingController ctrl, String hint, IconData icon) =>
       Container(
-        height: 52,
+        height: 52.h,
         decoration: BoxDecoration(
           color: context.card,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(10.r),
           border: Border.all(color: context.border),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          padding: EdgeInsets.symmetric(horizontal: 14.w),
           child: Row(children: [
-            Icon(icon, color: kCyan, size: 18),
-            const SizedBox(width: 10),
+            Icon(icon, color: kCyan, size: 18.w),
+            SizedBox(width: 10.w),
             Expanded(child: TextField(
               controller: ctrl,
               style: TextStyle(color: context.txtPri),
@@ -705,4 +853,23 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           ]),
         ),
       );
+}
+
+// ── FORMATTING HELPERS ──────────────────────────────────────────
+String _fmtNum(int n) {
+  final s = n.toString();
+  final b = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) b.write(',');
+    b.write(s[i]);
+  }
+  return b.toString();
+}
+
+String _fmtCount(int n) {
+  if (n >= 1000) {
+    final k = n / 1000;
+    return k >= 100 ? '${k.round()}k' : '${k.toStringAsFixed(1)}k';
+  }
+  return '$n';
 }

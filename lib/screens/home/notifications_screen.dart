@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
@@ -47,41 +48,30 @@ class NotificationsScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(children: [
 
-          // ── HEADER ────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          // ── HEADER — Figma Frame 56 ─────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
+            decoration: const BoxDecoration(
+              color: Color(0xE60B0E1A),
+              border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+            ),
             child: Row(children: [
               GestureDetector(
                 onTap: () => Navigator.maybePop(context),
-                child: Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: context.card,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: context.border),
-                  ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 16),
-                ),
+                child: Icon(Icons.close_rounded,
+                    color: Color(0xFFF1F5F9), size: 20.w),
               ),
-              const SizedBox(width: 14),
-              Text('Notifications',
-                  style: TextStyle(
-                      color: context.txtPri,
-                      fontSize: 17, fontWeight: FontWeight.w800)),
-              const Spacer(),
-              // Mark all read
-              GestureDetector(
-                onTap: () => _markAllRead(uid),
-                child: const Text('Mark all read',
+              Expanded(
+                child: Text('Notifications',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
-                        color: kCyan,
-                        fontSize: 12, fontWeight: FontWeight.w600)),
+                        color: Color(0xFFF1F5F9),
+                        fontSize: 18.sp, fontWeight: FontWeight.w700)),
               ),
+              SizedBox(width: 20.w),
             ]),
           ),
-
-          const SizedBox(height: 16),
 
           // ── NOTIFICATION ROWS ─────────────────────────────────
           Expanded(
@@ -113,8 +103,8 @@ class NotificationsScreen extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text('🔔',
-                            style: TextStyle(fontSize: 48)),
-                        SizedBox(height: 12),
+                            style: TextStyle(fontSize: 48.sp)),
+                        SizedBox(height: 12.h),
                         Text('No notifications yet',
                             style: TextStyle(
                                 color: context.txtSec)),
@@ -123,11 +113,34 @@ class NotificationsScreen extends StatelessWidget {
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: items.length,
-                  itemBuilder: (_, i) =>
-                      _NotifRow(data: items[i], uid: uid),
+                return ListView(
+                  padding: EdgeInsets.symmetric(horizontal: 24.w),
+                  children: [
+
+                    SizedBox(height: 24.h),
+
+                    // ── MARK ALL AS READ — Figma: 342×35, fs18 w700 #22D1EE ──
+                    GestureDetector(
+                      onTap: () => _markAllRead(uid),
+                      child: Padding(
+                        padding: EdgeInsets.only(bottom: 12.h),
+                        child: Text('Mark all as read',
+                            style: TextStyle(
+                                color: kCyan,
+                                fontSize: 18.sp,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.27.w)),
+                      ),
+                    ),
+
+                    // ── NOTIFICATION ROWS — Figma: flat rows, itemSpacing 8 ──
+                    ...List.generate(items.length, (i) {
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: 8.h),
+                        child: _NotifRow(data: items[i], uid: uid),
+                      );
+                    }),
+                  ],
                 );
               },
             ),
@@ -219,39 +232,24 @@ class _NotifRow extends StatelessWidget {
         }
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          // unread rows slightly lighter
-          color: read
-              ? context.card
-              : context.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: read
-                ? context.border
-                : kCyan.withOpacity(0.25),
-          ),
-        ),
+        padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Icon box — Figma: 48×48 rx=12
             Stack(clipBehavior: Clip.none, children: [
               Container(
-                width: 48, height: 48,
+                width: 48.w, height: 48.h,
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12.r),
                   border: Border.all(color: color.withOpacity(0.3)),
                 ),
-                child: Icon(icon, color: color, size: 22),
+                child: Icon(icon, color: color, size: 22.w),
               ),
-              // Unread dot — 8×8 #22D1EE top-right
               if (!read) Positioned(
                 top: -2, right: -2,
                 child: Container(
-                  width: 8, height: 8,
+                  width: 8.w, height: 8.h,
                   decoration: const BoxDecoration(
                     color: kCyan,
                     shape: BoxShape.circle,
@@ -259,40 +257,38 @@ class _NotifRow extends StatelessWidget {
                 ),
               ),
             ]),
-            const SizedBox(width: 14),
+            SizedBox(width: 16.w),
             // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [
-                    Expanded(
-                      child: Text(title,
-                          style: TextStyle(
-                              color: context.txtPri,
-                              fontSize: 14,
-                              fontWeight: read
-                                  ? FontWeight.w600
-                                  : FontWeight.w800),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(time,
-                        style: TextStyle(
-                            color: context.txtSec,
-                            fontSize: 10)),
-                  ]),
-                  const SizedBox(height: 4),
+                  Text(title,
+                      style: TextStyle(
+                          color: context.txtPri,
+                          fontSize: 14.sp,
+                          fontWeight: read
+                              ? FontWeight.w600
+                              : FontWeight.w800),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  SizedBox(height: 4.h),
                   Text(body,
                       style: TextStyle(
                           color: context.txtSec,
-                          fontSize: 12, height: 1.4),
+                          fontSize: 12.sp, height: 1.4),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
+            SizedBox(width: 12.w),
+            // Time — Figma: fs12 w500 #FFFFFF@50, right-aligned
+            Text(time,
+                style: TextStyle(
+                    color: Color(0x80FFFFFF),
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w500)),
           ],
         ),
       ),

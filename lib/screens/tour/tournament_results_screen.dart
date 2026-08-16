@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme.dart';
 
 // ════════════════════════════════════════════════════════════════
@@ -24,7 +25,6 @@ const _kAvatarUser = 'https://www.figma.com/api/mcp/asset/d77c3908-e41a-4c09-be6
 const _kAvatarP1   = 'https://www.figma.com/api/mcp/asset/b686b276-99d3-4e95-a53a-eab1806ad7ee';
 const _kAvatarP2   = 'https://www.figma.com/api/mcp/asset/3abe1b04-a1e6-455b-bdef-215acb29939f';
 const _kIconCrown  = 'https://www.figma.com/api/mcp/asset/de62c9a1-fdcd-45b2-bdc6-466a9c14be24';
-const _kIconBack   = 'https://www.figma.com/api/mcp/asset/cbceca0c-a744-48c1-afcf-e16d15d14e85';
 
 class TournamentResultsScreen extends StatelessWidget {
   final String tournamentId;
@@ -44,9 +44,9 @@ class TournamentResultsScreen extends StatelessWidget {
             .snapshots(),
         builder: (_, snap) {
           if (!snap.hasData) {
-            return const Center(
+            return Center(
                 child: CircularProgressIndicator(
-                    color: Color(0xFF22D1EE), strokeWidth: 2));
+                    color: const Color(0xFF22D1EE), strokeWidth: 2.w));
           }
 
           final data    = snap.data!.data() as Map<String, dynamic>? ?? {};
@@ -78,9 +78,9 @@ class TournamentResultsScreen extends StatelessWidget {
                 left: 67,
                 right: 67,
                 child: Container(
-                  height: 256,
+                  height: 256.h,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(9999),
+                    borderRadius: BorderRadius.circular(9999.r),
                     color: const Color(0x3322D1EE),
                   ),
                   // blur via ImageFilter would need BackdropFilter — use BoxShadow glow instead
@@ -92,22 +92,22 @@ class TournamentResultsScreen extends StatelessWidget {
                   _AppBar(safeTop: top),
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
+                      padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 40.h),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const SizedBox(height: 24),
+                          SizedBox(height: 24.h),
 
                           // ── COMPLETED badge — node 2322:2799 ──────────
                           // w=125 rx=100 px=9 py=7 bg rgba(22,34,63,0.8)
                           // border rgba(42,229,0,0.3)
                           Container(
-                            width: 125,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 9, vertical: 7),
+                            width: 125.w,
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 9.w, vertical: 7.h),
                             decoration: BoxDecoration(
                               color: const Color(0xCC16223F),
-                              borderRadius: BorderRadius.circular(100),
+                              borderRadius: BorderRadius.circular(100.r),
                               border: Border.all(
                                   color: const Color(0x4D2AE500)),
                             ),
@@ -116,69 +116,69 @@ class TournamentResultsScreen extends StatelessWidget {
                               children: [
                                 // Dot 8×8 #2AE500 shadow 0,0,8 rgba(42,229,0,0.6)
                                 Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFF2AE500),
+                                  width: 8.w,
+                                  height: 8.h,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2AE500),
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                          color: Color(0x992AE500),
-                                          blurRadius: 8)
+                                          color: const Color(0x992AE500),
+                                          blurRadius: 8.w)
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                const Text('COMPLETED',
+                                SizedBox(width: 6.w),
+                                Text('COMPLETED',
                                     style: TextStyle(
-                                        color: Color(0xCC2AE500),
-                                        fontSize: 10,
+                                        color: const Color(0xCC2AE500),
+                                        fontSize: 10.sp,
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 2,
                                         height: 15 / 10)),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          SizedBox(height: 12.h),
 
                           // ── Title — node 2322:2804 ────────────────────
                           // fs=32 fw=700 lh=40 ls=-0.8 white center
                           Text(title,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 32,
+                                  fontSize: 32.sp,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: -0.8,
                                   height: 40 / 32)),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4.h),
 
                           // ── Prize pool — node 2322:2805 ───────────────
-                          const Text('Total Prize Pool',
+                          Text('Total Prize Pool',
                               style: TextStyle(
-                                  color: Color(0x99FFFFFF),
-                                  fontSize: 10,
+                                  color: const Color(0x99FFFFFF),
+                                  fontSize: 10.sp,
                                   fontWeight: FontWeight.w700,
                                   height: 13.5 / 10)),
-                          const SizedBox(height: 2),
+                          SizedBox(height: 2.h),
                           Text('₦${_fmt(totalNaira)}.00',
-                              style: const TextStyle(
-                                  color: Color(0xFFFFC107),
-                                  fontSize: 20,
+                              style: TextStyle(
+                                  color: const Color(0xFFFFC107),
+                                  fontSize: 20.sp,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 2,
                                   height: 25 / 20)),
-                          const SizedBox(height: 32),
+                          SizedBox(height: 32.h),
 
                           // ── Podium — node 2322:2810 ───────────────────
                           // py=16 gap=16 items-end justify-center
                           _Podium(results: results, prizes: prizes),
-                          const SizedBox(height: 16),
+                          SizedBox(height: 16.h),
 
                           // ── User Performance card — node 2326:1464 ────
                           if (myRank != null)
                             _UserCard(rank: myRank, pts: myPts, earned: myEarned),
-                          if (myRank != null) const SizedBox(height: 16),
+                          if (myRank != null) SizedBox(height: 16.h),
 
                           // ── Leaderboard — node 2327:1521 ─────────────
                           _Leaderboard(results: results, uid: uid),
@@ -220,7 +220,7 @@ class _AppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(24, safeTop + 16, 24, 16),
+      padding: EdgeInsets.fromLTRB(24.w, safeTop + 16.h, 24.w, 16.h),
       decoration: const BoxDecoration(
         color: Color(0xE60B0E1A),
         border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF))),
@@ -228,10 +228,10 @@ class _AppBar extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          const Text('Tournament Results',
+          Text('Tournament Results',
               style: TextStyle(
-                  color: Color(0xFFF1F5F9),
-                  fontSize: 18,
+                  color: const Color(0xFFF1F5F9),
+                  fontSize: 18.sp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.27,
                   height: 22.5 / 18)),
@@ -239,19 +239,8 @@ class _AppBar extends StatelessWidget {
             left: 0,
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
-              behavior: HitTestBehavior.opaque,
-              child: SizedBox(
-                width: 16,
-                height: 25,
-                child: CachedNetworkImage(
-                  imageUrl: _kIconBack,
-                  fit: BoxFit.contain,
-                  errorWidget: (_, __, ___) => const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white,
-                      size: 18),
-                ),
-              ),
+              child: Icon(Icons.close_rounded,
+                  color: const Color(0xFFF1F5F9), size: 20.w),
             ),
           ),
         ],
@@ -274,7 +263,7 @@ class _Podium extends StatelessWidget {
     final p3 = results.length > 2 ? results[2] : null;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: EdgeInsets.symmetric(vertical: 16.h),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -333,24 +322,24 @@ class _FirstPlace extends StatelessWidget {
       children: [
         // pb=16 to push avatar down vs 2nd/3rd
         Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: EdgeInsets.only(bottom: 16.h),
           child: Stack(
             clipBehavior: Clip.none,
             children: [
               // Crown icon — node 2322:2830-2831 — 30×27 top=-32 center-x
               Positioned(
-                top: -32,
+                top: -32.h,
                 left: 0,
                 right: 0,
                 child: Center(
                   child: SizedBox(
-                    width: 30,
-                    height: 27,
+                    width: 30.w,
+                    height: 27.h,
                     child: CachedNetworkImage(
                       imageUrl: _kIconCrown,
                       fit: BoxFit.contain,
                       errorWidget: (_, __, ___) =>
-                          const Text('👑', style: TextStyle(fontSize: 24)),
+                          Text('👑', style: TextStyle(fontSize: 24.sp)),
                     ),
                   ),
                 ),
@@ -358,47 +347,47 @@ class _FirstPlace extends StatelessWidget {
               // Avatar — node 2322:2832 — 112×112 rx=24 border #FFC107 w=4
               // shadow 0,0,12,0 rgba(255,193,7,0.6)
               Container(
-                width: 112,
-                height: 112,
+                width: 112.w,
+                height: 112.h,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFFFC107), width: 4),
-                  boxShadow: const [
+                  borderRadius: BorderRadius.circular(24.r),
+                  border: Border.all(color: const Color(0xFFFFC107), width: 4.w),
+                  boxShadow: [
                     BoxShadow(
-                        color: Color(0x99FFC107), blurRadius: 12, spreadRadius: 0)
+                        color: const Color(0x99FFC107), blurRadius: 12.w, spreadRadius: 0)
                   ],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(20.r),
                   child: CachedNetworkImage(
                     imageUrl: avatarUrl ?? _kAvatarWin,
                     fit: BoxFit.cover,
                     errorWidget: (_, __, ___) => Container(
                         color: const Color(0xFF2A3B66),
-                        child: const Icon(Icons.person,
-                            color: Colors.white54, size: 48)),
+                        child: Icon(Icons.person,
+                            color: Colors.white54, size: 48.w)),
                   ),
                 ),
               ),
               // Rank badge — node 2322:2834 — 40×40 rx=12 bg #FFC107
               // border #0B0E1A w=2 bottom=-20 right=-8.32
               Positioned(
-                bottom: -20,
-                right: -8,
+                bottom: -20.h,
+                right: -8.w,
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: 40.w,
+                  height: 40.h,
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFC107),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12.r),
                     border:
-                        Border.all(color: const Color(0xFF0B0E1A), width: 2),
+                        Border.all(color: const Color(0xFF0B0E1A), width: 2.w),
                   ),
-                  child: const Center(
+                  child: Center(
                     child: Text('1',
                         style: TextStyle(
-                            color: Color(0xFF0B0E1A),
-                            fontSize: 20,
+                            color: const Color(0xFF0B0E1A),
+                            fontSize: 20.sp,
                             fontWeight: FontWeight.w700,
                             height: 28 / 20)),
                   ),
@@ -407,21 +396,21 @@ class _FirstPlace extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 4.h),
         // Name — #FFC107 fs=14 fw=700 ls=1.4 uppercase
         Text(name.toUpperCase(),
-            style: const TextStyle(
-                color: Color(0xFFFFC107),
-                fontSize: 14,
+            style: TextStyle(
+                color: const Color(0xFFFFC107),
+                fontSize: 14.sp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.4,
                 height: 20 / 14)),
-        const SizedBox(height: 2),
+        SizedBox(height: 2.h),
         // Prize — #FFC107 fs=12 fw=700
         Text(prize > 0 ? '₦${_fmt(prize)}' : '',
-            style: const TextStyle(
-                color: Color(0xFFFFC107),
-                fontSize: 12,
+            style: TextStyle(
+                color: const Color(0xFFFFC107),
+                fontSize: 12.sp,
                 fontWeight: FontWeight.w700,
                 height: 16 / 12)),
       ],
@@ -476,18 +465,18 @@ class _PodiumSlot extends StatelessWidget {
                     width: avatarSize,
                     height: avatarSize,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: borderColor, width: 2),
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(color: borderColor, width: 2.w),
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(14.r),
                       child: CachedNetworkImage(
                         imageUrl: avatarUrl ?? staticAvatarUrl,
                         fit: BoxFit.cover,
                         errorWidget: (_, __, ___) => Container(
                             color: const Color(0xFF2A3B66),
-                            child: const Icon(Icons.person,
-                                color: Colors.white54, size: 28)),
+                            child: Icon(Icons.person,
+                                color: Colors.white54, size: 28.w)),
                       ),
                     ),
                   ),
@@ -495,20 +484,20 @@ class _PodiumSlot extends StatelessWidget {
               ),
               // Rank badge — 32×32 rx=8, bottom=-6.37 right=-6.37
               Positioned(
-                bottom: -6,
-                right: -6,
+                bottom: -6.h,
+                right: -6.w,
                 child: Container(
-                  width: 32,
-                  height: 32,
+                  width: 32.w,
+                  height: 32.h,
                   decoration: BoxDecoration(
                     color: rankBg,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(8.r),
                   ),
                   child: Center(
                     child: Text('$rank',
-                        style: const TextStyle(
-                            color: Color(0xFF0B0E1A),
-                            fontSize: 14,
+                        style: TextStyle(
+                            color: const Color(0xFF0B0E1A),
+                            fontSize: 14.sp,
                             fontWeight: FontWeight.w700,
                             height: 20 / 14)),
                   ),
@@ -517,20 +506,20 @@ class _PodiumSlot extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 2),
+        SizedBox(height: 2.h),
         Text(name.toUpperCase(),
             textAlign: TextAlign.center,
             style: TextStyle(
                 color: nameColor,
-                fontSize: 12,
+                fontSize: 12.sp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.6,
                 height: 16 / 12)),
-        const SizedBox(height: 2),
+        SizedBox(height: 2.h),
         Text(prize > 0 ? '₦${_fmt(prize)}' : '',
-            style: const TextStyle(
-                color: Color(0xFFFFC107),
-                fontSize: 10,
+            style: TextStyle(
+                color: const Color(0xFFFFC107),
+                fontSize: 10.sp,
                 fontWeight: FontWeight.w700,
                 height: 15 / 10)),
       ],
@@ -557,14 +546,14 @@ class _UserCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(28, 24, 24, 24),
-      decoration: const BoxDecoration(
-        color: Color(0x991E2E56),
+      padding: EdgeInsets.fromLTRB(28.w, 24.h, 24.w, 24.h),
+      decoration: BoxDecoration(
+        color: const Color(0x991E2E56),
         borderRadius: BorderRadius.only(
-          topRight: Radius.circular(12),
-          bottomRight: Radius.circular(12),
+          topRight: Radius.circular(12.r),
+          bottomRight: Radius.circular(12.r),
         ),
-        border: Border(left: BorderSide(color: Color(0xFF22D1EE), width: 4)),
+        border: Border(left: BorderSide(color: const Color(0xFF22D1EE), width: 4.w)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -572,41 +561,41 @@ class _UserCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('YOUR FINAL RANK',
+              Text('YOUR FINAL RANK',
                   style: TextStyle(
-                      color: Color(0xFF22D1EE),
-                      fontSize: 10,
+                      color: const Color(0xFF22D1EE),
+                      fontSize: 10.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
                       height: 15 / 10)),
-              const SizedBox(height: 2),
+              SizedBox(height: 2.h),
               Text('#$rank',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: Colors.white,
-                      fontSize: 32,
+                      fontSize: 32.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.8,
                       height: 40 / 32)),
             ],
           ),
           // Vertical divider — node 2326:1471 — 1px h=48 rgba(51,65,85,0.5)
-          Container(width: 1, height: 48, color: const Color(0x80334155)),
+          Container(width: 1.w, height: 48.h, color: const Color(0x80334155)),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('EARNED REWARDS',
+              Text('EARNED REWARDS',
                   style: TextStyle(
-                      color: Color(0xB3FFFFFF),
-                      fontSize: 10,
+                      color: const Color(0xB3FFFFFF),
+                      fontSize: 10.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
                       height: 15 / 10)),
-              const SizedBox(height: 2),
+              SizedBox(height: 2.h),
               Text(
                 earned > 0 ? '₦${_fmt(earned)}.00' : '₦0.00',
-                style: const TextStyle(
-                    color: Color(0xFFFFC107),
-                    fontSize: 20,
+                style: TextStyle(
+                    color: const Color(0xFFFFC107),
+                    fontSize: 20.sp,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
                     height: 25 / 20),
@@ -639,28 +628,28 @@ class _Leaderboard extends StatelessWidget {
               child: Text('Leaderboard',
                   style: TextStyle(
                       color: context.txtSec,
-                      fontSize: 14,
+                      fontSize: 14.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.4,
                       height: 20 / 14)),
             ),
             Text('Points',
                 style: TextStyle(
-                    color: Color(0xFF22D1EE),
-                    fontSize: 10,
+                    color: const Color(0xFF22D1EE),
+                    fontSize: 10.sp,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1,
                     height: 15 / 10)),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16.h),
         // Rows — gap=10
         ...results.asMap().entries.map((e) {
           final i    = e.key;
           final r    = e.value;
           final isMe = r['uid'] == uid;
           return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.only(bottom: 10.h),
             child: _LeaderboardRow(
               rank: i + 1,
               name: r['username'] as String? ?? 'Player',
@@ -700,19 +689,19 @@ class _LeaderboardRow extends StatelessWidget {
     // Others — node 2327:1538
     // bg rgba(10,17,40,0.5) border transparent rx=12
     return Container(
-      padding: const EdgeInsets.all(17),
+      padding: EdgeInsets.all(17.r),
       decoration: BoxDecoration(
         color: isCurrentUser ? const Color(0xFF16223F) : const Color(0x800A1128),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: isCurrentUser
               ? const Color(0x6622D1EE)
               : const Color(0x00000000),
         ),
         boxShadow: isCurrentUser
-            ? const [
+            ? [
                 BoxShadow(
-                    color: Color(0x6622D1EE), blurRadius: 8, spreadRadius: 0)
+                    color: const Color(0x6622D1EE), blurRadius: 8.w, spreadRadius: 0)
               ]
             : [],
       ),
@@ -720,23 +709,23 @@ class _LeaderboardRow extends StatelessWidget {
         children: [
           // Rank — user: #22D1EE fs=12 fw=500 | other: #94A3B8
           SizedBox(
-            width: 24,
+            width: 24.w,
             child: Text('$rank',
                 style: TextStyle(
                     color: isCurrentUser
                         ? const Color(0xFF22D1EE)
                         : context.txtSec,
-                    fontSize: 12,
+                    fontSize: 12.sp,
                     fontWeight: FontWeight.w500,
                     height: 16 / 12)),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16.w),
 
           // Avatar
           // User: 40×40 circle border rgba(34,209,238,0.3) w=2 bg #2A3B66
           // Others: 36×36 circle no border bg #2A3B66
           _buildAvatar(),
-          const SizedBox(width: 16),
+          SizedBox(width: 16.w),
 
           // Name
           Expanded(
@@ -746,7 +735,7 @@ class _LeaderboardRow extends StatelessWidget {
                   color: isCurrentUser
                       ? const Color(0xFF22D1EE)
                       : context.txtSec,
-                  fontSize: 14,
+                  fontSize: 14.sp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.35,
                   height: 20 / 14),
@@ -760,7 +749,7 @@ class _LeaderboardRow extends StatelessWidget {
                   color: isCurrentUser
                       ? const Color(0xFF22D1EE)
                        : context.txtSec,
-                   fontSize: 16,
+                   fontSize: 16.sp,
                    fontWeight: FontWeight.w700,
                    letterSpacing: 0.8,
                    height: 24 / 16)),
@@ -772,7 +761,7 @@ class _LeaderboardRow extends StatelessWidget {
   Widget _buildAvatar() {
     final size = isCurrentUser ? 40.0 : 36.0;
     final border = isCurrentUser
-        ? Border.all(color: const Color(0x4D22D1EE), width: 2)
+        ? Border.all(color: const Color(0x4D22D1EE), width: 2.w)
         : null;
 
     if (avatarUrl != null) {
@@ -792,9 +781,9 @@ class _LeaderboardRow extends StatelessWidget {
             alignment: isCurrentUser ? Alignment.center : Alignment.center,
             errorWidget: (_, __, ___) => Center(
                 child: Text(initials,
-                    style: const TextStyle(
-                        color: Color(0xFFF1F5F9),
-                        fontSize: 12,
+                    style: TextStyle(
+                        color: const Color(0xFFF1F5F9),
+                        fontSize: 12.sp,
                         fontWeight: FontWeight.w700))),
           ),
         ),
@@ -812,9 +801,9 @@ class _LeaderboardRow extends StatelessWidget {
       ),
       child: Center(
         child: Text(initials,
-            style: const TextStyle(
-                color: Color(0xFFF1F5F9),
-                fontSize: 12,
+            style: TextStyle(
+                color: const Color(0xFFF1F5F9),
+                fontSize: 12.sp,
                 fontWeight: FontWeight.w700,
                 height: 16 / 12)),
       ),

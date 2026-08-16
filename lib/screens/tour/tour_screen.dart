@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
@@ -46,40 +47,40 @@ class _TourScreenState extends State<TourScreen> {
 
           // ── HEADER ───────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0.h),
             child: Row(children: [
-              const Text('Tournaments',
+              Text('Tournaments',
                   style: TextStyle(
                       color: Colors.white,
-                      fontSize: 20, fontWeight: FontWeight.w900)),
+                      fontSize: 20.sp, fontWeight: FontWeight.w900)),
               const Spacer(),
               // Create btn — 40×40 rx=8 #FF5E00
               GestureDetector(
                 onTap: () => _showCreateSheet(context),
                 child: Container(
-                  width: 40, height: 40,
+                  width: 40.w, height: 40.h,
                   decoration: BoxDecoration(
                     color: kOrange,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(8.r),
                   ),
-                  child: const Icon(Icons.add_rounded,
-                      color: Colors.white, size: 22),
+                  child: Icon(Icons.add_rounded,
+                      color: Colors.white, size: 22.w),
                 ),
               ),
             ]),
           ),
 
-          const SizedBox(height: 14),
+          SizedBox(height: 14.h),
 
           // ── TAB BAR — Figma: 342×36 rx=8 #1E293B ─────────────────
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
             child: Container(
-              height: 36,
-              padding: const EdgeInsets.all(3),
+              height: 36.h,
+              padding: EdgeInsets.all(3.r),
               decoration: BoxDecoration(
                 color: context.card,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.r),
               ),
               child: Row(
                 children: List.generate(_tabs.length, (i) {
@@ -91,7 +92,7 @@ class _TourScreenState extends State<TourScreen> {
                         duration: const Duration(milliseconds: 180),
                         decoration: BoxDecoration(
                           color: active ? kCyan : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(6.r),
                         ),
                         child: Center(
                           child: Text(_tabs[i],
@@ -99,7 +100,7 @@ class _TourScreenState extends State<TourScreen> {
                                   color: active
                                       ? const Color(0xFF0B0E1A)
                                       : const Color(0xFF9A9A9A),
-                                  fontSize: 11,
+                                  fontSize: 11.sp,
                                   fontWeight: FontWeight.w700)),
                         ),
                       ),
@@ -110,7 +111,7 @@ class _TourScreenState extends State<TourScreen> {
             ),
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: 12.h),
 
           // ── CARDS LIST ────────────────────────────────────────────
           Expanded(
@@ -136,7 +137,7 @@ class _TourScreenState extends State<TourScreen> {
                   return _emptyState();
                 }
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
                   itemCount: docs.length,
                   itemBuilder: (_, i) {
                     final data =
@@ -172,24 +173,24 @@ class _TourScreenState extends State<TourScreen> {
 
   Widget _emptyState() => Center(
     child: Column(mainAxisSize: MainAxisSize.min, children: [
-      const Text('🏆', style: TextStyle(fontSize: 52)),
-      const SizedBox(height: 12),
+      Text('🏆', style: TextStyle(fontSize: 52.sp)),
+      SizedBox(height: 12.h),
       Text(
         _tab == 0
             ? 'No tournaments yet'
             : 'No ${_tabs[_tab].toLowerCase()} tournaments',
-        style: const TextStyle(color: Color(0xFF9A9A9A), fontSize: 15),
+        style: TextStyle(color: const Color(0xFF9A9A9A), fontSize: 15.sp),
       ),
       if (_tab == 0) ...[
-        const SizedBox(height: 20),
+        SizedBox(height: 20.h),
         GestureDetector(
           onTap: () => _showCreateSheet(context),
           child: Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 28, vertical: 12),
+            padding: EdgeInsets.symmetric(
+                horizontal: 28.w, vertical: 12.h),
             decoration: BoxDecoration(
               color: kOrange,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(10.r),
             ),
             child: const Text('Create Tournament',
                 style: TextStyle(
@@ -243,14 +244,14 @@ class _TourCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 160,
-        margin: const EdgeInsets.only(bottom: 12),
+        height: 160.h,
+        margin: EdgeInsets.only(bottom: 12.h),
         decoration: BoxDecoration(
           color: context.card,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12.r),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12.r),
           child: Stack(fit: StackFit.expand, children: [
             // Hero image
             Image.asset(asset, fit: BoxFit.cover),
@@ -266,7 +267,7 @@ class _TourCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(14),
+              padding: EdgeInsets.all(14.r),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -274,13 +275,13 @@ class _TourCard extends StatelessWidget {
                   Row(children: [
                     // Status chip — Figma: 68×22 rx=11 #22D1EE live / #313F55 upcoming
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 10.w, vertical: 4.h),
                       decoration: BoxDecoration(
                         color: isLive
                             ? kCyan
                             : const Color(0xFF313F55),
-                        borderRadius: BorderRadius.circular(11),
+                        borderRadius: BorderRadius.circular(11.r),
                       ),
                       child: Text(
                         isLive ? '● Live' : status.toUpperCase(),
@@ -288,47 +289,47 @@ class _TourCard extends StatelessWidget {
                             color: isLive
                                 ? const Color(0xFF0B0E1A)
                                 : Colors.white,
-                            fontSize: 10,
+                            fontSize: 10.sp,
                             fontWeight: FontWeight.w800),
                       ),
                     ),
                     const Spacer(),
                     // Prize badge — Figma: 105×30 rx=15 #313F55
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 12.w, vertical: 6.h),
                       decoration: BoxDecoration(
                         color: const Color(0xFF313F55),
-                        borderRadius: BorderRadius.circular(15),
+                        borderRadius: BorderRadius.circular(15.r),
                       ),
                       child: Text('₦$prize',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: kCyan,
-                              fontSize: 12,
+                              fontSize: 12.sp,
                               fontWeight: FontWeight.w800)),
                     ),
                   ]),
                   const Spacer(),
                   // Title
                   Text(title,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: Colors.white,
-                          fontSize: 15, fontWeight: FontWeight.w800),
+                          fontSize: 15.sp, fontWeight: FontWeight.w800),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6.h),
                   // Bottom row: avatars + player count badge
                   Row(children: [
                     // Player avatars stacked — Figma: 30×30 rx=15 overlapping
                     SizedBox(
-                      width: 70, height: 24,
+                      width: 70.w, height: 24.h,
                       child: Stack(
                         children: List.generate(
                           (players).clamp(0, 3),
                           (i) => Positioned(
                             left: i * 16.0,
                             child: Container(
-                              width: 24, height: 24,
+                              width: 24.w, height: 24.h,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: context.card,
@@ -336,9 +337,9 @@ class _TourCard extends StatelessWidget {
                                     color: const Color(0xFF0B0E1A),
                                     width: 1.5),
                               ),
-                              child: const Center(
+                              child: Center(
                                   child: Text('👤',
-                                      style: TextStyle(fontSize: 11))),
+                                      style: TextStyle(fontSize: 11.sp))),
                             ),
                           ),
                         ),
@@ -346,16 +347,16 @@ class _TourCard extends StatelessWidget {
                     ),
                     // "+N" badge — Figma: 30×32 rx=16 #313F55
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 8.w, vertical: 4.h),
                       decoration: BoxDecoration(
                         color: const Color(0xFF313F55),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(16.r),
                       ),
                       child: Text('$players/$maxP players',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: Colors.white,
-                              fontSize: 10)),
+                              fontSize: 10.sp)),
                     ),
                   ]),
                 ],
@@ -433,44 +434,44 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
       builder: (_, ctrl) => Container(
         decoration: BoxDecoration(
           color: context.bg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
         ),
         child: ListView(
           controller: ctrl,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
           children: [
-            const SizedBox(height: 12),
+            SizedBox(height: 12.h),
             Center(
               child: Container(
-                width: 40, height: 4,
+                width: 40.w, height: 4.h,
                 decoration: BoxDecoration(
                     color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2)),
+                    borderRadius: BorderRadius.circular(2.r)),
               ),
             ),
-            const SizedBox(height: 16),
-            const Text('Create Tournament',
+            SizedBox(height: 16.h),
+            Text('Create Tournament',
                 style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 20),
+                    fontSize: 18.sp, fontWeight: FontWeight.w900)),
+            SizedBox(height: 20.h),
 
             // Title field — Figma: 341×59 rx=12 #1E293B
             _field(_titleCtrl, 'Tournament Name',
                 Icons.emoji_events_outlined),
-            const SizedBox(height: 10),
+            SizedBox(height: 10.h),
 
             // Prize field
             _field(_prizeCtrl, 'Prize Pool (e.g. 50000)',
                 Icons.monetization_on_outlined),
-            const SizedBox(height: 20),
+            SizedBox(height: 20.h),
 
             // Game picker — Figma: 4× 78×79 rx=12 #16223F
-            const Text('Select Game',
+            Text('Select Game',
                 style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 10),
+                    fontSize: 14.sp, fontWeight: FontWeight.w700)),
+            SizedBox(height: 10.h),
             Row(
               children: List.generate(_games.length, (i) {
                 final active = _gameIdx == i;
@@ -479,13 +480,13 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
                     onTap: () => setState(() => _gameIdx = i),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
-                      height: 79,
+                      height: 79.h,
                       margin: EdgeInsets.only(
-                          right: i < _games.length - 1 ? 8 : 0),
+                          right: i < _games.length - 1 ? 8.w : 0),
                       decoration: BoxDecoration(
                         // Figma: #16223F base, active adds cyan border
                         color: const Color(0xFF16223F),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(12.r),
                         border: Border.all(
                           color: active
                               ? kCyan
@@ -497,12 +498,12 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(_games[i]['emoji'] as String,
-                              style: const TextStyle(fontSize: 26)),
-                          const SizedBox(height: 4),
+                              style: TextStyle(fontSize: 26.sp)),
+                          SizedBox(height: 4.h),
                           Text(_games[i]['label'] as String,
                               style: TextStyle(
                                   color: active ? kCyan : Colors.white54,
-                                  fontSize: 10,
+                                  fontSize: 10.sp,
                                   fontWeight: FontWeight.w700)),
                         ],
                       ),
@@ -512,37 +513,37 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
               }),
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: 20.h),
 
             // Prize mode toggle — Figma: 342×82 rx=12 #1E293B
             // active half: 161×74 rx=12 #22D1EE
-            const Text('Prize Type',
+            Text('Prize Type',
                 style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 10),
+                    fontSize: 14.sp, fontWeight: FontWeight.w700)),
+            SizedBox(height: 10.h),
             Container(
-              height: 82,
-              padding: const EdgeInsets.all(4),
+              height: 82.h,
+              padding: EdgeInsets.all(4.r),
               decoration: BoxDecoration(
                         color: context.card,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(12.r),
                       ),
                       child: Row(children: [
                 Expanded(child: _prizeToggle(0, '🪙 Coins')),
-                const SizedBox(width: 4),
+                SizedBox(width: 4.w),
                 Expanded(child: _prizeToggle(1, '₦ Naira')),
               ]),
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: 20.h),
 
             // Max players
-            const Text('Max Players',
+            Text('Max Players',
                 style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 10),
+                    fontSize: 14.sp, fontWeight: FontWeight.w700)),
+            SizedBox(height: 10.h),
             Row(
               children: _sizes.map((s) {
                 final active = _maxPlayers == s;
@@ -551,12 +552,12 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
                     onTap: () => setState(() => _maxPlayers = s),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 160),
-                      height: 48,
+                      height: 48.h,
                       margin: EdgeInsets.only(
-                          right: s != _sizes.last ? 8 : 0),
+                          right: s != _sizes.last ? 8.w : 0),
                       decoration: BoxDecoration(
                         color: active ? kCyan : context.card,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(10.r),
                         border: Border.all(
                             color: active
                                 ? kCyan
@@ -568,7 +569,7 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
                                 color: active
                                     ? const Color(0xFF0B0E1A)
                                     : Colors.white,
-                                fontSize: 14,
+                                fontSize: 14.sp,
                                 fontWeight: FontWeight.w800)),
                       ),
                     ),
@@ -577,30 +578,30 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
               }).toList(),
             ),
 
-            const SizedBox(height: 28),
+            SizedBox(height: 28.h),
 
             // Create button
             GestureDetector(
               onTap: _saving ? null : _create,
               child: Container(
-                height: 54,
+                height: 54.h,
                 decoration: BoxDecoration(
                   color: kOrange,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12.r),
                 ),
                 child: Center(
                   child: _saving
                       ? const CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2)
-                      : const Text('Create Tournament',
+                      : Text('Create Tournament',
                           style: TextStyle(
                               color: Colors.white,
-                              fontSize: 15,
+                              fontSize: 15.sp,
                               fontWeight: FontWeight.w800)),
                 ),
               ),
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: 32.h),
           ],
         ),
       ),
@@ -616,7 +617,7 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
         decoration: BoxDecoration(
           // Figma: active 161×74 rx=12 #22D1EE
           color: active ? kCyan : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(10.r),
         ),
         child: Center(
           child: Text(label,
@@ -624,7 +625,7 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
                   color: active
                       ? const Color(0xFF0B0E1A)
                       : const Color(0xFF9A9A9A),
-                  fontSize: 14,
+                  fontSize: 14.sp,
                   fontWeight: FontWeight.w700)),
         ),
       ),
@@ -633,17 +634,17 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
 
   Widget _field(TextEditingController ctrl, String hint, IconData icon) =>
       Container(
-        height: 59,
+        height: 59.h,
         decoration: BoxDecoration(
           // Figma: 341×59 rx=12 #1E293B
           color: context.card,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12.r),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
           child: Row(children: [
-            Icon(icon, color: kCyan, size: 18),
-            const SizedBox(width: 12),
+            Icon(icon, color: kCyan, size: 18.w),
+            SizedBox(width: 12.w),
             Expanded(child: TextField(
               controller: ctrl,
               style: const TextStyle(color: Colors.white),

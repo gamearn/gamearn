@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
@@ -704,10 +705,12 @@ class _SetupBase extends StatelessWidget {
           // ── AppBar — pt=40 pb=16 px=24 blur bg border-b ──────────
           Container(
             width: double.infinity,
-            padding: EdgeInsets.fromLTRB(24, safeTop + 16, 24, 16),
+            padding: EdgeInsets.fromLTRB(24.w, safeTop + 16.h, 24.w, 16.h),
             decoration: BoxDecoration(
               color: context.bg,
-              border: Border(bottom: BorderSide(color: context.border)),
+              border: Border(
+                  bottom: BorderSide(
+                      color: context.isDark ? Colors.white : context.border)),
             ),
             child: Stack(
               alignment: Alignment.center,
@@ -724,17 +727,8 @@ class _SetupBase extends StatelessWidget {
                   left: 0,
                   child: GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    behavior: HitTestBehavior.opaque,
-                    child: SizedBox(
-                      width: 16, height: 25,
-                      child: CachedNetworkImage(
-                        imageUrl: backUrl,
-                        fit: BoxFit.contain,
-                        errorWidget: (_, __, ___) => const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: Colors.white, size: 18),
-                      ),
-                    ),
+                    child: Icon(Icons.close_rounded,
+                        color: const Color(0xFFF1F5F9), size: 20.w),
                   ),
                 ),
               ],

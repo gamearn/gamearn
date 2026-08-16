@@ -51,4 +51,13 @@ android/key.properties
 android/app/upload-keystore.jks
 
 # Local config
-Prompt.txt
+Prompt.txt
+
+# Node
+node_modules/
+
+# Firebase cache
+.firebase/
+
+# AI agent config (local only)
+opencode.json

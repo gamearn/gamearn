@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter/services.dart';
 import '../../theme.dart';
 
@@ -144,8 +145,8 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
               unselectedLabelColor: Colors.white38,
               indicatorColor: _cyan,
               indicatorSize: TabBarIndicatorSize.label,
-              labelStyle: const TextStyle(
-                  fontWeight: FontWeight.w700, fontSize: 13),
+              labelStyle: TextStyle(
+                  fontWeight: FontWeight.w700, fontSize: 13.sp),
               tabs: const [
                 Tab(text: 'Bracket'),
                 Tab(text: 'Matches'),
@@ -180,39 +181,39 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
       backgroundColor: context.bg,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded,
-            color: Colors.white, size: 20),
+        icon: Icon(Icons.close_rounded,
+            color: Color(0xFFF1F5F9), size: 20.w),
         onPressed: () => _confirmLeave(),
       ),
       title: Column(
         children: [
           Text(widget.tournamentTitle,
-              style: const TextStyle(
+              style: TextStyle(
                   color: Colors.white,
-                  fontSize: 15,
+                  fontSize: 15.sp,
                   fontWeight: FontWeight.w700)),
           Text('Round $_currentRound/$_totalRounds  ·  $_elapsed',
-              style: const TextStyle(color: Colors.white38, fontSize: 11)),
+              style: TextStyle(color: Colors.white38, fontSize: 11.sp)),
         ],
       ),
       centerTitle: true,
       actions: [
         Container(
-          margin: const EdgeInsets.only(right: 12),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          margin: EdgeInsets.only(right: 12.w),
+          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
           decoration: BoxDecoration(
             color: Colors.redAccent.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(6.r),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.circle, color: Colors.redAccent, size: 8),
-              SizedBox(width: 4),
+              Icon(Icons.circle, color: Colors.redAccent, size: 8.w),
+              SizedBox(width: 4.w),
               Text('LIVE',
                   style: TextStyle(
                       color: Colors.redAccent,
                       fontWeight: FontWeight.w800,
-                      fontSize: 11)),
+                      fontSize: 11.sp)),
             ],
           ),
         ),
@@ -226,12 +227,12 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
       builder: (ctx) => AlertDialog(
         backgroundColor: context.card,
         shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Leave Tournament?',
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Text('Leave Tournament?',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-        content: const Text(
+        content: Text(
           'Leaving during a live tournament may result in disqualification.',
-          style: TextStyle(color: Colors.white70, fontSize: 13),
+          style: TextStyle(color: Colors.white70, fontSize: 13.sp),
         ),
         actions: [
           TextButton(
@@ -290,7 +291,7 @@ class _MyStatusBar extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
       decoration: BoxDecoration(
         color: color.withOpacity(0.08),
         border: Border(
@@ -302,11 +303,11 @@ class _MyStatusBar extends StatelessWidget {
               style: TextStyle(
                   color: color,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13)),
+                  fontSize: 13.sp)),
           const Spacer(),
           Text('R$round/$totalRounds',
-              style: const TextStyle(
-                  color: Colors.white38, fontSize: 12)),
+              style: TextStyle(
+                  color: Colors.white38, fontSize: 12.sp)),
         ],
       ),
     );
@@ -325,24 +326,24 @@ class _BracketTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.r),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: bracket.asMap().entries.map((entry) {
           final roundIndex = entry.key;
           final matches = entry.value;
           return Padding(
-            padding: const EdgeInsets.only(right: 16),
+            padding: EdgeInsets.only(right: 16.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Round ${roundIndex + 1}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: Colors.white38,
-                        fontSize: 11,
+                        fontSize: 11.sp,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.8)),
-                const SizedBox(height: 8),
+                SizedBox(height: 8.h),
                 ...matches.map((m) => _BracketMatchCard(match: m)),
               ],
             ),
@@ -363,11 +364,11 @@ class _BracketMatchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 160,
-      margin: const EdgeInsets.only(bottom: 10),
+      width: 160.w,
+      margin: EdgeInsets.only(bottom: 10.h),
       decoration: BoxDecoration(
         color: context.card,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(10.r),
         border: Border.all(
           color: match.isLive
               ? _orange.withOpacity(0.6)
@@ -390,16 +391,16 @@ class _BracketMatchCard extends StatelessWidget {
           if (match.isLive)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: EdgeInsets.symmetric(vertical: 4.h),
               decoration: const BoxDecoration(
                 color: Color(0x22FF5E00),
                 borderRadius: BorderRadius.vertical(bottom: Radius.circular(10)),
               ),
-              child: const Text('LIVE',
+              child: Text('LIVE',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       color: Color(0xFFFF5E00),
-                      fontSize: 9,
+                      fontSize: 9.sp,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1)),
             ),
@@ -425,7 +426,7 @@ class _BracketPlayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
       child: Row(
         children: [
           Expanded(
@@ -440,7 +441,7 @@ class _BracketPlayer extends StatelessWidget {
                         : Colors.white70,
                 fontWeight:
                     isWinner ? FontWeight.w700 : FontWeight.w400,
-                fontSize: 12,
+                fontSize: 12.sp,
               ),
             ),
           ),
@@ -451,7 +452,7 @@ class _BracketPlayer extends StatelessWidget {
                         ? const Color(0xFF22D1EE)
                         : Colors.white38,
                     fontWeight: FontWeight.w700,
-                    fontSize: 13)),
+                    fontSize: 13.sp)),
         ],
       ),
     );
@@ -470,7 +471,7 @@ class _MatchesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final allMatches = bracket.expand((r) => r).toList();
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.r),
       itemCount: allMatches.length,
       itemBuilder: (ctx, i) => _MatchListTile(match: allMatches[i], index: i),
     );
@@ -486,11 +487,11 @@ class _MatchListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      margin: EdgeInsets.only(bottom: 10.h),
+      padding: EdgeInsets.all(14.r),
       decoration: BoxDecoration(
         color: context.card,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: match.isLive
               ? const Color(0xFFFF5E00).withOpacity(0.5)
@@ -510,13 +511,13 @@ class _MatchListTile extends StatelessWidget {
                         ? const Color(0xFF22D1EE)
                         : Colors.white,
                     fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                    fontSize: 13.sp,
                   ),
                 ),
-                const SizedBox(height: 2),
-                const Text('vs',
-                    style: TextStyle(color: Colors.white24, fontSize: 10)),
-                const SizedBox(height: 2),
+                SizedBox(height: 2.h),
+                Text('vs',
+                    style: TextStyle(color: Colors.white24, fontSize: 10.sp)),
+                SizedBox(height: 2.h),
                 Text(
                   match.player2.isEmpty ? 'TBD' : match.player2,
                   style: TextStyle(
@@ -524,7 +525,7 @@ class _MatchListTile extends StatelessWidget {
                         ? const Color(0xFF22D1EE)
                         : Colors.white,
                     fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                    fontSize: 13.sp,
                   ),
                 ),
               ],
@@ -532,11 +533,11 @@ class _MatchListTile extends StatelessWidget {
           ),
           if (match.score1 != null && match.score2 != null)
             Text('${match.score1} - ${match.score2}',
-                style: const TextStyle(
+                style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
-                    fontSize: 16)),
-          const SizedBox(width: 12),
+                    fontSize: 16.sp)),
+          SizedBox(width: 12.w),
           _MatchStatusChip(isLive: match.isLive, isDone: match.isDone),
         ],
       ),
@@ -561,17 +562,17 @@ class _MatchStatusChip extends StatelessWidget {
         isLive ? 'LIVE' : isDone ? 'DONE' : 'SOON';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
       decoration: BoxDecoration(
         color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(6.r),
         border: Border.all(color: color.withOpacity(0.4)),
       ),
       child: Text(label,
           style: TextStyle(
               color: color,
               fontWeight: FontWeight.w800,
-              fontSize: 10,
+              fontSize: 10.sp,
               letterSpacing: 0.5)),
     );
   }
@@ -601,7 +602,7 @@ class _ChatTab extends StatelessWidget {
         Expanded(
           child: ListView.builder(
             controller: scrollController,
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16.r),
             itemCount: messages.length,
             itemBuilder: (ctx, i) =>
                 _ChatBubble(message: messages[i]),
@@ -623,8 +624,8 @@ class _ChatBubble extends StatelessWidget {
       alignment:
           message.isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: EdgeInsets.only(bottom: 8.h),
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
         constraints: BoxConstraints(
             maxWidth: MediaQuery.of(context).size.width * 0.72),
         decoration: BoxDecoration(
@@ -632,14 +633,14 @@ class _ChatBubble extends StatelessWidget {
               ? const Color(0xFF22D1EE).withOpacity(0.15)
               : context.card,
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(12),
-            topRight: const Radius.circular(12),
+            topLeft: Radius.circular(12.r),
+            topRight: Radius.circular(12.r),
             bottomLeft: message.isMe
-                ? const Radius.circular(12)
-                : const Radius.circular(2),
+                ? Radius.circular(12.r)
+                : Radius.circular(2.r),
             bottomRight: message.isMe
-                ? const Radius.circular(2)
-                : const Radius.circular(12),
+                ? Radius.circular(2.r)
+                : Radius.circular(12.r),
           ),
           border: Border.all(
             color: message.isMe
@@ -654,14 +655,14 @@ class _ChatBubble extends StatelessWidget {
           children: [
             if (!message.isMe)
               Text(message.author,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: Color(0xFF22D1EE),
-                      fontSize: 11,
+                      fontSize: 11.sp,
                       fontWeight: FontWeight.w700)),
             Text(message.text,
-                style: const TextStyle(color: Colors.white, fontSize: 13)),
+                style: TextStyle(color: Colors.white, fontSize: 13.sp)),
             Text(message.time,
-                style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                style: TextStyle(color: Colors.white38, fontSize: 10.sp)),
           ],
         ),
       ),
@@ -679,7 +680,7 @@ class _ChatInput extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(
-          12, 8, 12, MediaQuery.of(context).padding.bottom + 8),
+          12.w, 8.h, 12.w, MediaQuery.of(context).padding.bottom + 8),
       decoration: const BoxDecoration(
         color: Color(0xFF0F1220),
         border: Border(top: BorderSide(color: Color(0xFF1E2438))),
@@ -689,42 +690,42 @@ class _ChatInput extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: TextStyle(color: Colors.white, fontSize: 14.sp),
               decoration: InputDecoration(
                 hintText: 'Say something...',
-                hintStyle: const TextStyle(color: Colors.white38),
+                hintStyle: TextStyle(color: Colors.white38),
                 filled: true,
                 fillColor: context.card,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 10),
+                contentPadding: EdgeInsets.symmetric(
+                    horizontal: 14.w, vertical: 10.h),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(20.r),
                   borderSide: const BorderSide(color: Color(0xFF1E2438)),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(20.r),
                   borderSide: const BorderSide(color: Color(0xFF1E2438)),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(20.r),
                   borderSide: const BorderSide(color: Color(0xFF22D1EE)),
                 ),
               ),
               onSubmitted: (_) => onSend(),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.w),
           GestureDetector(
             onTap: onSend,
             child: Container(
-              width: 40,
-              height: 40,
+              width: 40.w,
+              height: 40.w,
               decoration: const BoxDecoration(
                 color: Color(0xFF22D1EE),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.send_rounded,
-                  color: Colors.black, size: 18),
+              child: Icon(Icons.send_rounded,
+                  color: Colors.black, size: 18.w),
             ),
           ),
         ],

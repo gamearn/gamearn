@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -20,7 +21,7 @@ import 'live_tournament_screen.dart';
 //  Win badge: w=147 rx=9999 bg rgba(34,209,238,0.2) blur=6
 //  Participants badge: w=166 rx=9999 bg rgba(42,42,42,0.6) blur=6
 //
-//  Duration pill: full-width h=80 border-2 #00F2FF
+//  Duration pill: full-width h=80 border-2 #22D1EE
 //    drop-shadow 0,0,7.5 rgba(0,242,255,0.3)
 //    value: fs=32 fw=700 ls=-0.8 cyan | label: fs=10 fw=700 ls=-0.5 cyan
 //
@@ -47,8 +48,7 @@ const _kIconShare =
     'https://www.figma.com/api/mcp/asset/26e233f2-9e66-48fc-8688-d39b21ee24f1';
 const _kIconBolt =
     'https://www.figma.com/api/mcp/asset/6bb4bdc3-adcf-4aa5-b166-aaa85f153455';
-const _kIconBack =
-    'https://www.figma.com/api/mcp/asset/1280c03d-2bd3-41e7-a577-faf211809526';
+
 
 class TournamentPendingScreen extends StatefulWidget {
   final String tournamentId;
@@ -160,13 +160,13 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
                 top: MediaQuery.of(context).size.height / 2 - 128,
                 child: Center(
                   child: Container(
-                    width: 256,
-                    height: 256,
-                    decoration: BoxDecoration(
+                    width: 256.w,
+                    height: 256.h,
+                    decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0x3322D1EE),
+                      color: Color(0x3322D1EE),
                       // simulate blur with large shadow
-                      boxShadow: const [
+                      boxShadow: [
                         BoxShadow(
                           color: Color(0x3322D1EE),
                           blurRadius: 40,
@@ -186,11 +186,11 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
                   Expanded(
                     child: SingleChildScrollView(
                       // Content starts at 95px from top
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
+                      padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 40.h),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const SizedBox(height: 16),
+                          SizedBox(height: 16.h),
 
                           // ── gap=16 section 1 ─────────────────────────
                           Column(
@@ -199,33 +199,33 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
                               // w=125 rx=100 bg rgba(22,34,63,0.8)
                               // border rgba(255,193,7,0.3) px=9 py=7
                               Container(
-                                width: 125,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 9, vertical: 7),
+                                width: 125.w,
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 9.w, vertical: 7.h),
                                 decoration: BoxDecoration(
                                   color: const Color(0xCC16223F),
-                                  borderRadius: BorderRadius.circular(100),
+                                  borderRadius: BorderRadius.circular(100.r),
                                   border: Border.all(
                                       color: const Color(0x4DFFC107)),
                                 ),
-                                child: const Center(
+                                child: Center(
                                   child: Text('PENDING',
                                       style: TextStyle(
-                                          color: Color(0xFFFFC107),
-                                          fontSize: 10,
+                                          color: const Color(0xFFFFC107),
+                                          fontSize: 10.sp,
                                           fontWeight: FontWeight.w700,
                                           letterSpacing: 2,
                                           height: 15 / 10)),
                                 ),
                               ),
-                              const SizedBox(height: 16),
+                              SizedBox(height: 16.h),
 
                               // ── Hero Image — node 2358:1466 ────────────
                               // h=213.75 rx=12 overflow clip
                               _buildHeroImage(title, typeLabel, players, maxP),
                             ],
                           ),
-                          const SizedBox(height: 32),
+                          SizedBox(height: 32.h),
 
                           // ── gap=16 section 2 ─────────────────────────
                           Column(
@@ -233,19 +233,19 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
                             children: [
                               // Duration — node 2358:1500
                               _buildDurationSection(durVal, durLabel),
-                              const SizedBox(height: 16),
+                              SizedBox(height: 16.h),
 
                               // Entry Fee — node 2358:1501
                               _buildEntryFeeCard(entryFee),
-                              const SizedBox(height: 16),
+                              SizedBox(height: 16.h),
 
                               // Starts In — node 2358:1532
                               _buildStartsIn(),
-                              const SizedBox(height: 16),
+                              SizedBox(height: 16.h),
 
                               // Invite Friends — node 2358:1533
                               _buildInviteButton(title),
-                              const SizedBox(height: 16),
+                              SizedBox(height: 16.h),
 
                               // Join Now — node 2369:1674
                               _buildJoinButton(title),
@@ -270,7 +270,7 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
   Widget _buildAppBar(double safeTop) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(24, safeTop + 16, 24, 16),
+      padding: EdgeInsets.fromLTRB(24.w, safeTop + 16.h, 24.w, 16.h),
       decoration: const BoxDecoration(
         color: Color(0xE60B0E1A),
         border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF))),
@@ -278,10 +278,10 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          const Text('Tournament Pending',
+          Text('Tournament Pending',
               style: TextStyle(
-                  color: Color(0xFFF1F5F9),
-                  fontSize: 18,
+                  color: const Color(0xFFF1F5F9),
+                  fontSize: 18.sp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.27,
                   height: 22.5 / 18)),
@@ -290,19 +290,8 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
             left: 0,
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
-              behavior: HitTestBehavior.opaque,
-              child: SizedBox(
-                width: 16,
-                height: 25,
-                child: CachedNetworkImage(
-                  imageUrl: _kIconBack,
-                  fit: BoxFit.contain,
-                  errorWidget: (_, __, ___) => const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white,
-                      size: 18),
-                ),
-              ),
+              child: Icon(Icons.close_rounded,
+                  color: const Color(0xFFF1F5F9), size: 20.w),
             ),
           ),
         ],
@@ -317,9 +306,9 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
   Widget _buildHeroImage(
       String title, String typeLabel, int players, int maxP) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(12.r),
       child: SizedBox(
-        height: 213.75,
+        height: 213.75.h,
         width: double.infinity,
         child: Stack(
           clipBehavior: Clip.hardEdge,
@@ -330,18 +319,18 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
                 alignment: Alignment.topCenter,
                 maxHeight: double.infinity,
                 child: SizedBox(
-                  height: 213.75 * 1.6,
+                  height: (213.75 * 1.6).h,
                   child: Transform.translate(
-                    offset: Offset(0, -213.75 * 0.3),
+                    offset: Offset(0, -(213.75 * 0.3).h),
                     child: CachedNetworkImage(
                       imageUrl: _kHeroImage,
                       fit: BoxFit.cover,
                       width: double.infinity,
                       errorWidget: (_, __, ___) => Container(
                         color: context.card,
-                        child: const Center(
+                        child: Center(
                             child: Icon(Icons.sports_esports_rounded,
-                                color: Colors.white24, size: 48)),
+                                color: Colors.white24, size: 48.w)),
                       ),
                     ),
                   ),
@@ -359,53 +348,53 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
                 children: [
                   // Title — fs=32 fw=700 ls=-0.8 white lh=40
                   Text(title,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: Colors.white,
-                          fontSize: 32,
+                          fontSize: 32.sp,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.8,
                           height: 40 / 32)),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8.h),
 
                   // Win-based badge — node 2358:1469
                   // w=147 rx=9999 bg rgba(34,209,238,0.2) blur=6
                   // border rgba(34,209,238,0.2) px=13 py=5
                   Container(
-                    width: 147,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 13, vertical: 5),
+                    width: 147.w,
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 13.w, vertical: 5.h),
                     decoration: BoxDecoration(
                       color: const Color(0x3322D1EE),
-                      borderRadius: BorderRadius.circular(9999),
+                      borderRadius: BorderRadius.circular(9999.r),
                       border: Border.all(color: const Color(0x3322D1EE)),
                     ),
                     child: Text(typeLabel.toUpperCase(),
-                        style: const TextStyle(
-                            color: Color(0xFF22D1EE),
-                            fontSize: 10,
+                        style: TextStyle(
+                            color: const Color(0xFF22D1EE),
+                            fontSize: 10.sp,
                             fontWeight: FontWeight.w400,
                             height: 13.5 / 10)),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8.h),
 
                   // Participants badge — node 2358:1471
                   // w=166 rx=9999 bg rgba(42,42,42,0.6) blur=6
                   // border rgba(255,255,255,0.1) px=13 py=5
                   Container(
-                    width: 166,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 13, vertical: 5),
+                    width: 166.w,
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 13.w, vertical: 5.h),
                     decoration: BoxDecoration(
                       color: const Color(0x992A2A2A),
-                      borderRadius: BorderRadius.circular(9999),
+                      borderRadius: BorderRadius.circular(9999.r),
                       border:
                           Border.all(color: const Color(0x1AFFFFFF)),
                     ),
                     child: Text(
                         'PARTICIPANTS: $players / $maxP JOINED',
-                        style: const TextStyle(
-                            color: Color(0xCCFFFFFF),
-                            fontSize: 10,
+                        style: TextStyle(
+                            color: const Color(0xCCFFFFFF),
+                            fontSize: 10.sp,
                             fontWeight: FontWeight.w400,
                             height: 13.5 / 10)),
                   ),
@@ -420,33 +409,33 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
 
   // ── Duration — node 2358:1500 ───────────────────────────────────
   // label: fw=600 fs=16 lh=26 white
-  // pill: full-width h=80 bg #16223F border-2 #00F2FF rx=12
-  //   drop-shadow 0,0,7.5 rgba(0,242,255,0.3) p=2
-  //   value: fs=32 fw=700 ls=-0.8 #00F2FF lh=40 text-center
-  //   label: fs=10 fw=700 ls=-0.5 uppercase #00F2FF lh=15 text-center
+  // pill: full-width h=80 bg #16223F border-2 #22D1EE rx=12
+  //   drop-shadow 0,0,7.5 rgba(34,209,238,0.3) p=2
+  //   value: fs=32 fw=700 ls=-0.8 #22D1EE lh=40 text-center
+  //   label: fs=10 fw=700 ls=-0.5 uppercase #22D1EE lh=15 text-center
 
   Widget _buildDurationSection(String value, String label) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Duration',
+        Text('Duration',
             style: TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: 16.sp,
                 fontWeight: FontWeight.w600,
                 height: 26 / 16)),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.h),
         Container(
           width: double.infinity,
-          height: 80,
-          padding: const EdgeInsets.all(2),
+          height: 80.h,
+          padding: EdgeInsets.all(2.r),
           decoration: BoxDecoration(
             color: const Color(0xFF16223F),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF00F2FF), width: 2),
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(color: const Color(0xFF22D1EE), width: 2),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x4D00F2FF),
+                color: Color(0x4D22D1EE),
                 blurRadius: 7.5,
                 spreadRadius: 0,
               ),
@@ -457,17 +446,17 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
             children: [
               Text(value,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      color: Color(0xFF00F2FF),
-                      fontSize: 32,
+                  style: TextStyle(
+                      color: const Color(0xFF22D1EE),
+                      fontSize: 32.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.8,
                       height: 40 / 32)),
               Text(label,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      color: Color(0xFF00F2FF),
-                      fontSize: 10,
+                  style: TextStyle(
+                      color: const Color(0xFF22D1EE),
+                      fontSize: 10.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.5,
                       height: 15 / 10)),
@@ -484,11 +473,11 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
   Widget _buildEntryFeeCard(int fee) {
     return Container(
       width: double.infinity,
-      height: 125.5,
-      padding: const EdgeInsets.all(25),
+      height: 125.5.h,
+      padding: EdgeInsets.all(25.r),
       decoration: BoxDecoration(
         color: const Color(0x661D2946),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r),
         border: Border.all(color: const Color(0x801E293B)),
       ),
       child: Column(
@@ -498,7 +487,7 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
           Text('ENTRY FEE',
               style: TextStyle(
                   color: context.txtSec,
-                  fontSize: 12,
+                  fontSize: 12.sp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 2.4,
                   height: 16 / 12)),
@@ -508,23 +497,23 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              const Text('₦',
+              Text('₦',
                   style: TextStyle(
-                      color: Color(0xFFFFC107),
-                      fontSize: 20,
+                      color: const Color(0xFFFFC107),
+                      fontSize: 20.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
                       height: 25 / 20)),
               Text('$fee',
-                  style: const TextStyle(
-                      color: Color(0xFFFFC107),
-                      fontSize: 48,
+                  style: TextStyle(
+                      color: const Color(0xFFFFC107),
+                      fontSize: 48.sp,
                       fontWeight: FontWeight.w700,
                       height: 60 / 48)),
-              const Text('.00',
+              Text('.00',
                   style: TextStyle(
-                      color: Color(0xFFFFC107),
-                      fontSize: 20,
+                      color: const Color(0xFFFFC107),
+                      fontSize: 20.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
                       height: 25 / 20)),
@@ -549,26 +538,26 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
       children: [
         Container(
           width: double.infinity,
-          height: 118,
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 25),
+          height: 118.h,
+          padding: EdgeInsets.symmetric(horizontal: 13.w, vertical: 25.h),
           decoration: BoxDecoration(
             color: const Color(0x4D091F2D),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(12.r),
             border: Border.all(color: const Color(0x1A5A4136)),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('STARTS IN',
+              Text('STARTS IN',
                   style: TextStyle(
-                      color: Color(0xB3FFFFFF),
-                      fontSize: 10,
+                      color: const Color(0xB3FFFFFF),
+                      fontSize: 10.sp,
                       fontWeight: FontWeight.w400,
                       height: 13.5 / 10)),
-              const SizedBox(height: 4),
+              SizedBox(height: 4.h),
               // Time row — node 2358:1510 — w=262 gap=16 centered
               SizedBox(
-                width: 262,
+                width: 262.w,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -584,15 +573,15 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.h),
         // Warning text — node 2358:1531
         // fs=12 fw=500 rgba(255,255,255,0.5) center lh=16
-        const Text(
+        Text(
           'if criteria is not meet within 24hrs, it will expire and be cancelled',
           textAlign: TextAlign.center,
           style: TextStyle(
-              color: Color(0x80FFFFFF),
-              fontSize: 12,
+              color: const Color(0x80FFFFFF),
+              fontSize: 12.sp,
               fontWeight: FontWeight.w500,
               height: 16 / 12),
         ),
@@ -606,17 +595,17 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(value,
-            style: const TextStyle(
-                color: Color(0xFF22D1EE),
-                fontSize: 32,
+            style: TextStyle(
+                color: const Color(0xFF22D1EE),
+                fontSize: 32.sp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.8,
                 height: 40 / 32,
                 fontFamily: 'SplineSans')),
         Text(label,
-            style: const TextStyle(
-                color: Color(0xB3FFFFFF),
-                fontSize: 10,
+            style: TextStyle(
+                color: const Color(0xB3FFFFFF),
+                fontSize: 10.sp,
                 fontWeight: FontWeight.w400,
                 height: 13.5 / 10)),
       ],
@@ -627,19 +616,19 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
   // Space Grotesk Bold fs=30 rgba(255,255,255,0.5) w=8.95 h=36
   Widget _colon() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: EdgeInsets.symmetric(horizontal: 8.w),
       child: SizedBox(
-        width: 8.95,
-        height: 36,
+        width: 8.95.w,
+        height: 36.h,
         child: Text(':',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-                color: Color(0x80FFFFFF),
-                fontSize: 30,
+            style: TextStyle(
+                color: const Color(0x80FFFFFF),
+                fontSize: 30.sp,
                 fontWeight: FontWeight.w700,
                 height: 36 / 30,
                 // Space Grotesk for the colon — matches Figma exactly
-                fontFamilyFallback: ['SpaceGrotesk'])),
+                fontFamilyFallback: const ['SpaceGrotesk'])),
       ),
     );
   }
@@ -653,9 +642,9 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
       onTap: () => _invite(title),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 18),
+        padding: EdgeInsets.symmetric(horizontal: 2.w, vertical: 18.h),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12.r),
           border: Border.all(color: const Color(0x6622D1EE), width: 2),
         ),
         child: Row(
@@ -663,22 +652,22 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
           children: [
             // Share icon — node 2358:1534 — 22×16
             SizedBox(
-              width: 22,
-              height: 16,
+              width: 22.w,
+              height: 16.h,
               child: CachedNetworkImage(
                 imageUrl: _kIconShare,
                 fit: BoxFit.contain,
-                errorWidget: (_, __, ___) => const Icon(
+                errorWidget: (_, __, ___) => Icon(
                     Icons.share_outlined,
-                    color: Color(0xFF22D1EE),
-                    size: 16),
+                    color: const Color(0xFF22D1EE),
+                    size: 16.w),
               ),
             ),
-            const SizedBox(width: 8),
-            const Text('INVITE FRIENDS',
+            SizedBox(width: 8.w),
+            Text('INVITE FRIENDS',
                 style: TextStyle(
-                    color: Color(0xFF22D1EE),
-                    fontSize: 18,
+                    color: const Color(0xFF22D1EE),
+                    fontSize: 18.sp,
                     fontWeight: FontWeight.w600,
                     letterSpacing: -0.27,
                     height: 22.5 / 18)),
@@ -698,11 +687,11 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
       onTap: _joining ? null : () => _join(title),
       child: Container(
         width: double.infinity,
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        height: 56.h,
+        padding: EdgeInsets.symmetric(horizontal: 20.w),
         decoration: BoxDecoration(
           color: const Color(0xFFFF5E00),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12.r),
           boxShadow: const [
             BoxShadow(
               color: Color(0x33FF5E00),
@@ -722,30 +711,30 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (_joining)
-              const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
+              SizedBox(
+                  width: 18.w,
+                  height: 18.h,
+                  child: const CircularProgressIndicator(
                       color: Colors.white, strokeWidth: 2))
             else ...[
               // Bolt icon — node 2369:1676 — 11×14
               SizedBox(
-                width: 11,
-                height: 14,
+                width: 11.w,
+                height: 14.h,
                 child: CachedNetworkImage(
                   imageUrl: _kIconBolt,
                   fit: BoxFit.contain,
-                  errorWidget: (_, __, ___) => const Icon(
+                  errorWidget: (_, __, ___) => Icon(
                       Icons.bolt_rounded,
                       color: Colors.white,
-                      size: 14),
+                      size: 14.w),
                 ),
               ),
-              const SizedBox(width: 8),
-              const Text('Join Now',
+              SizedBox(width: 8.w),
+              Text('Join Now',
                   style: TextStyle(
                       color: Colors.white,
-                      fontSize: 18,
+                      fontSize: 18.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.27,
                       height: 22.5 / 18)),

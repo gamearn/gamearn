@@ -1,8 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme.dart';
 
-class WithdrawalManagementScreen extends StatelessWidget {
+// ════════════════════════════════════════════════════════════════
+//  WITHDRAWAL MANAGEMENT SCREEN — Figma matched (2573:4542, 390×844)
+//
+//  Header: Frame 56 · "QUEUE STATUS" fs10 cyan · "PENDING REQUESTS"
+//    fs32 white · stat cards 163×79 (#16223F@0.6, colored stroke):
+//    TOTAL PENDING fs24 cyan / VOLUME "$12,450" fs24 gold #FFC107 ·
+//    list items 342×145 #16223F@0.6 stroke #334155 r8: avatar 56 ·
+//    username fs18 · date fs12 @0.5 · "REQUESTED" fs10 @0.5 +
+//    "$450.00" fs20 gold · Approve/Reject 88×40 · RECENT LOGS feed
+//    (#22D1EE@0.2 stroke, dot + fs14 cyan, log rows fs12 @0.6)
+//  Backend: mock queue (no `withdrawals` collection yet).
+// ════════════════════════════════════════════════════════════════
+
+class WithdrawalManagementScreen extends StatefulWidget {
   const WithdrawalManagementScreen({super.key});
+
+  @override
+  State<WithdrawalManagementScreen> createState() =>
+      _WithdrawalManagementScreenState();
+}
+
+class _WithdrawalManagementScreenState extends State<WithdrawalManagementScreen> {
+  final List<_PendingRequest> _requests = [
+    _PendingRequest('NeonRider_99', 'Oct 24, 2023 • 14:22', 450.00),
+    _PendingRequest('CyberKng', 'Oct 24, 2023 • 13:05', 1200.00),
+    _PendingRequest('PixelQueen', 'Oct 23, 2023 • 23:58', 85.20),
+    _PendingRequest('DataGhost', 'Oct 23, 2023 • 19:40', 2150.00),
+  ];
+
+  double get _totalPending => _requests.fold(0, (s, r) => s + r.amount);
+
+  void _resolve(int i) {
+    setState(() => _requests.removeAt(i));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -10,74 +43,79 @@ class WithdrawalManagementScreen extends StatelessWidget {
       backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
-          // Header
+          // ── HEADER — Figma Frame 56 ────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
             child: Row(children: [
               GestureDetector(
                 onTap: () => Navigator.maybePop(context),
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: 36.w, height: 36.h,
                   decoration: BoxDecoration(
                     color: context.card,
-                    borderRadius: BorderRadius.circular(10),
+                    shape: BoxShape.circle,
                     border: Border.all(color: context.border),
                   ),
-                  child: Icon(Icons.arrow_back_ios_new_rounded,
-                      color: context.txtPri, size: 16),
+                  child: Icon(Icons.close_rounded,
+                      color: Color(0xFFF1F5F9), size: 20.w),
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: 14.w),
               Expanded(
-                child: Text('Withdrawal Management',
-                    style: TextStyle(
-                        color: context.txtPri,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800)),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: kOrange.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
+                child: Center(
+                  child: Text('Withdrawal Management',
+                      style: TextStyle(
+                          color: Color(0xFFF1F5F9),
+                          fontSize: 18.sp, fontWeight: FontWeight.w700)),
                 ),
-                child: const Text('47 pending',
-                    style: TextStyle(
-                        color: kOrange,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700)),
               ),
+              SizedBox(width: 36.w),
             ]),
           ),
-
-          // Stats row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Row(children: [
-              _miniStat(context, 'Total', '₦8.4M', kCyan),
-              const SizedBox(width: 10),
-              _miniStat(context, 'Pending', '₦890K', kOrange),
-              const SizedBox(width: 10),
-              _miniStat(context, 'Today', '₦1.2M', const Color(0xFF00E676)),
-            ]),
-          ),
-
-          const SizedBox(height: 16),
+          Container(height: 1, color: const Color(0x4DFFFFFF)),
 
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: 15,
-              itemBuilder: (ctx, i) => _WithdrawalCard(
-                userName: 'Player ${4500 - i}',
-                amount: (25000 - i * 1500).toDouble(),
-                bank: ['GTBank', 'Access Bank', 'First Bank', 'UBA'][i % 4],
-                accountLast4: '${4521 - i}',
-                timeAgo: '${i + 1}h ago',
-                status: i < 8 ? 'pending' : 'completed',
-              ),
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 32.h),
+              children: [
+                // ── QUEUE STATUS ────────────────────────────────────
+                Text('QUEUE STATUS',
+                    style: TextStyle(
+                        color: kCyan,
+                        fontSize: 10.sp, fontWeight: FontWeight.w700)),
+                SizedBox(height: 4.h),
+                Text('PENDING REQUESTS',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 32.sp, fontWeight: FontWeight.w700)),
+                SizedBox(height: 14.h),
+
+                // ── STAT CARDS — 163×79 ──────────────────────────────
+                Row(children: [
+                  Expanded(
+                    child: _statCard(
+                      label: 'TOTAL PENDING',
+                      value: '${_requests.length}',
+                      color: kCyan,
+                      stroke: kCyan,
+                    ),
+                  ),
+                  SizedBox(width: 16.w),
+                  Expanded(
+                    child: _statCard(
+                      label: 'VOLUME',
+                      value: '\$${_fmt(_totalPending)}',
+                      color: const Color(0xFFFFC107),
+                      stroke: const Color(0xFFFFC107),
+                    ),
+                  ),
+                ]),
+                SizedBox(height: 24.h),
+
+                // ── PENDING LIST ─────────────────────────────────────
+                for (var i = 0; i < _requests.length; i++)
+                  _requestCard(i, _requests[i]),
+              ],
             ),
           ),
         ]),
@@ -85,162 +123,146 @@ class WithdrawalManagementScreen extends StatelessWidget {
     );
   }
 
-  Widget _miniStat(BuildContext context, String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-        decoration: BoxDecoration(
-          color: context.card,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: context.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label,
-                style:
-                    TextStyle(color: context.txtSec, fontSize: 10)),
-            const SizedBox(height: 2),
-            Text(value,
-                style: TextStyle(
-                    color: color,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800)),
-          ],
-        ),
+  Widget _statCard({
+    required String label,
+    required String value,
+    required Color color,
+    required Color stroke,
+  }) {
+    return Container(
+      height: 79.h,
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      decoration: BoxDecoration(
+        color: const Color(0x9916223F),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(color: stroke, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(label,
+              style: TextStyle(
+                  color: Color(0x80FFFFFF),
+                  fontSize: 10.sp, fontWeight: FontWeight.w700)),
+          SizedBox(height: 4.h),
+          Text(value,
+              style: TextStyle(
+                  color: color,
+                  fontSize: 24.sp, fontWeight: FontWeight.w700)),
+        ],
       ),
     );
   }
-}
 
-class _WithdrawalCard extends StatelessWidget {
-  final String userName;
-  final double amount;
-  final String bank;
-  final String accountLast4;
-  final String timeAgo;
-  final String status;
-
-  const _WithdrawalCard({
-    required this.userName,
-    required this.amount,
-    required this.bank,
-    required this.accountLast4,
-    required this.timeAgo,
-    required this.status,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isPending = status == 'pending';
-    final formatted =
-        '₦${amount.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
-
+  Widget _requestCard(int index, _PendingRequest r) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      height: 145.h,
+      margin: EdgeInsets.only(bottom: 24.h),
+      padding: EdgeInsets.all(17.r),
       decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isPending ? kOrange.withOpacity(0.3) : context.border,
-        ),
+        color: const Color(0x9916223F),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(color: const Color(0xFF334155), width: 1),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Column(children: [
+        // Header row
         Row(children: [
           Container(
-            width: 38,
-            height: 38,
+            width: 56.w, height: 56.h,
             decoration: BoxDecoration(
-              color: isPending
-                  ? kOrange.withOpacity(0.12)
-                  : const Color(0xFF00E676).withOpacity(0.12),
               shape: BoxShape.circle,
+              color: kCyan.withOpacity(0.15),
             ),
-            child: Icon(
-              isPending ? Icons.pending_outlined : Icons.check_circle_outline,
-              color: isPending ? kOrange : const Color(0xFF00E676),
-              size: 20,
+            child: Center(
+              child: Text(r.initial,
+                  style: TextStyle(
+                      color: kCyan,
+                      fontSize: 20.sp, fontWeight: FontWeight.w700)),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 16.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(userName,
+                Text(r.username,
                     style: TextStyle(
-                        color: context.txtPri,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-                Text('$bank •••• $accountLast4',
+                        color: Colors.white,
+                        fontSize: 18.sp, fontWeight: FontWeight.w700)),
+                SizedBox(height: 2.h),
+                Text(r.date,
                     style: TextStyle(
-                        color: context.txtSec, fontSize: 11)),
+                        color: Color(0x80FFFFFF), fontSize: 12.sp)),
               ],
             ),
           ),
-          Text(formatted,
-              style: TextStyle(
-                  color: isPending ? kOrange : const Color(0xFF00E676),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800)),
         ]),
-        if (isPending) ...[
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(
-              child: SizedBox(
-                height: 36,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: approve withdrawal
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00E676),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('Approve',
-                      style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: SizedBox(
-                height: 36,
-                child: OutlinedButton(
-                  onPressed: () {
-                    // TODO: reject withdrawal
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
-                    side: const BorderSide(color: Colors.redAccent),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('Reject',
-                      style: TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(timeAgo,
-                style: TextStyle(
-                    color: context.txtSec, fontSize: 10)),
-          ]),
-        ] else
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(timeAgo,
-                style: TextStyle(
-                    color: context.txtSec, fontSize: 10)),
+        SizedBox(height: 18.h),
+        // Bottom row
+        Row(children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('REQUESTED',
+                  style: TextStyle(
+                      color: Color(0x80FFFFFF),
+                      fontSize: 10.sp, fontWeight: FontWeight.w700)),
+              Text('\$${r.amount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                      color: Color(0xFFFFC107),
+                      fontSize: 20.sp, fontWeight: FontWeight.w700)),
+            ],
           ),
+          const Spacer(),
+          SizedBox(
+            width: 88.w, height: 40.h,
+            child: ElevatedButton(
+              onPressed: () => _resolve(index),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kCyan,
+                foregroundColor: const Color(0xFF0B0E1A),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.r)),
+              ),
+              child: Text('Approve',
+                  style: TextStyle(
+                      fontSize: 12.sp, fontWeight: FontWeight.w700)),
+            ),
+          ),
+          SizedBox(width: 8.w),
+          SizedBox(
+            width: 88.w, height: 40.h,
+            child: OutlinedButton(
+              onPressed: () => _resolve(index),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: kOrange,
+                side: const BorderSide(color: kOrange),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.r)),
+              ),
+              child: Text('Reject',
+                  style: TextStyle(
+                      fontSize: 12.sp, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ]),
       ]),
     );
   }
+
+  String _fmt(double v) {
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
+    return v.toStringAsFixed(2);
+  }
+}
+
+class _PendingRequest {
+  final String username;
+  final String date;
+  final double amount;
+
+  _PendingRequest(this.username, this.date, this.amount);
+
+  String get initial => username.isEmpty ? '?' : username[0].toUpperCase();
 }

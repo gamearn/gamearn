@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../../theme.dart';
@@ -492,7 +493,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         backgroundColor: kBgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         title: Text(
           humanWon ? '\u{1F389} You Win!' : '\u{1F61E} You Lost',
           style: const TextStyle(color: kTextPri, fontWeight: FontWeight.w800),
@@ -534,22 +535,19 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
   @override
   Widget build(BuildContext context) {
-    final sw = MediaQuery.of(context).size.width;
-    final bs = sw - 16;
-
     return Scaffold(
       backgroundColor: context.bg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: Colors.white, size: 20),
-          onPressed: () => Navigator.pop(context),
+        leading: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: Icon(Icons.close_rounded,
+              color: const Color(0xFFF1F5F9), size: 20.w),
         ),
-        title: const Text('L\u00fad\u00f2',
+        title: Text('L\u00fad\u00f2',
             style: TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+                color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18.sp)),
         centerTitle: true,
         actions: [
           IconButton(
@@ -581,38 +579,41 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               );
             }),
             Expanded(
-              child: Center(
-                child: AnimatedBuilder(
-                  animation: _pulse,
-                  builder: (_, __) => SizedBox(
-                    width: bs,
-                    height: bs,
-                    child: Stack(children: [
-                      CustomPaint(
-                        size: Size(bs, bs),
-                        painter: _BoardPainter(
+              child: LayoutBuilder(builder: (_, c) {
+                final bs = min(c.maxWidth, c.maxHeight);
+                return Center(
+                  child: AnimatedBuilder(
+                    animation: _pulse,
+                    builder: (_, __) => SizedBox(
+                      width: bs,
+                      height: bs,
+                      child: Stack(children: [
+                        CustomPaint(
+                          size: Size(bs, bs),
+                          painter: _BoardPainter(
+                            pieces: _pieces,
+                            tokenCount: _tokenCount,
+                            current: _current,
+                            legal: _legal,
+                            selected: _selected,
+                            pulse: _pulse.value,
+                          ),
+                        ),
+                        _TapLayer(
+                          boardSize: bs,
                           pieces: _pieces,
                           tokenCount: _tokenCount,
                           current: _current,
                           legal: _legal,
-                          selected: _selected,
-                          pulse: _pulse.value,
+                          isHuman: _isHuman,
+                          waiting: _waiting,
+                          onTap: _onPieceTap,
                         ),
-                      ),
-                      _TapLayer(
-                        boardSize: bs,
-                        pieces: _pieces,
-                        tokenCount: _tokenCount,
-                        current: _current,
-                        legal: _legal,
-                        isHuman: _isHuman,
-                        waiting: _waiting,
-                        onTap: _onPieceTap,
-                      ),
-                    ]),
+                      ]),
+                    ),
                   ),
-                ),
-              ),
+                );
+              }),
             ),
             _BottomBar(
               dice: _dice,
@@ -628,7 +629,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               status: _statusText,
               onRoll: _humanRoll,
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8.h),
           ],
         ),
       ),
@@ -968,11 +969,11 @@ class _Strip extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      margin: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 9.h),
       decoration: BoxDecoration(
         color: active ? kBgCard : kBgDeep,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: active ? kCyan.withOpacity(0.4) : kBorder,
           width: active ? 1.5 : 1,
@@ -983,32 +984,32 @@ class _Strip extends StatelessWidget {
         children: [
           Row(children: [
             Container(
-              width: 8, height: 8,
+              width: 8.w, height: 8.h,
               decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: active ? kCyan : Colors.white24),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 10.w),
             Text(label,
                 style: TextStyle(
                     color: active ? kTextPri : kTextSec,
                     fontWeight: FontWeight.w700,
-                    fontSize: 14)),
+                    fontSize: 14.sp)),
           ]),
           Row(
             children: List.generate(colors.length, (i) {
               final hc = i < homes.length ? homes[i] : 0;
               return Padding(
-                padding: const EdgeInsets.only(left: 12),
+                padding: EdgeInsets.only(left: 12.w),
                 child: Row(children: [
                   Container(
-                      width: 10, height: 10,
+                      width: 10.w, height: 10.h,
                       decoration: BoxDecoration(
                           shape: BoxShape.circle, color: colors[i])),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4.w),
                   Text('$hc/$total',
                       style: TextStyle(
-                          color: colors[i], fontSize: 12,
+                          color: colors[i], fontSize: 12.sp,
                           fontWeight: FontWeight.w600)),
                 ]),
               );
@@ -1050,11 +1051,11 @@ class _BottomBar extends StatelessWidget {
     final showTwoDice = diceCount >= 2 && diceValues.length >= 2;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      margin: EdgeInsets.symmetric(horizontal: 8.w),
+      padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 12.h),
       decoration: BoxDecoration(
         color: kBgCard,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14.r),
         border: Border.all(color: kBorder),
       ),
       child: Row(
@@ -1064,14 +1065,14 @@ class _BottomBar extends StatelessWidget {
               status,
               style: TextStyle(
                 color: _canRoll ? kCyan : (!isHuman ? kTextSec : kOrange),
-                fontSize: 13, fontWeight: FontWeight.w600,
+                fontSize: 13.sp, fontWeight: FontWeight.w600,
               ),
             ),
           ),
           if (showTwoDice)
             Row(mainAxisSize: MainAxisSize.min, children: [
               _dicePip(diceValues[0]),
-              const SizedBox(width: 6),
+              SizedBox(width: 6.w),
               _dicePip(diceValues[1]),
             ])
           else
@@ -1083,10 +1084,10 @@ class _BottomBar extends StatelessWidget {
                   onTap: _canRoll ? onRoll : null,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    width: 52, height: 52,
+                    width: 52.w, height: 52.h,
                     decoration: BoxDecoration(
                       color: _canRoll ? kOrange : kBgDeep,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(12.r),
                       border: Border.all(
                         color: _canRoll ? kOrange : kBorder, width: 2),
                       boxShadow: _canRoll
@@ -1097,10 +1098,10 @@ class _BottomBar extends StatelessWidget {
                     ),
                     child: Center(
                       child: dice == 0
-                          ? const Icon(Icons.casino_rounded,
-                              color: Colors.white, size: 26)
+                          ? Icon(Icons.casino_rounded,
+                              color: Colors.white, size: 26.w)
                           : Text(_face(dice),
-                              style: const TextStyle(fontSize: 28)),
+                              style: TextStyle(fontSize: 28.sp)),
                     ),
                   ),
                 ),
@@ -1113,10 +1114,10 @@ class _BottomBar extends StatelessWidget {
 
   Widget _dicePip(int value) {
     return Container(
-      width: 36, height: 36,
+      width: 36.w, height: 36.h,
       decoration: BoxDecoration(
         color: kOrange,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8.r),
         border: Border.all(color: kOrange, width: 2),
         boxShadow: [BoxShadow(
             color: kOrange.withOpacity(0.45),
@@ -1124,7 +1125,7 @@ class _BottomBar extends StatelessWidget {
       ),
       child: Center(
         child: Text(_face(value),
-            style: const TextStyle(fontSize: 20)),
+            style: TextStyle(fontSize: 20.sp)),
       ),
     );
   }

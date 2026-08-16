@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme.dart';
 import 'admin_dashboard_screen.dart';
 import 'users_management_screen.dart';
@@ -54,7 +55,7 @@ class _AdminShellState extends State<AdminShell> {
         children: _pages,
       ),
       bottomNavigationBar: Container(
-        height: 72,
+        height: 72.h,
         decoration: BoxDecoration(
           color: context.bg,
           border: Border(
@@ -69,7 +70,7 @@ class _AdminShellState extends State<AdminShell> {
               onTap: () => setState(() => _currentIndex = i),
               behavior: HitTestBehavior.opaque,
               child: SizedBox(
-                width: 64,
+                width: 64.w,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -80,14 +81,14 @@ class _AdminShellState extends State<AdminShell> {
                       child: Icon(
                         _icons[i],
                         color: active ? kOrange : context.txtSec,
-                        size: 24,
+                        size: 24.w,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4.h),
                     Text(
                       _labels[i],
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 9.sp,
                         fontWeight:
                             active ? FontWeight.w600 : FontWeight.w400,
                         color:

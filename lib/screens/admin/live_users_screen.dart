@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme.dart';
 
 class LiveUsersScreen extends StatelessWidget {
@@ -12,51 +13,51 @@ class LiveUsersScreen extends StatelessWidget {
         child: Column(children: [
           // Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
             child: Row(children: [
               GestureDetector(
                 onTap: () => Navigator.maybePop(context),
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: 40.w,
+                  height: 40.w,
                   decoration: BoxDecoration(
                     color: context.card,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(10).r,
                     border: Border.all(color: context.border),
                   ),
-                  child: Icon(Icons.arrow_back_ios_new_rounded,
-                      color: context.txtPri, size: 16),
+                  child: Icon(Icons.close_rounded,
+                      color: Color(0xFFF1F5F9), size: 20.w),
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: 14.w),
               Expanded(
                 child: Text('Live Users',
                     style: TextStyle(
                         color: context.txtPri,
-                        fontSize: 17,
+                        fontSize: 17.sp,
                         fontWeight: FontWeight.w800)),
               ),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00E676).withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFF22C55E).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8).r,
                 ),
                 child: Row(children: [
                   Container(
-                    width: 7,
-                    height: 7,
+                    width: 7.w,
+                    height: 7.w,
                     decoration: const BoxDecoration(
-                      color: Color(0xFF00E676),
+                      color: Color(0xFF22C55E),
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  const Text('1,203 online',
+                  SizedBox(width: 6.w),
+                  Text('1,203 online',
                       style: TextStyle(
-                          color: Color(0xFF00E676),
-                          fontSize: 12,
+                          color: const Color(0xFF22C55E),
+                          fontSize: 12.sp,
                           fontWeight: FontWeight.w700)),
                 ]),
               ),
@@ -65,23 +66,23 @@ class LiveUsersScreen extends StatelessWidget {
 
           // Game breakdown
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
             child: Row(children: [
               _gameChip('Ayo', '342', kCyan),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.w),
               _gameChip('Ludo', '498', kOrange),
-              const SizedBox(width: 8),
-              _gameChip('Whot', '218', const Color(0xFF00E676)),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.w),
+              _gameChip('Whot', '218', const Color(0xFF22C55E)),
+              SizedBox(width: 8.w),
               _gameChip('Draughts', '145', kYellowDot),
             ]),
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: 16.h),
 
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
               itemCount: 25,
               itemBuilder: (ctx, i) => _LiveUserRow(
                 name: 'Player ${5000 - i * 20}',
@@ -99,21 +100,21 @@ class LiveUsersScreen extends StatelessWidget {
   Widget _gameChip(String game, String count, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: EdgeInsets.symmetric(vertical: 8.h),
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(8).r,
           border: Border.all(color: color.withOpacity(0.25)),
         ),
         child: Column(children: [
           Text(count,
               style: TextStyle(
                   color: color,
-                  fontSize: 16,
+                  fontSize: 16.sp,
                   fontWeight: FontWeight.w800)),
-          const SizedBox(height: 2),
+          SizedBox(height: 2.h),
           Text(game,
-              style: TextStyle(color: color, fontSize: 10)),
+              style: TextStyle(color: color, fontSize: 10.sp)),
         ]),
       ),
     );
@@ -136,24 +137,24 @@ class _LiveUserRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      margin: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
       decoration: BoxDecoration(
         color: context.card,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(10).r,
         border: Border.all(color: context.border),
       ),
       child: Row(children: [
         // Live indicator
         Container(
-          width: 8,
-          height: 8,
+          width: 8.w,
+          height: 8.w,
           decoration: const BoxDecoration(
-            color: Color(0xFF00E676),
+            color: Color(0xFF22C55E),
             shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: 12.w),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -161,11 +162,11 @@ class _LiveUserRow extends StatelessWidget {
               Text(name,
                   style: TextStyle(
                       color: context.txtPri,
-                      fontSize: 13,
+                      fontSize: 13.sp,
                       fontWeight: FontWeight.w600)),
               Text('vs $opponent',
                   style: TextStyle(
-                      color: context.txtSec, fontSize: 11)),
+                      color: context.txtSec, fontSize: 11.sp)),
             ],
           ),
         ),
@@ -174,21 +175,21 @@ class _LiveUserRow extends StatelessWidget {
           children: [
             Container(
               padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
               decoration: BoxDecoration(
                 color: kCyan.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(4).r,
               ),
               child: Text(game,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: kCyan,
-                      fontSize: 10,
+                      fontSize: 10.sp,
                       fontWeight: FontWeight.w600)),
             ),
-            const SizedBox(height: 3),
+            SizedBox(height: 3.h),
             Text(duration,
                 style: TextStyle(
-                    color: context.txtSec, fontSize: 10)),
+                    color: context.txtSec, fontSize: 10.sp)),
           ],
         ),
       ]),

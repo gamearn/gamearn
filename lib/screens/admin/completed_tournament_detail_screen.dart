@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme.dart';
 
 class CompletedTournamentDetailScreen extends StatelessWidget {
@@ -12,41 +13,41 @@ class CompletedTournamentDetailScreen extends StatelessWidget {
         child: Column(children: [
           // Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
             child: Row(children: [
               GestureDetector(
                 onTap: () => Navigator.maybePop(context),
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: 40.w,
+                  height: 40.w,
                   decoration: BoxDecoration(
                     color: context.card,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(10).r,
                     border: Border.all(color: context.border),
                   ),
-                  child: Icon(Icons.arrow_back_ios_new_rounded,
-                      color: context.txtPri, size: 16),
+                  child: Icon(Icons.close_rounded,
+                      color: Color(0xFFF1F5F9), size: 20.w),
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: 14.w),
               Expanded(
                 child: Text('Completed Tournament',
                     style: TextStyle(
                         color: context.txtPri,
-                        fontSize: 17,
+                        fontSize: 17.sp,
                         fontWeight: FontWeight.w800)),
               ),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
                 decoration: BoxDecoration(
                   color: kCyan.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8).r,
                 ),
-                child: const Text('COMPLETED',
+                child: Text('COMPLETED',
                     style: TextStyle(
                         color: kCyan,
-                        fontSize: 11,
+                        fontSize: 11.sp,
                         fontWeight: FontWeight.w800)),
               ),
             ]),
@@ -54,11 +55,11 @@ class CompletedTournamentDetailScreen extends StatelessWidget {
 
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
               children: [
                 // Tournament info
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16.r),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
@@ -68,24 +69,24 @@ class CompletedTournamentDetailScreen extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(14).r,
                     border: Border.all(color: kCyan.withOpacity(0.25)),
                   ),
                   child: Column(children: [
                     Text('Whot Championship #8',
                         style: TextStyle(
                             color: context.txtPri,
-                            fontSize: 17,
+                            fontSize: 17.sp,
                             fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8.h),
                     Text('Completed 2 hours ago',
                         style: TextStyle(
-                            color: context.txtSec, fontSize: 12)),
-                    const SizedBox(height: 12),
+                            color: context.txtSec, fontSize: 12.sp)),
+                    SizedBox(height: 12.h),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _info(context, 'Prize Pool', '₦40,000'),
+                        _info(context, 'Prize Pool', '\u20A640,000'),
                         _info(context, 'Players', '28'),
                         _info(context, 'Matches', '27'),
                       ],
@@ -93,81 +94,81 @@ class CompletedTournamentDetailScreen extends StatelessWidget {
                   ]),
                 ),
 
-                const SizedBox(height: 20),
+                SizedBox(height: 20.h),
 
                 // Winners podium
                 Text('WINNERS',
                     style: TextStyle(
                         color: context.txtSec,
-                        fontSize: 11,
+                        fontSize: 11.sp,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
-                const SizedBox(height: 10),
+                SizedBox(height: 10.h),
                 Row(
                   children: [
-                    _WinnerPodium('2nd', 'Ada_Flow', '₦7,000',
+                    _WinnerPodium('2nd', 'Ada_Flow', '\u20A67,000',
                         kCyan, 80),
-                    const SizedBox(width: 8),
-                    _WinnerPodium('1st', 'Kofi_92', '₦22,000',
+                    SizedBox(width: 8.w),
+                    _WinnerPodium('1st', 'Kofi_92', '\u20A622,000',
                         kOrange, 100),
-                    const SizedBox(width: 8),
-                    _WinnerPodium('3rd', 'Chidi_Goat', '₦3,000',
-                        const Color(0xFF00E676), 70),
+                    SizedBox(width: 8.w),
+                    _WinnerPodium('3rd', 'Chidi_Goat', '\u20A63,000',
+                        const Color(0xFF22C55E), 70),
                   ],
                 ),
 
-                const SizedBox(height: 20),
+                SizedBox(height: 20.h),
 
                 // Prize distribution
                 Text('PRIZE DISTRIBUTION',
                     style: TextStyle(
                         color: context.txtSec,
-                        fontSize: 11,
+                        fontSize: 11.sp,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
-                const SizedBox(height: 10),
+                SizedBox(height: 10.h),
                 _SectionCard(children: [
-                  _PrizeRow('1st Place', 'Kofi_92', '₦22,000', true),
+                  _PrizeRow('1st Place', 'Kofi_92', '\u20A622,000', true),
                   _divider(context),
-                  _PrizeRow('2nd Place', 'Ada_Flow', '₦7,000', false),
+                  _PrizeRow('2nd Place', 'Ada_Flow', '\u20A67,000', false),
                   _divider(context),
-                  _PrizeRow('3rd Place', 'Chidi_Goat', '₦3,000', false),
+                  _PrizeRow('3rd Place', 'Chidi_Goat', '\u20A63,000', false),
                   _divider(context),
-                  _PrizeRow('4th Place', 'Bola_King', '₦2,000', false),
+                  _PrizeRow('4th Place', 'Bola_King', '\u20A62,000', false),
                   _divider(context),
-                  _PrizeRow('5th-8th', 'Various', '₦750 each', false),
+                  _PrizeRow('5th-8th', 'Various', '\u20A6750 each', false),
                 ]),
 
-                const SizedBox(height: 20),
+                SizedBox(height: 20.h),
 
                 // Payout status
                 Text('PAYOUT STATUS',
                     style: TextStyle(
                         color: context.txtSec,
-                        fontSize: 11,
+                        fontSize: 11.sp,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
-                const SizedBox(height: 10),
+                SizedBox(height: 10.h),
                 _SectionCard(children: [
-                  _PayoutRow('Kofi_92', '₦22,000', 'paid'),
+                  _PayoutRow('Kofi_92', '\u20A622,000', 'paid'),
                   _divider(context),
-                  _PayoutRow('Ada_Flow', '₦7,000', 'paid'),
+                  _PayoutRow('Ada_Flow', '\u20A67,000', 'paid'),
                   _divider(context),
-                  _PayoutRow('Chidi_Goat', '₦3,000', 'pending'),
+                  _PayoutRow('Chidi_Goat', '\u20A63,000', 'pending'),
                   _divider(context),
-                  _PayoutRow('Bola_King', '₦2,000', 'pending'),
+                  _PayoutRow('Bola_King', '\u20A62,000', 'pending'),
                 ]),
 
-                const SizedBox(height: 20),
+                SizedBox(height: 20.h),
 
                 // Match history
                 Text('MATCH HISTORY',
                     style: TextStyle(
                         color: context.txtSec,
-                        fontSize: 11,
+                        fontSize: 11.sp,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
-                const SizedBox(height: 10),
+                SizedBox(height: 10.h),
                 _SectionCard(children: [
                   _MatchResult('Quarter-Final', 'Kofi_92', 'Bola_King', '3 - 1'),
                   _divider(context),
@@ -180,7 +181,7 @@ class CompletedTournamentDetailScreen extends StatelessWidget {
                   _MatchResult('Final', 'Kofi_92', 'Ada_Flow', '4 - 3'),
                 ]),
 
-                const SizedBox(height: 32),
+                SizedBox(height: 32.h),
               ],
             ),
           ),
@@ -193,12 +194,12 @@ class CompletedTournamentDetailScreen extends StatelessWidget {
     return Column(children: [
       Text(label,
           style:
-              TextStyle(color: context.txtSec, fontSize: 10)),
-      const SizedBox(height: 2),
+              TextStyle(color: context.txtSec, fontSize: 10.sp)),
+      SizedBox(height: 2.h),
       Text(value,
           style: TextStyle(
               color: context.txtPri,
-              fontSize: 15,
+              fontSize: 15.sp,
               fontWeight: FontWeight.w800)),
     ]);
   }
@@ -215,7 +216,7 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
           color: context.card,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12).r,
         ),
         child: Column(children: children),
       );
@@ -235,16 +236,16 @@ class _WinnerPodium extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12.r),
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12).r,
           border: Border.all(color: color.withOpacity(0.3)),
         ),
         child: Column(children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 48.w,
+            height: 48.w,
             decoration: BoxDecoration(
               color: color.withOpacity(0.15),
               shape: BoxShape.circle,
@@ -253,28 +254,28 @@ class _WinnerPodium extends StatelessWidget {
                 child: Text(place,
                     style: TextStyle(
                         color: color,
-                        fontSize: 16,
+                        fontSize: 16.sp,
                         fontWeight: FontWeight.w900))),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.h),
           Text(name,
               style: TextStyle(
                   color: color,
-                  fontSize: 12,
+                  fontSize: 12.sp,
                   fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
+          SizedBox(height: 2.h),
           Text(prize,
               style: TextStyle(
                   color: context.txtPri,
-                  fontSize: 13,
+                  fontSize: 13.sp,
                   fontWeight: FontWeight.w800)),
-          const SizedBox(height: 6),
+          SizedBox(height: 6.h),
           Container(
             width: double.infinity,
             height: height,
             decoration: BoxDecoration(
               color: color.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(8).r,
             ),
           ),
         ]),
@@ -295,24 +296,24 @@ class _PrizeRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          EdgeInsets.symmetric(horizontal: 14.w, vertical: 2.h),
       leading: Icon(
         isWinner ? Icons.emoji_events : Icons.emoji_events_outlined,
         color: isWinner ? kOrange : kTextSec,
-        size: 20,
+        size: 20.w,
       ),
       title: Text(place,
           style: TextStyle(
               color: isWinner ? kOrange : context.txtPri,
-              fontSize: 13,
+              fontSize: 13.sp,
               fontWeight:
                   isWinner ? FontWeight.w700 : FontWeight.w500)),
       subtitle:
-          Text(name, style: TextStyle(color: context.txtSec, fontSize: 11)),
+          Text(name, style: TextStyle(color: context.txtSec, fontSize: 11.sp)),
       trailing: Text(amount,
           style: TextStyle(
               color: isWinner ? kOrange : context.txtPri,
-              fontSize: 13,
+              fontSize: 13.sp,
               fontWeight: FontWeight.w700)),
     );
   }
@@ -330,31 +331,31 @@ class _PayoutRow extends StatelessWidget {
     final paid = status == 'paid';
     return ListTile(
       contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          EdgeInsets.symmetric(horizontal: 14.w, vertical: 2.h),
       title: Text(name,
           style: TextStyle(
               color: context.txtPri,
-              fontSize: 13,
+              fontSize: 13.sp,
               fontWeight: FontWeight.w500)),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         Text(amount,
             style: TextStyle(
                 color: context.txtPri,
-                fontSize: 13,
+                fontSize: 13.sp,
                 fontWeight: FontWeight.w600)),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.w),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
           decoration: BoxDecoration(
             color: paid
-                ? const Color(0xFF00E676).withOpacity(0.12)
+                ? const Color(0xFF22C55E).withOpacity(0.12)
                 : kOrange.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(4).r,
           ),
           child: Text(status.toUpperCase(),
               style: TextStyle(
-                  color: paid ? const Color(0xFF00E676) : kOrange,
-                  fontSize: 9,
+                  color: paid ? const Color(0xFF22C55E) : kOrange,
+                  fontSize: 9.sp,
                   fontWeight: FontWeight.w700)),
         ),
       ]),
@@ -374,26 +375,26 @@ class _MatchResult extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          EdgeInsets.symmetric(horizontal: 14.w, vertical: 2.h),
       leading: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
         decoration: BoxDecoration(
           color: kCyan.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(4).r,
         ),
         child: Text(round.split(' ').first,
-            style: const TextStyle(
-                color: kCyan, fontSize: 9, fontWeight: FontWeight.w600)),
+            style: TextStyle(
+                color: kCyan, fontSize: 9.sp, fontWeight: FontWeight.w600)),
       ),
       title: Text('$p1  vs  $p2',
           style: TextStyle(
               color: context.txtPri,
-              fontSize: 12,
+              fontSize: 12.sp,
               fontWeight: FontWeight.w500)),
       trailing: Text(score,
           style: TextStyle(
               color: context.txtPri,
-              fontSize: 13,
+              fontSize: 13.sp,
               fontWeight: FontWeight.w800)),
     );
   }

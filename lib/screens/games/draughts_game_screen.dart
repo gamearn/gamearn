@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:gamearn/config/api_config.dart';
@@ -16,7 +17,7 @@ const _card    = Color(0xFF0F172A);
 const _surface = Color(0xFF1E293B);
 const _cyan    = Color(0xFF22D1EE);
 const _orange  = Color(0xFFFF5E00);
-const _green   = Color(0xFF00E676);
+const _green   = Color(0xFF22C55E);
 const _txtPri  = Color(0xFFF1F5F9);
 const _txtSub  = Color(0xFF94A3B8);
 const _border  = Color(0xFF334155);
@@ -569,30 +570,25 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
 
       // ── HEADER ────────────────────────────────────────────────────────────
       Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
         child: Row(children: [
           GestureDetector(
-            onTap: widget.onBack ?? () => Navigator.maybePop(context),
-            child: Container(
-              width: 37, height: 37,
-              decoration: BoxDecoration(
-                  color: _orange, borderRadius: BorderRadius.circular(4)),
-              child: const Icon(Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white, size: 16),
-            ),
+            onTap: () => Navigator.pop(context),
+            child: Icon(Icons.close_rounded,
+                color: const Color(0xFFF1F5F9), size: 20.w),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(widget.tournamentTitle,
-                    style: const TextStyle(
-                        color: _orange, fontSize: 16,
+                    style: TextStyle(
+                        color: _orange, fontSize: 16.sp,
                         fontWeight: FontWeight.w900, letterSpacing: 0.8)),
                 Text('Prize Pool: ${widget.prizePool}',
-                    style: const TextStyle(
-                        color: _cyan, fontSize: 11,
+                    style: TextStyle(
+                        color: _cyan, fontSize: 11.sp,
                         fontWeight: FontWeight.w500)),
               ],
             ),
@@ -600,20 +596,20 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
         ]),
       ),
 
-      const SizedBox(height: 12),
+      SizedBox(height: 12.h),
 
       // ── MAIN TABLE ────────────────────────────────────────────────────────
       Expanded(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
           child: Container(
             decoration: BoxDecoration(
               color: _card,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(16.r),
               border: Border.all(color: Colors.white.withOpacity(0.06)),
             ),
             child: Column(children: [
-              const SizedBox(height: 14),
+              SizedBox(height: 14.h),
 
               // Bot player row
               _playerRow(
@@ -625,12 +621,12 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
                 isBusy:  _botBusy,
               ),
 
-              const SizedBox(height: 10),
+              SizedBox(height: 10.h),
 
               // Board
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: EdgeInsets.symmetric(horizontal: 12.w),
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: _DraughtsBoardWidget(
@@ -646,18 +642,18 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
                 ),
               ),
 
-              const SizedBox(height: 10),
+              SizedBox(height: 10.h),
 
               // Status
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 child: Container(
                   key: ValueKey(_statusMsg),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 16.w, vertical: 8.h),
                   decoration: BoxDecoration(
                     color: _surface,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(20.r),
                     border: Border.all(
                       color: _currentPlayer == 0 && !_botBusy
                           ? _cyan.withOpacity(0.4)
@@ -668,22 +664,22 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (_botBusy)
-                        const SizedBox(
-                          width: 12, height: 12,
+                        SizedBox(
+                          width: 12.w, height: 12.h,
                           child: CircularProgressIndicator(
                               color: _cyan, strokeWidth: 2),
                         ),
-                      if (_botBusy) const SizedBox(width: 8),
+                      if (_botBusy) SizedBox(width: 8.w),
                       Text(_statusMsg,
-                          style: const TextStyle(
-                              color: _txtPri, fontSize: 13,
+                          style: TextStyle(
+                              color: _txtPri, fontSize: 13.sp,
                               fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
               ),
 
-              const SizedBox(height: 10),
+              SizedBox(height: 10.h),
 
               // Human player row
               _playerRow(
@@ -695,7 +691,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
                 isBusy: false,
               ),
 
-              const SizedBox(height: 14),
+              SizedBox(height: 14.h),
             ]),
           ),
         ),
@@ -711,14 +707,14 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
     required bool active,
     required bool isBusy,
   }) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
+    padding: EdgeInsets.symmetric(horizontal: 16.w),
     child: Row(children: [
       AnimatedBuilder(
         animation: _glowAnim,
         builder: (_, __) => Container(
-          width: 44, height: 44,
+          width: 44.w, height: 44.h,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(10.r),
             border: Border.all(
               color: active
                   ? _cyan.withOpacity(_glowAnim.value)
@@ -728,7 +724,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
             color: _surface,
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: BorderRadius.circular(9.r),
             child: avatar.isNotEmpty
                 ? Image.network(avatar, fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => _avatarInitial(name))
@@ -736,25 +732,25 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
           ),
         ),
       ),
-      const SizedBox(width: 10),
+      SizedBox(width: 10.w),
       Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(name,
-                style: const TextStyle(
-                    color: _txtPri, fontSize: 13,
+                style: TextStyle(
+                    color: _txtPri, fontSize: 13.sp,
                     fontWeight: FontWeight.w700)),
             if (isBusy)
-              const Text('thinking…',
-                  style: TextStyle(color: _cyan, fontSize: 11)),
+              Text('thinking…',
+                  style: TextStyle(color: _cyan, fontSize: 11.sp)),
           ],
         ),
       ),
       // Piece count + colour indicator
       Row(children: [
         Container(
-          width: 14, height: 14,
+          width: 14.w, height: 14.h,
           decoration: BoxDecoration(
             color: isBot ? _botPiece : _humanPiece,
             shape: BoxShape.circle,
@@ -762,19 +758,19 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
                 color: isBot ? _border : const Color(0xFFCBD5E1)),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.w),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
           decoration: BoxDecoration(
             color: _surface,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(20.r),
             border: Border.all(
                 color: pieces == 0 ? _orange : _border),
           ),
           child: Text('$pieces',
               style: TextStyle(
                   color: pieces == 0 ? _orange : _txtPri,
-                  fontSize: 16, fontWeight: FontWeight.w900)),
+                  fontSize: 16.sp, fontWeight: FontWeight.w900)),
         ),
       ]),
     ]),
@@ -783,19 +779,19 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
   Widget _avatarInitial(String name) => Center(
     child: Text(
       name.isNotEmpty ? name[0].toUpperCase() : '?',
-      style: const TextStyle(
-          color: _cyan, fontSize: 18, fontWeight: FontWeight.w900),
+      style: TextStyle(
+          color: _cyan, fontSize: 18.sp, fontWeight: FontWeight.w900),
     ),
   );
 
   Widget _loadingOverlay() => Container(
     color: Colors.black87,
-    child: const Center(
+    child: Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         CircularProgressIndicator(color: _cyan, strokeWidth: 3),
-        SizedBox(height: 16),
+        SizedBox(height: 16.h),
         Text('Setting up the board…',
-            style: TextStyle(color: _cyan, fontSize: 16,
+            style: TextStyle(color: _cyan, fontSize: 16.sp,
                 fontWeight: FontWeight.w700)),
       ]),
     ),
@@ -805,22 +801,22 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
     color: Colors.black87,
     child: Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.wifi_off_rounded, color: _orange, size: 48),
-        const SizedBox(height: 12),
-        const Text('Could not reach game server',
-            style: TextStyle(color: Colors.white, fontSize: 15)),
-        const SizedBox(height: 20),
+        Icon(Icons.wifi_off_rounded, color: _orange, size: 48.w),
+        SizedBox(height: 12.h),
+        Text('Could not reach game server',
+            style: TextStyle(color: Colors.white, fontSize: 15.sp)),
+        SizedBox(height: 20.h),
         GestureDetector(
           onTap: _startGame,
           child: Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 32, vertical: 14),
+            padding: EdgeInsets.symmetric(
+                horizontal: 32.w, vertical: 14.h),
             decoration: BoxDecoration(
                 color: _orange,
-                borderRadius: BorderRadius.circular(12)),
-            child: const Text('Retry',
+                borderRadius: BorderRadius.circular(12.r)),
+            child: Text('Retry',
                 style: TextStyle(color: Colors.white,
-                    fontSize: 15, fontWeight: FontWeight.w800)),
+                    fontSize: 15.sp, fontWeight: FontWeight.w800)),
           ),
         ),
       ]),
@@ -855,7 +851,7 @@ class _DraughtsBoardWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r),
         border: Border.all(color: const Color(0xFF6B3A1F), width: 3),
         boxShadow: [
           BoxShadow(
@@ -864,7 +860,7 @@ class _DraughtsBoardWidget extends StatelessWidget {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(10.r),
         child: GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -896,7 +892,7 @@ class _DraughtsBoardWidget extends StatelessWidget {
                   children: [
                     if (isMove && cell == _kEmpty && isDark)
                       Container(
-                        width: 10, height: 10,
+                        width: 10.w, height: 10.h,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: isCap
@@ -942,33 +938,37 @@ class _PieceWidget extends StatelessWidget {
         ? const Color(0xFFCBD5E1)
         : const Color(0xFF4A2A10));
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      width:  selected ? 28 : 24,
-      height: selected ? 28 : 24,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: base,
-        border: Border.all(color: ring, width: selected ? 2.5 : 1.5),
-        boxShadow: [
-          BoxShadow(
-              color: selected
-                  ? _selectRing.withOpacity(0.5)
-                  : Colors.black.withOpacity(0.4),
-              blurRadius: selected ? 8 : 4),
-        ],
-      ),
-      child: isKing
-          ? Center(
-              child: Text('♛',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: isHuman
-                          ? const Color(0xFF1A0A00)
-                          : const Color(0xFFFFD700))),
-            )
-          : null,
-    );
+    return LayoutBuilder(builder: (_, c) {
+      final s = (c.maxWidth * 0.62).clamp(12.0, 30.0);
+      final d = selected ? s + 4 : s;
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width:  d,
+        height: d,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: base,
+          border: Border.all(color: ring, width: selected ? 2.5 : 1.5),
+          boxShadow: [
+            BoxShadow(
+                color: selected
+                    ? _selectRing.withOpacity(0.5)
+                    : Colors.black.withOpacity(0.4),
+                blurRadius: selected ? 8 : 4),
+          ],
+        ),
+        child: isKing
+            ? Center(
+                child: Text('♛',
+                    style: TextStyle(
+                        fontSize: s * 0.45,
+                        color: isHuman
+                            ? const Color(0xFF1A0A00)
+                            : const Color(0xFFFFD700))),
+              )
+            : null,
+      );
+    });
   }
 }
 
@@ -1000,10 +1000,10 @@ class _GameOverDialog extends StatelessWidget {
   Widget build(BuildContext context) => Dialog(
     backgroundColor: Colors.transparent,
     child: Container(
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(28.r),
       decoration: BoxDecoration(
         color: _navy,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(28.r),
         border: Border.all(
             color: isDraw
                 ? _border
@@ -1015,9 +1015,9 @@ class _GameOverDialog extends StatelessWidget {
         Text(isDraw
             ? "It's a Draw!"
             : (isWinner ? '🏆 You Win!' : '💀 You Lost'),
-            style: const TextStyle(
-                color: _txtPri, fontSize: 26, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 12),
+            style: TextStyle(
+                color: _txtPri, fontSize: 26.sp, fontWeight: FontWeight.w900)),
+        SizedBox(height: 12.h),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -1026,10 +1026,10 @@ class _GameOverDialog extends StatelessWidget {
                 count: humanPieces,
                 color: isWinner ? _green : _orange,
                 isHuman: true),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
               child: Text('vs',
-                  style: TextStyle(color: _txtSub, fontSize: 14)),
+                  style: TextStyle(color: _txtSub, fontSize: 14.sp)),
             ),
             _PieceBadge(
                 label: 'Bot',
@@ -1038,45 +1038,45 @@ class _GameOverDialog extends StatelessWidget {
                 isHuman: false),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.h),
         if (isWinner)
           Text('Prize: $prizePool',
-              style: const TextStyle(
-                  color: _orange, fontSize: 18,
+              style: TextStyle(
+                  color: _orange, fontSize: 18.sp,
                   fontWeight: FontWeight.w700)),
-        const SizedBox(height: 24),
+        SizedBox(height: 24.h),
         Row(children: [
           Expanded(
             child: GestureDetector(
               onTap: onRematch,
               child: Container(
-                height: 48,
+                height: 48.h,
                 decoration: BoxDecoration(
                     color: _surface,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(14.r),
                     border: Border.all(color: _border)),
-                child: const Center(
+                child: Center(
                   child: Text('Rematch',
                       style: TextStyle(
-                          color: _txtPri, fontSize: 14,
+                          color: _txtPri, fontSize: 14.sp,
                           fontWeight: FontWeight.w700)),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.w),
           Expanded(
             child: GestureDetector(
               onTap: onClose,
               child: Container(
-                height: 48,
+                height: 48.h,
                 decoration: BoxDecoration(
                     color: _orange,
-                    borderRadius: BorderRadius.circular(14)),
-                child: const Center(
+                    borderRadius: BorderRadius.circular(14.r)),
+                child: Center(
                   child: Text('Back to Lobby',
                       style: TextStyle(
-                          color: Colors.white, fontSize: 14,
+                          color: Colors.white, fontSize: 14.sp,
                           fontWeight: FontWeight.w800)),
                 ),
               ),
@@ -1105,7 +1105,7 @@ class _PieceBadge extends StatelessWidget {
   Widget build(BuildContext context) => Column(children: [
     Row(mainAxisSize: MainAxisSize.min, children: [
       Container(
-        width: 16, height: 16,
+        width: 16.w, height: 16.h,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: isHuman ? _humanPiece : _botPiece,
@@ -1115,13 +1115,13 @@ class _PieceBadge extends StatelessWidget {
                   : const Color(0xFF4A2A10)),
         ),
       ),
-      const SizedBox(width: 6),
+      SizedBox(width: 6.w),
       Text('$count',
           style: TextStyle(
-              color: color, fontSize: 28,
+              color: color, fontSize: 28.sp,
               fontWeight: FontWeight.w900)),
     ]),
     Text(label,
-        style: const TextStyle(color: _txtSub, fontSize: 12)),
+        style: TextStyle(color: _txtSub, fontSize: 12.sp)),
   ]);
 }

@@ -1,33 +1,38 @@
 import 'package:flutter/material.dart';
 
 // ── Brand Colours ─────────────────────────────────────────────────────────────
-const Color kBgDeep    = Color(0xFF0A0E1A);   // main dark bg
-const Color kBgCard    = Color(0xFF111827);   // card surfaces
-const Color kBgCardAlt = Color(0xFF0F1829);   // subtle alt card
+const Color kBgDeep    = Color(0xFF0B0E1A);   // main dark bg
+const Color kBgCard    = Color(0xFF0F172A);   // card surfaces
+const Color kBgCardAlt = Color(0xFF16223F);   // subtle alt card
 const Color kBgTeal    = Color(0xFF0D2231);   // teal-tinted card bg
-const Color kCyan      = Color(0xFF00E5FF);   // primary cyan accent
-const Color kOrange    = Color(0xFFFF6D00);   // primary orange (CTAs)
-const Color kGreen     = Color(0xFF00E676);   // success / live now
+const Color kCyan      = Color(0xFF22D1EE);   // primary cyan accent
+const Color kOrange    = Color(0xFFFF5E00);   // primary orange (CTAs)
+const Color kGreen     = Color(0xFF22C55E);   // success / live now
 const Color kYellowDot = Color(0xFFFFC107);   // pending dot
-const Color kTextPri   = Color(0xFFFFFFFF);
-const Color kTextSec   = Color(0xFF8899AA);
-const Color kTextMuted = Color(0xFF4A5568);
-const Color kBorder    = Color(0xFF1A2744);
-const Color kDivider   = Color(0xFF1F2937);
+const Color kTextPri   = Color(0xFFF1F5F9);
+const Color kTextSec   = Color(0xFF94A3B8);
+const Color kTextMuted = Color(0xFF64748B);
+const Color kBorder    = Color(0xFF1E293B);
+const Color kDivider   = Color(0xFF1E293B);
+const Color kOtpBox    = Color(0xFF1A2238);   // OTP pin input boxes
 
 // Light-theme auth screens
-const Color kLightBg   = Color(0xFFF5F7FA);
-const Color kLightCard = Color(0xFFEAEDF1);
-const Color kLightText = Color(0xFF1A1A2E);
-const Color kLightSub  = Color(0xFF6B7280);
+const Color kLightBg   = Color(0xFFEFF5FF);
+const Color kLightCard = Color(0xFFC2C9D4);
+const Color kLightText = Color(0xFF0B0E1A);
+const Color kLightSub  = Color(0xFF64748B);
 
 // ── Avatars (local asset names → replace with real images) ───────────────────
 const List<Map<String, String>> kAvatars = [
-  {'name': 'BOT',   'emoji': '🤖'},
-  {'name': 'MAGE',  'emoji': '🧙'},
-  {'name': 'CYBER', 'emoji': '🦾'},
-  {'name': 'QUEEN', 'emoji': '👑'},
-  {'name': 'CYBER2','emoji': '🦿'},
+  {'name': 'BOT',    'emoji': '🤖'},
+  {'name': 'Mage',   'emoji': '🧙'},
+  {'name': 'Cyber',  'emoji': '🦾'},
+  {'name': 'Queen',  'emoji': '👑'},
+  {'name': 'Cyborg', 'emoji': '🦿'},
+  {'name': 'Knight', 'emoji': '🗡️'},
+  {'name': 'Hunter', 'emoji': '🏹'},
+  {'name': 'Ninja',  'emoji': '🥷'},
+  {'name': 'Xeno',   'emoji': '👾'},
 ];
 
 // ── TextStyles ────────────────────────────────────────────────────────────────
@@ -93,7 +98,7 @@ extension AppTheme on BuildContext {
   Color get card => Theme.of(this).colorScheme.surface;
   Color get txtPri => isDark ? kTextPri : kLightText;
   Color get txtSec => isDark ? kTextSec : kLightSub;
-  Color get border => isDark ? kBorder : const Color(0xFFDDE1E7);
+  Color get border => isDark ? kBorder : const Color(0xFFC2C9D4);
 
   // Mappings for the new screens to maintain strict color safety
   Color get surface => card;

@@ -1,10 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl_phone_number_input/intl_phone_number_input.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../../services/api_service.dart';
+import '../../services/avatar_pipeline.dart';
+import '../../services/firestore_cache.dart';
 import '../../services/geo_service.dart';
+import '../../services/profile_cooldown_manager.dart';
 import '../../theme.dart';
 import '../../utils/error_utils.dart';
 
@@ -29,6 +35,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   bool _checkingUsername = false;
   String? _usernameError;
   Timer? _debounceTimer;
+  String? _customAvatarUrl;
+  bool _uploadingAvatar = false;
+  int _cooldownHours = 0;
 
   @override
   void initState() {
@@ -42,6 +51,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       // Email/social auth — default NG, refine via IP when it resolves.
       _prefillFromIp();
     }
+    _refreshCooldown();
   }
 
   Future<void> _resolveRegionFor(String phone) async {
@@ -107,6 +117,115 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     }
   }
 
+  bool get _isCustomAvatar => _customAvatarUrl != null;
+
+  /// The server-stamped upload timestamp from upload_cooldowns/{uid}.
+  ///
+  /// This record is written ONLY by the Cloud Function
+  /// (enforceAvatarCooldown) on Storage finalize, so it is always truthful —
+  /// a client can neither skip nor fake it. Short TTL so the UI lock clears
+  /// promptly once the 24h window actually expires (server enforcement is
+  /// authoritative either way).
+  Future<DateTime?> _lastProfileUpload() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return null;
+    final data = await FirestoreCache.instance.doc(
+      'upload_cooldowns',
+      uid,
+      ttl: const Duration(minutes: 1),
+    );
+    final stamp = data['lastProfileUpload'];
+    if (stamp == null) return null;
+    if (stamp is Timestamp) return stamp.toDate();
+    if (stamp is DateTime) return stamp;
+    return null;
+  }
+
+  /// Syncs the button-gating cooldown (spec §5 state machine).
+  Future<void> _refreshCooldown() async {
+    final remaining = ProfileCooldownManager.evaluateRemainingHours(
+        await _lastProfileUpload());
+    if (!mounted || remaining == _cooldownHours) return;
+    setState(() => _cooldownHours = remaining);
+  }
+
+  Future<void> _pickAvatar() async {
+    if (_uploadingAvatar || _cooldownHours > 0) return;
+
+    // Pick → compress (< 150 KB) → upload direct to Firebase Storage. The 24h
+    // / one-per-day limit is enforced server-side by the Storage rules, which
+    // read upload_cooldowns/{uid}.lastProfileUpload — a record written only by
+    // the Cloud Function (on Storage finalize), never by this client.
+    final processed = await AvatarExecutionPipeline.pickAndProcessImage();
+    if (processed == null || !mounted) return;
+
+    setState(() => _uploadingAvatar = true);
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'anon';
+    try {
+      final committed = await AvatarExecutionPipeline.commitAvatarMutation(
+        imageFile: processed,
+        targetUserId: uid,
+      );
+      if (!mounted) return;
+
+      if (!committed) {
+        // Storage rules rejected the write (403/429) — almost always the 24h
+        // cooldown. Surface the lock with a countdown.
+        setState(() => _uploadingAvatar = false);
+        FirestoreCache.instance.invalidate('upload_cooldowns/$uid');
+        final remaining = ProfileCooldownManager.evaluateRemainingHours(
+            await _lastProfileUpload());
+        if (remaining > 0) {
+          showAppError(
+            context,
+            ApiException(
+              code: 'RATE_LIMITED',
+              message:
+                  'Avatar locked. You can change it again in $remaining hour(s).',
+            ),
+          );
+        } else {
+          showAppError(
+            context,
+            ApiException(
+              code: 'UPLOAD_ERROR',
+              message:
+                  'That image was rejected. Keep it under 150 KB and try again.',
+            ),
+          );
+        }
+        return;
+      }
+
+      // Reuse the fixed overwrite path the rules gate on for the preview URL.
+      final url = await FirebaseStorage.instance
+          .ref('users/$uid/profile.jpg')
+          .getDownloadURL();
+      // The function's server stamp may lag the upload by a moment, so lock
+      // the button immediately instead of trusting a possibly-stale read.
+      // The stamp (and the server-side 24h window) is authoritative regardless.
+      FirestoreCache.instance.invalidate('upload_cooldowns/$uid');
+      FirestoreCache.instance.invalidate('users/$uid');
+      if (!mounted) return;
+      setState(() {
+        _customAvatarUrl = url;
+        _cooldownHours = 24;
+        _uploadingAvatar = false;
+      });
+    } catch (e) {
+      debugPrint('Avatar upload failed: $e');
+      if (!mounted) return;
+      setState(() => _uploadingAvatar = false);
+      showAppError(
+        context,
+        ApiException(
+          code: 'UPLOAD_ERROR',
+          message: 'Could not upload that image. Please try again.',
+        ),
+      );
+    }
+  }
+
   Future<void> _save() async {
     // Phone is format-agnostic — any of +234..., 234..., 08..., 8... resolves.
     final parsed = _parsedPhone;
@@ -165,11 +284,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         if (e.code != 'CONFLICT') rethrow; // already registered → proceed
       }
 
-      final avatar = kAvatars[_selectedAvatar];
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      final avatar = _isCustomAvatar
+          ? 'Custom'
+          : kAvatars[_selectedAvatar]['name'];
+      final userData = <String, dynamic>{
         'username'    : username,
         'bio'         : _bioCtrl.text.trim(),
-        'avatar'      : avatar['name'],
+        'avatar'      : avatar,
+        'avatarUrl'   : _customAvatarUrl,
         'email'       : user.email,
         'phoneNumber' : phone,
         'isAdmin'     : false,
@@ -185,7 +307,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         'globalRank'  : 0,
         'isPremium'   : false,
         'createdAt'   : FieldValue.serverTimestamp(),
-      });
+      };
+      if (_isCustomAvatar) {
+        // Spec schema pointer to the direct-to-Firebase object. The 24h
+        // cooldown itself is NOT stored here — the Cloud Function stamps it
+        // server-side at upload_cooldowns/{uid} (this field is display-only).
+        userData['profilePicUrl'] = _customAvatarUrl;
+      }
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set(userData);
 
       // Create wallet
       await FirebaseFirestore.instance
@@ -203,6 +335,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       // AuthGate swaps the home widget to Shell once the Firestore doc emits,
       // but this screen may have been pushed on top of it (email flow via
       // pushAndRemoveUntil), so pop back to the root route to reveal it.
+      FirestoreCache.instance.invalidate('users/${user.uid}');
+      FirestoreCache.instance.invalidate('wallets/${user.uid}');
       if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
     } catch (e) {
       _handleSaveFailure(e);
@@ -226,110 +360,224 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       backgroundColor: context.bg,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.symmetric(horizontal: 24.w),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 32),
+              SizedBox(height: 32.h),
 
               // Avatar preview + change button
               Center(
                 child: Column(
                   children: [
-                    Stack(
-                      children: [
-                        Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: kOrange, width: 3),
-                            color: context.card,
-                          ),
-                          child: Center(
-                            child: Text(
-                              kAvatars[_selectedAvatar]['emoji']!,
-                              style: const TextStyle(fontSize: 48),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            width: 30,
-                            height: 30,
+                    GestureDetector(
+                      onTap: (_uploadingAvatar || _cooldownHours > 0)
+                          ? null
+                          : _pickAvatar,
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 144.w,
+                            height: 144.h,
                             decoration: BoxDecoration(
-                              color: kOrange,
                               shape: BoxShape.circle,
+                              color: kOrange.withOpacity(0.1),
+                              border: Border.all(
+                                  color: kOrange.withOpacity(0.2)),
                             ),
-                            child: const Icon(Icons.camera_alt,
-                                color: Colors.white, size: 16),
+                            child: Padding(
+                              padding: EdgeInsets.all(8.r),
+                              child: Container(
+                                clipBehavior: Clip.antiAlias,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: context.card,
+                                  border: Border.all(color: kOrange),
+                                ),
+                                child: _isCustomAvatar
+                                    ? CachedNetworkImage(
+                                        imageUrl: _customAvatarUrl!,
+                                        fit: BoxFit.cover,
+                                        placeholder: (_, __) =>
+                                            const ColoredBox(color: kBgCard),
+                                        errorWidget: (_, __, ___) => Center(
+                                          child: Text(
+                                            kAvatars[_selectedAvatar]
+                                                ['emoji']!,
+                                            style: TextStyle(
+                                                fontSize: 56.sp),
+                                          ),
+                                        ),
+                                      )
+                                    : Center(
+                                        child: Text(
+                                          kAvatars[_selectedAvatar]
+                                              ['emoji']!,
+                                          style: TextStyle(
+                                              fontSize: 56.sp, height: 1),
+                                        ),
+                                      ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kOrange,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 8),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 41.w,
+                              height: 39.h,
+                              decoration: const BoxDecoration(
+                                color: kOrange,
+                                shape: BoxShape.circle,
+                              ),
+                              child: _uploadingAvatar
+                                  ? Padding(
+                                      padding: EdgeInsets.all(10.r),
+                                      child: const CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2),
+                                    )
+                                  : Icon(Icons.camera_alt,
+                                      color: Colors.white, size: 17.w),
+                            ),
+                          ),
+                        ],
                       ),
-                      child: const Text('Change',
-                          style: TextStyle(color: Colors.white)),
                     ),
+                    SizedBox(height: 16.h),
+                    SizedBox(
+                      width: 124.w,
+                      height: 40.h,
+                      child: ElevatedButton(
+                        onPressed: (_uploadingAvatar || _cooldownHours > 0)
+                            ? null
+                            : _pickAvatar,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kOrange,
+                          disabledBackgroundColor: const Color(0xFF334155),
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r)),
+                        ),
+                        child: Text(
+                            _cooldownHours > 0
+                                ? 'Locked · ${_cooldownHours}h'
+                                : 'Change',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w400)),
+                      ),
+                    ),
+                    if (_cooldownHours > 0) ...[
+                      SizedBox(height: 8.h),
+                      Text(
+                        'Avatar locked — retry in ${_cooldownHours} hour(s)',
+                        style: TextStyle(
+                            color: context.txtSec, fontSize: 12.sp),
+                      ),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: 28.h),
 
               // Avatar picker
               Text('Choose an Avatar',
                   style: TextStyle(
                       color: context.txtPri,
                       fontWeight: FontWeight.w700,
-                      fontSize: 16)),
-              const SizedBox(height: 12),
+                      fontSize: 16.sp)),
+              SizedBox(height: 12.h),
               SizedBox(
-                height: 100,
+                height: 112.h,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  itemCount: kAvatars.length,
+                  itemCount: kAvatars.length + 1,
                   itemBuilder: (_, i) {
-                    final selected = i == _selectedAvatar;
+                    // ── Custom upload tile ──
+                    if (i == kAvatars.length) {
+                      final isSelected = _isCustomAvatar;
+                      return GestureDetector(
+                        onTap: (_uploadingAvatar || _cooldownHours > 0)
+                            ? null
+                            : _pickAvatar,
+                        child: Padding(
+                          padding: EdgeInsets.only(right: 14.w),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 80.w,
+                                height: 80.h,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: isSelected
+                                          ? kOrange
+                                          : const Color(0xFF334155),
+                                      width: 2.5),
+                                  color: context.card,
+                                ),
+                                child: _uploadingAvatar
+                                    ? Padding(
+                                        padding: EdgeInsets.all(24.r),
+                                        child: const CircularProgressIndicator(
+                                            color: kOrange,
+                                            strokeWidth: 2),
+                                      )
+                                    : Icon(Icons.add_a_photo_outlined,
+                                        color: const Color(0xFF64748B), size: 28.w),
+                              ),
+                              SizedBox(height: 4.h),
+                              Text('Upload',
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? kOrange
+                                        : context.txtSec,
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w600,
+                                  )),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    final selected =
+                        i == _selectedAvatar && !_isCustomAvatar;
                     return GestureDetector(
-                      onTap: () => setState(() => _selectedAvatar = i),
+                      onTap: () => setState(() {
+                        _selectedAvatar = i;
+                        _customAvatarUrl = null;
+                      }),
                       child: Padding(
-                        padding: const EdgeInsets.only(right: 14),
+                        padding: EdgeInsets.only(right: 14.w),
                         child: Column(
                           children: [
                             Container(
-                              width: 60,
-                              height: 60,
+                              width: 80.w,
+                              height: 80.h,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                    color: selected ? kOrange : Colors.transparent,
+                                    color: selected
+                                        ? kOrange
+                                        : Colors.transparent,
                                     width: 2.5),
                                 color: context.card,
                               ),
                               child: Center(
                                 child: Text(
                                   kAvatars[i]['emoji']!,
-                                  style: const TextStyle(fontSize: 28),
+                                  style: TextStyle(fontSize: 36.sp),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            SizedBox(height: 4.h),
                             Text(
                               kAvatars[i]['name']!,
                               style: TextStyle(
                                 color: selected ? kOrange : context.txtSec,
-                                fontSize: 11,
+                                fontSize: 12.sp,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -340,15 +588,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24.h),
 
               // Username
               Text('Username',
                   style: TextStyle(
                       color: context.txtPri,
                       fontWeight: FontWeight.w700,
-                      fontSize: 16)),
-              const SizedBox(height: 8),
+                      fontSize: 16.sp)),
+              SizedBox(height: 8.h),
               TextField(
                 controller: _usernameCtrl,
                 style: TextStyle(color: context.txtPri),
@@ -368,55 +616,63 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   filled: true,
                   fillColor: context.card,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(color: kBorder),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(color: kBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(color: kCyan, width: 1.5),
                   ),
                   suffixIcon: _checkingUsername
-                      ? const Padding(
-                          padding: EdgeInsets.all(12),
+                      ? Padding(
+                          padding: EdgeInsets.all(12.r),
                           child: SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
+                              width: 16.w,
+                              height: 16.h,
+                              child: const CircularProgressIndicator(
                                   strokeWidth: 2, color: kOrange)))
                       : _usernameAvailable
-                          ? const Icon(Icons.check_circle,
-                              color: Color(0xFF00E676), size: 22)
+                          ? Icon(Icons.check_circle,
+                              color: const Color(0xFF22C55E), size: 22.w)
                           : _usernameError != null
-                              ? const Icon(Icons.error_outline,
-                                  color: Colors.redAccent, size: 22)
+                              ? Icon(Icons.error_outline,
+                                  color: Colors.redAccent, size: 22.w)
                               : null,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                  contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16.w, vertical: 14.h),
                 ),
               ),
               if (_usernameAvailable)
-                const Padding(
-                  padding: EdgeInsets.only(top: 6),
+                Padding(
+                  padding: EdgeInsets.only(top: 6.h),
                   child: Text('Username is available!',
                       style: TextStyle(
-                          color: Color(0xFF00E676),
-                          fontSize: 12,
+                          color: const Color(0xFF22C55E),
+                          fontSize: 12.sp,
                           fontWeight: FontWeight.w600)),
                 )
               else if (_usernameError != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 6),
+                  padding: EdgeInsets.only(top: 6.h),
                   child: Text(_usernameError!,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: Colors.redAccent,
-                          fontSize: 12,
+                          fontSize: 12.sp,
                           fontWeight: FontWeight.w600)),
                 ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
 
               // Phone number (format-agnostic — resolved to +E.164)
               Text('Phone Number',
                   style: TextStyle(
                       color: context.txtPri,
                       fontWeight: FontWeight.w700,
-                      fontSize: 16)),
-              const SizedBox(height: 8),
+                      fontSize: 16.sp)),
+              SizedBox(height: 8.h),
               InternationalPhoneNumberInput(
                 key: ValueKey('phone-$_phoneIso'),
                 textFieldController: _phoneCtrl,
@@ -440,29 +696,37 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
                 selectorTextStyle: TextStyle(
                     color: context.txtPri, fontWeight: FontWeight.w600),
-                textStyle: TextStyle(color: context.txtPri, fontSize: 15),
+                textStyle: TextStyle(color: context.txtPri, fontSize: 15.sp),
                 inputDecoration: InputDecoration(
                   hintText: '803 123 4567',
-                  hintStyle: TextStyle(color: context.txtSec, fontSize: 13),
+                  hintStyle: TextStyle(color: context.txtSec, fontSize: 13.sp),
                   filled: true,
                   fillColor: context.card,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(color: kBorder),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 14),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(color: kBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(color: kCyan, width: 1.5),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12.w, vertical: 14.h),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
 
               // Bio & Tags
               Text('Bio & Tags',
                   style: TextStyle(
                       color: context.txtPri,
                       fontWeight: FontWeight.w700,
-                      fontSize: 16)),
-              const SizedBox(height: 8),
+                      fontSize: 16.sp)),
+              SizedBox(height: 8.h),
               TextField(
                 controller: _bioCtrl,
                 maxLines: 4,
@@ -470,51 +734,59 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 decoration: InputDecoration(
                   hintText:
                       'Tell the world your gaming style... (e.g. Ayo Pro, Ludo King, Daily Grinder)',
-                  hintStyle: TextStyle(color: context.txtSec, fontSize: 13),
+                  hintStyle: TextStyle(color: context.txtSec, fontSize: 13.sp),
                   filled: true,
                   fillColor: context.card,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(color: kBorder),
                   ),
-                  contentPadding: const EdgeInsets.all(16),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(color: kBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(color: kCyan, width: 1.5),
+                  ),
+                  contentPadding: EdgeInsets.all(16.r),
                 ),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: 32.h),
 
               // Get Started
               SizedBox(
                 width: double.infinity,
-                height: 54,
+                height: 54.h,
                 child: ElevatedButton(
                   onPressed: _loading ? null : _save,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kOrange,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(12.r)),
                   ),
                   child: _loading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
+                      ? SizedBox(
+                          width: 22.w,
+                          height: 22.h,
+                          child: const CircularProgressIndicator(
                               color: Colors.white, strokeWidth: 2))
-                      : const Row(
+                      : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text('Get Started',
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 16)),
-                            SizedBox(width: 8),
+                                    fontSize: 16.sp)),
+                            SizedBox(width: 8.w),
                             Icon(Icons.rocket_launch,
-                                color: Colors.white, size: 18),
+                                color: Colors.white, size: 18.w),
                           ],
                         ),
                 ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14.h),
 
               // Skip
               Center(
@@ -524,7 +796,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       style: TextStyle(color: context.txtSec)),
                 ),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: 32.h),
             ],
           ),
         ),

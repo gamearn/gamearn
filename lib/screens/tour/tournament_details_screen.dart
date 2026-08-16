@@ -1,430 +1,704 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
+import '../../widgets/gamearn_icons.dart';
 import 'tournament_entry_screen.dart';
+import 'tournament_pending_screen.dart';
+import 'tournament_results_screen.dart';
 import 'live_tournament_screen.dart';
+import 'create_tournament_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  TOURNAMENT DETAILS SCREEN — Figma matched
+//  Node: 1431:686
+//
+//  Frame 56: pt=12 pb=16 px=24 | bg #0B0E1A | border-b #FFFFFF
+//    title fs18 w700 #F1F5F9 + back btn (16×25)
+//
+//  Hero Action (342×100 r12): "Host Your Own" fs12 #FFB693
+//    "Create Tournament" fs20 w700 #E5E2E1 + 48×48 circle #FF6B00
+//
+//  Rank 1 (342×43 r8 stroke #22D1EE): "1" fs16 #22D1EE,
+//    avatar 24×24 #375277, name fs12 #FFFFFF,
+//    "78,450 XP" fs12 #22D1EE / "50 Wins" fs12 #FFFFFF
+//
+//  Pending card (342×227 r12 stroke #22D1EE):
+//    dot + "Pending Entry" fs12 #FFC107 | title fs18 w700 #FFFFFF
+//    pill 105×30 #313F55 r9999 "50 GC" fs16 #22D1EE
+//    avatars 32×32 (last "+12" #1E293B border #0B0E1A)
+//    "18 / 32 Players Joined" fs12 #FFFFFF
+//    btn 108×32 #313F55 "View Details" fs12 #FFFFFF
+//
+//  Completed card (342×393 r12 stroke #5A4136 o75):
+//    "Tournament Ended" fs12 #FFFFFF | title fs18 w700
+//    "Total Prize: 2,500 GC" fs12 | pill 130×30 #313F55 "64 Players"
+//    "Top 3 Winners" fs10 #FFC107 + 3× 292×40 winner rows
+//    1st bg #313F55 avatar border #FFC107 / 2nd-3rd bg #343435 #37365A
+//    btn 292×32 #313F55 "View Full Standings"
 // ════════════════════════════════════════════════════════════════
 
-class TournamentDetailsScreen extends StatefulWidget {
-  final String tournamentId;
-  const TournamentDetailsScreen({super.key, required this.tournamentId});
-  @override
-  State<TournamentDetailsScreen> createState() =>
-      _TournamentDetailsScreenState();
-}
-
-class _TournamentDetailsScreenState
-    extends State<TournamentDetailsScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabs;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabs = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
-  }
+class TournamentDetailsScreen extends StatelessWidget {
+  final String? tournamentId;
+  const TournamentDetailsScreen({super.key, this.tournamentId});
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-
     return Scaffold(
       backgroundColor: context.bg,
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('tournaments')
-            .doc(widget.tournamentId)
-            .snapshots(),
-        builder: (_, snap) {
-          if (!snap.hasData) {
-            return Scaffold(
-              backgroundColor: context.bg,
-              body: Center(
-                  child: CircularProgressIndicator(
-                      color: kCyan, strokeWidth: 2)),
-            );
-          }
-
-          final data   = snap.data!.data() as Map<String, dynamic>? ?? {};
-          final title  = data['title']      as String? ?? 'Tournament';
-          final prize  = data['prizePool']  as String? ?? '0';
-          final status = data['status']     as String? ?? 'upcoming';
-          final maxP   = data['maxPlayers'] as int?    ?? 32;
-          final players= (data['players']   as List?)?.cast<String>() ?? [];
-          final gameKey= (data['gameType']  as String? ?? 'whot').toLowerCase();
-          final isLive  = status == 'live';
-          final isDone  = status == 'completed';
-          final joined  = players.contains(uid);
-          final int entryFee = int.tryParse(data['entryCost']?.toString() ?? '0') ?? 0;
-
-          return SafeArea(
-            child: Column(children: [
-              // ── HERO ─────────────────────────────────────────────
-              Stack(children: [
-                Container(
-                  height: 140,
-                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: kCyan.withOpacity(0.2)),
-                  ),
-                  child: Stack(children: [
-                    Positioned(
-                      right: -30, top: -60,
-                      child: Container(
-                        width: 180, height: 180,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: kCyan.withOpacity(0.12),
-                          boxShadow: [BoxShadow(
-                              color: kCyan.withOpacity(0.2),
-                              blurRadius: 40)],
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: [
-                            GestureDetector(
-                              onTap: () => Navigator.pop(context),
-                              child: Container(
-                                width: 36, height: 36,
-                                decoration: BoxDecoration(
-                                  color: context.card,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                      color: context.border),
-                                ),
-                                child: const Icon(
-                                    Icons.arrow_back_ios_new_rounded,
-                                    color: Colors.white, size: 14),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(title,
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800),
-                                  overflow: TextOverflow.ellipsis),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isLive
-                                    ? kCyan
-                                    : isDone
-                                        ? const Color(0xFF313F55)
-                                        : kOrange.withOpacity(0.8),
-                                borderRadius: BorderRadius.circular(11),
-                              ),
-                              child: Text(
-                                isLive ? '● Live' : status.toUpperCase(),
-                                style: TextStyle(
-                                    color: isLive
-                                        ? const Color(0xFF0B0E1A)
-                                        : Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                          ]),
-                          const Spacer(),
-                          Row(children: [
-                            const Icon(Icons.emoji_events_rounded,
-                                color: kCyan, size: 16),
-                            const SizedBox(width: 6),
-                            Text('₦$prize',
-                                style: const TextStyle(
-                                    color: kCyan,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900)),
-                            const Spacer(),
-                            Text('${players.length}/$maxP players',
-                                style: const TextStyle(
-                                    color: Color(0xFF9A9A9A),
-                                    fontSize: 12)),
-                          ]),
-                        ],
-                      ),
-                    ),
-                  ]),
-                ),
-              ]),
-
-              const SizedBox(height: 10),
-
-              // ── JOIN BAR ────────────────────────────────────────
-              if (!isDone)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: GestureDetector(
-                    onTap: joined
-                        ? isLive
-                            ? () => Navigator.push(context,
-                                MaterialPageRoute(
-                                    builder: (_) => LiveTournamentScreen(
-                                        tournamentId: widget.tournamentId,
-                                        tournamentTitle: title))) // Fixed: added title
-                            : null
-                        : () => Navigator.push(context,
-                            MaterialPageRoute(
-                                builder: (_) => TournamentEntryScreen(
-                                    tournamentId: widget.tournamentId,
-                                    title: title, // Fixed: passed title
-                                    entryFee: entryFee))), // Fixed: passed entryFee
-                    child: Container(
-                      height: 43,
-                      decoration: BoxDecoration(
-                        color: joined && isLive ? kCyan : kOrange,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(
-                        child: Text(
-                          joined
-                              ? isLive
-                                  ? 'Enter Tournament →'
-                                  : 'Joined — Waiting to start'
-                              : 'Join Tournament',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-              const SizedBox(height: 12),
-
-              // ── TABS ─────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: context.card,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: TabBar(
-                    controller: _tabs,
-                    indicator: BoxDecoration(
-                      color: kCyan,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: Colors.transparent,
-                    padding: const EdgeInsets.all(3),
-                    labelColor: const Color(0xFF0B0E1A),
-                    unselectedLabelColor: const Color(0xFF9A9A9A),
-                    labelStyle: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w700),
-                    tabs: const [
-                      Tab(text: 'Overview'),
-                      Tab(text: 'Players'),
-                      Tab(text: 'Prizes'),
-                    ],
-                  ),
-                ),
-              ),
-
-              Expanded(
-                child: TabBarView(
-                  controller: _tabs,
-                  children: [
-                    _OverviewTab(data: data),
-                    _PlayersTab(
-                        players: players,
-                        maxPlayers: maxP),
-                    _PrizesTab(prize: prize),
-                  ],
-                ),
-              ),
-            ]),
-          );
+      body: SafeArea(
+        child: Column(children: [
+          _Header(
+            onBack: () => Navigator.pop(context),
+            onCreate: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => CreateTournamentScreen())),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 24.h),
+              children: [
+                _CreateHero(),
+                SizedBox(height: 32.h),
+                _RankCard(),
+                SizedBox(height: 32.h),
+                _TournamentList(),
+              ],
+            ),
+          ),
+        ]),
+      ),
+      bottomNavigationBar: GamearnBottomNav(
+        currentIndex: 1,
+        onTap: (i) {
+          if (i != 1) Navigator.pop(context);
         },
       ),
     );
   }
 }
 
-// ── OVERVIEW TAB ─────────────────────────────────────────────────
-class _OverviewTab extends StatelessWidget {
-  final Map<String, dynamic> data;
-  const _OverviewTab({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    final rules = data['rules'] as String? ?? 'Standard tournament rules apply.';
-    final start = data['startTime'] as String? ?? 'TBD';
-    final game  = data['gameType']  as String? ?? 'whot';
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: context.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: context.border),
-          ),
-          child: Column(children: [
-            Row(children: [
-              Expanded(child: _InfoTile(label: 'Game', value: game.toUpperCase(), icon: Icons.sports_esports_rounded)),
-              Expanded(child: _InfoTile(label: 'Start', value: start, icon: Icons.schedule_rounded)),
-            ]),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(child: _InfoTile(label: 'Format', value: 'Single Elim.', icon: Icons.account_tree_rounded)),
-              Expanded(child: _InfoTile(label: 'Entry', value: '${data['entryCost'] ?? 0} coins', icon: Icons.monetization_on_outlined)),
-            ]),
-          ]),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: context.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: context.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Rules', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 10),
-              Text(rules, style: const TextStyle(color: Color(0xFF9A9A9A), fontSize: 13, height: 1.6)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final String label, value;
-  final IconData icon;
-  const _InfoTile({required this.label, required this.value, required this.icon});
-
-  @override
-  Widget build(BuildContext context) => Row(children: [
-    Container(width: 32, height: 32, decoration: BoxDecoration(color: kCyan.withOpacity(0.12), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: kCyan, size: 16)),
-    const SizedBox(width: 10),
-    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: const TextStyle(color: Color(0xFF9A9A9A), fontSize: 10)),
-      Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
-    ]),
-  ]);
-}
-
-// ── PLAYERS TAB ───────────────────────────────────────────────────
-class _PlayersTab extends StatelessWidget {
-  final List<String> players;
-  final int maxPlayers;
-  const _PlayersTab({required this.players, required this.maxPlayers});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-      children: [
-        Text('${players.length} / $maxPlayers players joined', style: const TextStyle(color: Color(0xFF9A9A9A), fontSize: 12)),
-        const SizedBox(height: 12),
-        ...players.map((uid) => _PlayerRow(uid: uid)),
-        ...List.generate(
-          (maxPlayers - players.length).clamp(0, 8),
-          (i) => Container(
-            height: 64, margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(color: context.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: context.border)),
-            child: Center(child: Text('Open slot', style: TextStyle(color: context.txtSec, fontSize: 12))),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PlayerRow extends StatelessWidget {
-  final String uid;
-  const _PlayerRow({required this.uid});
+// ── HEADER (Frame 56) ─────────────────────────────────────────────
+class _Header extends StatelessWidget {
+  final VoidCallback onBack;
+  final VoidCallback onCreate;
+  const _Header({required this.onBack, required this.onCreate});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 64, margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(color: context.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: context.border)),
-      child: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
-        builder: (_, snap) {
-          final u = (snap.data?.data() as Map?) ?? {};
-          final name = u['username'] as String? ?? 'Player';
-          final emoji = kAvatars.firstWhere((a) => a['name'] == (u['avatar'] ?? 'BOT'), orElse: () => kAvatars[0])['emoji'] ?? '🤖';
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(children: [
-              Container(width: 36, height: 36, decoration: BoxDecoration(shape: BoxShape.circle, color: context.card), child: Center(child: Text(emoji, style: const TextStyle(fontSize: 18)))),
-              const SizedBox(width: 12),
-              Text(name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-            ]),
-          );
-        },
+      padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
+      decoration: BoxDecoration(
+        color: context.bg,
+        border: Border(
+            bottom: BorderSide(
+                color: context.isDark ? Colors.white : context.border)),
       ),
+      child: Row(children: [
+        GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: Icon(Icons.close_rounded,
+              color: const Color(0xFFF1F5F9), size: 20.w),
+        ),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: Text('Tournament Details',
+              style: TextStyle(
+                  color: const Color(0xFFF1F5F9),
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w700)),
+        ),
+        GestureDetector(
+          onTap: onCreate,
+          child: Container(
+            width: 36.w, height: 36.h,
+            decoration: BoxDecoration(
+              color: kOrange,
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: Icon(Icons.add_rounded,
+                color: Colors.white, size: 22.w),
+          ),
+        ),
+      ]),
     );
   }
 }
 
-// ── PRIZES TAB ────────────────────────────────────────────────────
-class _PrizesTab extends StatelessWidget {
-  final String prize;
-  const _PrizesTab({required this.prize});
+// ── HERO ACTION: Create Tournament → ──────────────────────────────
+class _CreateHero extends StatelessWidget {
+  const _CreateHero();
 
   @override
   Widget build(BuildContext context) {
+    return Container(
+      height: 100.h,
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [const Color(0xFF161E33), const Color(0xFF0B0E1A)],
+        ),
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Host Your Own',
+                  style: TextStyle(
+                      color: const Color(0xFFFFB693),
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500)),
+              SizedBox(height: 4.h),
+              GestureDetector(
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => CreateTournamentScreen())),
+                child: Text('Create Tournament',
+                    style: TextStyle(
+                        color: const Color(0xFFE5E2E1),
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          width: 48.w, height: 48.h,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF6B00),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.add_rounded,
+              color: Colors.white, size: 24.w),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── RANK 1 ────────────────────────────────────────────────────────
+class _RankCard extends StatefulWidget {
+  const _RankCard();
+  @override
+  State<_RankCard> createState() => _RankCardState();
+}
+
+class _RankCardState extends State<_RankCard> {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('leaderboard')
+          .orderBy('allTimeScore', descending: true)
+          .limit(1)
+          .snapshots(),
+      builder: (_, snap) {
+        final name = 'Adebayo';
+        final xp = '78,450';
+        final wins = '50';
+
+        final doc = snap.hasData && snap.data!.docs.isNotEmpty
+            ? snap.data!.docs.first
+            : null;
+        if (doc != null) {
+          final d = doc.data() as Map<String, dynamic>;
+          final ws = Map<String, int>.from(d['wins'] ?? {});
+          final totalWins = ws.values.fold<int>(0, (a, b) => a + b);
+          return Container(
+            height: 43.h,
+            padding: EdgeInsets.symmetric(horizontal: 14.w),
+            decoration: BoxDecoration(
+              color: kCyan.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(color: kCyan),
+            ),
+            child: Row(children: [
+              Text('1',
+                  style: TextStyle(
+                      color: kCyan,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w400)),
+              SizedBox(width: 16.w),
+              Container(
+                width: 24.w, height: 24.h,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF375277),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                      (d['avatar'] as String? ?? '😀'),
+                      style: TextStyle(fontSize: 12.sp)),
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Text(d['username'] as String? ?? 'Adebayo',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis),
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('$totalWins XP',
+                      style: TextStyle(
+                          color: kCyan,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500)),
+                  Text('Wins',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500)),
+                ],
+              ),
+            ]),
+          );
+        }
+
+        return Container(
+          height: 43.h,
+          padding: EdgeInsets.symmetric(horizontal: 14.w),
+          decoration: BoxDecoration(
+            color: kCyan.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(8.r),
+            border: Border.all(color: kCyan),
+          ),
+          child: Row(children: [
+            Text('1',
+                style: TextStyle(
+                    color: kCyan,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w400)),
+            SizedBox(width: 16.w),
+            Container(
+              width: 24.w, height: 24.h,
+              decoration: BoxDecoration(
+                color: const Color(0xFF375277),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                  child: Text('😀', style: TextStyle(fontSize: 12.sp))),
+            ),
+            SizedBox(width: 10.w),
+            Expanded(
+              child: Text(name,
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500)),
+            ),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('$xp XP',
+                    style: TextStyle(
+                        color: kCyan,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w500)),
+                Text('$wins Wins',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ]),
+        );
+      },
+    );
+  }
+}
+
+// ── TOURNAMENT LIST (pending + completed cards) ───────────────────
+class _TournamentList extends StatelessWidget {
+  const _TournamentList();
+
+  static const _assets = {
+    'whot':     'assets/games/whot.jpg',
+    'ludo':     'assets/games/ludo.png',
+    'ayo':      'assets/games/ayo.jpg',
+    'draughts': 'assets/games/draughts.jpg',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('tournaments')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (_, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return Padding(
+            padding: EdgeInsets.symmetric(vertical: 40.h),
+            child: Center(
+                child: CircularProgressIndicator(
+                    color: kCyan, strokeWidth: 2)),
+          );
+        }
+        final docs = snap.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return Padding(
+            padding: EdgeInsets.symmetric(vertical: 40.h),
+            child: Center(
+              child: Text('No tournaments yet — host your own!',
+                  style: TextStyle(
+                      color: const Color(0xFF9A9A9A), fontSize: 14.sp)),
+            ),
+          );
+        }
+
+        final pending = docs.where((d) {
+          final s = (d.data() as Map<String, dynamic>)['status'] as String?;
+          return s != 'completed';
+        }).toList();
+        final completed = docs.where((d) {
+          final s = (d.data() as Map<String, dynamic>)['status'] as String?;
+          return s == 'completed';
+        }).toList();
+
+        return Column(children: [
+          ...pending.map((d) => _PendingCard(data: d, assets: _assets)),
+          ...completed.map((d) => _CompletedCard(data: d, assets: _assets)),
+        ]);
+      },
+    );
+  }
+}
+
+// ── PENDING CARD ──────────────────────────────────────────────────
+class _PendingCard extends StatelessWidget {
+  final DocumentSnapshot data;
+  final Map<String, String> assets;
+  const _PendingCard({required this.data, required this.assets});
+
+  @override
+  Widget build(BuildContext context) {
+    final d = data.data() as Map<String, dynamic>;
+    final title = d['title'] as String? ?? 'Tournament';
+    final prize = d['prizePool'] as String? ?? '0';
+    final players = (d['players'] as List?)?.cast<String>() ?? [];
+    final maxP = d['maxPlayers'] as int? ?? 32;
+    final gameKey = (d['gameType'] as String? ?? 'whot').toLowerCase();
+    final asset = assets.entries
+        .firstWhere((e) => gameKey.contains(e.key),
+            orElse: () => assets.entries.first)
+        .value;
+    final status = d['status'] as String? ?? 'upcoming';
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 16.h),
+      padding: EdgeInsets.all(24.r),
+      decoration: BoxDecoration(
+        color: context.bg,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: kCyan),
+      ),
+      child: Column(children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8.r),
+            child: Image.asset(asset,
+                width: 60.w, height: 60.h, fit: BoxFit.cover),
+          ),
+          SizedBox(width: 14.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Container(
+                    width: 8.w, height: 8.h,
+                    decoration: BoxDecoration(
+                        color: const Color(0xFFFFC107),
+                        shape: BoxShape.circle),
+                  ),
+                  SizedBox(width: 8.w),
+                  Text('Pending Entry',
+                      style: TextStyle(
+                          color: const Color(0xFFFFC107),
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500)),
+                ]),
+                SizedBox(height: 6.h),
+                Text(title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w700)),
+                SizedBox(height: 2.h),
+                Text(gameKey.toUpperCase(),
+                    style: TextStyle(
+                        color: Colors.white, fontSize: 12.sp)),
+              ],
+            ),
+          ),
+          SizedBox(width: 8.w),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+            decoration: BoxDecoration(
+              color: const Color(0xFF313F55),
+              borderRadius: BorderRadius.circular(15.r),
+            ),
+            child: Text('$prize GC',
+                style: TextStyle(
+                    color: kCyan,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600)),
+          ),
+        ]),
+        SizedBox(height: 18.h),
+        Row(children: [
+          SizedBox(
+            width: 130.w, height: 32.h,
+            child: Stack(
+              children: [
+                ...List.generate(
+                  (players.length).clamp(0, 3),
+                  (i) => Positioned(
+                    left: i * 20.0,
+                    child: Container(
+                      width: 32.w, height: 32.h,
+                      decoration: BoxDecoration(
+                        color: context.card,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFF0B0E1A)),
+                      ),
+                      child: Center(
+                          child: Text('👤',
+                              style: TextStyle(fontSize: 14.sp))),
+                    ),
+                  ),
+                ),
+                if (players.length > 3)
+                  Positioned(
+                    left: 60.0,
+                    child: Container(
+                      width: 32.w, height: 32.h,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFF0B0E1A)),
+                      ),
+                      child: Center(
+                        child: Text('+${players.length - 3}',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Text('${players.length} / $maxP Players Joined',
+                style: TextStyle(
+                    color: Colors.white, fontSize: 12.sp)),
+          ),
+          GestureDetector(
+            onTap: () {
+              Widget dest;
+              if (status == 'live') {
+                dest = LiveTournamentScreen(
+                    tournamentId: data.id, tournamentTitle: title);
+              } else if (status == 'pending') {
+                dest = TournamentPendingScreen(tournamentId: data.id);
+              } else {
+                dest = TournamentEntryScreen(
+                    tournamentId: data.id,
+                    title: title,
+                    entryFee: int.tryParse(d['entryCost']?.toString() ?? '0') ?? 0);
+              }
+              Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => dest));
+            },
+            child: Container(
+              width: 108.w, height: 32.h,
+              decoration: BoxDecoration(
+                color: const Color(0xFF313F55),
+                borderRadius: BorderRadius.circular(16.r),
+              ),
+              child: Center(
+                child: Text('View Details',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w500)),
+              ),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+}
+
+// ── COMPLETED CARD ────────────────────────────────────────────────
+class _CompletedCard extends StatelessWidget {
+  final DocumentSnapshot data;
+  final Map<String, String> assets;
+  const _CompletedCard({required this.data, required this.assets});
+
+  @override
+  Widget build(BuildContext context) {
+    final d = data.data() as Map<String, dynamic>;
+    final title = d['title'] as String? ?? 'Tournament';
+    final prize = d['prizePool'] as String? ?? '0';
+    final players = (d['players'] as List?)?.cast<String>() ?? [];
+    final gameKey = (d['gameType'] as String? ?? 'whot').toLowerCase();
+    final asset = assets.entries
+        .firstWhere((e) => gameKey.contains(e.key),
+            orElse: () => assets.entries.first)
+        .value;
+
     final total = int.tryParse(prize.replaceAll(',', '')) ?? 0;
-    final prizes = [
-      ('🥇 1st Place', (total * 0.5).toInt()),
-      ('🥈 2nd Place', (total * 0.3).toInt()),
-      ('🥉 3rd Place', (total * 0.2).toInt()),
+    final winners = [
+      ('🥇', '1st', (total * 0.5).toInt()),
+      ('🥈', '2nd', (total * 0.3).toInt()),
+      ('🥉', '3rd', (total * 0.2).toInt()),
     ];
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-      children: prizes.map((p) => Container(
-        height: 64, margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(color: context.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: context.border)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(children: [
-            Text(p.$1, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-            const Spacer(),
-            Text('₦${p.$2}', style: const TextStyle(color: kCyan, fontSize: 16, fontWeight: FontWeight.w900)),
-          ]),
+    return Opacity(
+      opacity: 0.75,
+      child: Container(
+        margin: EdgeInsets.only(bottom: 16.h),
+        padding: EdgeInsets.all(24.r),
+        decoration: BoxDecoration(
+          color: context.bg,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: const Color(0xFF5A4136)),
         ),
-      )).toList(),
+        child: Column(children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8.r),
+              child: Image.asset(asset,
+                  width: 60.w, height: 60.h, fit: BoxFit.cover),
+            ),
+            SizedBox(width: 14.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Tournament Ended',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500)),
+                  SizedBox(height: 4.h),
+                  Text(title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w700)),
+                  SizedBox(height: 2.h),
+                  Text('Total Prize: $prize GC',
+                      style: TextStyle(
+                          color: Colors.white, fontSize: 12.sp)),
+                ],
+              ),
+            ),
+            SizedBox(width: 8.w),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+              decoration: BoxDecoration(
+                color: const Color(0xFF313F55),
+                borderRadius: BorderRadius.circular(15.r),
+              ),
+              child: Text('${players.length} Players',
+                  style: TextStyle(
+                      color: kCyan,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ]),
+          SizedBox(height: 16.h),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Top 3 Winners',
+                style: TextStyle(
+                    color: const Color(0xFFFFC107), fontSize: 10.sp)),
+          ),
+          SizedBox(height: 12.h),
+          ...winners.map((w) => Container(
+            height: 40.h,
+            margin: EdgeInsets.only(bottom: 12.h),
+            padding: EdgeInsets.symmetric(horizontal: 14.w),
+            decoration: BoxDecoration(
+              color: w.$2 == '1st'
+                  ? const Color(0xFF313F55)
+                  : const Color(0xFF343435),
+              borderRadius: BorderRadius.circular(20.r),
+            ),
+            child: Row(children: [
+              Container(
+                width: 32.w, height: 32.h,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: w.$2 == '1st'
+                          ? const Color(0xFFFFC107)
+                          : const Color(0xFF37365A)),
+                ),
+                child: Center(
+                    child: Text(w.$1, style: TextStyle(fontSize: 14.sp))),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Text('${w.$2} Place',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w500)),
+              ),
+              Text('${w.$3} GC',
+                  style: TextStyle(
+                      color: const Color(0xFFFFC107),
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500)),
+            ]),
+          )),
+          GestureDetector(
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) =>
+                        TournamentResultsScreen(tournamentId: data.id))),
+            child: Container(
+              height: 32.h,
+              decoration: BoxDecoration(
+                color: const Color(0xFF313F55),
+                borderRadius: BorderRadius.circular(16.r),
+              ),
+              child: Center(
+                child: Text('View Full Standings',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w500)),
+              ),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }

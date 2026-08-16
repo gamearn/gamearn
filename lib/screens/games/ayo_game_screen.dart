@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gamearn/config/api_config.dart';
@@ -17,7 +18,7 @@ const _card     = Color(0xFF0F172A);
 const _surface  = Color(0xFF1E293B);
 const _cyan     = Color(0xFF22D1EE);
 const _orange   = Color(0xFFFF5E00);
-const _green    = Color(0xFF00E676);
+const _green    = Color(0xFF22C55E);
 const _txtPri   = Color(0xFFF1F5F9);
 const _txtSub   = Color(0xFF94A3B8);
 const _border   = Color(0xFF334155);
@@ -402,7 +403,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
           style: const TextStyle(color: _txtPri, fontWeight: FontWeight.w600)),
       backgroundColor: _navy,
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
       duration: const Duration(seconds: 2),
     ));
   }
@@ -427,52 +428,45 @@ class _AyoGameScreenState extends State<AyoGameScreen>
 
       // ── HEADER ────────────────────────────────────────────────────────────
       Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
         child: Row(children: [
           GestureDetector(
-            onTap: widget.onBack ?? () => Navigator.maybePop(context),
-            child: Container(
-              width: 37, height: 37,
-              decoration: BoxDecoration(
-                color: _orange,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Icon(Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white, size: 16),
-            ),
+            onTap: () => Navigator.pop(context),
+            child: Icon(Icons.close_rounded,
+                color: const Color(0xFFF1F5F9), size: 20.w),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(widget.tournamentTitle,
-                    style: const TextStyle(
-                        color: _orange, fontSize: 16,
+                    style: TextStyle(
+                        color: _orange, fontSize: 16.sp,
                         fontWeight: FontWeight.w900, letterSpacing: 0.8)),
                 Text('Prize Pool: ${widget.prizePool}',
-                    style: const TextStyle(
-                        color: _cyan, fontSize: 11, fontWeight: FontWeight.w500)),
+                    style: TextStyle(
+                        color: _cyan, fontSize: 11.sp, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
         ]),
       ),
 
-      const SizedBox(height: 12),
+      SizedBox(height: 12.h),
 
       // ── MAIN TABLE ────────────────────────────────────────────────────────
       Expanded(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
           child: Container(
             decoration: BoxDecoration(
               color: _card,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(16.r),
               border: Border.all(color: Colors.white.withOpacity(0.06)),
             ),
             child: Column(children: [
-              const SizedBox(height: 16),
+              SizedBox(height: 16.h),
 
               // Bot player info
               _playerRow(
@@ -483,12 +477,12 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                 active: _currentPlayerIndex == 1 && !_isTerminal,
               ),
 
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
 
               // Ayo board
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: EdgeInsets.symmetric(horizontal: 12.w),
                   child: _AyoBoardWidget(
                     board:        _board,
                     currentPlayerIndex: _currentPlayerIndex,
@@ -501,18 +495,18 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                 ),
               ),
 
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
 
               // Status message
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 child: Container(
                   key: ValueKey(_statusMsg),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 16.w, vertical: 8.h),
                   decoration: BoxDecoration(
                     color: _surface,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(20.r),
                     border: Border.all(
                       color: _currentPlayerIndex == 0 && !_botBusy
                           ? _cyan.withOpacity(0.4)
@@ -523,22 +517,22 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (_botBusy)
-                        const SizedBox(
-                          width: 12, height: 12,
+                        SizedBox(
+                          width: 12.w, height: 12.h,
                           child: CircularProgressIndicator(
                               color: _cyan, strokeWidth: 2),
                         ),
-                      if (_botBusy) const SizedBox(width: 8),
+                      if (_botBusy) SizedBox(width: 8.w),
                       Text(_statusMsg,
-                          style: const TextStyle(
-                              color: _txtPri, fontSize: 13,
+                          style: TextStyle(
+                              color: _txtPri, fontSize: 13.sp,
                               fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
               ),
 
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
 
               // Confirm button (only when human has selected a hole)
               AnimatedSwitcher(
@@ -549,11 +543,11 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                         onTap: _executeHumanMove,
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 4),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 32, vertical: 12),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 32.w, vertical: 12.h),
                           decoration: BoxDecoration(
                             color: _cyan,
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(24.r),
                             boxShadow: [
                               BoxShadow(
                                   color: _cyan.withOpacity(0.4),
@@ -563,16 +557,16 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                           child: Text(
                             'Sow from pit ${_selectedHole + 1}  '
                             '(${_board[_selectedHole]} seeds)',
-                            style: const TextStyle(
-                                color: _bg, fontSize: 13,
+                            style: TextStyle(
+                                color: _bg, fontSize: 13.sp,
                                 fontWeight: FontWeight.w800),
                           ),
                         ),
                       )
-                    : const SizedBox(key: ValueKey('empty'), height: 0),
+                    : SizedBox(key: const ValueKey('empty'), height: 0),
               ),
 
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
 
               // Human player info
               _playerRow(
@@ -583,7 +577,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                 active: _currentPlayerIndex == 0 && !_isTerminal,
               ),
 
-              const SizedBox(height: 16),
+              SizedBox(height: 16.h),
             ]),
           ),
         ),
@@ -598,16 +592,16 @@ class _AyoGameScreenState extends State<AyoGameScreen>
     required bool isBot,
     required bool active,
   }) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
+    padding: EdgeInsets.symmetric(horizontal: 16.w),
     child: Row(
       children: [
         // Avatar
         AnimatedBuilder(
           animation: _glowAnim,
           builder: (_, __) => Container(
-            width: 44, height: 44,
+            width: 44.w, height: 44.h,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(10.r),
               border: Border.all(
                 color: active
                     ? _cyan.withOpacity(_glowAnim.value)
@@ -617,7 +611,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
               color: _surface,
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(9.r),
               child: avatar.isNotEmpty
                   ? Image.network(avatar, fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => _avatarInitial(name))
@@ -625,28 +619,28 @@ class _AyoGameScreenState extends State<AyoGameScreen>
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10.w),
         // Name + turn indicator
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(name,
-                  style: const TextStyle(
-                      color: _txtPri, fontSize: 13,
+                  style: TextStyle(
+                      color: _txtPri, fontSize: 13.sp,
                       fontWeight: FontWeight.w700)),
               if (active)
-                const Text('Your turn',
-                    style: TextStyle(color: _cyan, fontSize: 11)),
+                Text('Your turn',
+                    style: TextStyle(color: _cyan, fontSize: 11.sp)),
             ],
           ),
         ),
         // Score badge
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
           decoration: BoxDecoration(
             color: _surface,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(20.r),
             border: Border.all(
               color: _border,
             ),
@@ -655,12 +649,12 @@ class _AyoGameScreenState extends State<AyoGameScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.grain_rounded,
-                  color: _cyan, size: 14),
-              const SizedBox(width: 6),
+                  color: _cyan, size: 14.w),
+              SizedBox(width: 6.w),
               Text('$score',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: _txtPri,
-                      fontSize: 16, fontWeight: FontWeight.w900)),
+                      fontSize: 16.sp, fontWeight: FontWeight.w900)),
             ],
           ),
         ),
@@ -671,19 +665,19 @@ class _AyoGameScreenState extends State<AyoGameScreen>
   Widget _avatarInitial(String name) => Center(
     child: Text(
       name.isNotEmpty ? name[0].toUpperCase() : '?',
-      style: const TextStyle(
-          color: _cyan, fontSize: 18, fontWeight: FontWeight.w900),
+      style: TextStyle(
+          color: _cyan, fontSize: 18.sp, fontWeight: FontWeight.w900),
     ),
   );
 
   Widget _loadingOverlay() => Container(
     color: Colors.black87,
-    child: const Center(
+    child: Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        CircularProgressIndicator(color: _cyan, strokeWidth: 3),
-        SizedBox(height: 16),
+        const CircularProgressIndicator(color: _cyan, strokeWidth: 3),
+        SizedBox(height: 16.h),
         Text('Setting up the board…',
-            style: TextStyle(color: _cyan, fontSize: 16,
+            style: TextStyle(color: _cyan, fontSize: 16.sp,
                 fontWeight: FontWeight.w700)),
       ]),
     ),
@@ -693,20 +687,20 @@ class _AyoGameScreenState extends State<AyoGameScreen>
     color: Colors.black87,
     child: Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.wifi_off_rounded, color: _orange, size: 48),
-        const SizedBox(height: 12),
-        const Text('Could not reach game server',
-            style: TextStyle(color: Colors.white, fontSize: 15)),
-        const SizedBox(height: 20),
+        Icon(Icons.wifi_off_rounded, color: _orange, size: 48.w),
+        SizedBox(height: 12.h),
+        Text('Could not reach game server',
+            style: TextStyle(color: Colors.white, fontSize: 15.sp)),
+        SizedBox(height: 20.h),
         GestureDetector(
           onTap: _startGame,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+            padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 14.h),
             decoration: BoxDecoration(
-                color: _orange, borderRadius: BorderRadius.circular(12)),
-            child: const Text('Retry',
+                color: _orange, borderRadius: BorderRadius.circular(12.r)),
+            child: Text('Retry',
                 style: TextStyle(color: Colors.white,
-                    fontSize: 15, fontWeight: FontWeight.w800)),
+                    fontSize: 15.sp, fontWeight: FontWeight.w800)),
           ),
         ),
       ]),
@@ -741,11 +735,12 @@ class _AyoBoardWidget extends StatelessWidget {
     return LayoutBuilder(builder: (ctx, constraints) {
       final w = constraints.maxWidth;
       final h = constraints.maxHeight;
+      final holeSize = ((w - 24) / 6).clamp(30.0, 56.0);
       return Container(
         width: w, height: h,
         decoration: BoxDecoration(
           color: const Color(0xFF78350F),
-          borderRadius: BorderRadius.circular(13.0),
+          borderRadius: BorderRadius.circular(13.0.r),
           border: Border.all(color: const Color(0xFF4B1B00), width: 1.1),
           boxShadow: [
             BoxShadow(
@@ -758,7 +753,7 @@ class _AyoBoardWidget extends StatelessWidget {
           children: [
             // ── BOT ROW (holes 6–11, displayed right to left) ────────────
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: EdgeInsets.symmetric(horizontal: 12.w),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: List.generate(6, (i) {
@@ -770,6 +765,7 @@ class _AyoBoardWidget extends StatelessWidget {
                     isLastLand: lastLandPit == holeIdx,
                     isPlayable: false,
                     label:      '${6 - i}',
+                    size:       holeSize,
                     onTap:      () {},
                   );
                 }),
@@ -777,11 +773,11 @@ class _AyoBoardWidget extends StatelessWidget {
             ),
 
             // ── SEPARATOR MARGIN ─────────────────────────────────────────
-            const SizedBox(height: 12),
+            SizedBox(height: 12.h),
 
             // ── HUMAN ROW (holes 0–5, left to right) ─────────────────────
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: EdgeInsets.symmetric(horizontal: 12.w),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: List.generate(6, (i) {
@@ -796,6 +792,7 @@ class _AyoBoardWidget extends StatelessWidget {
                     isLastLand: lastLandPit == holeIdx,
                     isPlayable: isPlayable,
                     label:      '${i + 1}',
+                    size:       holeSize,
                     onTap:      () => onHoleTap(holeIdx),
                   );
                 }),
@@ -816,6 +813,7 @@ class _HoleWidget extends StatelessWidget {
   final bool isLastLand;
   final bool isPlayable;
   final String label;
+  final double size;
   final VoidCallback onTap;
 
   const _HoleWidget({
@@ -825,6 +823,7 @@ class _HoleWidget extends StatelessWidget {
     required this.isLastLand,
     required this.isPlayable,
     required this.label,
+    required this.size,
     required this.onTap,
   });
 
@@ -839,7 +838,7 @@ class _HoleWidget extends StatelessWidget {
       onTap: isPlayable ? onTap : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 48, height: 48,
+        width: size, height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: isSelected
@@ -859,15 +858,15 @@ class _HoleWidget extends StatelessWidget {
             seeds <= 8
                 ? _SeedDots(count: seeds)
                 : Text('$seeds',
-                    style: const TextStyle(
-                        color: Color(0xFFD4A853),
-                        fontSize: 14, fontWeight: FontWeight.w900)),
+                    style: TextStyle(
+                        color: const Color(0xFFD4A853),
+                        fontSize: 14.sp, fontWeight: FontWeight.w900)),
             Text(label,
                 style: TextStyle(
                     color: isPlayable
                         ? _txtSub
                         : const Color(0xFF4A2A10),
-                    fontSize: 8)),
+                    fontSize: 8.sp)),
           ],
         ),
       ),
@@ -883,7 +882,7 @@ class _SeedDots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (count == 0) {
-      return const SizedBox(height: 20);
+      return SizedBox(height: 20.h);
     }
     return SizedBox(
       width: 28, height: 20,
@@ -948,10 +947,10 @@ class _GameOverDialog extends StatelessWidget {
   Widget build(BuildContext context) => Dialog(
     backgroundColor: Colors.transparent,
     child: Container(
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(28.r),
       decoration: BoxDecoration(
         color: _navy,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(28.r),
         border: Border.all(
           color: isWinner
               ? _cyan.withOpacity(0.5)
@@ -959,62 +958,62 @@ class _GameOverDialog extends StatelessWidget {
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(isWinner ? 'You Win!' : 'You Lost',
-            style: const TextStyle(
-                color: _txtPri, fontSize: 26, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 12),
+            style: TextStyle(
+                color: _txtPri, fontSize: 26.sp, fontWeight: FontWeight.w900)),
+        SizedBox(height: 12.h),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _ScoreBadge(label: 'You', score: humanScore,
                 color: isWinner ? _green : _orange),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
               child: Text('vs',
-                  style: TextStyle(color: _txtSub, fontSize: 14)),
+                  style: TextStyle(color: _txtSub, fontSize: 14.sp)),
             ),
             _ScoreBadge(label: 'Bot', score: botScore,
                 color: !isWinner ? _green : _orange),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.h),
         if (isWinner)
           Text('Prize: $prizePool',
-              style: const TextStyle(
-                  color: _orange, fontSize: 18,
+              style: TextStyle(
+                  color: _orange, fontSize: 18.sp,
                   fontWeight: FontWeight.w700)),
-        const SizedBox(height: 24),
+        SizedBox(height: 24.h),
         Row(children: [
           Expanded(
             child: GestureDetector(
               onTap: onRematch,
               child: Container(
-                height: 48,
+                height: 48.h,
                 decoration: BoxDecoration(
                   color: _surface,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(14.r),
                   border: Border.all(color: _border),
                 ),
-                child: const Center(
+                child: Center(
                   child: Text('Rematch',
-                      style: TextStyle(color: _txtPri, fontSize: 14,
+                      style: TextStyle(color: _txtPri, fontSize: 14.sp,
                           fontWeight: FontWeight.w700)),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.w),
           Expanded(
             child: GestureDetector(
               onTap: onClose,
               child: Container(
-                height: 48,
+                height: 48.h,
                 decoration: BoxDecoration(
                   color: _orange,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(14.r),
                 ),
-                child: const Center(
+                child: Center(
                   child: Text('Back to Lobby',
-                      style: TextStyle(color: Colors.white, fontSize: 14,
+                      style: TextStyle(color: Colors.white, fontSize: 14.sp,
                           fontWeight: FontWeight.w800)),
                 ),
               ),
@@ -1038,9 +1037,9 @@ class _ScoreBadge extends StatelessWidget {
     children: [
       Text('$score',
           style: TextStyle(
-              color: color, fontSize: 32, fontWeight: FontWeight.w900)),
+              color: color, fontSize: 32.sp, fontWeight: FontWeight.w900)),
       Text(label,
-          style: const TextStyle(color: _txtSub, fontSize: 12)),
+          style: TextStyle(color: _txtSub, fontSize: 12.sp)),
     ],
   );
 }

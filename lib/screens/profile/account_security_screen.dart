@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme.dart';
-import '../../utils/error_utils.dart';
 
 // ════════════════════════════════════════════════════════════════
-//  ACCOUNT SECURITY SCREEN — Figma matched (390×844)
+//  ACCOUNT SECURITY SCREEN — Figma matched (2076:1835, 390×844)
 //
-//  y=225: 192×192 rx=96 #22D1EE — glow circle (right-aligned, x=222)
-//  y=361: 342×194 rx=12 #FF5E00 — PIN/2FA card (orange)
-//    y=394: 64×64 rx=32 #FF5E00 — lock icon circle
-//    y=499: 101×23 rx=4 #FF5E00 — "Enable" chip
-//  y=636: 342×130 rx=12 #201F1F — sessions card (dark)
-//    y=661: 44×24 rx=12 #FF5E00 — active session toggle
+//  Hero: "Security Rating" fs12 #22D1EE · "YOUR ACCOUNT IS
+//    FORTIFIED" fs32 w700 · body fs16 #FFFFFF@50 · glow 192×192
+//    #22D1EE@10 · "Updated 2m ago" fs14 #FFFFFF@60
+//  Vault Status: card 342×194 #FF5E00@5 · icon circle 64×64
+//    #FF5E00 · "Vault Status" fs20 w700 · pill 101×23 "LEVEL 4
+//    ACCESS" (bg #FF5E00, text #0B0E1A)
+//  Two-Factor Auth: accent bar 4×24 #FF6B00 · title fs20 w700
+//    #E5E2E1 · card 342×131 #201F1F@40 + switch 44×24 (on orange)
 // ════════════════════════════════════════════════════════════════
 
 class AccountSecurityScreen extends StatefulWidget {
@@ -21,483 +22,223 @@ class AccountSecurityScreen extends StatefulWidget {
 }
 
 class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
-  bool _twoFA        = false;
-  bool _biometrics   = false;
-  bool _loginAlerts  = true;
+  bool _twoFA = true;
 
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: context.bg,
     body: SafeArea(
-      child: Stack(children: [
-        // Glow circle — Figma: y=225 x=222 192×192 rx=96 #22D1EE
-        Positioned(
-          top: 170, right: -24,
-          child: Container(
-            width: 192, height: 192,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: kCyan.withOpacity(0.08),
-              boxShadow: [BoxShadow(
-                  color: kCyan.withOpacity(0.18),
-                  blurRadius: 60, spreadRadius: 12)],
-            ),
+      child: Column(children: [
+        // Header — Figma Frame 56
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
+          decoration: const BoxDecoration(
+            color: Color(0xE60B0E1A),
+            border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
           ),
+          child: Row(children: [
+            GestureDetector(
+              onTap: () => Navigator.maybePop(context),
+              child: Icon(Icons.close_rounded,
+                  color: const Color(0xFFF1F5F9), size: 20.w),
+            ),
+            Expanded(
+              child: Text('Account Security',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: const Color(0xFFF1F5F9),
+                      fontSize: 18.sp, fontWeight: FontWeight.w700)),
+            ),
+            SizedBox(width: 20.w),
+          ]),
         ),
 
-        CustomScrollView(
-          slivers: [
-            // Header
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 40, height: 40,
-                      decoration: BoxDecoration(
-                        color: context.card,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: context.border),
-                      ),
-                      child: Icon(Icons.arrow_back_ios_new_rounded,
-                          color: context.txtPri, size: 16),
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            children: [
+
+              SizedBox(height: 32.h),
+
+              // ── SECURITY RATING HERO ──────────────────────────────────
+              Stack(children: [
+                // Glow — Figma: 192×192 #22D1EE@10 right
+                Positioned(
+                  right: -30, top: 4,
+                  child: Container(
+                    width: 192.w, height: 192.h,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: kCyan.withOpacity(0.1),
+                      boxShadow: [BoxShadow(
+                          color: kCyan.withOpacity(0.18),
+                          blurRadius: 70, spreadRadius: 14)],
                     ),
                   ),
-                  const SizedBox(width: 14),
-                  Text('Account Security',
+                ),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  // Label — Figma: fs12 #22D1EE
+                  Text('Security Rating',
+                      style: TextStyle(
+                          color: kCyan, fontSize: 12.sp,
+                          fontWeight: FontWeight.w400)),
+                  SizedBox(height: 12.h),
+                  // Title — Figma: fs32 w700, 2 lines
+                  Text('YOUR ACCOUNT\nIS FORTIFIED',
                       style: TextStyle(
                           color: context.txtPri,
-                          fontSize: 17, fontWeight: FontWeight.w800)),
-                ]),
-              ),
-            ),
-
-            // ── SECURITY SCORE ────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-                child: Column(children: [
-                  Text('Security Score',
-                      style: TextStyle(
-                          color: context.txtSec, fontSize: 13)),
-                  const SizedBox(height: 8),
-                  Text(_score(),
-                      style: TextStyle(
-                          color: _scoreColor(),
-                          fontSize: 42, fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 4),
-                  Text(_scoreLabel(),
-                      style: TextStyle(
-                          color: _scoreColor(),
-                          fontSize: 13, fontWeight: FontWeight.w600)),
-                ]),
-              ),
-            ),
-
-            // ── 2FA / PIN CARD — Figma: y=361 342×194 rx=12 #FF5E00 ──
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 28, 16, 0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: kOrange,
-                    borderRadius: BorderRadius.circular(12),
+                          fontSize: 32.sp, fontWeight: FontWeight.w700,
+                          height: 1.12)),
+                  SizedBox(height: 14.h),
+                  // Body — Figma: fs16 #FFFFFF@50, 3 lines
+                  Text(
+                    'Multi-layer encryption is active. Your\ngaming assets are protected by\nGamearn Void protocols.',
+                    style: TextStyle(
+                        color: const Color(0x80FFFFFF), fontSize: 16.sp,
+                        fontWeight: FontWeight.w400, height: 1.4),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
+                  SizedBox(height: 16.h),
+                  // Updated — Figma: "Updated 2m ago" fs14 #FFFFFF@60
+                  Row(children: [
+                    Icon(Icons.shield_outlined,
+                        color: const Color(0x99FFFFFF), size: 14.w),
+                    SizedBox(width: 6.w),
+                    Text('Updated 2m ago',
+                        style: TextStyle(
+                            color: const Color(0x99FFFFFF), fontSize: 14.sp,
+                            fontWeight: FontWeight.w400)),
+                  ]),
+                ]),
+              ]),
+
+              SizedBox(height: 32.h),
+
+              // ── VAULT STATUS — Figma: 342×194 #FF5E00@5 pad 32 ────────
+              Container(
+                padding: EdgeInsets.all(32.r),
+                decoration: BoxDecoration(
+                  color: kOrange.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: Row(children: [
+                  // Icon circle — Figma: 64×64 #FF5E00
+                  Container(
+                    width: 64.w, height: 64.h,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: kOrange,
+                      boxShadow: [BoxShadow(
+                          color: kOrange.withOpacity(0.35),
+                          blurRadius: 20, spreadRadius: 2)],
+                    ),
+                    child: Icon(Icons.verified_user_outlined,
+                        color: Colors.white, size: 30.w),
+                  ),
+                  SizedBox(width: 18.w),
+                  Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Lock icon 64×64 rx=32 #FF5E00 (lighter)
-                        Container(
-                          width: 64, height: 64,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.lock_rounded,
-                              color: Colors.white, size: 32),
-                        ),
-                        const SizedBox(height: 14),
-                        const Text('Two-Factor Authentication',
+                        // Title — Figma: fs20 w700
+                        Text('Vault Status',
                             style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 16, fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 6),
-                        Text(
-                          _twoFA
-                              ? 'Your account is protected with 2FA'
-                              : 'Add an extra layer of security to your account',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontSize: 12),
-                        ),
-                        const SizedBox(height: 16),
-                        // Enable chip — Figma: 101×23 rx=4 #FF5E00 inner
-                        GestureDetector(
-                          onTap: () => setState(() => _twoFA = !_twoFA),
-                          child: Container(
-                            width: 101, height: 36,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Center(
-                              child: Text(
-                                _twoFA ? 'Disable 2FA' : 'Enable 2FA',
-                                style: const TextStyle(
-                                    color: kOrange,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800),
-                              ),
-                            ),
+                                fontSize: 20.sp, fontWeight: FontWeight.w700)),
+                        SizedBox(height: 12.h),
+                        // Pill — Figma: 101×23 #FF5E00, text #0B0E1A
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 12.w, vertical: 4.h),
+                          decoration: BoxDecoration(
+                            color: kOrange,
+                            borderRadius: BorderRadius.circular(4.r),
                           ),
+                          child: Text('LEVEL 4 ACCESS',
+                              style: TextStyle(
+                                  color: const Color(0xFF0B0E1A),
+                                  fontSize: 10.sp, fontWeight: FontWeight.w400)),
                         ),
                       ],
                     ),
                   ),
-                ),
+                ]),
               ),
-            ),
 
-            // ── SECURITY OPTIONS ──────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
-                child: Text('Security Options',
-                    style: TextStyle(
-                        color: context.txtPri,
-                        fontSize: 14, fontWeight: FontWeight.w800)),
-              ),
-            ),
+              SizedBox(height: 32.h),
 
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
+              // ── TWO-FACTOR AUTH — Figma: accent + card ───────────────
+              Row(children: [
+                // Accent bar — Figma: 4×24 #FF6B00
+                Container(
+                  width: 4.w, height: 24.h,
                   decoration: BoxDecoration(
-                    color: context.card,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: context.border),
+                    color: const Color(0xFFFF6B00),
+                    borderRadius: BorderRadius.circular(2.r),
                   ),
-                  child: Column(children: [
-                    _ToggleRow(
-                      icon: Icons.fingerprint_rounded,
-                      label: 'Biometric Login',
-                      sub: 'Use fingerprint or face ID',
-                      value: _biometrics,
-                      onChanged: (v) => setState(() => _biometrics = v),
-                    ),
-                    Divider(height: 1, indent: 72,
-                        color: context.border),
-                    _ToggleRow(
-                      icon: Icons.notifications_active_outlined,
-                      label: 'Login Alerts',
-                      sub: 'Notify on new sign-ins',
-                      value: _loginAlerts,
-                      onChanged: (v) => setState(() => _loginAlerts = v),
-                    ),
-                    Divider(height: 1, indent: 72,
-                        color: context.border),
-                    _NavRow(
-                      icon: Icons.password_rounded,
-                      label: 'Change Password',
-                      onTap: () => _changePasswordSheet(),
-                    ),
-                  ]),
                 ),
-              ),
-            ),
-
-            // ── ACTIVE SESSIONS — Figma: y=636 342×130 rx=12 #201F1F ─
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
-                child: Text('Active Sessions',
+                SizedBox(width: 12.w),
+                Text('Two-Factor Auth',
                     style: TextStyle(
-                        color: context.txtPri,
-                        fontSize: 14, fontWeight: FontWeight.w800)),
-              ),
-            ),
+                        color: const Color(0xFFE5E2E1),
+                        fontSize: 20.sp, fontWeight: FontWeight.w700)),
+              ]),
+              SizedBox(height: 14.h),
 
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    // Figma: #201F1F
-                    color: context.card,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(children: [
-                      Container(
-                        width: 40, height: 40,
-                        decoration: BoxDecoration(
-                          color: kCyan.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.phone_android_rounded,
-                            color: kCyan, size: 20),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('This Device',
-                                style: TextStyle(
-                                    color: context.txtPri,
-                                    fontSize: 14, fontWeight: FontWeight.w700)),
-                            SizedBox(height: 2),
-                            Text('Android • Current session',
-                                style: TextStyle(
-                                    color: context.txtSec, fontSize: 11)),
-                          ],
-                        ),
-                      ),
-                      // Active toggle badge — Figma: 44×24 rx=12 #FF5E00
-                      Container(
-                        width: 44, height: 24,
-                        decoration: BoxDecoration(
-                          color: kOrange,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Center(
-                          child: Text('Active',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9, fontWeight: FontWeight.w800)),
-                        ),
-                      ),
-                    ]),
-                  ),
+              // Card — Figma: 342×131 #201F1F@40, horizontal layout
+              Container(
+                padding: EdgeInsets.all(24.r),
+                decoration: BoxDecoration(
+                  color: const Color(0x66201F1F),
+                  borderRadius: BorderRadius.circular(12.r),
                 ),
-              ),
-            ),
-
-            // ── DANGER ZONE ───────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-                child: GestureDetector(
-                  onTap: () => _deleteAccountDialog(),
-                  child: Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: Colors.red.withOpacity(0.35)),
-                    ),
-                    child: const Center(
-                      child: Text('Delete Account',
+                child: Row(children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Enable 2FA Protection',
+                            style: TextStyle(
+                                color: const Color(0xFFE5E2E1),
+                                fontSize: 16.sp, fontWeight: FontWeight.w400)),
+                        SizedBox(height: 8.h),
+                        Text(
+                          'Secure your account with a code from your email or phone on every new login attempt.',
                           style: TextStyle(
-                              color: Colors.red,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700)),
+                              color: const Color(0xFFE2BFA0), fontSize: 12.sp,
+                              fontWeight: FontWeight.w500, height: 1.4),
+                        ),
+                      ],
                     ),
                   ),
-                ),
+                  SizedBox(width: 16.w),
+                  Switch(
+                    value: _twoFA,
+                    onChanged: (v) {
+                      setState(() => _twoFA = v);
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(SnackBar(
+                          content: Text(
+                              v ? '2FA enabled' : '2FA disabled'),
+                          backgroundColor:
+                              v ? kCyan : context.txtSec,
+                          behavior: SnackBarBehavior.floating,
+                        ));
+                    },
+                    activeColor: kOrange,
+                    activeTrackColor: kOrange.withOpacity(0.4),
+                    inactiveThumbColor: context.txtSec,
+                    inactiveTrackColor: context.border,
+                  ),
+                ]),
               ),
-            ),
-          ],
+
+              SizedBox(height: 32.h),
+            ],
+          ),
         ),
       ]),
     ),
-  );
-
-  // ── helpers ──────────────────────────────────────────────────────
-  int get _scoreInt {
-    int s = 20;
-    if (_twoFA)       s += 40;
-    if (_biometrics)  s += 25;
-    if (_loginAlerts) s += 15;
-    return s;
-  }
-
-  String _score() => '${_scoreInt}%';
-
-  Color _scoreColor() {
-    final s = _scoreInt;
-    if (s >= 80) return const Color(0xFF22C55E);
-    if (s >= 50) return kOrange;
-    return Colors.red;
-  }
-
-  String _scoreLabel() {
-    final s = _scoreInt;
-    if (s >= 80) return 'Strong';
-    if (s >= 50) return 'Moderate';
-    return 'Weak — enable 2FA';
-  }
-
-  void _changePasswordSheet() {
-    final _oldCtrl = TextEditingController();
-    final _newCtrl = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: context.card,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 24, right: 24, top: 24),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 40, height: 4,
-              decoration: BoxDecoration(
-                  color: context.txtPri.withOpacity(0.24),
-                  borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 20),
-          Text('Change Password',
-              style: TextStyle(color: context.txtPri,
-                  fontSize: 17, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 20),
-          _pwField(_oldCtrl, 'Current Password'),
-          const SizedBox(height: 12),
-          _pwField(_newCtrl, 'New Password'),
-          const SizedBox(height: 20),
-          GestureDetector(
-            onTap: () async {
-              try {
-                final cred = EmailAuthProvider.credential(
-                    email: FirebaseAuth.instance.currentUser?.email ?? '',
-                    password: _oldCtrl.text);
-                await FirebaseAuth.instance.currentUser
-                    ?.reauthenticateWithCredential(cred);
-                await FirebaseAuth.instance.currentUser
-                    ?.updatePassword(_newCtrl.text);
-                if (context.mounted) Navigator.pop(context);
-              } catch (e) {
-                if (context.mounted) showAppError(context, e);
-              }
-            },
-            child: Container(
-              width: double.infinity, height: 48,
-              decoration: BoxDecoration(
-                  color: kOrange, borderRadius: BorderRadius.circular(12)),
-              child: const Center(child: Text('Update Password',
-                  style: TextStyle(color: Colors.white,
-                      fontSize: 15, fontWeight: FontWeight.w800))),
-            ),
-          ),
-          const SizedBox(height: 24),
-        ]),
-      ),
-    );
-  }
-
-  Widget _pwField(TextEditingController c, String hint) => Container(
-    height: 52,
-    decoration: BoxDecoration(
-      color: context.card,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: context.border),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: TextField(
-        controller: c,
-        obscureText: true,
-        style: TextStyle(color: context.txtPri),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: context.txtSec),
-          border: InputBorder.none,
-        ),
-      ),
-    ),
-  );
-
-  void _deleteAccountDialog() => showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      backgroundColor: context.card,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text('Delete Account',
-          style: TextStyle(color: context.txtPri, fontWeight: FontWeight.w800)),
-      content: Text(
-          'This action is permanent and cannot be undone. All your data will be lost.',
-          style: TextStyle(color: context.txtSec)),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel',
-                style: TextStyle(color: context.txtSec))),
-        TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await FirebaseAuth.instance.currentUser?.delete();
-            },
-            child: const Text('Delete',
-                style: TextStyle(
-                    color: Colors.red, fontWeight: FontWeight.w800))),
-      ],
-    ),
-  );
-}
-
-// ── TOGGLE ROW ────────────────────────────────────────────────────
-class _ToggleRow extends StatelessWidget {
-  final IconData icon;
-  final String label, sub;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  const _ToggleRow({required this.icon, required this.label,
-      required this.sub, required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-    leading: Container(
-      width: 40, height: 40,
-      decoration: BoxDecoration(
-          color: kCyan.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(8)),
-      child: Icon(icon, color: kCyan, size: 20),
-    ),
-    title: Text(label, style: TextStyle(
-        color: context.txtPri, fontSize: 14, fontWeight: FontWeight.w600)),
-    subtitle: Text(sub, style: TextStyle(
-        color: context.txtSec, fontSize: 11)),
-    trailing: Switch(
-      value: value, onChanged: onChanged,
-      activeColor: kCyan,
-      activeTrackColor: kCyan.withOpacity(0.3),
-      inactiveThumbColor: context.txtSec,
-      inactiveTrackColor: context.border,
-    ),
-  );
-}
-
-// ── NAV ROW ───────────────────────────────────────────────────────
-class _NavRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _NavRow(
-      {required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-    onTap: onTap,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-    leading: Container(
-      width: 40, height: 40,
-      decoration: BoxDecoration(
-          color: kCyan.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(8)),
-      child: Icon(icon, color: kCyan, size: 20),
-    ),
-    title: Text(label, style: TextStyle(
-        color: context.txtPri, fontSize: 14, fontWeight: FontWeight.w600)),
-    trailing: Icon(Icons.chevron_right_rounded,
-        color: context.txtSec, size: 20),
   );
 }

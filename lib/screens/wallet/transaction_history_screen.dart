@@ -1,93 +1,69 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 
+// ════════════════════════════════════════════════════════════════
+//  TRANSACTION HISTORY SCREEN — Figma matched (1499:910, list of
+//  items 342×80) — pushed from Wallet "View All"
+//
+//  Item: 342×80 #22D1EE@0.05 r12 (NO border) · icon overlay 48×48
+//    r16 — win #22C55E@0.2 / purchase #22D1EE@0.2 / streak
+//    #FF5E00@0.2 · title fs12 #F1F5F9 w700 · date fs10 @0.5
+//    "Oct 24, 2023 • 14:20" · "+500 Units" fs12 (+green / white)
+//    w700 · "+$5.00" fs10 @0.5
+// ════════════════════════════════════════════════════════════════
+
 class TransactionHistoryScreen extends StatefulWidget {
   const TransactionHistoryScreen({super.key});
+
   @override
   State<TransactionHistoryScreen> createState() =>
       _TransactionHistoryScreenState();
 }
 
-class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tab;
-  static const _tabs = ['All', 'Credits', 'Debits'];
-
-  @override
-  void initState() {
-    super.initState();
-    _tab = TabController(length: _tabs.length, vsync: this);
-    _tab.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _tab.dispose();
-    super.dispose();
-  }
+class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
+  static const _months = ['Jan','Feb','Mar','Apr','May','Jun',
+                          'Jul','Aug','Sep','Oct','Nov','Dec'];
 
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
+
     return Scaffold(
       backgroundColor: context.bg,
       body: SafeArea(
         child: Column(
           children: [
-            // ── Header ──────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.maybePop(context),
-                    child: Container(
-                      width: 40, height: 40,
-                      decoration: BoxDecoration(
-                        color: context.surface,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(Icons.arrow_back_ios_new,
-                          color: context.txtPri, size: 16),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text('Transaction History',
-                      style: context.titleStyle),
-                ],
+            // ── HEADER — Figma (standardized) ──────────────────────────
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
+              decoration: const BoxDecoration(
+                color: Color(0xE60B0E1A),
+                border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
               ),
-            ),
-            const SizedBox(height: 20),
-
-            // ── Tab bar ─────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                height: 44,
-                decoration: BoxDecoration(
-                  color: context.surface,
-                  borderRadius: BorderRadius.circular(12),
+              child: Row(children: [
+                GestureDetector(
+                  onTap: () => Navigator.maybePop(context),
+                  child: Icon(Icons.close_rounded,
+                      color: const Color(0xFFF1F5F9), size: 20.w),
                 ),
-                child: TabBar(
-                  controller: _tab,
-                  indicator: BoxDecoration(
-                    color: context.cyan,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  labelColor: context.bg,
-                  unselectedLabelColor: context.subText,
-                  labelStyle: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 13),
-                  tabs: _tabs.map((t) => Tab(text: t)).toList(),
+                Expanded(
+                  child: Text('Transaction History',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: const Color(0xFFF1F5F9),
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w700)),
                 ),
-              ),
+                SizedBox(width: 20.w),
+              ]),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
 
-            // ── List ─────────────────────────────────────────────────
+            // ── LIST ────────────────────────────────────────────────
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: uid == null
@@ -103,23 +79,15 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
                     return const Center(child: CircularProgressIndicator());
                   }
                   final docs = snap.data?.docs ?? [];
-                  final filtered = docs.where((d) {
-                    final data = d.data() as Map<String, dynamic>;
-                    final type =
-                        (data['type'] as String? ?? '').toLowerCase();
-                    if (_tab.index == 1) return type == 'credit';
-                    if (_tab.index == 2) return type == 'debit';
-                    return true;
-                  }).toList();
 
-                  if (filtered.isEmpty) {
+                  if (docs.isEmpty) {
                     return Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.receipt_long_outlined,
-                              color: context.subText, size: 64),
-                          const SizedBox(height: 12),
+                              color: context.subText, size: 64.w),
+                          SizedBox(height: 12.h),
                           Text('No transactions yet',
                               style: TextStyle(color: context.subText)),
                         ],
@@ -128,79 +96,96 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
                   }
 
                   return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: filtered.length,
+                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 32.h),
+                    itemCount: docs.length,
                     itemBuilder: (context, i) {
-                      final data =
-                          filtered[i].data() as Map<String, dynamic>;
-                      final isCredit =
-                          (data['type'] as String? ?? '') == 'credit';
-                      final amount =
-                          (data['amount'] as num? ?? 0).toDouble();
-                      final desc =
-                          data['description'] as String? ?? 'Transaction';
-                      final ts = data['createdAt'] as Timestamp?;
-                      final date = ts != null
-                          ? _formatDate(ts.toDate())
-                          : '';
+                      final d = docs[i].data() as Map<String, dynamic>;
+                      final desc = (d['description'] ?? '')
+                          .toString()
+                          .toLowerCase();
+                      final credit = d['type'] == 'credit';
+                      final isStreak = desc.contains('streak');
+                      final units = d['units'] ?? 0;
+                      final usdAmt = d['usdAmount'] ?? 0;
+                      final ts = d['createdAt'] as Timestamp?;
+
+                      final Color ov;
+                      final IconData ic;
+                      if (isStreak) {
+                        ov = kOrange;
+                        ic = Icons.local_fire_department;
+                      } else if (credit) {
+                        ov = kGreen;
+                        ic = Icons.emoji_events;
+                      } else {
+                        ov = kCyan;
+                        ic = Icons.shopping_bag_outlined;
+                      }
 
                       return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
+                        height: 80.h,
+                        margin: EdgeInsets.only(bottom: 12.h),
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
                         decoration: BoxDecoration(
-                          color: context.cyan.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: context.cyan.withOpacity(0.15)),
+                          color: kCyan.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12.r),
                         ),
                         child: Row(
                           children: [
                             Container(
-                              width: 48, height: 48,
+                              width: 48.w,
+                              height: 48.w,
                               decoration: BoxDecoration(
-                                color: isCredit
-                                    ? const Color(0xFF22C55E)
-                                        .withOpacity(0.15)
-                                    : context.orange.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(16),
+                                color: ov.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(16.r),
                               ),
-                              child: Icon(
-                                isCredit
-                                    ? Icons.arrow_downward_rounded
-                                    : Icons.arrow_upward_rounded,
-                                color: isCredit
-                                    ? const Color(0xFF22C55E)
-                                    : context.orange,
-                                size: 22,
-                              ),
+                              child: Icon(ic, color: ov, size: 20.w),
                             ),
-                            const SizedBox(width: 14),
+                            SizedBox(width: 16.w),
                             Expanded(
                               child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(desc,
+                                  Text(d['description'] ?? '',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                          color: context.txtPri,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 14)),
-                                  const SizedBox(height: 4),
-                                  Text(date,
+                                          color: const Color(0xFFF1F5F9),
+                                          fontSize: 12.sp,
+                                          fontWeight: FontWeight.w700)),
+                                  SizedBox(height: 2.h),
+                                  Text(ts != null
+                                          ? _fmtDate(ts.toDate())
+                                          : '',
                                       style: TextStyle(
-                                          color: context.subText,
-                                          fontSize: 12)),
+                                          color: const Color(0x80FFFFFF),
+                                          fontSize: 10.sp)),
                                 ],
                               ),
                             ),
-                            Text(
-                              '${isCredit ? '+' : '-'}₦${amount.toStringAsFixed(0)}',
-                              style: TextStyle(
-                                color: isCredit
-                                    ? const Color(0xFF22C55E)
-                                    : context.orange,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${credit ? '+' : '-'}${_fmtNum(units)} Units',
+                                  style: TextStyle(
+                                    color: credit
+                                        ? kGreen
+                                        : Colors.white,
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                SizedBox(height: 2.h),
+                                Text(
+                                  '${credit ? '+' : '-'}\$${_fmtNum(usdAmt)}',
+                                  style: TextStyle(
+                                      color: const Color(0x80FFFFFF),
+                                      fontSize: 10.sp),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -216,11 +201,14 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
     );
   }
 
-  String _formatDate(DateTime d) {
-    final months = ['Jan','Feb','Mar','Apr','May','Jun',
-                    'Jul','Aug','Sep','Oct','Nov','Dec'];
-    return '${d.day} ${months[d.month - 1]} ${d.year}  '
-        '${d.hour.toString().padLeft(2,'0')}:'
-        '${d.minute.toString().padLeft(2,'0')}';
+  String _fmtDate(DateTime d) {
+    return '${_months[d.month - 1]} ${d.day}, ${d.year} • '
+        '${d.hour.toString().padLeft(2, '0')}:'
+        '${d.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _fmtNum(dynamic v) {
+    if (v is num) return v.toStringAsFixed(v is int ? 0 : 2);
+    return '${v ?? 0}';
   }
 }

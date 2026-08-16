@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
@@ -42,41 +43,41 @@ class _GlobalLeaderboardScreenState
 
           // ── HEADER ────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
             child: Row(children: [
               GestureDetector(
                 onTap: () => Navigator.maybePop(context),
                 child: Container(
-                  width: 40, height: 40,
+                  width: 40.w, height: 40.w,
                   decoration: BoxDecoration(
                     color: context.card,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(10.r),
                     border: Border.all(color: context.border),
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 16),
+                  child: Icon(Icons.close_rounded,
+                      color: Color(0xFFF1F5F9), size: 20.w),
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: 14.w),
               Text('Global Leaderboard',
                   style: TextStyle(
                       color: context.txtPri,
-                      fontSize: 17, fontWeight: FontWeight.w800)),
+                      fontSize: 17.sp, fontWeight: FontWeight.w800)),
             ]),
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: 16.h),
 
           // ── TAB BAR — Figma: 342×28 rx=8 #1E293B
           //              active 83.5×20 rx=6 #22D1EE ───────────
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
             child: Container(
-              height: 36,
-              padding: const EdgeInsets.all(4),
+              height: 36.h,
+              padding: EdgeInsets.all(4.r),
               decoration: BoxDecoration(
                 color: context.card,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.r),
               ),
               child: Row(
                 children: List.generate(_tabs.length, (i) {
@@ -89,7 +90,7 @@ class _GlobalLeaderboardScreenState
                         decoration: BoxDecoration(
                           // Figma: active pill #22D1EE rx=6
                           color: active ? kCyan : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(6.r),
                         ),
                         child: Center(
                               child: Text(_tabs[i],
@@ -97,7 +98,7 @@ class _GlobalLeaderboardScreenState
                                       color: active
                                           ? const Color(0xFF0B0E1A)
                                           : context.txtSec,
-                                  fontSize: 11,
+                                  fontSize: 11.sp,
                                   fontWeight: FontWeight.w700)),
                         ),
                       ),
@@ -108,7 +109,7 @@ class _GlobalLeaderboardScreenState
             ),
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: 12.h),
 
           // ── ROWS LIST ─────────────────────────────────────────
           Expanded(
@@ -120,7 +121,7 @@ class _GlobalLeaderboardScreenState
                   .snapshots(),
               builder: (_, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(
+                  return Center(child: CircularProgressIndicator(
                       color: kCyan, strokeWidth: 2));
                 }
                 final docs = snap.data?.docs ?? [];
@@ -129,9 +130,9 @@ class _GlobalLeaderboardScreenState
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('🏆',
-                            style: TextStyle(fontSize: 48)),
-                        const SizedBox(height: 12),
+                        Text('🏆',
+                            style: TextStyle(fontSize: 48.sp)),
+                        SizedBox(height: 12.h),
                         Text('No rankings yet for ${_tabs[_tab]}',
                             style: TextStyle(
                                 color: context.txtSec)),
@@ -140,7 +141,7 @@ class _GlobalLeaderboardScreenState
                   );
                 }
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
                   itemCount: docs.length,
                   itemBuilder: (_, i) {
                     final d = docs[i].data() as Map<String, dynamic>;
@@ -155,8 +156,8 @@ class _GlobalLeaderboardScreenState
                     final isTop  = i == 0;
 
                     return Container(
-                      height: 43,
-                      margin: const EdgeInsets.only(bottom: 8),
+                      height: 43.h,
+                      margin: EdgeInsets.only(bottom: 8.h),
                       decoration: BoxDecoration(
                         // Figma: #1 = 342×43 #22D1EE, rest = #1E293B
                         color: isTop
@@ -164,34 +165,34 @@ class _GlobalLeaderboardScreenState
                             : isMe
                                 ? kCyan.withOpacity(0.12)
                                 : context.card,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(8.r),
                         border: isMe && !isTop
                             ? Border.all(
                                 color: kCyan.withOpacity(0.4))
                             : null,
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 12.w),
                         child: Row(children: [
                           // Rank
                           SizedBox(
-                            width: 28,
+                            width: 28.w,
                             child: Text(
                               _rankLabel(i),
                               style: TextStyle(
                                   color: isTop
                                       ? const Color(0xFF0B0E1A)
                                       : context.txtSec,
-                                  fontSize: 13,
+                                  fontSize: 13.sp,
                                   fontWeight: FontWeight.w900),
                               textAlign: TextAlign.center,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8.w),
                           // Avatar
                           Container(
-                            width: 28, height: 28,
+                            width: 28.w, height: 28.w,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: isTop
@@ -201,10 +202,10 @@ class _GlobalLeaderboardScreenState
                             child: Center(
                               child: Text(emoji,
                                   style:
-                                      const TextStyle(fontSize: 14)),
+                                      TextStyle(fontSize: 14.sp)),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          SizedBox(width: 10.w),
                           // Name
                           Expanded(
                             child: Text(
@@ -213,7 +214,7 @@ class _GlobalLeaderboardScreenState
                                   color: isTop
                                       ? const Color(0xFF0B0E1A)
                                       : context.txtPri,
-                                  fontSize: 13,
+                                  fontSize: 13.sp,
                                   fontWeight: isTop
                                       ? FontWeight.w800
                                       : FontWeight.w600),
@@ -222,21 +223,21 @@ class _GlobalLeaderboardScreenState
                           ),
                           // Score chip — Figma: #375277 bg
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 3),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 10.w, vertical: 3.h),
                             decoration: BoxDecoration(
                               color: isTop
                                   ? const Color(0xFF0B0E1A)
                                       .withOpacity(0.2)
                                   : const Color(0xFF375277),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(8.r),
                             ),
                             child: Text('$score pts',
                                 style: TextStyle(
                                     color: isTop
                                         ? const Color(0xFF0B0E1A)
                                         : kCyan,
-                                    fontSize: 11,
+                                    fontSize: 11.sp,
                                     fontWeight: FontWeight.w700)),
                           ),
                         ]),

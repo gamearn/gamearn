@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'theme.dart';
 import 'services/sound_service.dart';
 import 'services/push_service.dart';
+import 'services/firestore_cache.dart';
 import 'screens/auth/landing_screen.dart';
 import 'screens/auth/email_verify_screen.dart';
 import 'screens/auth/profile_setup_screen.dart';
@@ -15,6 +17,15 @@ import 'screens/shell.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // Keep a local copy of every doc/query on device so FirestoreCache can
+  // serve reads from `Source.cache` (free) instead of the server (billed).
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  );
+  await FirestoreCache.instance.init();
+
   await SoundService.instance.init();
   await PushService.instance.init();
   runApp(const GamearnApp());
@@ -49,15 +60,20 @@ class _GamearnAppState extends State<GamearnApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Gamearn',
-      debugShowCheckedModeBanner: false,
-      theme: kLightTheme,
-      darkTheme: kDarkTheme,
-      themeMode: ThemeNotifier.instance.themeMode,
-      home: _showInitialSplash
-          ? SplashScreen(onComplete: () => setState(() => _showInitialSplash = false))
-          : const _AuthGate(),
+    return ScreenUtilInit(
+      designSize: const Size(390, 844),
+      minTextAdapt: true,
+      splitScreenMode: true,
+      builder: (context, child) => MaterialApp(
+        title: 'Gamearn',
+        debugShowCheckedModeBanner: false,
+        theme: kLightTheme,
+        darkTheme: kDarkTheme,
+        themeMode: ThemeNotifier.instance.themeMode,
+        home: _showInitialSplash
+            ? SplashScreen(onComplete: () => setState(() => _showInitialSplash = false))
+            : const _AuthGate(),
+      ),
     );
   }
 }

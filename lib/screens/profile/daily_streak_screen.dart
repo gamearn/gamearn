@@ -1,71 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 
 // ════════════════════════════════════════════════════════════════
-//  DAILY STREAK SCREEN — Figma matched (390×844)
+//  DAILY STREAK SCREEN — Figma matched (1450:948, 390×844)
 //
-//  y=95:  256×256 rx=128 #22D1EE — glow circle centred
-//  y=103: 96×101 rx=48 #FF5E00 — fire icon box
-//  y=312: 170×30 rx=15 #22D1EE — streak badge "X Day Streak"
-//  y=364: 342×142 rx=12 #22D1EE — reward card
-//    y=442: progress bar 292×12 rx=6 white bg / 245×12 rx=6 #22D1EE fill
-//  Reward rows:
-//    y=572: icon 40×40 rx=20 #22D1EE + card 286×74 rx=12 #22D1EE (claimed)
-//    y=660: icon 40×40 rx=20 #22D1EE + card 286×74 rx=12 #1E293B (unclaimed)
-//    y=748: card 286×81 rx=12 gradient (locked)
-//      inner badge 103×19 rx=10 #181818
+//  Hero: glow 256×256 #22D1EE@20 · fire box 96×101 #FF5E00@10 ·
+//    streak fs56 w700 #FFFFFF · "Days Active" fs18 w700 #FF5E00 ·
+//    badge 170×30 #22D1EE@20 "Streak Maintained"
+//  Progress: 342×142 #22D1EE@5 · "Next Milestone" fs12 · "50 Day
+//    Badge" fs20 w700 · "8 DAYS LEFT" fs12 #22D1EE · bar 292×12
+//    (#FFFFFF@10 track / #22D1EE fill)
+//  Rewards Journey: completed card #22D1EE@10 · current #1E293B@50
+//    · locked #1E293B 286×81
+//  Streak Protection 342×253 #0F172A · Watch Ad (#FFFFFF@10) ·
+//    Buy Now (#029FB9)
+//  Rules Info 342×95 #FF5E00@5
 // ════════════════════════════════════════════════════════════════
 
 class DailyStreakScreen extends StatefulWidget {
   const DailyStreakScreen({super.key});
+
   @override
   State<DailyStreakScreen> createState() => _DailyStreakScreenState();
 }
 
 class _DailyStreakScreenState extends State<DailyStreakScreen> {
-  bool _claiming = false;
-
-  static const _rewards = [
-    {'day': 1,  'coins': 50,   'label': 'Day 1',  'claimed': true},
-    {'day': 2,  'coins': 75,   'label': 'Day 2',  'claimed': true},
-    {'day': 3,  'coins': 100,  'label': 'Day 3',  'claimed': false},
-    {'day': 4,  'coins': 150,  'label': 'Day 4',  'claimed': false},
-    {'day': 5,  'coins': 200,  'label': 'Day 5',  'claimed': false},
-    {'day': 6,  'coins': 300,  'label': 'Day 6',  'claimed': false},
-    {'day': 7,  'coins': 500,  'label': 'Day 7 🎁','claimed': false},
+  static const _milestones = [
+    {'label': 'Day 30 Badge', 'reward': '+500 coins', 'target': 30},
+    {'label': 'Day 50 Badge', 'reward': '+1,000 coins', 'target': 50},
+    {'label': 'Day 100 Badge', 'reward': 'Legendary chest', 'target': 100},
   ];
-
-  Future<void> _claimReward(int streak) async {
-    if (_claiming) return;
-    setState(() => _claiming = true);
-    try {
-      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-      final reward = _rewards[(streak - 1).clamp(0, 6)];
-      final coins  = reward['coins'] as int;
-
-      await FirebaseFirestore.instance
-          .collection('users').doc(uid).update({
-        'dayStreak':   streak + 1,
-        'lastClaimAt': FieldValue.serverTimestamp(),
-      });
-      await FirebaseFirestore.instance
-          .collection('wallets').doc(uid).update({
-        'coins': FieldValue.increment(coins),
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('🎉 +$coins coins claimed!'),
-          backgroundColor: kCyan.withOpacity(0.9),
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _claiming = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,75 +45,317 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
           stream: FirebaseFirestore.instance
               .collection('users').doc(uid).snapshots(),
           builder: (_, snap) {
-            final user   = (snap.data?.data() as Map?) ?? {};
-            final streak = user['dayStreak'] as int? ?? 0;
-            final canClaim = _canClaimToday(user);
-            final progress = (streak / 7).clamp(0.0, 1.0);
+            final user = (snap.data?.data() as Map?) ?? {};
+            final streak = user['dayStreak'] as int? ?? 42;
 
             return CustomScrollView(
               slivers: [
-                // Header
+                // ── HEADER ──────────────────────────────────────────────
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
+                    decoration: const BoxDecoration(
+                      color: Color(0xE60B0E1A),
+                      border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+                    ),
                     child: Row(children: [
                       GestureDetector(
                         onTap: () => Navigator.maybePop(context),
-                          child: Container(
-                          width: 40, height: 40,
-                          decoration: BoxDecoration(
-                            color: context.card,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                                color: context.border),
-                          ),
-                          child: Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: context.txtPri, size: 16),
-                        ),
+                        child: Icon(Icons.close_rounded,
+                            color: const Color(0xFFF1F5F9), size: 20.w),
                       ),
-                      const SizedBox(width: 14),
-                      Text('Daily Streak',
-                          style: TextStyle(
-                              color: context.txtPri,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800)),
+                      Expanded(
+                        child: Text('Daily Streak',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: const Color(0xFFF1F5F9),
+                                fontSize: 18.sp, fontWeight: FontWeight.w700)),
+                      ),
+                      SizedBox(width: 20.w),
                     ]),
                   ),
                 ),
 
-                // ── GLOW + FIRE ICON ──────────────────────────────
-                // Figma: 256×256 rx=128 #22D1EE glow
-                //        96×101 rx=48 #FF5E00 fire box centred
+                // ── HERO ────────────────────────────────────────────────
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 20),
+                    padding: EdgeInsets.only(top: 24.h),
                     child: Center(
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          // Glow circle
+                          // Glow — Figma: 256×256 #22D1EE@20
                           Container(
-                            width: 256, height: 256,
+                            width: 256.w, height: 256.h,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: kCyan.withOpacity(0.1),
+                              color: kCyan.withOpacity(0.2),
                               boxShadow: [BoxShadow(
                                   color: kCyan.withOpacity(0.2),
-                                  blurRadius: 60, spreadRadius: 10)],
+                                  blurRadius: 70, spreadRadius: 14)],
                             ),
                           ),
-                          // Fire icon box — Figma: 96×101 rx=48 #FF5E00
+                          Column(children: [
+                            // Fire box — Figma: 96×101 #FF5E00@10
+                            Container(
+                              width: 96.w, height: 101.h,
+                              decoration: BoxDecoration(
+                                color: kOrange.withOpacity(0.1),
+                                borderRadius:
+                                    BorderRadius.circular(48.r),
+                              ),
+                              child: Icon(Icons.local_fire_department,
+                                  color: kOrange, size: 44.w),
+                            ),
+                            SizedBox(height: 18.h),
+                            // Streak — Figma: fs56 w700
+                            Text('$streak',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 56.sp,
+                                    fontWeight: FontWeight.w700)),
+                            SizedBox(height: 4.h),
+                            Text('Days Active',
+                                style: TextStyle(
+                                    color: kOrange,
+                                    fontSize: 18.sp,
+                                    fontWeight: FontWeight.w700)),
+                            SizedBox(height: 12.h),
+                            // Badge — Figma: 170×30 #22D1EE@20
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 16.w, vertical: 7.h),
+                              decoration: BoxDecoration(
+                                color: kCyan.withOpacity(0.2),
+                                borderRadius:
+                                    BorderRadius.circular(15.r),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.circle,
+                                      color: kCyan, size: 8.w),
+                                  SizedBox(width: 8.w),
+                                  Text('Streak Maintained',
+                                      style: TextStyle(
+                                          color: kCyan,
+                                          fontSize: 12.sp,
+                                          fontWeight:
+                                              FontWeight.w700)),
+                                ],
+                              ),
+                            ),
+                          ]),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // ── PROGRESS SECTION — Figma: 342×142 #22D1EE@5 ──────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(24.w, 22.h, 24.w, 0),
+                    child: Container(
+                      padding: EdgeInsets.all(24.r),
+                      decoration: BoxDecoration(
+                        color: kCyan.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text('Next Milestone',
+                                      style: TextStyle(
+                                          color: const Color(0x99FFFFFF),
+                                          fontSize: 12.sp,
+                                          fontWeight:
+                                              FontWeight.w500)),
+                                  SizedBox(height: 4.h),
+                                  Text('50 Day Badge',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 20.sp,
+                                          fontWeight:
+                                              FontWeight.w700)),
+                                ],
+                              ),
+                            ),
+                            Text('${(50 - streak).clamp(0, 50)} DAYS LEFT',
+                                style: TextStyle(
+                                    color: kCyan,
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w700)),
+                          ]),
+                          SizedBox(height: 14.h),
+                          // Bar — Figma: 292×12 #FFFFFF@10 / #22D1EE
+                          Stack(children: [
+                            Container(
+                              height: 12.h,
+                              decoration: BoxDecoration(
+                                color: const Color(0x1AFFFFFF),
+                                borderRadius:
+                                    BorderRadius.circular(6.r),
+                              ),
+                            ),
+                            FractionallySizedBox(
+                              widthFactor:
+                                  (streak / 50).clamp(0.0, 1.0),
+                              child: Container(
+                                height: 12.h,
+                                decoration: BoxDecoration(
+                                  color: kCyan,
+                                  borderRadius:
+                                      BorderRadius.circular(6.r),
+                                ),
+                              ),
+                            ),
+                          ]),
+                          SizedBox(height: 10.h),
+                          Row(children: [
+                            Expanded(
+                              child: Text('Day ${streak >= 30 ? 30 : streak} Reached',
+                                  style: TextStyle(
+                                      color: const Color(0x99FFFFFF),
+                                      fontSize: 10.sp,
+                                      fontWeight: FontWeight.w700)),
+                            ),
+                            Text('Day 50 Milestone',
+                                style: TextStyle(
+                                    color: const Color(0x99FFFFFF),
+                                    fontSize: 10.sp,
+                                    fontWeight: FontWeight.w700)),
+                          ]),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // ── REWARDS JOURNEY ─────────────────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(24.w, 22.h, 24.w, 0),
+                    child: Text('Rewards Journey',
+                        style: TextStyle(
+                            color: context.txtPri,
+                            fontSize: 18.sp, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 14.h),
+                    child: Column(children: [
+                      for (final m in _milestones)
+                        _milestoneRow(
+                          label: m['label'] as String,
+                          reward: m['reward'] as String,
+                          target: m['target'] as int,
+                          streak: streak,
+                          isLast: m['target'] == 100,
+                        ),
+                    ]),
+                  ),
+                ),
+
+                // ── STREAK PROTECTION — Figma: 342×253 #0F172A ────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(24.w, 22.h, 24.w, 0),
+                    child: Container(
+                      padding: EdgeInsets.all(24.r),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      child: Column(
+                        children: [
                           Container(
-                            width: 96, height: 101,
+                            width: 56.w, height: 56.h,
                             decoration: BoxDecoration(
-                              color: kOrange,
-                              borderRadius: BorderRadius.circular(48),
+                              color: const Color(0x1AFFFFFF),
+                              shape: BoxShape.circle,
                             ),
-                            child: const Center(
-                              child: Text('🔥',
-                                  style: TextStyle(fontSize: 48)),
+                            child: Icon(Icons.shield_outlined,
+                                color: kCyan, size: 26.w),
+                          ),
+                          SizedBox(height: 12.h),
+                          Text('Protect Your Streak',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20.sp,
+                                  fontWeight: FontWeight.w700)),
+                          SizedBox(height: 6.h),
+                          Text(
+                            'Missed a day? Use a Streak Freeze to keep\nyour progress safe.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: const Color(0x99FFFFFF),
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w500,
+                                height: 1.4),
+                          ),
+                          SizedBox(height: 12.h),
+                          Row(children: [
+                            Expanded(
+                              child: _protectButton(
+                                top: 'FREE',
+                                main: 'Watch Ad',
+                                bg: const Color(0x1AFFFFFF),
+                                mainColor: Colors.white,
+                              ),
                             ),
+                            SizedBox(width: 12.w),
+                            Expanded(
+                              child: _protectButton(
+                                top: '150 COINS',
+                                main: 'Buy Now',
+                                bg: const Color(0xFF029FB9),
+                                mainColor: Colors.white,
+                              ),
+                            ),
+                          ]),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // ── RULES INFO — Figma: 342×95 #FF5E00@5 ──────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(24.w, 22.h, 24.w, 0),
+                    child: Container(
+                      padding: EdgeInsets.all(16.r),
+                      decoration: BoxDecoration(
+                        color: kOrange.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Streak Rules',
+                              style: TextStyle(
+                                  color: const Color(0xFFF1F5F9),
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w700)),
+                          SizedBox(height: 4.h),
+                          Text(
+                            'Play at least one tournament match every 24 hours\nto maintain your streak. Streaks reset at 00:00 UTC.',
+                            style: TextStyle(
+                                color: const Color(0x80FFFFFF),
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w400,
+                                height: 1.4),
                           ),
                         ],
                       ),
@@ -154,306 +363,8 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                   ),
                 ),
 
-                // ── STREAK BADGE — Figma: 170×30 rx=15 #22D1EE ───
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 14),
-                    child: Center(
-                      child: Container(
-                        width: 170, height: 30,
-                        decoration: BoxDecoration(
-                          color: kCyan,
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: Center(
-                          child: Text('$streak Day Streak 🔥',
-                              style: const TextStyle(
-                                  color: Color(0xFF0B0E1A),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // ── REWARD CARD — Figma: 342×142 rx=12 #22D1EE ───
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                    child: Container(
-                      height: 142,
-                      decoration: BoxDecoration(
-                        color: kCyan,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(children: [
-                              const Text('Weekly Reward Progress',
-                                  style: TextStyle(
-                                      color: Color(0xFF0B0E1A),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800)),
-                              const Spacer(),
-                              Text('$streak / 7 days',
-                                  style: TextStyle(
-                                      color: const Color(0xFF0B0E1A)
-                                          .withOpacity(0.7),
-                                      fontSize: 12)),
-                            ]),
-                            const SizedBox(height: 14),
-                            // Progress bar — Figma: 292×12 rx=6 white bg
-                            //                fill 245×12 rx=6 #22D1EE
-                            Stack(children: [
-                              Container(
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                              ),
-                              FractionallySizedBox(
-                                widthFactor: progress,
-                                child: Container(
-                                  height: 12,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF0B0E1A)
-                                        .withOpacity(0.4),
-                                    borderRadius:
-                                        BorderRadius.circular(6),
-                                  ),
-                                ),
-                              ),
-                            ]),
-                            const Spacer(),
-                            Text(
-                              streak >= 7
-                                  ? '🎉 Full week complete! Claim your bonus'
-                                  : '${7 - streak} more day${7 - streak == 1 ? '' : 's'} for weekly bonus',
-                              style: TextStyle(
-                                  color: const Color(0xFF0B0E1A)
-                                      .withOpacity(0.75),
-                                  fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // ── DAILY REWARDS LIST ─────────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
-                    child: Text('Daily Rewards',
-                        style: TextStyle(
-                            color: context.txtPri,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800)),
-                  ),
-                ),
-
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (_, i) {
-                      final r       = _rewards[i];
-                      final day     = r['day'] as int;
-                      final coins   = r['coins'] as int;
-                      final label   = r['label'] as String;
-                      final claimed = day <= streak;
-                      final today   = day == streak + 1;
-                      final locked  = day > streak + 1;
-
-                      return Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                            16, 0, 16, 10),
-                        child: Row(children: [
-                          // Step icon — Figma: 40×40 rx=20
-                          // claimed = #22D1EE, today = #22D1EE, locked = #1E293B
-                          Container(
-                            width: 40, height: 40,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: locked
-                                  ? context.card
-                                  : kCyan,
-                              border: today
-                                  ? Border.all(
-                                      color: kOrange, width: 2)
-                                  : null,
-                            ),
-                            child: Center(
-                              child: Text(
-                                claimed ? '✓' : '$day',
-                                style: TextStyle(
-                                    color: locked
-                                        ? context.txtSec
-                                        : const Color(0xFF0B0E1A),
-                                    fontSize: 14,
-                                    fontWeight:
-                                        FontWeight.w900),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-
-                          // Reward card — Figma:
-                          // claimed: 286×74 rx=12 #22D1EE
-                          // unclaimed today: 286×74 rx=12 #1E293B + cyan border
-                          // locked: 286×81 rx=12 gradient
-                          Expanded(
-                            child: Container(
-                              height: locked ? 81 : 74,
-                              decoration: BoxDecoration(
-                                color: claimed
-                                    ? kCyan
-                                    : locked
-                                        ? context.card
-                                        : context.card,
-                                borderRadius:
-                                    BorderRadius.circular(12),
-                                border: today
-                                    ? Border.all(
-                                        color: kOrange, width: 2)
-                                    : locked
-                                        ? Border.all(
-                                        color: context.border)
-                                        : null,
-                                gradient: locked
-                                    ? LinearGradient(
-                                        colors: [
-                                          context.card,
-                                          context.card,
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      )
-                                    : null,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16),
-                                child: Row(children: [
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.center,
-                                    children: [
-                                      Text(label,
-                                          style: TextStyle(
-                                              color: claimed
-                                              ? const Color(
-                                                       0xFF0B0E1A)
-                                                   : locked
-                                                       ? context.txtSec
-                                                       : Colors.white,
-                                              fontSize: 14,
-                                              fontWeight:
-                                                  FontWeight.w800)),
-                                      const SizedBox(height: 3),
-                                      Text('+$coins coins',
-                                          style: TextStyle(
-                                              color: claimed
-                                                  ? const Color(
-                                                          0xFF0B0E1A)
-                                                      .withOpacity(
-                                                          0.7)
-                                                  : locked
-                                                      ? context.txtSec
-                                                      : kCyan,
-                                              fontSize: 12)),
-                                    ],
-                                  ),
-                                  const Spacer(),
-                                  // Claimed ✓ | Claim btn | locked badge
-                                  if (claimed)
-                                    const Icon(
-                                        Icons.check_circle_rounded,
-                                        color: Color(0xFF0B0E1A),
-                                        size: 22)
-                                  else if (today && canClaim)
-                                    GestureDetector(
-                                      onTap: _claiming
-                                          ? null
-                                          : () => _claimReward(
-                                              streak),
-                                      child: Container(
-                                        padding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 14,
-                                                vertical: 7),
-                                        decoration: BoxDecoration(
-                                          color: kOrange,
-                                          borderRadius:
-                                              BorderRadius.circular(
-                                                  8),
-                                        ),
-                                        child: _claiming
-                                            ? const SizedBox(
-                                                width: 14,
-                                                height: 14,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                        color: Colors
-                                                            .white,
-                                                        strokeWidth:
-                                                            2))
-                                            : const Text('Claim',
-                                                style: TextStyle(
-                                                    color: Colors
-                                                        .white,
-                                                    fontSize: 12,
-                                                    fontWeight:
-                                                        FontWeight
-                                                            .w800)),
-                                      ),
-                                    )
-                                  else if (locked)
-                                    // Locked badge — Figma: 103×19 rx=10 #181818
-                                    Container(
-                                      padding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            context.card,
-                                        borderRadius:
-                                            BorderRadius.circular(
-                                                10),
-                                      ),
-                                      child: Text('🔒 Locked',
-                                          style: TextStyle(
-                                              color:
-                                                  context.txtSec,
-                                              fontSize: 10,
-                                              fontWeight:
-                                                  FontWeight.w700)),
-                                    )
-                                  else
-                                    Text('Tomorrow',
-                                        style: TextStyle(
-                                            color: context.txtSec,
-                                            fontSize: 11)),
-                                ]),
-                              ),
-                            ),
-                          ),
-                        ]),
-                      );
-                    },
-                    childCount: _rewards.length,
-                  ),
-                ),
-
-                const SliverPadding(
-                    padding: EdgeInsets.only(bottom: 32)),
+                SliverPadding(
+                    padding: EdgeInsets.only(bottom: 32.h)),
               ],
             );
           },
@@ -462,17 +373,157 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
     );
   }
 
-  bool _canClaimToday(Map user) {
-    final lastClaim = user['lastClaimAt'];
-    if (lastClaim == null) return true;
-    // Firestore Timestamp
-    DateTime? last;
-    try {
-      last = (lastClaim as dynamic).toDate() as DateTime;
-    } catch (_) {
-      return true;
-    }
-    final now = DateTime.now();
-    return now.difference(last).inHours >= 20;
+  // ── MILESTONE ROW — Figma: step 40 + card 286×74/81 ─────────────
+  Widget _milestoneRow({
+    required String label,
+    required String reward,
+    required int target,
+    required int streak,
+    required bool isLast,
+  }) {
+    final completed = streak >= target;
+    final isCurrent = !completed && streak >= (target - 30);
+
+    return Padding(
+      padding: EdgeInsets.only(left: 24.w, right: 24.w, bottom: 12.h),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Step + divider
+        Column(children: [
+          Container(
+            width: 40.w, height: 40.h,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: completed
+                  ? kCyan
+                  : const Color(0xFF1E293B),
+              border: isCurrent
+                  ? Border.all(color: kOrange, width: 2)
+                  : null,
+            ),
+            child: Center(
+              child: completed
+                  ? Icon(Icons.check_rounded,
+                      color: const Color(0xFF0B0E1A), size: 20.w)
+                  : Text('$target',
+                      style: TextStyle(
+                          color: Colors.white, fontSize: 13.sp,
+                          fontWeight: FontWeight.w800)),
+            ),
+          ),
+          if (!isLast)
+            Container(
+              width: 2,
+              height: 34.h,
+              color: completed
+                  ? kCyan
+                  : const Color(0xFF334155),
+            ),
+        ]),
+        SizedBox(width: 14.w),
+
+        // Card
+        Expanded(
+          child: Container(
+            height: 74.h,
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            decoration: BoxDecoration(
+              color: completed
+                  ? kCyan.withOpacity(0.1)
+                  : const Color(0x802B3B4D),
+              borderRadius: BorderRadius.circular(12.r),
+              border: isCurrent
+                  ? Border.all(color: kOrange, width: 1.5)
+                  : null,
+            ),
+            child: Row(children: [
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label,
+                        style: TextStyle(
+                            color: completed
+                                ? Colors.white
+                                : const Color(0xCCFFFFFF),
+                            fontSize: 15.sp,
+                            fontWeight: FontWeight.w700)),
+                    SizedBox(height: 3.h),
+                    Text(reward,
+                        style: TextStyle(
+                            color: completed
+                                ? kCyan
+                                : const Color(0x99FFFFFF),
+                            fontSize: 12.sp)),
+                  ],
+                ),
+              ),
+              if (completed)
+                Icon(Icons.check_circle_rounded,
+                    color: kCyan, size: 20.w)
+              else if (isCurrent)
+                Text('Ready',
+                    style: TextStyle(
+                        color: kOrange, fontSize: 12.sp,
+                        fontWeight: FontWeight.w800))
+              else
+                Container(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 10.w, vertical: 5.h),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF181818),
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: Text('🔒 Locked',
+                      style: TextStyle(
+                          color: const Color(0x99FFFFFF),
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.w700)),
+                ),
+            ]),
+          ),
+        ),
+      ]),
+    );
   }
+
+  Widget _protectButton({
+    required String top,
+    required String main,
+    required Color bg,
+    required Color mainColor,
+  }) => GestureDetector(
+    onTap: () {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text('$main — coming soon'),
+          backgroundColor: bg == const Color(0xFF029FB9)
+              ? const Color(0xFF029FB9)
+              : kCyan,
+          behavior: SnackBarBehavior.floating,
+        ));
+    },
+    child: Container(
+      height: 56.h,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(top,
+              style: TextStyle(
+                  color: const Color(0xB3FFFFFF), fontSize: 10.sp,
+                  fontWeight: FontWeight.w700)),
+          Text(main,
+              style: TextStyle(
+                  color: mainColor, fontSize: 14.sp,
+                  fontWeight: FontWeight.w700)),
+        ],
+      ),
+    ),
+  );
 }

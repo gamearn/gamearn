@@ -57,9 +57,15 @@ class ApiService {
 
       final uri = Uri.parse('$_base$path');
       final res = switch (method) {
-        'GET' => await http.get(uri, headers: headers),
-        'PATCH' => await http.patch(uri, headers: headers, body: jsonEncode(body ?? {})),
-        _ => await http.post(uri, headers: headers, body: jsonEncode(body ?? {})),
+        'GET' => await http
+            .get(uri, headers: headers)
+            .timeout(const Duration(seconds: 20)),
+        'PATCH' => await http
+            .patch(uri, headers: headers, body: jsonEncode(body ?? {}))
+            .timeout(const Duration(seconds: 20)),
+        _ => await http
+            .post(uri, headers: headers, body: jsonEncode(body ?? {}))
+            .timeout(const Duration(seconds: 20)),
       };
 
       final decoded = jsonDecode(res.body);

@@ -472,9 +472,11 @@ class _NavItem extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: isActive ? const Color(0xFFFF5E00) : Colors.white54,
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+                color: isActive
+                    ? kOrange
+                    : (context.isDark ? Colors.white : kLightSub),
                 letterSpacing: 0.3,
               ),
             ),

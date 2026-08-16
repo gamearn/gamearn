@@ -96,6 +96,15 @@ service cloud.firestore {
       allow delete: if isAuthed() && resource.data.userId == request.auth.uid;
     }
 
+    // ── Avatar upload cooldown (server-authoritative) ────────────────────────
+    // Written ONLY by the Cloud Function (Admin SDK) on Storage finalize.
+    // Clients may read it (for the cooldown UI) but can never write or forge
+    // the 24h timestamp. Storage rules cross-reference it via firestore.get().
+    match /upload_cooldowns/{userId} {
+      allow read:  if isAuthed();
+      allow write: if false; // server-side only (Cloud Function)
+    }
+
     // ── Withdrawal Requests ───────────────────────────────────────────────
     match /withdrawal_requests/{requestId} {
       allow create: if isAuthed() && request.data.userId == request.auth.uid;

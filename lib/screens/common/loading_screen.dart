@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme.dart';
+
+// ════════════════════════════════════════════════════════════════
+//  LOADING SCREEN — Figma matched (1187:137, "Loading Section
+//  animation") — animated single progress bar
+//
+//  Row: "Initializing Arena..." fs12 #F1F5F9 w600 (left) · "15%"
+//    fs12 #FF5E00 w500 (right) · bar 280×6 #1E293B@0.5 stroke
+//    white@0.05 r9999 · cyan fill #22D1EE 4px
+// ════════════════════════════════════════════════════════════════
 
 class LoadingScreen extends StatefulWidget {
   final String message;
-  const LoadingScreen({super.key, this.message = 'Loading...'});
+  const LoadingScreen({super.key, this.message = 'Initializing Arena...'});
   @override
   State<LoadingScreen> createState() => _LoadingScreenState();
 }
@@ -34,13 +44,13 @@ class _LoadingScreenState extends State<LoadingScreen>
       backgroundColor: context.bg,
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(40),
+          padding: EdgeInsets.all(40.r),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // Logo glow
               Container(
-                width: 120, height: 120,
+                width: 120.w, height: 120.h,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(colors: [
@@ -52,78 +62,75 @@ class _LoadingScreenState extends State<LoadingScreen>
                   child: Text('G',
                       style: TextStyle(
                           color: context.cyan,
-                          fontSize: 56,
+                          fontSize: 56.sp,
                           fontWeight: FontWeight.w900)),
                 ),
               ),
-              const SizedBox(height: 40),
-              // Progress bars — matches Figma loading section
-              _progressBar(context, widget.message, _progress),
-              const SizedBox(height: 16),
-              _progressBar(context, 'Connecting to servers', _progress,
-                  delay: 0.2),
-              const SizedBox(height: 16),
-              _progressBar(context, 'Setting up game', _progress,
-                  delay: 0.4),
-              const SizedBox(height: 32),
-              Text(widget.message,
-                  style: TextStyle(color: context.subText, fontSize: 14)),
+              SizedBox(height: 48.h),
+              SizedBox(
+                width: 280.w,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Label + percent — Figma: fs12 #F1F5F9 w600 /
+                    // fs12 #FF5E00 w500
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(widget.message,
+                            style: TextStyle(
+                                color: const Color(0xFFF1F5F9),
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w600)),
+                        AnimatedBuilder(
+                          animation: _progress,
+                          builder: (_, __) {
+                            return Text(
+                                '${(_progress.value * 100).round()}%',
+                                style: TextStyle(
+                                    color: kOrange,
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w500));
+                          },
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 6.h),
+                    // Bar — Figma: 280×6 #1E293B@0.5 stroke
+                    // white@0.05, cyan fill 4px
+                    Container(
+                      height: 6.h,
+                      decoration: BoxDecoration(
+                        color: const Color(0x801E293B),
+                        borderRadius: BorderRadius.circular(9999.r),
+                        border: Border.all(
+                            color: const Color(0x0DFFFFFF), width: 1),
+                      ),
+                      child: AnimatedBuilder(
+                        animation: _progress,
+                        builder: (_, __) {
+                          return FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: _progress.value,
+                            child: Container(
+                              height: 4.h,
+                              margin: EdgeInsets.all(1.r),
+                              decoration: BoxDecoration(
+                                color: kCyan,
+                                borderRadius: BorderRadius.circular(9999.r),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _progressBar(BuildContext context, String label,
-      Animation<double> anim,
-      {double delay = 0}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label,
-                style: const TextStyle(color: Colors.white54, fontSize: 12)),
-            AnimatedBuilder(
-              animation: anim,
-              builder: (_, __) {
-                final v = ((anim.value - delay).clamp(0.0, 1.0));
-                return Text('${(v * 100).toInt()}%',
-                    style: TextStyle(
-                        color: context.cyan,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600));
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Container(
-          height: 6,
-          decoration: BoxDecoration(
-            color: context.surface,
-            borderRadius: BorderRadius.circular(3),
-          ),
-          child: AnimatedBuilder(
-            animation: anim,
-            builder: (_, __) {
-              final v = ((anim.value - delay).clamp(0.0, 1.0));
-              return FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: v,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: context.cyan,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
     );
   }
 }

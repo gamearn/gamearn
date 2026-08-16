@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -25,8 +26,6 @@ const _kIconWallet =
     'https://www.figma.com/api/mcp/asset/49a9966f-c161-4bb9-b8b8-88b727f3fdd2';
 const _kIconArrowRight =
     'https://www.figma.com/api/mcp/asset/9a641e3a-1966-4eeb-a384-de9e358864f5';
-const _kIconBack =
-    'https://www.figma.com/api/mcp/asset/75c706da-ee4e-4db1-94be-0699c8c668e7';
 
 class CreateTournamentScreen extends StatefulWidget {
   const CreateTournamentScreen({super.key});
@@ -72,7 +71,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty || _selectedGame == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
             content: Text('Fill in tournament name and select a game.')),
       );
       return;
@@ -100,7 +99,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
         HapticFeedback.heavyImpact();
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Tournament created! Waiting for players to join.'),
             backgroundColor: Color(0xFF22D1EE),
           ),
@@ -123,87 +122,87 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
           Expanded(
             child: SingleChildScrollView(
               // content starts at 103px from top = appbar height
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
+              padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 40.h),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24.h),
                   // ── Header ─────────────────────────────────────
                   // Node 1631:849
-                  const Text('Tournament Info',
+                  Text('Tournament Info',
                       style: TextStyle(
                           color: Color(0xFFF1F5F9),
-                          fontSize: 20,
+                          fontSize: 20.sp,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
                           height: 25 / 20)),
-                  const SizedBox(height: 5),
+                  SizedBox(height: 5.h),
                   Text('Basic Info & Game Selection',
                       style: TextStyle(
                           color: context.txtSec,
-                          fontSize: 16,
+                          fontSize: 16.sp,
                           fontWeight: FontWeight.w400,
                           height: 26 / 16)),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24.h),
 
                   // ── Fields group — gap=16 ───────────────────────
                   // Node 1624:825 Tournament Name
                   _fieldLabel('Tournament Name'),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8.h),
                   _inputBox(
                       ctrl: _nameCtrl,
                       hint: 'e.g. Draft Grandmaster Championship'),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16.h),
 
                   // Node 1624:832 Select Game
                   _fieldLabel('Select Game'),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8.h),
                   _gameDropdown(),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16.h),
 
                   // Node 2222:1452 Duration
                   // SemiBold label
-                  const Text('Duration',
+                  Text('Duration',
                       style: TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: 16.sp,
                           fontWeight: FontWeight.w600,
                           height: 26 / 16)),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8.h),
                   _durationPills(),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16.h),
 
                   // Node 1631:851 Tournament Type
                   _fieldLabel('Tournament Type'), // Medium weight
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12.h),
                   _typeToggle(),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16.h),
 
                   // Node 2230:1462
                   _fieldLabel('Number of Players (Max)'),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8.h),
                   _inputBox(
                       ctrl: _maxPlayersCtrl,
                       hint: 'e.g. 30, 50, 100...',
                       type: TextInputType.number),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16.h),
 
                   // Node 2230:1467
                   _fieldLabel('Number of winners (Top)'),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8.h),
                   _inputBox(
                       ctrl: _winnersCtrl,
                       hint: 'e.g. Top 3, Top 5, Top 10...',
                       type: TextInputType.number),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16.h),
 
                   // Node 2227:1475 Entry Fee
                   _entryFeeCard(),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16.h),
 
                   // Node 1686:825 Creation Fee
                   _creationFeeRow(),
-                  const SizedBox(height: 32),
+                  SizedBox(height: 32.h),
 
                   // Node 1657:832 Next Step
                   _nextButton(),
@@ -219,8 +218,8 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
   // ── AppBar ─────────────────────────────────────────────────────
   Widget _buildAppBar(double safeTop) {
     return Container(
-      padding: EdgeInsets.fromLTRB(24, safeTop + 16, 24, 16),
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.fromLTRB(24.w, safeTop + 16.h, 24.w, 16.h),
+      decoration: BoxDecoration(
         color: Color(0xE60B0E1A), // ~90% opacity
         border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF))),
       ),
@@ -228,31 +227,21 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
         alignment: Alignment.center,
         children: [
           // Title
-          const Text('Create Tournament',
+          Text('Create Tournament',
               style: TextStyle(
                   color: Color(0xFFF1F5F9),
-                  fontSize: 18,
+                  fontSize: 18.sp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.27,
                   height: 22.5 / 18)),
-          // Back button — Figma 16×25 px
+          // Back button
           Positioned(
             left: 0,
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
               behavior: HitTestBehavior.opaque,
-              child: SizedBox(
-                width: 16,
-                height: 25,
-                child: CachedNetworkImage(
-                  imageUrl: _kIconBack,
-                  fit: BoxFit.contain,
-                  errorWidget: (_, __, ___) => const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white,
-                      size: 18),
-                ),
-              ),
+              child: Icon(Icons.close_rounded,
+                  color: const Color(0xFFF1F5F9), size: 20.w),
             ),
           ),
         ],
@@ -263,9 +252,9 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
   // ── Helpers ────────────────────────────────────────────────────
 
   Widget _fieldLabel(String text) => Text(text,
-      style: const TextStyle(
+      style: TextStyle(
           color: Colors.white,
-          fontSize: 16,
+          fontSize: 16.sp,
           fontWeight: FontWeight.w500,
           height: 24 / 16));
 
@@ -277,23 +266,23 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0x801E293B),
-        borderRadius: BorderRadius.circular(12),
+        color: Color(0x801E293B),
+        borderRadius: BorderRadius.circular(12.r),
         border: Border.all(color: context.border),
       ),
       child: TextField(
         controller: ctrl,
         keyboardType: type,
-        style: const TextStyle(
-            color: Colors.white, fontSize: 16, fontWeight: FontWeight.w400),
+        style: TextStyle(
+            color: Colors.white, fontSize: 16.sp, fontWeight: FontWeight.w400),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(
+          hintStyle: TextStyle(
               color: Color(0x4DFFFFFF),
-              fontSize: 16,
+              fontSize: 16.sp,
               fontWeight: FontWeight.w400,
               height: 26 / 16),
-          contentPadding: const EdgeInsets.all(17),
+          contentPadding: EdgeInsets.all(17.r),
           border: InputBorder.none,
         ),
       ),
@@ -307,8 +296,8 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
       children: [
         Container(
           decoration: BoxDecoration(
-            color: const Color(0x801E293B),
-            borderRadius: BorderRadius.circular(12),
+            color: Color(0x801E293B),
+            borderRadius: BorderRadius.circular(12.r),
             border: Border.all(color: context.border),
           ),
           child: DropdownButtonHideUnderline(
@@ -318,15 +307,15 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
               dropdownColor: context.card,
               // hide the default icon — we use custom asset
               icon: const SizedBox.shrink(),
-              padding: const EdgeInsets.fromLTRB(17, 0, 44, 0),
-              hint: const Text('Choose a game',
+              padding: EdgeInsets.fromLTRB(17.r, 0, 44.w, 0),
+              hint: Text('Choose a game',
                   style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 16.sp,
                       fontWeight: FontWeight.w400,
                       height: 24 / 16)),
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w400),
+              style: TextStyle(
+                  color: Colors.white, fontSize: 16.sp, fontWeight: FontWeight.w400),
               items: _games
                   .map((g) => DropdownMenuItem<String>(
                         value: g['key'],
@@ -339,15 +328,15 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
         ),
         // Figma chevron 12×7.4px at right=16
         Positioned(
-          right: 16,
+          right: 16.w,
           child: SizedBox(
-            width: 12,
-            height: 7.4,
+            width: 12.w,
+            height: 7.4.h,
             child: CachedNetworkImage(
               imageUrl: _kChevronDown,
               fit: BoxFit.contain,
               errorWidget: (_, __, ___) =>
-                  const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 16),
+                  Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 16.w),
             ),
           ),
         ),
@@ -364,24 +353,24 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
           child: GestureDetector(
             onTap: () => setState(() => _durationIdx = i),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              height: 80,
+              duration: Duration(milliseconds: 160),
+              height: 80.h,
               margin:
-                  EdgeInsets.only(right: i < _durations.length - 1 ? 8 : 0),
+                  EdgeInsets.only(right: i < _durations.length - 1 ? 8.w : 0),
               decoration: BoxDecoration(
                 // Node: #16223F base
-                color: const Color(0xFF16223F),
-                borderRadius: BorderRadius.circular(12),
+                color: Color(0xFF16223F),
+                borderRadius: BorderRadius.circular(12.r),
                 border: Border.all(
                   color: active
-                      ? const Color(0xFF00F2FF)  // active: #00F2FF w=2
-                      : const Color(0xFF1E2E56), // inactive: #1E2E56 w=1
+                      ? Color(0xFF22D1EE)  // active: #22D1EE w=2
+                      : Color(0xFF1E2E56), // inactive: #1E2E56 w=1
                   width: active ? 2 : 1,
                 ),
                 boxShadow: active
                     ? [
                         BoxShadow(
-                          color: const Color(0xFF00F2FF).withOpacity(0.3),
+                          color: Color(0xFF22D1EE).withOpacity(0.3),
                           blurRadius: 7.5,
                           spreadRadius: 0,
                         )
@@ -396,9 +385,9 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: active
-                          ? const Color(0xFF00F2FF)
-                          : const Color(0xFFF1F5F9),
-                      fontSize: 20,
+                          ? Color(0xFF22D1EE)
+                          : Color(0xFFF1F5F9),
+                      fontSize: 20.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
                       height: 25 / 20,
@@ -409,9 +398,9 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: active
-                          ? const Color(0xFF00F2FF)
+                          ? Color(0xFF22D1EE)
                           : context.txtSec,
-                      fontSize: 10,
+                      fontSize: 10.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: active ? -0.5 : 0,
                       height: 15 / 10,
@@ -429,10 +418,10 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
   // Node 1631:854 — bg rgba(30,41,59,0.8) rx=12 p=4 gap=12
   Widget _typeToggle() {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: EdgeInsets.all(4.r),
       decoration: BoxDecoration(
-        color: const Color(0xCC1E293B),
-        borderRadius: BorderRadius.circular(12),
+        color: Color(0xCC1E293B),
+        borderRadius: BorderRadius.circular(12.r),
       ),
       child: Row(
         children: [
@@ -441,43 +430,43 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
             child: GestureDetector(
               onTap: () => setState(() => _typeIdx = 0),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
+                duration: Duration(milliseconds: 160),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
                 decoration: BoxDecoration(
                   color: _typeIdx == 0
-                      ? const Color(0xFF22D1EE)
+                      ? Color(0xFF22D1EE)
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12.r),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Trophy icon — 18×18
                     SizedBox(
-                      width: 18,
-                      height: 18,
+                      width: 18.w,
+                      height: 18.h,
                       child: CachedNetworkImage(
                         imageUrl: _kIconTrophy,
                         fit: BoxFit.contain,
-                        color: _typeIdx == 0 ? const Color(0xFF0B0E1A) : null,
+                        color: _typeIdx == 0 ? Color(0xFF0B0E1A) : null,
                         colorBlendMode: _typeIdx == 0 ? BlendMode.srcIn : null,
                         errorWidget: (_, __, ___) => Icon(
                             Icons.emoji_events_outlined,
-                            size: 18,
+                            size: 18.w,
                             color: _typeIdx == 0
-                                ? const Color(0xFF0B0E1A)
+                                ? Color(0xFF0B0E1A)
                                 : Colors.white38),
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4.h),
                     Text('Win Tournament',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             color: _typeIdx == 0
-                                ? const Color(0xFF0B0E1A)
-                                : const Color(0x80FFFFFF),
-                            fontSize: 14,
+                                ? Color(0xFF0B0E1A)
+                                : Color(0x80FFFFFF),
+                            fontSize: 14.sp,
                             fontWeight: FontWeight.w600,
                             height: 20 / 14)),
                   ],
@@ -485,48 +474,48 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.w),
           // Inactive: Node 1631:861 — transparent rx=16 px=24 py=16
           Expanded(
             child: GestureDetector(
               onTap: () => setState(() => _typeIdx = 1),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
+                duration: Duration(milliseconds: 160),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
                 decoration: BoxDecoration(
                   color: _typeIdx == 1
-                      ? const Color(0xFF22D1EE)
+                      ? Color(0xFF22D1EE)
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(16.r),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox(
-                      width: 18,
-                      height: 18,
+                      width: 18.w,
+                      height: 18.h,
                       child: CachedNetworkImage(
                         imageUrl: _kIconBarChart,
                         fit: BoxFit.contain,
-                        color: _typeIdx == 1 ? const Color(0xFF0B0E1A) : null,
+                        color: _typeIdx == 1 ? Color(0xFF0B0E1A) : null,
                         colorBlendMode: _typeIdx == 1 ? BlendMode.srcIn : null,
                         errorWidget: (_, __, ___) => Icon(
                             Icons.bar_chart_rounded,
-                            size: 18,
+                            size: 18.w,
                             color: _typeIdx == 1
-                                ? const Color(0xFF0B0E1A)
+                                ? Color(0xFF0B0E1A)
                                 : Colors.white38),
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4.h),
                     Text('Number of Plays',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             color: _typeIdx == 1
-                                ? const Color(0xFF0B0E1A)
-                                : const Color(0x80FFFFFF),
-                            fontSize: 14,
+                                ? Color(0xFF0B0E1A)
+                                : Color(0x80FFFFFF),
+                            fontSize: 14.sp,
                             fontWeight: FontWeight.w600,
                             height: 20 / 14)),
                   ],
@@ -543,11 +532,11 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
   Widget _entryFeeCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(25),
+      padding: EdgeInsets.all(25.r),
       decoration: BoxDecoration(
-        color: const Color(0x661D2946),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0x801E293B)),
+        color: Color(0x661D2946),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: Color(0x801E293B)),
       ),
       child: Column(
         children: [
@@ -555,7 +544,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
           Text('ENTRY FEE',
               style: TextStyle(
                   color: context.txtSec,
-                  fontSize: 12,
+                  fontSize: 12.sp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 2.4,
                   height: 16 / 12)),
@@ -564,24 +553,24 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
-            children: const [
+            children: [
               Text('₦',
                   style: TextStyle(
                       color: Color(0xFFFFC107),
-                      fontSize: 20,
+                      fontSize: 20.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
                       height: 25 / 20)),
               Text('500',
                   style: TextStyle(
                       color: Color(0xFFFFC107),
-                      fontSize: 48,
+                      fontSize: 48.sp,
                       fontWeight: FontWeight.w700,
                       height: 60 / 48)),
               Text('.00',
                   style: TextStyle(
                       color: Color(0xFFFFC107),
-                      fontSize: 20,
+                      fontSize: 20.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
                       height: 25 / 20)),
@@ -597,15 +586,15 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
   //   Circle 48×48 bg #22D1EE shadow 0,10,15,-3 rgba(0,242,255,0.4)
   Widget _creationFeeRow() {
     return Container(
-      padding: const EdgeInsets.all(21),
+      padding: EdgeInsets.all(21.r),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [Color(0x3322D1EE), Color(0x0022D1EE)],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0x3322D1EE)),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: Color(0x3322D1EE)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -614,29 +603,29 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // "Creation Fee" — rgba(255,255,255,0.5) fs=12 fw=700 uppercase
-              const Text('Creation Fee',
+              Text('Creation Fee',
                   style: TextStyle(
                       color: Color(0x80FFFFFF),
-                      fontSize: 12,
+                      fontSize: 12.sp,
                       fontWeight: FontWeight.w700,
                       height: 16 / 12)),
               // "200 /UNITS"
               Row(
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
-                children: const [
+                children: [
                   Text('200',
                       style: TextStyle(
                           color: Colors.white,
-                          fontSize: 20,
+                          fontSize: 20.sp,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
                           height: 25 / 20)),
-                  SizedBox(width: 2),
+                  SizedBox(width: 2.w),
                   Text('/UNITS',
                       style: TextStyle(
                           color: Color(0xFF22D1EE),
-                          fontSize: 14,
+                          fontSize: 14.sp,
                           fontWeight: FontWeight.w700,
                           height: 20 / 14)),
                 ],
@@ -645,20 +634,20 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
           ),
           // Circle 48×48 #22D1EE + shadow
           Container(
-            width: 48,
-            height: 48,
-            decoration: const BoxDecoration(
+            width: 48.w,
+            height: 48.h,
+            decoration: BoxDecoration(
               color: Color(0xFF22D1EE),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Color(0x6600F2FF),
+                  color: Color(0x6622D1EE),
                   blurRadius: 15,
                   offset: Offset(0, 10),
                   spreadRadius: -3,
                 ),
                 BoxShadow(
-                  color: Color(0x6600F2FF),
+                  color: Color(0x6622D1EE),
                   blurRadius: 6,
                   offset: Offset(0, 4),
                   spreadRadius: -4,
@@ -668,15 +657,15 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
             child: Center(
               // Node 1686:833 — wallet icon 23.55×18.3
               child: SizedBox(
-                width: 23.55,
-                height: 18.3,
+                width: 23.55.w,
+                height: 18.3.h,
                 child: CachedNetworkImage(
                   imageUrl: _kIconWallet,
                   fit: BoxFit.contain,
-                  errorWidget: (_, __, ___) => const Icon(
+                  errorWidget: (_, __, ___) => Icon(
                       Icons.account_balance_wallet_outlined,
                       color: Color(0xFF0B0E1A),
-                      size: 20),
+                      size: 20.w),
                 ),
               ),
             ),
@@ -692,11 +681,11 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
       onTap: _saving ? null : _submit,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: EdgeInsets.symmetric(vertical: 16.h),
         decoration: BoxDecoration(
-          color: const Color(0xFFFF5E00),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
+          color: Color(0xFFFF5E00),
+          borderRadius: BorderRadius.circular(12.r),
+          boxShadow: [
             BoxShadow(
               color: Color(0x52FF5E00),
               blurRadius: 4,
@@ -705,33 +694,33 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
           ],
         ),
         child: _saving
-            ? const Center(
+            ? Center(
                 child: SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: 20.w,
+                    height: 20.h,
                     child: CircularProgressIndicator(
                         color: Colors.white, strokeWidth: 2)))
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Next Step',
+                  Text('Next Step',
                       style: TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: 16.sp,
                           fontWeight: FontWeight.w700,
                           height: 26 / 16)),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.w),
                   // Arrow right icon — 16×16
                   SizedBox(
-                    width: 16,
-                    height: 16,
+                    width: 16.w,
+                    height: 16.h,
                     child: CachedNetworkImage(
                       imageUrl: _kIconArrowRight,
                       fit: BoxFit.contain,
-                      errorWidget: (_, __, ___) => const Icon(
+                      errorWidget: (_, __, ___) => Icon(
                           Icons.arrow_forward_rounded,
                           color: Colors.white,
-                          size: 16),
+                          size: 16.w),
                     ),
                   ),
                 ],
