@@ -68,16 +68,14 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Container(
                   width: 112.w, height: 112.w,
                   decoration: BoxDecoration(
-                    color: context.card,
                     borderRadius: BorderRadius.circular(25.r),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: Center(
-                    child: Text('G',
-                        style: TextStyle(
-                            color: context.cyan,
-                            fontSize: 56.sp,
-                            fontWeight: FontWeight.w900)),
+                  child: Image.asset(
+                    'assets/logos/logo_icon.png',
+                    width: 112.w,
+                    height: 112.w,
+                    fit: BoxFit.cover,
                   ),
                 ),
               ),

@@ -108,18 +108,16 @@ class _LandingBodyState extends State<_LandingBody> {
                       // ── Hero ──────────────────────────────────────
                       Center(
                         child: Container(
-                          width: 80.w, height: 80.h,
+                          width: 80.w, height: 80.w,
                           decoration: BoxDecoration(
-                            color: kBgDeep,
                             borderRadius: BorderRadius.circular(16.r),
-                            border: Border.all(color: Colors.white, width: 1),
                           ),
-                          child: Center(
-                            child: Text('G',
-                                style: TextStyle(
-                                    color: kCyan,
-                                    fontSize: 40.sp,
-                                    fontWeight: FontWeight.w900)),
+                          clipBehavior: Clip.antiAlias,
+                          child: Image.asset(
+                            'assets/logos/logo_icon.png',
+                            width: 80.w,
+                            height: 80.w,
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
