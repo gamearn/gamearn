@@ -54,6 +54,7 @@ jobs:
 
       - name: 📦 Upload debug symbols
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: debug_symbols-${{ github.ref_name }}
           path: ./debug_symbols
