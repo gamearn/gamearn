@@ -1,25 +1,30 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pinput/pinput.dart';
 import '../../theme.dart';
 import '../../utils/error_utils.dart';
+import '../../widgets/auth_background.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  OTP SCREEN — Figma matched (1172:10 "OTP Verification", 390×844)
 //
-//  bg #0B0E1A · back 48×39 r9999 · hero: orange shield in orange@0.1
-//  circle 80, "OTP Verification" fs32 #F1F5F9 w700, "Enter the code
-//  sent to your email..." fs16 #94A3B8 · pin boxes 48×56 #1A2238
-//  stroke #1E293B (focused kCyan) r12 · countdown pill 107×38
-//  #1A2238@0.5 stroke #1E293B r9999 (timer icon 12 #64748B + 01:59
-//  fs14 w500) · "Didn't receive the code? " #94A3B8 fs14 + Resend
-//  Code #FF5E00 w700 fs14 · CTA 342×56 #FF5E00 r12 "Verify &
-//  Continue" fs16 w700 + arrow · "Secured by Gamearn Shield" fs12
-//  #475569
-//  Note: design shows 4 boxes but Firebase SMS OTP is 6 digits, so 6
-//  boxes are kept (design is a visual mock).
+//  bg #0B0E1A + dotted/circuit PNG 50% opacity · back btn 48×39
+//  r9999 · hero: envelope in orange@0.1 circle 80, "OTP
+//  Verification" fs32 #F1F5F9 w700, "Enter the code sent to your
+//  email..." fs16 #94A3B8 · pin boxes 48×56 #1A2238 stroke
+//  #1E293B (focused kCyan + blue shadow) r12 · countdown pill
+//  107×38 #1A2238@0.5 stroke #1E293B r9999 (timer icon 12
+//  #64748B + 01:59 fs14 w500) · "Didn't receive the code? "
+//  #94A3B8 fs14 + Resend Code #FF5E00 w700 fs14 · CTA 342×56
+//  #FF5E00 r12 "Verify & Continue" fs16 w700 + arrow ·
+//  "Secured by Gamearn Shield" fs12 #475569 uppercase
+//  letterSpacing 1.2
+//
+//  Note: design shows 4 boxes but Firebase SMS OTP is 6 digits,
+//  so 6 boxes are kept (design is a visual mock).
 // ════════════════════════════════════════════════════════════════
 
 class OtpScreen extends StatefulWidget {
@@ -56,7 +61,8 @@ class _OtpScreenState extends State<OtpScreen> {
     super.initState();
     _currentVerificationId = widget.verificationId;
     _startTimer();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode.requestFocus());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _focusNode.requestFocus());
   }
 
   void _startTimer() {
@@ -88,9 +94,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
     await FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: widget.phone,
-      verificationCompleted: (PhoneAuthCredential credential) {
-        // Handled by Pinput auto-fill usually, but we can verify here as fallback
-      },
+      verificationCompleted: (PhoneAuthCredential credential) {},
       verificationFailed: (FirebaseAuthException e) {
         if (!mounted) return;
         setState(() => _loading = false);
@@ -132,9 +136,9 @@ class _OtpScreenState extends State<OtpScreen> {
         smsCode: pin,
       );
 
-      final userCred = await FirebaseAuth.instance.signInWithCredential(credential);
+      final userCred =
+          await FirebaseAuth.instance.signInWithCredential(credential);
 
-      // Link email/password credential so they can also log in via LoginScreen later.
       if (userCred.user != null) {
         try {
           final emailCred = EmailAuthProvider.credential(
@@ -172,183 +176,232 @@ class _OtpScreenState extends State<OtpScreen> {
       decoration: BoxDecoration(
         color: kOtpBox,
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: kBorder),
+        border: Border.all(color: kBorder, width: 2),
       ),
     );
 
-    return Scaffold(
-      backgroundColor: context.bg,
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // ── Top bar: back ─────────────────────────────────────
-              Align(
-                alignment: Alignment.centerLeft,
-                child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    width: 48.w, height: 39.h,
-                    decoration: const BoxDecoration(
-                      color: Colors.transparent,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.close_rounded,
-                        color: Color(0xFFF1F5F9), size: 20.w),
-                  ),
-                ),
-              ),
-              SizedBox(height: 24.h),
-
-              // ── Hero ──────────────────────────────────────────────
-              Container(
-                width: 80.w, height: 80.w,
-                decoration: BoxDecoration(
-                  color: kOrange.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.shield_outlined, color: kOrange, size: 32.w),
-              ),
-              SizedBox(height: 8.h),
-              Text('OTP Verification',
-                  style: TextStyle(
-                      color: Color(0xFFF1F5F9),
-                      fontSize: 32.sp, fontWeight: FontWeight.w700)),
-              SizedBox(height: 8.h),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8.w),
-                child: Text(
-                  'Enter the code sent to your email to\ncontinue your gaming journey.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 16.sp, fontWeight: FontWeight.w400),
-                ),
-              ),
-              const Spacer(),
-
-              // ── PIN boxes ─────────────────────────────────────────
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Pinput(
-                  length: 6,
-                  controller: _pinController,
-                  focusNode: _focusNode,
-                  separatorBuilder: (_) => SizedBox(width: 8.w),
-                  defaultPinTheme: defaultPinTheme,
-                  focusedPinTheme: defaultPinTheme.copyWith(
-                    decoration: defaultPinTheme.decoration!.copyWith(
-                      border: Border.all(color: kCyan, width: 1.5),
+    return AuthBackground(
+      type: AuthBackgroundType.dottedCircuit,
+      opacity: 0.5,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // ── Top bar: back ─────────────────────────────
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: SvgPicture.asset(
+                      'assets/icons/otp_back.svg',
+                      width: 48.w,
+                      height: 39.h,
                     ),
                   ),
-                  onCompleted: _verify,
                 ),
-              ),
-              SizedBox(height: 28.h),
+                SizedBox(height: 24.h),
 
-              // ── Countdown pill ────────────────────────────────────
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 21.w, vertical: 13.h),
-                decoration: BoxDecoration(
-                  color: const Color(0x801A2238),
-                  borderRadius: BorderRadius.circular(9999.r),
-                  border: Border.all(color: kBorder),
+                // ── Hero ──────────────────────────────────────
+                Container(
+                  width: 80.w,
+                  height: 80.w,
+                  decoration: BoxDecoration(
+                    color: kOrange.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: SvgPicture.asset(
+                    'assets/icons/otp_envelope.svg',
+                    width: 32.w,
+                    height: 27.h,
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                SizedBox(height: 16.h),
+                Text('OTP Verification',
+                    style: TextStyle(
+                        color: Color(0xFFF1F5F9),
+                        fontSize: 32.sp,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.8)),
+                SizedBox(height: 16.h),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8.w),
+                  child: Text(
+                    'Enter the code sent to your email to\ncontinue your gaming journey.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w400,
+                        height: 1.625),
+                  ),
+                ),
+                const Spacer(),
+
+                // ── PIN boxes ─────────────────────────────────
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Pinput(
+                    length: 6,
+                    controller: _pinController,
+                    focusNode: _focusNode,
+                    separatorBuilder: (_) => SizedBox(width: 12.w),
+                    defaultPinTheme: defaultPinTheme,
+                    focusedPinTheme: defaultPinTheme.copyWith(
+                      decoration: defaultPinTheme.decoration!.copyWith(
+                        border: Border.all(color: kCyan, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0xFF2563EB).withOpacity(0.3),
+                            blurRadius: 0,
+                            spreadRadius: 0,
+                          ),
+                        ],
+                      ),
+                    ),
+                    onCompleted: _verify,
+                  ),
+                ),
+                SizedBox(height: 28.h),
+
+                // ── Countdown pill ────────────────────────────
+                Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 21.w, vertical: 9.h),
+                  decoration: BoxDecoration(
+                    color: Color(0x801A2238),
+                    borderRadius: BorderRadius.circular(9999.r),
+                    border: Border.all(color: kBorder),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SvgPicture.asset(
+                        'assets/icons/otp_clock.svg',
+                        width: 11.67.w,
+                        height: 11.67.h,
+                      ),
+                      SizedBox(width: 12.w),
+                      Text.rich(TextSpan(
+                        children: [
+                          TextSpan(
+                            text: _minutes,
+                            style: TextStyle(
+                                color: Color(0xFFF1F5F9),
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14.sp),
+                          ),
+                          TextSpan(
+                            text: ':',
+                            style: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14.sp),
+                          ),
+                          TextSpan(
+                            text: _seconds,
+                            style: TextStyle(
+                                color: Color(0xFFF1F5F9),
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14.sp),
+                          ),
+                        ],
+                      )),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 24.h),
+
+                // ── Resend ────────────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.restart_alt_rounded,
-                        color: Color(0xFF64748B), size: 12.w),
-                    SizedBox(width: 12.w),
-                    Text.rich(TextSpan(
-                      children: [
-                        TextSpan(
-                          text: _minutes,
+                    Text("Didn't receive the code? ",
+                        style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w400)),
+                    GestureDetector(
+                      onTap: _secondsLeft == 0 ? _resendCode : null,
+                      child: Text('Resend Code',
                           style: TextStyle(
-                              color: Color(0xFFF1F5F9),
-                              fontWeight: FontWeight.w500, fontSize: 14.sp),
-                        ),
-                        TextSpan(
-                          text: ':',
-                          style: TextStyle(
-                              color: Color(0xFF94A3B8),
-                              fontWeight: FontWeight.w500, fontSize: 14.sp),
-                        ),
-                        TextSpan(
-                          text: _seconds,
-                          style: TextStyle(
-                              color: Color(0xFFF1F5F9),
-                              fontWeight: FontWeight.w500, fontSize: 14.sp),
-                        ),
-                      ],
-                    )),
+                              color: _secondsLeft == 0
+                                  ? kOrange
+                                  : Color(0xFF64748B),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14.sp)),
+                    ),
                   ],
                 ),
-              ),
-              SizedBox(height: 12.h),
+                const Spacer(),
 
-              // ── Resend ────────────────────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text("Didn't receive the code? ",
-                      style: TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 14.sp, fontWeight: FontWeight.w400)),
-                  GestureDetector(
-                    onTap: _secondsLeft == 0 ? _resendCode : null,
-                    child: Text('Resend Code',
-                        style: TextStyle(
-                            color: _secondsLeft == 0
-                                ? kOrange
-                                : const Color(0xFF64748B),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14.sp)),
+                // ── Verify button ─────────────────────────────
+                SizedBox(
+                  width: double.infinity,
+                  height: 56.h,
+                  child: ElevatedButton(
+                    onPressed:
+                        _loading ? null : () => _verify(_pinController.text),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kOrange,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r)),
+                      elevation: 0,
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x33FF5E00),
+                            blurRadius: 15,
+                            offset: Offset(0, -3),
+                          ),
+                          BoxShadow(
+                            color: Color(0x33FF5E00),
+                            blurRadius: 6,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: _loading
+                          ? SizedBox(
+                              width: 22.w,
+                              height: 22.w,
+                              child: const CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text('Verify & Continue',
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 16.sp)),
+                                SizedBox(width: 8.w),
+                                SvgPicture.asset(
+                                  'assets/icons/otp_verify_arrow.svg',
+                                  width: 16.w,
+                                  height: 16.h,
+                                ),
+                              ],
+                            ),
+                    ),
                   ),
-                ],
-              ),
-              const Spacer(),
-
-              // ── Verify button ─────────────────────────────────────
-              SizedBox(
-                width: double.infinity,
-                height: 56.h,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : () => _verify(_pinController.text),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kOrange,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r)),
-                  ),
-                  child: _loading
-                      ? SizedBox(
-                          width: 22.w, height: 22.w,
-                          child: const CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('Verify & Continue',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16.sp)),
-                            SizedBox(width: 8.w),
-                            Icon(Icons.arrow_forward_rounded,
-                                color: Colors.white, size: 16.w),
-                          ],
-                        ),
                 ),
-              ),
-              SizedBox(height: 16.h),
-              Text('Secured by Gamearn Shield',
-                  style: TextStyle(
-                      color: Color(0xFF475569),
-                      fontSize: 12.sp, fontWeight: FontWeight.w400)),
-              SizedBox(height: 24.h),
-            ],
+                SizedBox(height: 16.h),
+                Text('Secured by Gamearn Shield',
+                    style: TextStyle(
+                        color: Color(0xFF475569),
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 1.2)),
+                SizedBox(height: 24.h),
+              ],
+            ),
           ),
         ),
       ),

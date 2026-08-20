@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
+import '../../widgets/auth_background.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -43,101 +45,87 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: ThemeData(
-        brightness: Brightness.light,
-        scaffoldBackgroundColor: kLightBg,
-        useMaterial3: true,
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: kLightCard,
-          hintStyle: TextStyle(color: kLightSub, fontSize: 14.sp),
-          prefixIconColor: kLightSub,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            borderSide: const BorderSide(color: kBorder),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            borderSide: const BorderSide(color: kBorder),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            borderSide: const BorderSide(color: kCyan, width: 1.5),
-          ),
-        ),
-      ),
+    return AuthBackground(
+      type: AuthBackgroundType.dottedCircuit,
+      opacity: 0.5,
       child: Scaffold(
-        backgroundColor: kLightBg,
+        backgroundColor: Colors.transparent,
         body: SafeArea(
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(horizontal: 24.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Back button
-                Padding(
-                  padding: EdgeInsets.only(top: 12.h),
-                  child: GestureDetector(
-                    onTap: () => Navigator.maybePop(context),
-                    child: Container(
-                      width: 40.w,
-                      height: 40.w,
-                      decoration: BoxDecoration(
-                        color: kLightCard,
-                        borderRadius: BorderRadius.circular(10.r),
-                      ),
-                      child: Icon(Icons.close_rounded,
-                          color: Color(0xFFF1F5F9), size: 20.w),
-                    ),
-                  ),
-                ),
                 SizedBox(height: 32.h),
 
-                // Logo
+                // ── Hero: avatar + title + subtitle ──────────
                 Center(
-                  child: Text('G⚡',
-                      style: TextStyle(fontSize: 36.sp, color: kLightText)),
-                ),
-                SizedBox(height: 24.h),
-
-                if (!_sent) ...[
-                  // Title
-                  Center(
-                    child: Text('Forgot Password?',
-                        style: TextStyle(
-                            color: kLightText,
-                            fontSize: 24.sp,
-                            fontWeight: FontWeight.w800)),
-                  ),
-                  SizedBox(height: 8.h),
-                  Center(
-                    child: Text(
-                      "No worries! Enter your email address and\nwe'll send you a link to reset your password.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: kLightSub, fontSize: 14.sp),
+                  child: Container(
+                    width: 80.w,
+                    height: 80.w,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16.r),
+                      child: Image.asset(
+                        'assets/auth/forgot_avatar.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: kBgDeep,
+                          child: Center(
+                            child: Text('G',
+                                style: TextStyle(
+                                    color: kCyan,
+                                    fontSize: 40.sp,
+                                    fontWeight: FontWeight.w900)),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  SizedBox(height: 36.h),
-
-                  // Email
-                  Text('Email Address',
+                ),
+                SizedBox(height: 8.h),
+                Center(
+                  child: Text('Forgot Password',
                       style: TextStyle(
-                          color: kLightText,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14.sp)),
+                          color: Color(0xFFF1F5F9),
+                          fontSize: 32.sp,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.8)),
+                ),
+                SizedBox(height: 8.h),
+                Center(
+                  child: Text(
+                    'Enter your email to receive a reset link.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: Color(0x80FFFFFF),
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w400),
+                  ),
+                ),
+                SizedBox(height: 40.h),
+
+                if (!_sent) ...[
+                  // ── Form ──────────────────────────────────
+                  Text('ACCOUNT IDENTIFIER',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w400,
+                          fontSize: 16.sp)),
                   SizedBox(height: 8.h),
                   TextField(
                     controller: _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
-                    style: TextStyle(color: kLightText, fontSize: 15.sp),
+                    style: TextStyle(color: Colors.white, fontSize: 16.sp),
                     decoration: InputDecoration(
                       hintText: 'e.g. name@example.com',
-                      hintStyle: TextStyle(color: kLightSub, fontSize: 14.sp),
-                      prefixIcon:
-                          Icon(Icons.email_outlined, color: kLightSub, size: 20.w),
+                      hintStyle: TextStyle(
+                          color: Color(0xFF64748B), fontSize: 16.sp),
                       filled: true,
-                      fillColor: kLightCard,
+                      fillColor: Color(0x800F172A),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.r),
                         borderSide: const BorderSide(color: kBorder),
@@ -148,18 +136,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.r),
-                        borderSide: const BorderSide(color: kCyan, width: 1.5),
+                        borderSide:
+                            const BorderSide(color: kCyan, width: 1.5),
                       ),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                      contentPadding: EdgeInsets.symmetric(
+                          horizontal: 18.w, vertical: 15.h),
                     ),
                   ),
-                  SizedBox(height: 28.h),
+                  SizedBox(height: 24.h),
 
-                  // Send button
+                  // ── Send button ───────────────────────────
                   SizedBox(
                     width: double.infinity,
-                    height: 54.h,
+                    height: 56.h,
                     child: ElevatedButton(
                       onPressed: _loading ? null : _sendReset,
                       style: ElevatedButton.styleFrom(
@@ -173,22 +162,34 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               height: 22.w,
                               child: const CircularProgressIndicator(
                                   color: Colors.white, strokeWidth: 2))
-                          : Text('Send Reset Link',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16.sp)),
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text('Send Reset Link',
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 18.sp,
+                                        letterSpacing: -0.27)),
+                                SizedBox(width: 8.w),
+                                SvgPicture.asset(
+                                  'assets/icons/forgot_send.svg',
+                                  width: 19.w,
+                                  height: 16.h,
+                                ),
+                              ],
+                            ),
                     ),
                   ),
                 ] else ...[
-                  // Success state
+                  // ── Success state ──────────────────────────
                   SizedBox(height: 48.h),
                   Center(
                     child: Container(
                       width: 80.w,
                       height: 80.w,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF22C55E).withOpacity(0.12),
+                        color: Color(0xFF22C55E).withOpacity(0.12),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(Icons.mark_email_read_outlined,
@@ -199,7 +200,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   Center(
                     child: Text('Check Your Email',
                         style: TextStyle(
-                            color: kLightText,
+                            color: kTextPri,
                             fontSize: 22.sp,
                             fontWeight: FontWeight.w800)),
                   ),
@@ -208,7 +209,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     child: Text(
                       "We've sent a password reset link to\n${_emailCtrl.text.trim()}",
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: kLightSub, fontSize: 14.sp),
+                      style: TextStyle(color: kTextSec, fontSize: 14.sp),
                     ),
                   ),
                   SizedBox(height: 28.h),
@@ -239,6 +240,30 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ),
                 ],
 
+                SizedBox(height: 265.h),
+
+                // ── Return to Login link ────────────────────
+                Center(
+                  child: GestureDetector(
+                    onTap: () => Navigator.maybePop(context),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SvgPicture.asset(
+                          'assets/icons/forgot_back_chevron.svg',
+                          width: 6.87.w,
+                          height: 11.67.h,
+                        ),
+                        SizedBox(width: 12.w),
+                        Text('Return to Login',
+                            style: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ),
+                ),
                 SizedBox(height: 32.h),
               ],
             ),

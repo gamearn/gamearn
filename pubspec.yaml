@@ -77,6 +77,18 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
 
+  fonts:
+    - family: SplineSans
+      fonts:
+        - asset: assets/fonts/spline_sans/SplineSans-Light.ttf
+          weight: 300
+        - asset: assets/fonts/spline_sans/SplineSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/spline_sans/SplineSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/spline_sans/SplineSans-Bold.ttf
+          weight: 700
+
   assets:
     # Logos
     - assets/logos/logo_dark.png
@@ -92,3 +104,16 @@ flutter:
     - assets/audio/sfx/
     # Phone input country flags
     - packages/intl_phone_number_input/assets/flags/
+    # Auth backgrounds
+    - assets/auth/login_bg.png
+    - assets/auth/signup_bg.png
+    - assets/auth/otp_bg.png
+    - assets/auth/forgot_bg.png
+    - assets/auth/reset_bg.png
+    # Auth avatar
+    - assets/auth/login_avatar.png
+    - assets/auth/signup_avatar.png
+    - assets/auth/forgot_avatar.png
+    - assets/auth/reset_avatar.png
+    # Auth icons
+    - assets/icons/

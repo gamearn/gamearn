@@ -63,7 +63,7 @@ ThemeData get kDarkTheme => ThemeData(
     bodyMedium: TextStyle(color: kTextSec),
   ),
   useMaterial3: true,
-  fontFamily: 'Roboto',
+  fontFamily: 'SplineSans',
 );
 
 ThemeData get kLightTheme => ThemeData(
@@ -89,7 +89,7 @@ ThemeData get kLightTheme => ThemeData(
     elevation: 0,
   ),
   useMaterial3: true,
-  fontFamily: 'Roboto',
+  fontFamily: 'SplineSans',
 );
 
 extension AppTheme on BuildContext {

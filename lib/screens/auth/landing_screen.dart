@@ -1,24 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../theme.dart';
-import '../../widgets/brand_logo.dart';
+import '../../widgets/auth_background.dart';
 import '../../services/social_auth_service.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
-
-// ════════════════════════════════════════════════════════════════
-//  LANDING SCREEN — Figma matched (1180:12 "Sign-up Details",
-//  390×844)
-//
-//  bg #0B0E1A · hero: icon 80×80 r16 white stroke + 'G', "GAMEARN"
-//  fs32 white w700, "Elite Gaming Tournaments" fs16 #94A3B8 ·
-//  Create Account 342×60 #FF5E00 r12 fs16 w400 · Log In 342×62
-//  white@0.03 stroke white@0.08 r12 fs18 w700 · "Or continue with"
-//  fs12 #64748B w500 (dividers white@0.1) · Google 167×56 + Apple
-//  163×56, Facebook 342×56 (all white@0.03 fill stroke white@0.08,
-//  logo 20 + label fs16 w400) · terms banner 341×51 #1C122C@0.78
-//  stroke kCyan r8 + terms fs12 w500 centered
-// ════════════════════════════════════════════════════════════════
 
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
@@ -37,15 +24,15 @@ class _LandingBody extends StatefulWidget {
 }
 
 class _LandingBodyState extends State<_LandingBody> {
-  bool _googleLoading   = false;
+  bool _googleLoading = false;
   bool _facebookLoading = false;
-  bool _appleLoading    = false;
+  bool _appleLoading = false;
 
   Future<void> _handleSocialSignIn(String provider) async {
     setState(() {
-      if (provider == 'google')   _googleLoading   = true;
+      if (provider == 'google') _googleLoading = true;
       if (provider == 'facebook') _facebookLoading = true;
-      if (provider == 'apple')    _appleLoading    = true;
+      if (provider == 'apple') _appleLoading = true;
     });
 
     try {
@@ -69,9 +56,9 @@ class _LandingBodyState extends State<_LandingBody> {
     } finally {
       if (mounted) {
         setState(() {
-          _googleLoading   = false;
+          _googleLoading = false;
           _facebookLoading = false;
-          _appleLoading    = false;
+          _appleLoading = false;
         });
       }
     }
@@ -83,227 +70,242 @@ class _LandingBodyState extends State<_LandingBody> {
         content: Text(msg),
         backgroundColor: Colors.redAccent,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10.r)),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.bg,
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.w),
-          child: LayoutBuilder(builder: (_, c) {
-            return SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: c.maxHeight),
-                child: IntrinsicHeight(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Spacer(flex: 2),
+    return AuthBackground(
+      type: AuthBackgroundType.hexNetwork,
+      opacity: 0.8,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            child: LayoutBuilder(builder: (_, c) {
+              return SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: c.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(height: 80.h),
 
-                      // ── Hero ──────────────────────────────────────
-                      Center(
-                        child: Container(
-                          width: 80.w, height: 80.w,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16.r),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Image.asset(
-                            'assets/logos/logo_icon.png',
+                        // ── Hero: avatar + title + subtitle ──
+                        Center(
+                          child: Container(
                             width: 80.w,
                             height: 80.w,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 16.h),
-                      Text('GAMEARN',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 32.sp,
-                              fontWeight: FontWeight.w700)),
-                      SizedBox(height: 8.h),
-                      Text('Elite Gaming Tournaments',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: const Color(0xFF94A3B8),
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w400)),
-
-                      const Spacer(flex: 3),
-
-                      // ── Create Account ────────────────────────────
-                      SizedBox(
-                        width: double.infinity,
-                        height: 60.h,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.push(context,
-                              MaterialPageRoute(
-                                  builder: (_) => const RegisterScreen())),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: kOrange,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12.r)),
-                          ),
-                          child: Text('Create Account',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.w400)),
-                        ),
-                      ),
-                      SizedBox(height: 14.h),
-
-                      // ── Log In ────────────────────────────────────
-                      SizedBox(
-                        width: double.infinity,
-                        height: 62.h,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.push(context,
-                              MaterialPageRoute(
-                                  builder: (_) => const LoginScreen())),
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: const Color(0x08FFFFFF),
-                            side: const BorderSide(
-                                color: Color(0x14FFFFFF)),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12.r)),
-                          ),
-                          child: Text('Log In',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18.sp,
-                                  fontWeight: FontWeight.w700)),
-                        ),
-                      ),
-                      SizedBox(height: 28.h),
-
-                      // ── Or continue with ──────────────────────────
-                      Row(children: [
-                        const Expanded(
-                            child: Divider(
-                                color: Color(0x1AFFFFFF), height: 1)),
-                        Padding(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 12.w),
-                          child: Text('Or continue with',
-                              style: kLabel.copyWith(
-                                  color: const Color(0xFF64748B))),
-                        ),
-                        const Expanded(
-                            child: Divider(
-                                color: Color(0x1AFFFFFF), height: 1)),
-                      ]),
-                      SizedBox(height: 20.h),
-
-                      // ── Google + Apple ────────────────────────────
-                      Row(children: [
-                        Expanded(
-                          child: _SocialButton(
-                            label: 'Google',
-                            logoType: BrandType.google,
-                            loading: _googleLoading,
-                            onTap: () => _handleSocialSignIn('google'),
-                          ),
-                        ),
-                        SizedBox(width: 12.w),
-                        if (Theme.of(context).platform ==
-                            TargetPlatform.iOS)
-                          Expanded(
-                            child: _SocialButton(
-                              label: 'Apple',
-                              logoType: BrandType.apple,
-                              loading: _appleLoading,
-                              onTap: () => _handleSocialSignIn('apple'),
+                            decoration: BoxDecoration(
+                              borderRadius:
+                                  BorderRadius.circular(16.r),
+                              border: Border.all(
+                                  color: Colors.white, width: 1),
+                            ),
+                            child: ClipRRect(
+                              borderRadius:
+                                  BorderRadius.circular(16.r),
+                              child: Image.asset(
+                                'assets/auth/signup_avatar.png',
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    Container(
+                                  color: kBgDeep,
+                                  child: Center(
+                                    child: Text('G',
+                                        style: TextStyle(
+                                            color: kCyan,
+                                            fontSize: 40.sp,
+                                            fontWeight:
+                                                FontWeight.w900)),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                      ]),
-                      SizedBox(height: 12.h),
-
-                      // ── Facebook ──────────────────────────────────
-                      _SocialButton(
-                        label: 'Facebook',
-                        logoType: BrandType.facebook,
-                        loading: _facebookLoading,
-                        onTap: () => _handleSocialSignIn('facebook'),
-                        fullWidth: true,
-                      ),
-
-                      const Spacer(flex: 2),
-
-                      // ── Terms banner ──────────────────────────────
-                      Container(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
-                        decoration: BoxDecoration(
-                          color: const Color(0xC71C122C),
-                          borderRadius: BorderRadius.circular(8.r),
-                          border: Border.all(color: kCyan),
                         ),
-                        child: Text(
-                          'By continuing, you agree to our Terms and Conditions and\nPrivacy Policy',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: const Color(0x80FFFFFF),
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w500),
+                        SizedBox(height: 16.h),
+                        Text('GAMEARN',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 32.sp,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.8)),
+                        SizedBox(height: 16.h),
+                        Text('Elite Gaming Tournaments',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w400)),
+
+                        const Spacer(flex: 3),
+
+                        // ── Create Account (orange) ──────────
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56.h,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        const RegisterScreen())),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: kOrange,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(12.r)),
+                            ),
+                            child: Text('Create Account',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16.sp,
+                                    fontWeight: FontWeight.w400)),
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 24.h),
-                    ],
+                        SizedBox(height: 16.h),
+
+                        // ── Log In (frosted glass) ───────────
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56.h,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        const LoginScreen())),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor:
+                                  Color(0x08FFFFFF),
+                              side: const BorderSide(
+                                  color: Color(0x14FFFFFF)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(12.r)),
+                            ),
+                            child: Text('Log In',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18.sp,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.27)),
+                          ),
+                        ),
+                        SizedBox(height: 28.h),
+
+                        // ── "Or continue with" divider ───────
+                        Row(children: [
+                          const Expanded(
+                              child: Divider(
+                                  color: Color(0x1AFFFFFF),
+                                  height: 1)),
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 16.w),
+                            child: Text('Or continue with',
+                                style: TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w500)),
+                          ),
+                          const Expanded(
+                              child: Divider(
+                                  color: Color(0x1AFFFFFF),
+                                  height: 1)),
+                        ]),
+                        SizedBox(height: 20.h),
+
+                        // ── Google + Apple row ───────────────
+                        Row(children: [
+                          Expanded(
+                            child: _FrostedSocialButton(
+                              label: 'Google',
+                              asset: 'assets/icons/social_google.svg',
+                              loading: _googleLoading,
+                              onTap: () =>
+                                  _handleSocialSignIn('google'),
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: _FrostedSocialButton(
+                              label: 'Apple',
+                              asset: 'assets/icons/social_apple.svg',
+                              loading: _appleLoading,
+                              onTap: () =>
+                                  _handleSocialSignIn('apple'),
+                            ),
+                          ),
+                        ]),
+                        SizedBox(height: 12.h),
+
+                        // ── Facebook (full width) ────────────
+                        _FrostedSocialButton(
+                          label: 'Facebook',
+                          asset: 'assets/icons/social_facebook.png',
+                          loading: _facebookLoading,
+                          onTap: () =>
+                              _handleSocialSignIn('facebook'),
+                          fullWidth: true,
+                        ),
+
+                        const Spacer(flex: 2),
+
+                        // ── Terms banner (cyan border) ───────
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 16.w, vertical: 10.h),
+                          decoration: BoxDecoration(
+                            color: Color(0xC71C122C),
+                            borderRadius:
+                                BorderRadius.circular(8.r),
+                            border: Border.all(color: kCyan),
+                          ),
+                          child: Text(
+                            'By continuing, you agree to our Terms and Conditions and\nPrivacy Policy',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Color(0x80FFFFFF),
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                        SizedBox(height: 24.h),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ),
         ),
       ),
     );
   }
 }
 
-class _SocialButton extends StatelessWidget {
+class _FrostedSocialButton extends StatelessWidget {
   final String label;
-  final BrandType logoType;
+  final String asset;
   final VoidCallback onTap;
   final bool fullWidth;
   final bool loading;
 
-  const _SocialButton({
+  const _FrostedSocialButton({
     required this.label,
-    required this.logoType,
+    required this.asset,
     required this.onTap,
     this.fullWidth = false,
     this.loading = false,
   });
-
-  Widget _buildContent(BuildContext context) {
-    if (loading) {
-      return SizedBox(
-        width: 20.w, height: 20.h,
-        child: const CircularProgressIndicator(strokeWidth: 2, color: kCyan),
-      );
-    }
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        BrandLogo(type: logoType, size: 20),
-        SizedBox(width: 10.w),
-        Text(label,
-            style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w400,
-                fontSize: 16.sp)),
-      ],
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -311,12 +313,45 @@ class _SocialButton extends StatelessWidget {
       onPressed: loading ? null : onTap,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(0, 56),
-        backgroundColor: const Color(0x08FFFFFF),
+        backgroundColor: Color(0x08FFFFFF),
         side: const BorderSide(color: Color(0x14FFFFFF)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.r)),
+        padding: EdgeInsets.symmetric(horizontal: 41.w, vertical: 15.h),
       ),
-      child: _buildContent(context),
+      child: loading
+          ? SizedBox(
+              width: 20.w,
+              height: 20.h,
+              child: const CircularProgressIndicator(
+                  strokeWidth: 2, color: kCyan))
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (asset.endsWith('.svg'))
+                  SvgPicture.asset(
+                    asset,
+                    width: 20.w,
+                    height: 20.w,
+                  )
+                else
+                  Image.asset(
+                    asset,
+                    width: 20.w,
+                    height: 20.w,
+                  ),
+                SizedBox(width: 12.w),
+                Text(label,
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w400,
+                        fontSize: 16.sp)),
+              ],
+            ),
     );
-    return fullWidth ? SizedBox(width: double.infinity, child: btn) : btn;
+    return fullWidth
+        ? SizedBox(width: double.infinity, child: btn)
+        : btn;
   }
 }
