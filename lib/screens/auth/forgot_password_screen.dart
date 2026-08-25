@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 import '../../widgets/auth_background.dart';
+import '../../widgets/gamearn_ui.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -110,75 +111,23 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
                 if (!_sent) ...[
                   // ── Form ──────────────────────────────────
-                  Text('ACCOUNT IDENTIFIER',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w400,
-                          fontSize: 16.sp)),
-                  SizedBox(height: 8.h),
-                  TextField(
+                  GaInput(
                     controller: _emailCtrl,
+                    labelText: 'ACCOUNT IDENTIFIER',
+                    hintText: 'e.g. name@example.com',
                     keyboardType: TextInputType.emailAddress,
-                    style: TextStyle(color: Colors.white, fontSize: 16.sp),
-                    decoration: InputDecoration(
-                      hintText: 'e.g. name@example.com',
-                      hintStyle: TextStyle(
-                          color: Color(0xFF64748B), fontSize: 16.sp),
-                      filled: true,
-                      fillColor: Color(0x800F172A),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: const BorderSide(color: kBorder),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: const BorderSide(color: kBorder),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide:
-                            const BorderSide(color: kCyan, width: 1.5),
-                      ),
-                      contentPadding: EdgeInsets.symmetric(
-                          horizontal: 18.w, vertical: 15.h),
-                    ),
                   ),
                   SizedBox(height: 24.h),
 
                   // ── Send button ───────────────────────────
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56.h,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : _sendReset,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kOrange,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.r)),
-                      ),
-                      child: _loading
-                          ? SizedBox(
-                              width: 22.w,
-                              height: 22.w,
-                              child: const CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2))
-                          : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text('Send Reset Link',
-                                    style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 18.sp,
-                                        letterSpacing: -0.27)),
-                                SizedBox(width: 8.w),
-                                SvgPicture.asset(
-                                  'assets/icons/forgot_send.svg',
-                                  width: 19.w,
-                                  height: 16.h,
-                                ),
-                              ],
-                            ),
+                  GaButton.primary(
+                    label: 'Send Reset Link',
+                    isLoading: _loading,
+                    onPressed: _sendReset,
+                    trailing: SvgPicture.asset(
+                      'assets/icons/forgot_send.svg',
+                      width: 19.w,
+                      height: 16.h,
                     ),
                   ),
                 ] else ...[
@@ -213,29 +162,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                   ),
                   SizedBox(height: 28.h),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54.h,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kOrange,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.r)),
-                      ),
-                      child: Text('Back to Login',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16.sp)),
-                    ),
+                  GaButton.primary(
+                    label: 'Back to Login',
+                    onPressed: () => Navigator.pop(context),
                   ),
                   SizedBox(height: 16.h),
                   Center(
-                    child: TextButton(
+                    child: GaButton.text(
+                      label: "Didn't receive it? Resend",
                       onPressed: () => setState(() => _sent = false),
-                      child: Text('Didn\'t receive it? Resend',
-                          style: TextStyle(color: kCyan, fontSize: 14.sp)),
                     ),
                   ),
                 ],

@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 import '../../widgets/auth_background.dart';
+import '../../widgets/gamearn_ui.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
@@ -144,125 +145,50 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
                 if (!_reset) ...[
                   // ── New Password ──────────────────────────
-                  Text('New Password',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w400,
-                          fontSize: 16.sp)),
-                  SizedBox(height: 8.h),
-                  TextField(
+                  GaInput(
                     controller: _newPassCtrl,
+                    labelText: 'New Password',
+                    hintText: 'Enter new password',
                     obscureText: _obscureNew,
-                    style: TextStyle(color: Colors.white, fontSize: 16.sp),
-                    decoration: InputDecoration(
-                      hintText: 'Enter new password',
-                      hintStyle: TextStyle(
-                          color: Color(0xFF64748B), fontSize: 16.sp),
-                      suffixIcon: IconButton(
-                        icon: SvgPicture.asset(
-                          _obscureNew
-                              ? 'assets/icons/reset_eye.svg'
-                              : 'assets/icons/reset_eye.svg',
-                          width: 22.w,
-                          height: 15.h,
-                          colorFilter: ColorFilter.mode(
-                              Color(0xFF64748B), BlendMode.srcIn),
-                        ),
-                        onPressed: () =>
-                            setState(() => _obscureNew = !_obscureNew),
+                    suffix: IconButton(
+                      icon: SvgPicture.asset(
+                        'assets/icons/reset_eye.svg',
+                        width: 22.w,
+                        height: 15.h,
+                        colorFilter: const ColorFilter.mode(
+                            Color(0xFF64748B), BlendMode.srcIn),
                       ),
-                      filled: true,
-                      fillColor: Color(0x800F172A),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: const BorderSide(color: kBorder),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: const BorderSide(color: kBorder),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide:
-                            const BorderSide(color: kCyan, width: 1.5),
-                      ),
-                      contentPadding: EdgeInsets.symmetric(
-                          horizontal: 14.w, vertical: 19.h),
+                      onPressed: () =>
+                          setState(() => _obscureNew = !_obscureNew),
                     ),
                   ),
                   SizedBox(height: 16.h),
 
                   // ── Confirm New Password ──────────────────
-                  Text('Confirm New Password',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w400,
-                          fontSize: 16.sp)),
-                  SizedBox(height: 8.h),
-                  TextField(
+                  GaInput(
                     controller: _confirmPassCtrl,
+                    labelText: 'Confirm New Password',
+                    hintText: 'Confirm your password',
                     obscureText: _obscureConfirm,
-                    style: TextStyle(color: Colors.white, fontSize: 16.sp),
-                    decoration: InputDecoration(
-                      hintText: 'Confirm your password',
-                      hintStyle: TextStyle(
-                          color: Color(0xFF64748B), fontSize: 16.sp),
-                      suffixIcon: IconButton(
-                        icon: SvgPicture.asset(
-                          'assets/icons/reset_eye.svg',
-                          width: 22.w,
-                          height: 15.h,
-                          colorFilter: ColorFilter.mode(
-                              Color(0xFF64748B), BlendMode.srcIn),
-                        ),
-                        onPressed: () => setState(
-                            () => _obscureConfirm = !_obscureConfirm),
+                    suffix: IconButton(
+                      icon: SvgPicture.asset(
+                        'assets/icons/reset_eye.svg',
+                        width: 22.w,
+                        height: 15.h,
+                        colorFilter: const ColorFilter.mode(
+                            Color(0xFF64748B), BlendMode.srcIn),
                       ),
-                      filled: true,
-                      fillColor: Color(0x800F172A),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: const BorderSide(color: kBorder),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: const BorderSide(color: kBorder),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide:
-                            const BorderSide(color: kCyan, width: 1.5),
-                      ),
-                      contentPadding: EdgeInsets.symmetric(
-                          horizontal: 14.w, vertical: 19.h),
+                      onPressed: () => setState(
+                          () => _obscureConfirm = !_obscureConfirm),
                     ),
                   ),
                   SizedBox(height: 28.h),
 
                   // ── Update Password button ────────────────
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56.h,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : _resetPassword,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kOrange,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.r)),
-                      ),
-                      child: _loading
-                          ? SizedBox(
-                              width: 22.w,
-                              height: 22.w,
-                              child: const CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2))
-                          : Text('Update Password',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 18.sp,
-                                  letterSpacing: -0.27)),
-                    ),
+                  GaButton.primary(
+                    label: 'Update Password',
+                    isLoading: _loading,
+                    onPressed: _resetPassword,
                   ),
                   SizedBox(height: 16.h),
                   Center(
@@ -308,25 +234,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     ),
                   ),
                   SizedBox(height: 28.h),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54.h,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.popUntil(
-                            context, (route) => route.isFirst);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kOrange,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.r)),
-                      ),
-                      child: Text('Back to Login',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16.sp)),
-                    ),
+                  GaButton.primary(
+                    label: 'Back to Login',
+                    onPressed: () {
+                      Navigator.popUntil(
+                          context, (route) => route.isFirst);
+                    },
                   ),
                 ],
 

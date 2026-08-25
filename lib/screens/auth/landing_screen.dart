@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../theme.dart';
 import '../../widgets/auth_background.dart';
+import '../../widgets/gamearn_ui.dart';
 import '../../services/social_auth_service.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
@@ -148,56 +149,24 @@ class _LandingBodyState extends State<_LandingBody> {
                         const Spacer(flex: 3),
 
                         // ── Create Account (orange) ──────────
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56.h,
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) =>
-                                        const RegisterScreen())),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: kOrange,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(12.r)),
-                            ),
-                            child: Text('Create Account',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.w400)),
-                          ),
+                        GaButton.primary(
+                          label: 'Create Account',
+                          onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      const RegisterScreen())),
                         ),
                         SizedBox(height: 16.h),
 
                         // ── Log In (frosted glass) ───────────
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56.h,
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) =>
-                                        const LoginScreen())),
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor:
-                                  Color(0x08FFFFFF),
-                              side: const BorderSide(
-                                  color: Color(0x14FFFFFF)),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(12.r)),
-                            ),
-                            child: Text('Log In',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18.sp,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.27)),
-                          ),
+                        GaButton.outline(
+                          label: 'Log In',
+                          onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      const LoginScreen())),
                         ),
                         SizedBox(height: 28.h),
 

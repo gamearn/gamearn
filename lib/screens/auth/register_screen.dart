@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 import '../../widgets/auth_background.dart';
+import '../../widgets/gamearn_ui.dart';
 import 'login_screen.dart';
 import 'otp_screen.dart';
 import 'email_verify_screen.dart';
@@ -275,149 +276,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             CrossAxisAlignment.start,
                         children: [
                           // Full Name
-                          Text('Full Name',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight:
-                                      FontWeight.w400,
-                                  fontSize: 16.sp)),
-                          SizedBox(height: 8.h),
-                          TextField(
+                          GaInput(
                             controller: _nameCtrl,
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16.sp),
-                            decoration: InputDecoration(
-                              hintText:
-                                  'e.g. Chinelo Adebayo',
-                              hintStyle: TextStyle(
-                                  color:
-                                      Color(0x66FFFFFF),
-                                  fontSize: 16.sp),
-                              prefixIcon: Padding(
-                                padding:
-                                    EdgeInsets.all(15.r),
-                                child: SvgPicture.asset(
-                                  'assets/icons/field_name.svg',
-                                  width: 13.w,
-                                  height: 13.w,
-                                  colorFilter:
-                                      ColorFilter.mode(
-                                          Color(
-                                              0xFF999999),
-                                          BlendMode
-                                              .srcIn),
-                                ),
-                              ),
-                              filled: true,
-                              fillColor:
-                                  Color(0x800F172A),
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        12.r),
-                                borderSide:
-                                    const BorderSide(
-                                        color: kBorder),
-                              ),
-                              enabledBorder:
-                                  OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        12.r),
-                                borderSide:
-                                    const BorderSide(
-                                        color: kBorder),
-                              ),
-                              focusedBorder:
-                                  OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        12.r),
-                                borderSide:
-                                    const BorderSide(
-                                        color: kCyan,
-                                        width: 1.5),
-                              ),
-                              contentPadding:
-                                  EdgeInsets.symmetric(
-                                      horizontal: 16.w,
-                                      vertical: 18.h),
+                            labelText: 'Full Name',
+                            hintText: 'e.g. Chinelo Adebayo',
+                            prefixIcon: SvgPicture.asset(
+                              'assets/icons/field_name.svg',
+                              width: 13.w,
+                              height: 13.w,
+                              colorFilter: const ColorFilter.mode(
+                                  Color(0xFF999999), BlendMode.srcIn),
                             ),
                           ),
                           SizedBox(height: 16.h),
 
                           // Email
-                          Text('Email Address',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight:
-                                      FontWeight.w400,
-                                  fontSize: 16.sp)),
-                          SizedBox(height: 8.h),
-                          TextField(
+                          GaInput(
                             controller: _emailCtrl,
-                            keyboardType: TextInputType
-                                .emailAddress,
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16.sp),
-                            decoration: InputDecoration(
-                              hintText:
-                                  'name@example.com',
-                              hintStyle: TextStyle(
-                                  color:
-                                      Color(0x66FFFFFF),
-                                  fontSize: 16.sp),
-                              prefixIcon: Padding(
-                                padding:
-                                    EdgeInsets.all(15.r),
-                                child: SvgPicture.asset(
-                                  'assets/icons/field_email.svg',
-                                  width: 13.w,
-                                  height: 13.w,
-                                  colorFilter:
-                                      ColorFilter.mode(
-                                          Color(
-                                              0xFF999999),
-                                          BlendMode
-                                              .srcIn),
-                                ),
-                              ),
-                              filled: true,
-                              fillColor:
-                                  Color(0x800F172A),
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        12.r),
-                                borderSide:
-                                    const BorderSide(
-                                        color: kBorder),
-                              ),
-                              enabledBorder:
-                                  OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        12.r),
-                                borderSide:
-                                    const BorderSide(
-                                        color: kBorder),
-                              ),
-                              focusedBorder:
-                                  OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        12.r),
-                                borderSide:
-                                    const BorderSide(
-                                        color: kCyan,
-                                        width: 1.5),
-                              ),
-                              contentPadding:
-                                  EdgeInsets.symmetric(
-                                      horizontal: 16.w,
-                                      vertical: 18.h),
+                            labelText: 'Email Address',
+                            hintText: 'name@example.com',
+                            keyboardType: TextInputType.emailAddress,
+                            prefixIcon: SvgPicture.asset(
+                              'assets/icons/field_email.svg',
+                              width: 13.w,
+                              height: 13.w,
+                              colorFilter: const ColorFilter.mode(
+                                  Color(0xFF999999), BlendMode.srcIn),
                             ),
                           ),
                           SizedBox(height: 16.h),
@@ -426,8 +310,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           Text('Phone Number',
                               style: TextStyle(
                                   color: Colors.white,
-                                  fontWeight:
-                                      FontWeight.w400,
+                                  fontWeight: FontWeight.w400,
                                   fontSize: 16.sp)),
                           SizedBox(height: 8.h),
                           Row(children: [
@@ -435,173 +318,51 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               width: 63.w,
                               height: 56.h,
                               decoration: BoxDecoration(
-                                color:
-                                    Color(0x800F172A),
+                                color: Color(0x800F172A),
                                 borderRadius:
-                                    BorderRadius.circular(
-                                        12.r),
-                                border: Border.all(
-                                    color: kBorder),
+                                    BorderRadius.circular(12.r),
+                                border: Border.all(color: kBorder),
                               ),
-                              alignment:
-                                  Alignment.center,
+                              alignment: Alignment.center,
                               child: Text('+234',
                                   style: TextStyle(
-                                      color: Color(
-                                          0xFFCBD5E1),
+                                      color: Color(0xFFCBD5E1),
                                       fontSize: 16.sp)),
                             ),
                             SizedBox(width: 8.w),
                             Expanded(
-                              child: TextField(
+                              child: GaInput(
                                 controller: _phoneCtrl,
-                                keyboardType:
-                                    TextInputType.phone,
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16.sp),
-                                decoration:
-                                    InputDecoration(
-                                  hintText:
-                                      '801 234 5678',
-                                  hintStyle: TextStyle(
-                                      color: Color(
-                                          0x66FFFFFF),
-                                      fontSize: 16.sp),
-                                  filled: true,
-                                  fillColor:
-                                      Color(0x800F172A),
-                                  border:
-                                      OutlineInputBorder(
-                                    borderRadius:
-                                        BorderRadius
-                                            .circular(
-                                                12.r),
-                                    borderSide:
-                                        const BorderSide(
-                                            color:
-                                                kBorder),
-                                  ),
-                                  enabledBorder:
-                                      OutlineInputBorder(
-                                    borderRadius:
-                                        BorderRadius
-                                            .circular(
-                                                12.r),
-                                    borderSide:
-                                        const BorderSide(
-                                            color:
-                                                kBorder),
-                                  ),
-                                  focusedBorder:
-                                      OutlineInputBorder(
-                                    borderRadius:
-                                        BorderRadius
-                                            .circular(
-                                                12.r),
-                                    borderSide:
-                                        const BorderSide(
-                                            color: kCyan,
-                                            width: 1.5),
-                                  ),
-                                  contentPadding:
-                                      EdgeInsets.symmetric(
-                                          horizontal:
-                                              17.w,
-                                          vertical:
-                                              18.h),
-                                ),
+                                hintText: '801 234 5678',
+                                keyboardType: TextInputType.phone,
                               ),
                             ),
                           ]),
                           SizedBox(height: 16.h),
 
                           // Password
-                          Text('Password',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight:
-                                      FontWeight.w400,
-                                  fontSize: 16.sp)),
-                          SizedBox(height: 8.h),
-                          TextField(
+                          GaInput(
                             controller: _passCtrl,
+                            labelText: 'Password',
+                            hintText: '••••••••',
                             obscureText: _obscure,
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16.sp),
-                            decoration: InputDecoration(
-                              hintText: '••••••••',
-                              hintStyle: TextStyle(
-                                  color:
-                                      Color(0xFF475569),
-                                  fontSize: 16.sp),
-                              prefixIcon: Padding(
-                                padding:
-                                    EdgeInsets.all(15.r),
-                                child: SvgPicture.asset(
-                                  'assets/icons/field_password.svg',
-                                  width: 13.w,
-                                  height: 13.w,
-                                  colorFilter:
-                                      ColorFilter.mode(
-                                          Color(
-                                              0xFF999999),
-                                          BlendMode
-                                              .srcIn),
-                                ),
+                            prefixIcon: SvgPicture.asset(
+                              'assets/icons/field_password.svg',
+                              width: 13.w,
+                              height: 13.w,
+                              colorFilter: const ColorFilter.mode(
+                                  Color(0xFF999999), BlendMode.srcIn),
+                            ),
+                            suffix: IconButton(
+                              icon: SvgPicture.asset(
+                                'assets/icons/eye_toggle.svg',
+                                width: 22.w,
+                                height: 15.h,
+                                colorFilter: const ColorFilter.mode(
+                                    Color(0xFF64748B), BlendMode.srcIn),
                               ),
-                              suffixIcon: IconButton(
-                                icon: SvgPicture.asset(
-                                  'assets/icons/eye_toggle.svg',
-                                  width: 22.w,
-                                  height: 15.h,
-                                  colorFilter:
-                                      ColorFilter.mode(
-                                          Color(
-                                              0xFF64748B),
-                                          BlendMode
-                                              .srcIn),
-                                ),
-                                onPressed: () =>
-                                    setState(() =>
-                                        _obscure =
-                                            !_obscure),
-                              ),
-                              filled: true,
-                              fillColor:
-                                  Color(0x800F172A),
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        12.r),
-                                borderSide:
-                                    const BorderSide(
-                                        color: kBorder),
-                              ),
-                              enabledBorder:
-                                  OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        12.r),
-                                borderSide:
-                                    const BorderSide(
-                                        color: kBorder),
-                              ),
-                              focusedBorder:
-                                  OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        12.r),
-                                borderSide:
-                                    const BorderSide(
-                                        color: kCyan,
-                                        width: 1.5),
-                              ),
-                              contentPadding:
-                                  EdgeInsets.symmetric(
-                                      horizontal: 16.w,
-                                      vertical: 18.h),
+                              onPressed: () =>
+                                  setState(() => _obscure = !_obscure),
                             ),
                           ),
                           SizedBox(height: 16.h),
@@ -665,86 +426,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           SizedBox(height: 28.h),
 
                           // Create Account button
-                          SizedBox(
-                            width: double.infinity,
-                            height: 56.h,
-                            child: ElevatedButton(
-                              onPressed: _loading
-                                  ? null
-                                  : _register,
-                              style: ElevatedButton
-                                  .styleFrom(
-                                backgroundColor:
-                                    kOrange,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius
-                                            .circular(
-                                                12.r)),
-                                elevation: 0,
-                              ),
-                              child: _loading
-                                  ? SizedBox(
-                                      width: 22.w,
-                                      height: 22.w,
-                                      child:
-                                          const CircularProgressIndicator(
-                                              color: Colors
-                                                  .white,
-                                              strokeWidth:
-                                                  2))
-                                  : Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment
-                                              .center,
-                                      children: [
-                                        Text(
-                                            'Create Account',
-                                            style: TextStyle(
-                                                color: Colors
-                                                    .white,
-                                                fontSize: 16.sp)),
-                                        SizedBox(
-                                            width: 8.w),
-                                        SvgPicture.asset(
-                                          'assets/icons/button_arrow.svg',
-                                          width: 20.w,
-                                          height: 20.w,
-                                        ),
-                                      ],
-                                    ),
+                          GaButton.primary(
+                            label: 'Create Account',
+                            isLoading: _loading,
+                            onPressed: _register,
+                            trailing: SvgPicture.asset(
+                              'assets/icons/button_arrow.svg',
+                              width: 20.w,
+                              height: 20.w,
                             ),
                           ),
                           SizedBox(height: 16.h),
 
                           // Already have account
                           Center(
-                            child: TextButton(
+                            child: GaButton.text(
+                              label: 'Already have an account? Login',
                               onPressed: () =>
-                                  Navigator
-                                      .pushReplacement(
+                                  Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
                                     builder: (_) =>
                                         const LoginScreen()),
                               ),
-                              child: Text.rich(TextSpan(
-                                text:
-                                    'Already have an account? ',
-                                style: TextStyle(
-                                    color: kTextSec,
-                                    fontSize: 12.sp),
-                                children: [
-                                  TextSpan(
-                                      text: 'Login',
-                                      style: TextStyle(
-                                          color:
-                                              context.cyan,
-                                          fontWeight:
-                                              FontWeight
-                                                  .w700)),
-                                ],
-                              )),
                             ),
                           ),
                           SizedBox(height: 32.h),

@@ -8,7 +8,7 @@ class GaInput extends StatelessWidget {
   final TextEditingController? controller;
   final String? labelText;
   final String? hintText;
-  final IconData? prefixIcon;
+  final Widget? prefixIcon;
   final Widget? suffix;
   final bool obscureText;
   final TextInputType? keyboardType;
@@ -78,7 +78,10 @@ class GaInput extends StatelessWidget {
               fontSize: 15.sp,
             ),
             prefixIcon: prefixIcon != null
-                ? Icon(prefixIcon, color: kTextMuted, size: 20.w)
+                ? Padding(
+                    padding: EdgeInsets.all(12.w),
+                    child: prefixIcon,
+                  )
                 : null,
             suffixIcon: suffix,
             filled: true,

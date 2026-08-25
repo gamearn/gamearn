@@ -7,6 +7,7 @@ import 'package:pinput/pinput.dart';
 import '../../theme.dart';
 import '../../utils/error_utils.dart';
 import '../../widgets/auth_background.dart';
+import '../../widgets/gamearn_ui.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  OTP SCREEN — Figma matched (1172:10 "OTP Verification", 390×844)
@@ -324,72 +325,23 @@ class _OtpScreenState extends State<OtpScreen> {
                             color: Color(0xFF94A3B8),
                             fontSize: 14.sp,
                             fontWeight: FontWeight.w400)),
-                    GestureDetector(
-                      onTap: _secondsLeft == 0 ? _resendCode : null,
-                      child: Text('Resend Code',
-                          style: TextStyle(
-                              color: _secondsLeft == 0
-                                  ? kOrange
-                                  : Color(0xFF64748B),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14.sp)),
+                    GaButton.text(
+                      label: 'Resend Code',
+                      onPressed: _secondsLeft == 0 ? _resendCode : null,
                     ),
                   ],
                 ),
                 const Spacer(),
 
                 // ── Verify button ─────────────────────────────
-                SizedBox(
-                  width: double.infinity,
-                  height: 56.h,
-                  child: ElevatedButton(
-                    onPressed:
-                        _loading ? null : () => _verify(_pinController.text),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: kOrange,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r)),
-                      elevation: 0,
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Color(0x33FF5E00),
-                            blurRadius: 15,
-                            offset: Offset(0, -3),
-                          ),
-                          BoxShadow(
-                            color: Color(0x33FF5E00),
-                            blurRadius: 6,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: _loading
-                          ? SizedBox(
-                              width: 22.w,
-                              height: 22.w,
-                              child: const CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2))
-                          : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text('Verify & Continue',
-                                    style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 16.sp)),
-                                SizedBox(width: 8.w),
-                                SvgPicture.asset(
-                                  'assets/icons/otp_verify_arrow.svg',
-                                  width: 16.w,
-                                  height: 16.h,
-                                ),
-                              ],
-                            ),
-                    ),
+                GaButton.primary(
+                  label: 'Verify & Continue',
+                  isLoading: _loading,
+                  onPressed: () => _verify(_pinController.text),
+                  trailing: SvgPicture.asset(
+                    'assets/icons/otp_verify_arrow.svg',
+                    width: 16.w,
+                    height: 16.h,
                   ),
                 ),
                 SizedBox(height: 16.h),

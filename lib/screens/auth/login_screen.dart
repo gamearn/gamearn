@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 import '../../widgets/auth_background.dart';
+import '../../widgets/gamearn_ui.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -74,9 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               fontWeight: FontWeight.w700,
                               letterSpacing: -0.27)),
                     ),
-                    SizedBox(height: 16.h),
-
-                    // ── Hero: avatar + title + subtitle ──────
+                    SizedBox(height: 18.h),
                     Center(
                       child: Container(
                         width: 80.w,
@@ -133,100 +132,40 @@ class _LoginScreenState extends State<LoginScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Email
-                          Text('Email Address',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w400,
-                                  fontSize: 16.sp)),
-                          SizedBox(height: 8.h),
-                          TextField(
+                          GaInput(
                             controller: _emailCtrl,
+                            labelText: 'Email Address',
+                            hintText: 'e.g. name@example.com',
                             keyboardType: TextInputType.emailAddress,
-                            style: TextStyle(
-                                color: Colors.white, fontSize: 16.sp),
-                            decoration: InputDecoration(
-                              hintText: 'e.g. name@example.com',
-                              hintStyle: TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontSize: 16.sp),
-                              filled: true,
-                              fillColor: Color(0x800F172A),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12.r),
-                                borderSide:
-                                    const BorderSide(color: kBorder),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12.r),
-                                borderSide:
-                                    const BorderSide(color: kBorder),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12.r),
-                                borderSide: const BorderSide(
-                                    color: kCyan, width: 1.5),
-                              ),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 18.w, vertical: 15.h),
-                            ),
                           ),
                           SizedBox(height: 16.h),
 
                           // Password
-                          Text('Password',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w400,
-                                  fontSize: 16.sp)),
-                          SizedBox(height: 8.h),
-                          TextField(
+                          GaInput(
                             controller: _passCtrl,
+                            labelText: 'Password',
+                            hintText: 'Enter your password',
                             obscureText: _obscure,
-                            style: TextStyle(
-                                color: Colors.white, fontSize: 16.sp),
-                            decoration: InputDecoration(
-                              hintText: 'Enter your password',
-                              hintStyle: TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontSize: 16.sp),
-                              suffixIcon: IconButton(
-                                icon: SvgPicture.asset(
-                                  'assets/icons/login_eye.svg',
-                                  width: 22.w,
-                                  height: 15.h,
-                                  colorFilter: ColorFilter.mode(
-                                      Color(0xFF64748B),
-                                      BlendMode.srcIn),
-                                ),
-                                onPressed: () => setState(
-                                    () => _obscure = !_obscure),
+                            suffix: IconButton(
+                              icon: SvgPicture.asset(
+                                'assets/icons/login_eye.svg',
+                                width: 22.w,
+                                height: 15.h,
+                                colorFilter: ColorFilter.mode(
+                                    Color(0xFF64748B),
+                                    BlendMode.srcIn),
                               ),
-                              filled: true,
-                              fillColor: Color(0x800F172A),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12.r),
-                                borderSide:
-                                    const BorderSide(color: kBorder),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12.r),
-                                borderSide:
-                                    const BorderSide(color: kBorder),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12.r),
-                                borderSide: const BorderSide(
-                                    color: kCyan, width: 1.5),
-                              ),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 14.w, vertical: 19.h),
+                              onPressed: () => setState(
+                                  () => _obscure = !_obscure),
                             ),
                           ),
 
                           // Forgot Password?
+                          SizedBox(height: 8.h),
                           Align(
                             alignment: Alignment.centerRight,
-                            child: TextButton(
+                            child: GaButton.text(
+                              label: 'Forgot Password?',
                               onPressed: () {
                                 Navigator.push(
                                   context,
@@ -235,54 +174,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                           const ForgotPasswordScreen()),
                                 );
                               },
-                              child: Text('Forgot Password?',
-                                  style: TextStyle(
-                                      color: kCyan,
-                                      fontSize: 12.sp,
-                                      fontWeight: FontWeight.w500)),
                             ),
                           ),
-                          SizedBox(height: 8.h),
+                          SizedBox(height: 16.h),
 
                           // Login button
-                          SizedBox(
-                            width: double.infinity,
-                            height: 56.h,
-                            child: ElevatedButton(
-                              onPressed: _loading ? null : _login,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: kOrange,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(12.r)),
-                              ),
-                              child: _loading
-                                  ? SizedBox(
-                                      width: 22.w,
-                                      height: 22.w,
-                                      child:
-                                          const CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2))
-                                  : Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text('Login to Gamearn',
-                                            style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 18.sp,
-                                                fontWeight:
-                                                    FontWeight.w700,
-                                                letterSpacing: -0.27)),
-                                        SizedBox(width: 8.w),
-                                        SvgPicture.asset(
-                                          'assets/icons/login_arrow.svg',
-                                          width: 18.w,
-                                          height: 18.w,
-                                        ),
-                                      ],
-                                    ),
+                          GaButton.primary(
+                            label: 'Login to Gamearn',
+                            isLoading: _loading,
+                            onPressed: _login,
+                            trailing: SvgPicture.asset(
+                              'assets/icons/login_arrow.svg',
+                              width: 18.w,
+                              height: 18.w,
                             ),
                           ),
                           SizedBox(height: 16.h),
@@ -308,39 +212,24 @@ class _LoginScreenState extends State<LoginScreen> {
                           SizedBox(height: 16.h),
 
                           // Create New Account
-                          SizedBox(
-                            width: double.infinity,
-                            height: 48.h,
-                            child: OutlinedButton(
-                              onPressed: () {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) =>
-                                          const RegisterScreen()),
-                                );
-                              },
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                    color: Color(0xFF334155)),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(12.r)),
-                              ),
-                              child: Text('Create New Account',
-                                  style: TextStyle(
-                                      color: Color(0xFFF1F5F9),
-                                      fontSize: 16.sp,
-                                      fontWeight: FontWeight.w400)),
-                            ),
+                          GaButton.outline(
+                            label: 'Create New Account',
+                            onPressed: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        const RegisterScreen()),
+                              );
+                            },
                           ),
-                          SizedBox(height: 24.h),
+                          SizedBox(height: 16.h),
 
                           // Onboarding carousel
                           Container(
                             width: double.infinity,
-                            padding: EdgeInsets.fromLTRB(
-                                25.w, 25.h, 25.w, 18.h),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 24.w, vertical: 24.h),
                             decoration: BoxDecoration(
                               color: Color(0x80161B30),
                               borderRadius:
@@ -412,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ],
                             ),
                           ),
-                          SizedBox(height: 16.h),
+                          SizedBox(height: 24.h),
                           Center(
                             child: Text(
                               'By continuing, you agree to our Terms & Privacy Policy',
