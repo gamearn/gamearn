@@ -29,14 +29,6 @@ const sh.ColorScheme kGamearnDarkScheme = sh.ColorScheme(
   chart3: kGreen,
   chart4: kYellowDot,
   chart5: Color(0xFF8B5CF6),
-  sidebar: kBgCard,
-  sidebarForeground: kTextPri,
-  sidebarPrimary: kOrange,
-  sidebarPrimaryForeground: Colors.white,
-  sidebarAccent: kBgCardAlt,
-  sidebarAccentForeground: kTextPri,
-  sidebarBorder: kBorder,
-  sidebarRing: kCyan,
 );
 
 // ── Gamearn Light ColorScheme for shadcn_flutter ─────────────────────────────
@@ -65,14 +57,6 @@ const sh.ColorScheme kGamearnLightScheme = sh.ColorScheme(
   chart3: kGreen,
   chart4: kYellowDot,
   chart5: Color(0xFF8B5CF6),
-  sidebar: Colors.white,
-  sidebarForeground: kLightText,
-  sidebarPrimary: kOrange,
-  sidebarPrimaryForeground: Colors.white,
-  sidebarAccent: Color(0xFFF1F5F9),
-  sidebarAccentForeground: kLightText,
-  sidebarBorder: Color(0xFFE2E8F0),
-  sidebarRing: kCyan,
 );
 
 // ── Shadcn ThemeData builders ────────────────────────────────────────────────
