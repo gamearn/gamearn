@@ -3,8 +3,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as sh;
 
 import 'theme.dart';
+import 'theme/gamearn_shadcn.dart';
 import 'services/sound_service.dart';
 import 'services/push_service.dart';
 import 'services/firestore_cache.dart';
@@ -70,6 +72,14 @@ class _GamearnAppState extends State<GamearnApp> {
         theme: kLightTheme,
         darkTheme: kDarkTheme,
         themeMode: ThemeNotifier.instance.themeMode,
+        builder: (context, child) => sh.ShadcnLayer(
+          theme: ThemeNotifier.instance.themeMode == ThemeMode.dark ||
+                  (ThemeNotifier.instance.themeMode == ThemeMode.system &&
+                      MediaQuery.platformBrightnessOf(context) == Brightness.dark)
+              ? kGamearnDarkShadcnTheme
+              : kGamearnLightShadcnTheme,
+          child: child!,
+        ),
         home: _showInitialSplash
             ? SplashScreen(onComplete: () => setState(() => _showInitialSplash = false))
             : const _AuthGate(),

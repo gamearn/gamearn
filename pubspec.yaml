@@ -53,6 +53,7 @@ dependencies:
 
   # Responsive scaling (Figma 390×844 design size)
   flutter_screenutil: ^5.9.3
+  shadcn_flutter: ^0.0.3
 
 dev_dependencies:
   flutter_test:
