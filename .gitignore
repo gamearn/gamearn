@@ -60,4 +60,7 @@ node_modules/
 .firebase/
 
 # AI agent config (local only)
-opencode.json
+opencode.json
+
+# Internal docs (not for repo)
+DESIGN_SYSTEM_REVIEW.md
