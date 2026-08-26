@@ -48,7 +48,7 @@ class GaInput extends StatelessWidget {
           Text(
             labelText!,
             style: TextStyle(
-              color: kTextSec,
+              color: context.txtSec,
               fontSize: 13.sp,
               fontWeight: FontWeight.w500,
             ),
@@ -67,14 +67,14 @@ class GaInput extends StatelessWidget {
           textInputAction: textInputAction,
           onEditingComplete: onEditingComplete,
           style: TextStyle(
-            color: kTextPri,
+            color: context.txtPri,
             fontSize: 15.sp,
             fontWeight: FontWeight.w400,
           ),
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: TextStyle(
-              color: kTextMuted,
+              color: context.txtSec,
               fontSize: 15.sp,
             ),
             prefixIcon: prefixIcon != null
@@ -85,16 +85,18 @@ class GaInput extends StatelessWidget {
                 : null,
             suffixIcon: suffix,
             filled: true,
-            fillColor: enabled ? const Color(0xFF0F172A) : const Color(0xFF1A1F2E),
+            fillColor: enabled
+                ? (context.isDark ? const Color(0xFF0F172A) : Colors.white)
+                : (context.isDark ? const Color(0xFF1A1F2E) : const Color(0xFFF1F5F9)),
             contentPadding: EdgeInsets.symmetric(
               horizontal: 16.w,
               vertical: 14.h,
             ),
-            border: const OutlineInputBorder(
-              borderSide: BorderSide(color: kBorder, width: 1),
+            border: OutlineInputBorder(
+              borderSide: BorderSide(color: context.border, width: 1),
             ),
-            enabledBorder: const OutlineInputBorder(
-              borderSide: BorderSide(color: kBorder, width: 1),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: context.border, width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12.r),
@@ -110,7 +112,7 @@ class GaInput extends StatelessWidget {
             ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12.r),
-              borderSide: BorderSide(color: kBorder.withValues(alpha: 0.5), width: 1),
+              borderSide: BorderSide(color: context.border.withValues(alpha: 0.5), width: 1),
             ),
           ),
         ),

@@ -100,7 +100,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     height: 80.w,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16.r),
-                      border: Border.all(color: Colors.white, width: 1),
+                      border: Border.all(color: context.border, width: 1),
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(16.r),
@@ -108,7 +108,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         'assets/auth/reset_avatar.png',
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
-                          color: kBgDeep,
+                          color: context.isDark ? kBgDeep : kLightBg,
                           child: Center(
                             child: Text('G',
                                 style: TextStyle(
@@ -125,7 +125,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 Center(
                   child: Text('Reset Password',
                       style: TextStyle(
-                          color: Color(0xFFF1F5F9),
+                          color: context.txtPri,
                           fontSize: 32.sp,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.8)),
@@ -136,7 +136,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     'Create a new, strong password for your account.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        color: Color(0x80FFFFFF),
+                        color: context.txtSec,
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w400),
                   ),
@@ -155,8 +155,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         'assets/icons/reset_eye.svg',
                         width: 22.w,
                         height: 15.h,
-                        colorFilter: const ColorFilter.mode(
-                            Color(0xFF64748B), BlendMode.srcIn),
+                        colorFilter: ColorFilter.mode(
+                            context.txtSec, BlendMode.srcIn),
                       ),
                       onPressed: () =>
                           setState(() => _obscureNew = !_obscureNew),
@@ -175,8 +175,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         'assets/icons/reset_eye.svg',
                         width: 22.w,
                         height: 15.h,
-                        colorFilter: const ColorFilter.mode(
-                            Color(0xFF64748B), BlendMode.srcIn),
+                        colorFilter: ColorFilter.mode(
+                            context.txtSec, BlendMode.srcIn),
                       ),
                       onPressed: () => setState(
                           () => _obscureConfirm = !_obscureConfirm),
@@ -196,7 +196,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       'Password must be at least 8 characters and include a\nnumber and symbol.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          color: Color(0xFF64748B),
+                          color: context.txtSec,
                           fontSize: 14.sp,
                           fontWeight: FontWeight.w400,
                           height: 1.428),
@@ -210,18 +210,18 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       width: 80.w,
                       height: 80.w,
                       decoration: BoxDecoration(
-                        color: Color(0xFF22C55E).withOpacity(0.12),
+                        color: const Color(0xFF22C55E).withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(Icons.check_circle_outline,
-                          color: Color(0xFF22C55E), size: 40.w),
+                          color: const Color(0xFF22C55E), size: 40.w),
                     ),
                   ),
                   SizedBox(height: 24.h),
                   Center(
                     child: Text('Password Reset!',
                         style: TextStyle(
-                            color: kTextPri,
+                            color: context.txtPri,
                             fontSize: 22.sp,
                             fontWeight: FontWeight.w800)),
                   ),
@@ -230,7 +230,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     child: Text(
                       'Your password has been updated successfully.\nYou can now log in with your new password.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: kTextSec, fontSize: 14.sp),
+                      style: TextStyle(
+                          color: context.txtSec, fontSize: 14.sp),
                     ),
                   ),
                   SizedBox(height: 28.h),

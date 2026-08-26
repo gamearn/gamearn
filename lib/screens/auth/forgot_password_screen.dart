@@ -66,7 +66,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     height: 80.w,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16.r),
-                      border: Border.all(color: Colors.white, width: 1),
+                      border: Border.all(color: context.border, width: 1),
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(16.r),
@@ -74,7 +74,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         'assets/auth/forgot_avatar.png',
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
-                          color: kBgDeep,
+                          color: context.isDark ? kBgDeep : kLightBg,
                           child: Center(
                             child: Text('G',
                                 style: TextStyle(
@@ -91,7 +91,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 Center(
                   child: Text('Forgot Password',
                       style: TextStyle(
-                          color: Color(0xFFF1F5F9),
+                          color: context.txtPri,
                           fontSize: 32.sp,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.8)),
@@ -102,7 +102,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     'Enter your email to receive a reset link.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        color: Color(0x80FFFFFF),
+                        color: context.txtSec,
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w400),
                   ),
@@ -138,18 +138,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       width: 80.w,
                       height: 80.w,
                       decoration: BoxDecoration(
-                        color: Color(0xFF22C55E).withOpacity(0.12),
+                        color: const Color(0xFF22C55E).withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(Icons.mark_email_read_outlined,
-                          color: Color(0xFF22C55E), size: 40.w),
+                          color: const Color(0xFF22C55E), size: 40.w),
                     ),
                   ),
                   SizedBox(height: 24.h),
                   Center(
                     child: Text('Check Your Email',
                         style: TextStyle(
-                            color: kTextPri,
+                            color: context.txtPri,
                             fontSize: 22.sp,
                             fontWeight: FontWeight.w800)),
                   ),
@@ -158,7 +158,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     child: Text(
                       "We've sent a password reset link to\n${_emailCtrl.text.trim()}",
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: kTextSec, fontSize: 14.sp),
+                      style: TextStyle(
+                          color: context.txtSec, fontSize: 14.sp),
                     ),
                   ),
                   SizedBox(height: 28.h),
@@ -192,7 +193,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         SizedBox(width: 12.w),
                         Text('Return to Login',
                             style: TextStyle(
-                                color: Color(0xFF94A3B8),
+                                color: context.txtSec,
                                 fontSize: 16.sp,
                                 fontWeight: FontWeight.w500)),
                       ],

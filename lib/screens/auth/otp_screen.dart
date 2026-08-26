@@ -9,25 +9,6 @@ import '../../utils/error_utils.dart';
 import '../../widgets/auth_background.dart';
 import '../../widgets/gamearn_ui.dart';
 
-// ════════════════════════════════════════════════════════════════
-//  OTP SCREEN — Figma matched (1172:10 "OTP Verification", 390×844)
-//
-//  bg #0B0E1A + dotted/circuit PNG 50% opacity · back btn 48×39
-//  r9999 · hero: envelope in orange@0.1 circle 80, "OTP
-//  Verification" fs32 #F1F5F9 w700, "Enter the code sent to your
-//  email..." fs16 #94A3B8 · pin boxes 48×56 #1A2238 stroke
-//  #1E293B (focused kCyan + blue shadow) r12 · countdown pill
-//  107×38 #1A2238@0.5 stroke #1E293B r9999 (timer icon 12
-//  #64748B + 01:59 fs14 w500) · "Didn't receive the code? "
-//  #94A3B8 fs14 + Resend Code #FF5E00 w700 fs14 · CTA 342×56
-//  #FF5E00 r12 "Verify & Continue" fs16 w700 + arrow ·
-//  "Secured by Gamearn Shield" fs12 #475569 uppercase
-//  letterSpacing 1.2
-//
-//  Note: design shows 4 boxes but Firebase SMS OTP is 6 digits,
-//  so 6 boxes are kept (design is a visual mock).
-// ════════════════════════════════════════════════════════════════
-
 class OtpScreen extends StatefulWidget {
   final String verificationId;
   final String email;
@@ -171,13 +152,15 @@ class _OtpScreenState extends State<OtpScreen> {
       height: 56.h,
       textStyle: TextStyle(
         fontSize: 24.sp,
-        color: kTextPri,
+        color: context.txtPri,
         fontWeight: FontWeight.w700,
       ),
       decoration: BoxDecoration(
-        color: kOtpBox,
+        color: context.isDark ? kOtpBox : Colors.white,
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: kBorder, width: 2),
+        border: Border.all(
+            color: context.border,
+            width: 2),
       ),
     );
 
@@ -211,7 +194,7 @@ class _OtpScreenState extends State<OtpScreen> {
                   width: 80.w,
                   height: 80.w,
                   decoration: BoxDecoration(
-                    color: kOrange.withOpacity(0.1),
+                    color: kOrange.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: SvgPicture.asset(
@@ -223,7 +206,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 SizedBox(height: 16.h),
                 Text('OTP Verification',
                     style: TextStyle(
-                        color: Color(0xFFF1F5F9),
+                        color: context.txtPri,
                         fontSize: 32.sp,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.8)),
@@ -234,7 +217,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     'Enter the code sent to your email to\ncontinue your gaming journey.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: context.txtSec,
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w400,
                         height: 1.625),
@@ -256,7 +239,7 @@ class _OtpScreenState extends State<OtpScreen> {
                         border: Border.all(color: kCyan, width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: Color(0xFF2563EB).withOpacity(0.3),
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.3),
                             blurRadius: 0,
                             spreadRadius: 0,
                           ),
@@ -273,9 +256,11 @@ class _OtpScreenState extends State<OtpScreen> {
                   padding:
                       EdgeInsets.symmetric(horizontal: 21.w, vertical: 9.h),
                   decoration: BoxDecoration(
-                    color: Color(0x801A2238),
+                    color: context.isDark
+                        ? const Color(0x801A2238)
+                        : const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(9999.r),
-                    border: Border.all(color: kBorder),
+                    border: Border.all(color: context.border),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -291,21 +276,21 @@ class _OtpScreenState extends State<OtpScreen> {
                           TextSpan(
                             text: _minutes,
                             style: TextStyle(
-                                color: Color(0xFFF1F5F9),
+                                color: context.txtPri,
                                 fontWeight: FontWeight.w500,
                                 fontSize: 14.sp),
                           ),
                           TextSpan(
                             text: ':',
                             style: TextStyle(
-                                color: Color(0xFF94A3B8),
+                                color: context.txtSec,
                                 fontWeight: FontWeight.w500,
                                 fontSize: 14.sp),
                           ),
                           TextSpan(
                             text: _seconds,
                             style: TextStyle(
-                                color: Color(0xFFF1F5F9),
+                                color: context.txtPri,
                                 fontWeight: FontWeight.w500,
                                 fontSize: 14.sp),
                           ),
@@ -322,7 +307,7 @@ class _OtpScreenState extends State<OtpScreen> {
                   children: [
                     Text("Didn't receive the code? ",
                         style: TextStyle(
-                            color: Color(0xFF94A3B8),
+                            color: context.txtSec,
                             fontSize: 14.sp,
                             fontWeight: FontWeight.w400)),
                     GaButton.text(
@@ -347,7 +332,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 SizedBox(height: 16.h),
                 Text('Secured by Gamearn Shield',
                     style: TextStyle(
-                        color: Color(0xFF475569),
+                        color: context.txtSec,
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w400,
                         letterSpacing: 1.2)),

@@ -4,6 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 /// Auth screen backgrounds matching Figma designs.
 ///
+/// Adapts to light/dark mode: dark base in dark mode, light base in light mode.
+///
 /// [AuthBackgroundType.hexNetwork] — bold hexagonal/purple network pattern
 ///   Used by: Login, Sign-up/Landing, Register (opacity 0.8)
 ///
@@ -23,46 +25,52 @@ class AuthBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Solid dark base
-        const ColoredBox(color: Color(0xFF0B0E1A)),
-        // Pattern overlay from Figma PNG
-        Opacity(
-          opacity: opacity,
-          child: Image.asset(
-            type.assetPath,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-          ),
+        // Solid base — dark or light depending on theme
+        ColoredBox(
+          color: isDark ? const Color(0xFF0B0E1A) : const Color(0xFFEFF5FF),
         ),
-        // Bottom glow blur
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 85.h,
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Color(0xCC000000),
-                      Colors.transparent,
-                    ],
+        // Pattern overlay from Figma PNG — only in dark mode
+        if (isDark)
+          Opacity(
+            opacity: opacity,
+            child: Image.asset(
+              type.assetPath,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
+          ),
+        // Bottom glow blur — only in dark mode
+        if (isDark)
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 85.h,
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Color(0xCC000000),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
         // Content
         child,
       ],

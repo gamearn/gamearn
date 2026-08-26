@@ -195,7 +195,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: Text('Create Account',
                                 style: TextStyle(
                                     color:
-                                        Color(0xFFF1F5F9),
+                                        context.txtPri,
                                     fontSize: 18.sp,
                                     fontWeight:
                                         FontWeight.w700,
@@ -217,7 +217,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           borderRadius:
                               BorderRadius.circular(16.r),
                           border: Border.all(
-                              color: Colors.white,
+                              color: context.border,
                               width: 1),
                         ),
                         child: ClipRRect(
@@ -228,7 +228,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             fit: BoxFit.cover,
                             errorBuilder:
                                 (_, __, ___) => Container(
-                              color: kBgDeep,
+                              color: context.isDark ? kBgDeep : kLightBg,
                               child: Center(
                                 child: Text('G',
                                     style: TextStyle(
@@ -247,7 +247,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Center(
                       child: Text('Join GAMEARN',
                           style: TextStyle(
-                              color: Color(0xFFF1F5F9),
+                              color: context.txtPri,
                               fontSize: 32.sp,
                               fontWeight:
                                   FontWeight.w700,
@@ -259,7 +259,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         'Experience premium Nigerian gaming\nand earn rewards',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                            color: Color(0x80FFFFFF),
+                            color: context.txtSec,
                             fontSize: 16.sp,
                             fontWeight:
                                 FontWeight.w400),
@@ -284,8 +284,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               'assets/icons/field_name.svg',
                               width: 13.w,
                               height: 13.w,
-                              colorFilter: const ColorFilter.mode(
-                                  Color(0xFF999999), BlendMode.srcIn),
+                              colorFilter: ColorFilter.mode(
+                                  context.txtSec, BlendMode.srcIn),
                             ),
                           ),
                           SizedBox(height: 16.h),
@@ -300,8 +300,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               'assets/icons/field_email.svg',
                               width: 13.w,
                               height: 13.w,
-                              colorFilter: const ColorFilter.mode(
-                                  Color(0xFF999999), BlendMode.srcIn),
+                              colorFilter: ColorFilter.mode(
+                                  context.txtSec, BlendMode.srcIn),
                             ),
                           ),
                           SizedBox(height: 16.h),
@@ -309,7 +309,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           // Phone Number (compound)
                           Text('Phone Number',
                               style: TextStyle(
-                                  color: Colors.white,
+                                  color: context.txtPri,
                                   fontWeight: FontWeight.w400,
                                   fontSize: 16.sp)),
                           SizedBox(height: 8.h),
@@ -318,15 +318,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               width: 63.w,
                               height: 56.h,
                               decoration: BoxDecoration(
-                                color: Color(0x800F172A),
+                                color: context.isDark
+                                    ? const Color(0x800F172A)
+                                    : Colors.white,
                                 borderRadius:
                                     BorderRadius.circular(12.r),
-                                border: Border.all(color: kBorder),
+                                border: Border.all(color: context.border),
                               ),
                               alignment: Alignment.center,
                               child: Text('+234',
                                   style: TextStyle(
-                                      color: Color(0xFFCBD5E1),
+                                      color: context.txtSec,
                                       fontSize: 16.sp)),
                             ),
                             SizedBox(width: 8.w),
@@ -344,22 +346,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           GaInput(
                             controller: _passCtrl,
                             labelText: 'Password',
-                            hintText: '••••••••',
+                            hintText: '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
                             obscureText: _obscure,
                             prefixIcon: SvgPicture.asset(
                               'assets/icons/field_password.svg',
                               width: 13.w,
                               height: 13.w,
-                              colorFilter: const ColorFilter.mode(
-                                  Color(0xFF999999), BlendMode.srcIn),
+                              colorFilter: ColorFilter.mode(
+                                  context.txtSec, BlendMode.srcIn),
                             ),
                             suffix: IconButton(
                               icon: SvgPicture.asset(
                                 'assets/icons/eye_toggle.svg',
                                 width: 22.w,
                                 height: 15.h,
-                                colorFilter: const ColorFilter.mode(
-                                    Color(0xFF64748B), BlendMode.srcIn),
+                                colorFilter: ColorFilter.mode(
+                                    context.txtSec, BlendMode.srcIn),
                               ),
                               onPressed: () =>
                                   setState(() => _obscure = !_obscure),
@@ -383,7 +385,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       BoxDecoration(
                                     color: _agreed
                                         ? kOrange
-                                        : kBgDeep,
+                                        : (context.isDark ? kBgDeep : Colors.white),
                                     borderRadius:
                                         BorderRadius
                                             .circular(
@@ -391,16 +393,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     border: Border.all(
                                         color: _agreed
                                             ? kOrange
-                                            : Color(
-                                                0x80FFFFFF)),
+                                            : context.border),
                                   ),
                                   child: _agreed
-                                      ? Icon(
+                                      ? const Icon(
                                           Icons
                                               .check_rounded,
                                           color: Colors
                                               .white,
-                                          size: 16.w)
+                                          size: 16)
                                       : null,
                                 ),
                               ),
@@ -413,7 +414,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   child: Text(
                                     'By creating an account, you agree to our Terms of Service and Privacy Policy.',
                                     style: TextStyle(
-                                        color: kTextSec,
+                                        color: context.txtSec,
                                         fontSize: 12.sp,
                                         fontWeight:
                                             FontWeight

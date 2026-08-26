@@ -106,7 +106,7 @@ class _LandingBodyState extends State<_LandingBody> {
                               borderRadius:
                                   BorderRadius.circular(16.r),
                               border: Border.all(
-                                  color: Colors.white, width: 1),
+                                  color: context.border, width: 1),
                             ),
                             child: ClipRRect(
                               borderRadius:
@@ -116,7 +116,7 @@ class _LandingBodyState extends State<_LandingBody> {
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) =>
                                     Container(
-                                  color: kBgDeep,
+                                  color: context.isDark ? kBgDeep : kLightBg,
                                   child: Center(
                                     child: Text('G',
                                         style: TextStyle(
@@ -134,7 +134,7 @@ class _LandingBodyState extends State<_LandingBody> {
                         Text('GAMEARN',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                                color: Colors.white,
+                                color: context.txtPri,
                                 fontSize: 32.sp,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: -0.8)),
@@ -142,7 +142,7 @@ class _LandingBodyState extends State<_LandingBody> {
                         Text('Elite Gaming Tournaments',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                                color: Color(0xFF94A3B8),
+                                color: context.txtSec,
                                 fontSize: 16.sp,
                                 fontWeight: FontWeight.w400)),
 
@@ -172,22 +172,22 @@ class _LandingBodyState extends State<_LandingBody> {
 
                         // ── "Or continue with" divider ───────
                         Row(children: [
-                          const Expanded(
+                          Expanded(
                               child: Divider(
-                                  color: Color(0x1AFFFFFF),
+                                  color: context.border,
                                   height: 1)),
                           Padding(
                             padding: EdgeInsets.symmetric(
                                 horizontal: 16.w),
                             child: Text('Or continue with',
                                 style: TextStyle(
-                                    color: Color(0xFF64748B),
+                                    color: context.txtSec,
                                     fontSize: 12.sp,
                                     fontWeight: FontWeight.w500)),
                           ),
-                          const Expanded(
+                          Expanded(
                               child: Divider(
-                                  color: Color(0x1AFFFFFF),
+                                  color: context.border,
                                   height: 1)),
                         ]),
                         SizedBox(height: 20.h),
@@ -233,7 +233,9 @@ class _LandingBodyState extends State<_LandingBody> {
                           padding: EdgeInsets.symmetric(
                               horizontal: 16.w, vertical: 10.h),
                           decoration: BoxDecoration(
-                            color: Color(0xC71C122C),
+                            color: context.isDark
+                                ? const Color(0xC71C122C)
+                                : Colors.white,
                             borderRadius:
                                 BorderRadius.circular(8.r),
                             border: Border.all(color: kCyan),
@@ -242,7 +244,7 @@ class _LandingBodyState extends State<_LandingBody> {
                             'By continuing, you agree to our Terms and Conditions and\nPrivacy Policy',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                                color: Color(0x80FFFFFF),
+                                color: context.txtSec,
                                 fontSize: 12.sp,
                                 fontWeight: FontWeight.w500),
                           ),
@@ -282,8 +284,13 @@ class _FrostedSocialButton extends StatelessWidget {
       onPressed: loading ? null : onTap,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(0, 56),
-        backgroundColor: Color(0x08FFFFFF),
-        side: const BorderSide(color: Color(0x14FFFFFF)),
+        backgroundColor: context.isDark
+            ? const Color(0x08FFFFFF)
+            : Colors.white,
+        side: BorderSide(
+            color: context.isDark
+                ? const Color(0x14FFFFFF)
+                : context.border),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.r)),
         padding: EdgeInsets.symmetric(horizontal: 41.w, vertical: 15.h),
@@ -313,7 +320,7 @@ class _FrostedSocialButton extends StatelessWidget {
                 SizedBox(width: 12.w),
                 Text(label,
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontWeight: FontWeight.w400,
                         fontSize: 16.sp)),
               ],

@@ -70,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Center(
                       child: Text('GAMEARN',
                           style: TextStyle(
-                              color: Colors.white,
+                              color: context.txtPri,
                               fontSize: 18.sp,
                               fontWeight: FontWeight.w700,
                               letterSpacing: -0.27)),
@@ -82,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         height: 80.w,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16.r),
-                          border: Border.all(color: Colors.white, width: 1),
+                          border: Border.all(color: context.border, width: 1),
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(16.r),
@@ -90,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             'assets/auth/login_avatar.png',
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Container(
-                              color: kBgDeep,
+                              color: context.isDark ? kBgDeep : kLightBg,
                               child: Center(
                                 child: Text('G',
                                     style: TextStyle(
@@ -107,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Center(
                       child: Text('Welcome Back',
                           style: TextStyle(
-                              color: Color(0xFFF1F5F9),
+                              color: context.txtPri,
                               fontSize: 32.sp,
                               fontWeight: FontWeight.w700,
                               letterSpacing: -0.8)),
@@ -118,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         "Nigeria's premium destination for classic\ngames and rewards",
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                            color: Color(0x80FFFFFF),
+                            color: context.txtSec,
                             fontSize: 16.sp,
                             fontWeight: FontWeight.w400),
                       ),
@@ -152,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 width: 22.w,
                                 height: 15.h,
                                 colorFilter: ColorFilter.mode(
-                                    Color(0xFF64748B),
+                                    context.txtSec,
                                     BlendMode.srcIn),
                               ),
                               onPressed: () => setState(
@@ -193,21 +193,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           // OR divider
                           Row(children: [
-                            const Expanded(
+                            Expanded(
                                 child: Divider(
-                                    color: kBorder, height: 1)),
+                                    color: context.border, height: 1)),
                             Padding(
                               padding: EdgeInsets.symmetric(
                                   horizontal: 16.w),
                               child: Text('OR',
                                   style: TextStyle(
-                                      color: Color(0xFF64748B),
+                                      color: context.txtSec,
                                       fontSize: 12.sp,
                                       fontWeight: FontWeight.w500)),
                             ),
-                            const Expanded(
+                            Expanded(
                                 child: Divider(
-                                    color: kBorder, height: 1)),
+                                    color: context.border, height: 1)),
                           ]),
                           SizedBox(height: 16.h),
 
@@ -231,10 +231,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             padding: EdgeInsets.symmetric(
                                 horizontal: 24.w, vertical: 24.h),
                             decoration: BoxDecoration(
-                              color: Color(0x80161B30),
+                              color: context.isDark
+                                  ? const Color(0x80161B30)
+                                  : Colors.white,
                               borderRadius:
                                   BorderRadius.circular(16.r),
-                              border: Border.all(color: kBorder),
+                              border: Border.all(color: context.border),
                             ),
                             child: Column(
                               crossAxisAlignment:
@@ -254,12 +256,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                   SizedBox(width: 6.w),
                                   _Dot(
-                                      color: const Color(
-                                          0xFF334155)),
+                                      color: context.border),
                                   SizedBox(width: 6.w),
                                   _Dot(
-                                      color: const Color(
-                                          0xFF334155)),
+                                      color: context.border),
                                   const Spacer(),
                                   Text('Tutorial',
                                       style: TextStyle(
@@ -307,7 +307,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               'By continuing, you agree to our Terms & Privacy Policy',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: Color(0x80FFFFFF),
+                                  color: context.txtSec,
                                   fontSize: 12.sp,
                                   fontWeight: FontWeight.w500),
                             ),
@@ -376,7 +376,7 @@ class _TutorialItem extends StatelessWidget {
           width: 40.w,
           height: 40.w,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Center(
@@ -390,13 +390,13 @@ class _TutorialItem extends StatelessWidget {
         SizedBox(height: 6.h),
         Text(label,
             style: TextStyle(
-                color: Color(0xFFCBD5E1),
+                color: context.txtPri,
                 fontSize: 10.sp,
                 fontWeight: FontWeight.w400)),
         Text(sub,
             textAlign: TextAlign.center,
             style: TextStyle(
-                color: Color(0xFF64748B),
+                color: context.txtSec,
                 fontSize: 10.sp,
                 fontWeight: FontWeight.w400)),
       ],
