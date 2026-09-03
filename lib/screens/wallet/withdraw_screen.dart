@@ -52,8 +52,6 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
   static const _methods = [
     {'name': 'Bank Transfer', 'feeLabel': '2-3 Business Days • Free',
      'fee': 0.0, 'arrival': '2-3 Business Days'},
-    {'name': 'PayPal', 'feeLabel': 'Instant • \$0.50 Fee',
-     'fee': 0.5, 'arrival': 'Instant'},
     {'name': 'Digital Wallet', 'feeLabel': 'Instant • Free',
      'fee': 0.0, 'arrival': 'Instant'},
   ];
@@ -92,10 +90,10 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
 
   void _continue() {
     final amt = _amount;
-    if (amt < 10 || amt > 500) {
+    if (amt < 1000 || amt > 450000) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('Enter an amount between \$10.00 and \$500.00')),
+            content: Text('Enter an amount between ₦1,000 and ₦450,000')),
       );
       return;
     }
@@ -215,7 +213,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         backgroundColor: context.card,
         title: Text('Confirm Password',
             style: TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w700)),
+                color: context.txtPri, fontWeight: FontWeight.w700)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,7 +227,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               controller: ctrl,
               autofocus: true,
               obscureText: true,
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: context.txtPri),
               decoration: InputDecoration(
                 hintText: '••••••••',
                 hintStyle: TextStyle(color: context.subText),
@@ -271,9 +269,9 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           Container(
             width: double.infinity,
             padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
-            decoration: const BoxDecoration(
-              color: Color(0xE60B0E1A),
-              border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+            decoration: BoxDecoration(
+              color: context.bg,
+              border: Border(bottom: BorderSide(color: context.border, width: 1)),
             ),
             child: Row(children: [
               GestureDetector(
@@ -285,13 +283,13 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                   }
                 },
                 child: Icon(Icons.close_rounded,
-                    color: const Color(0xFFF1F5F9), size: 20.w),
+                    color: context.txtPri, size: 20.w),
               ),
               Expanded(
                 child: Text(_step == 2 ? 'Withdrawal Status' : 'Withdraw',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        color: const Color(0xFFF1F5F9),
+                        color: context.txtPri,
                         fontSize: 18.sp,
                         fontWeight: FontWeight.w700)),
               ),
@@ -347,9 +345,9 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                           color: kCyan.withOpacity(0.7),
                           fontSize: 14.sp, fontWeight: FontWeight.w600)),
                   SizedBox(height: 6.h),
-                  Text('\$${usd.toStringAsFixed(2)}',
+                  Text('₦${(usd * 900).round()}',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: context.txtPri,
                           fontSize: 32.sp, fontWeight: FontWeight.w700)),
                   SizedBox(height: 6.h),
                   Row(children: [
@@ -376,16 +374,16 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         // Withdrawal Amount
         Text('Withdrawal Amount',
             style: TextStyle(
-                color: Color(0xFFF1F5F9),
+                color: context.txtPri,
                 fontSize: 18.sp, fontWeight: FontWeight.w700)),
         SizedBox(height: 14.h),
         Row(children: [
           Expanded(
             child: Text('Enter Amount',
                 style: TextStyle(
-                    color: Color(0x80FFFFFF), fontSize: 14.sp)),
+                    color: context.txtSec, fontSize: 14.sp)),
           ),
-          Text('Min \$10.00 / Max \$500.00',
+          Text('Min ₦1,000 / Max ₦450,000',
               style: TextStyle(
                   color: kCyan, fontSize: 12.sp, fontWeight: FontWeight.w600)),
         ]),
@@ -405,27 +403,27 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
             keyboardType: TextInputType.numberWithOptions(
                 decimal: true),
             onChanged: (_) => setState(() {}),
-            style: TextStyle(color: Colors.white, fontSize: 20.sp),
+            style: TextStyle(color: context.txtPri, fontSize: 20.sp),
             decoration: InputDecoration(
               border: InputBorder.none,
               prefixIcon: Icon(Icons.attach_money,
-                  color: Color(0x80FFFFFF), size: 22.w),
+                  color: context.txtSec, size: 22.w),
               hintText: '0.00',
               hintStyle: TextStyle(
-                  color: Color(0x80FFFFFF), fontSize: 20.sp),
+                  color: context.txtSec, fontSize: 20.sp),
             ),
           ),
         ),
         SizedBox(height: 8.h),
-        Text('Conversion rate: 100 Coins = \$1.00',
+        Text('Conversion rate: 100 Coins = ₦900',
             style: TextStyle(
-                color: Color(0x80FFFFFF), fontSize: 12.sp)),
+                color: context.txtSec, fontSize: 12.sp)),
         SizedBox(height: 24.h),
 
         // Payout Method
         Text('Payout Method',
             style: TextStyle(
-                color: Color(0xFFF1F5F9),
+                color: context.txtPri,
                 fontSize: 18.sp, fontWeight: FontWeight.w700)),
         SizedBox(height: 12.h),
         for (var i = 0; i < _methods.length; i++)
@@ -440,11 +438,11 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         Row(children: [
           Text('Total to Withdraw',
               style: TextStyle(
-                  color: Color(0x99FFFFFF), fontSize: 14.sp)),
+                  color: context.txtSec, fontSize: 14.sp)),
           Spacer(),
-          Text('\$${_total.toStringAsFixed(2)}',
+          Text('₦${_total.round()}',
               style: TextStyle(
-                  color: Colors.white,
+                  color: context.txtPri,
                   fontSize: 20.sp, fontWeight: FontWeight.w700)),
         ]),
         SizedBox(height: 16.h),
@@ -470,7 +468,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         Center(
           child: Text('Secure Financial Transaction',
               style: TextStyle(
-                  color: Colors.white,
+                  color: context.txtSec,
                   fontSize: 10.sp, fontWeight: FontWeight.w600)),
         ),
       ],
@@ -491,14 +489,14 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         SizedBox(height: 20.h),
         Text('Review Details',
             style: TextStyle(
-                color: Color(0xD9FFFFFF),
+                color: context.txtPri,
                 fontSize: 14.sp, fontWeight: FontWeight.w600)),
         SizedBox(height: 16.h),
 
         _reviewRow('Withdrawal Amount',
-            '\$${_amount.toStringAsFixed(2)}', big: true),
+            '₦${_amount.round()}', big: true),
         _reviewRow('Service Fee',
-            '\$${(method['fee'] as double).toStringAsFixed(2)}'),
+            '₦${(method['fee'] as double).round()}'),
         _reviewRow('Estimated Arrival', method['arrival'] as String,
             accent: true),
         _reviewRow('Destination', _destinationLabel()),
@@ -520,7 +518,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                 child: Text(
                   'Please ensure your account information is\ncorrect. Withdrawals to incorrect accounts may\nnot be reversible.',
                   style: TextStyle(
-                      color: Color(0x99FFFFFF),
+                      color: context.txtSec,
                       fontSize: 12.sp, height: 1.4),
                 ),
               ),
@@ -560,7 +558,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           child: Center(
             child: Text('Cancel',
                 style: TextStyle(
-                    color: Color(0xB3FFFFFF),
+                    color: context.txtSec,
                     fontSize: 16.sp, fontWeight: FontWeight.w600)),
           ),
         ),
@@ -582,7 +580,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         ),
         SizedBox(height: 12.h),
         Center(
-          child: Text('\$${_total.toStringAsFixed(2)}',
+          child: Text('₦${_total.round()}',
               style: TextStyle(
                   color: Color(0xFFFFC107),
                   fontSize: 48.sp, fontWeight: FontWeight.w700)),
@@ -591,7 +589,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         Center(
           child: Text('Transaction ID: #GE-99201-AX',
               style: TextStyle(
-                  color: Color(0xB3FFFFFF), fontSize: 14.sp)),
+                  color: context.txtSec, fontSize: 14.sp)),
         ),
         SizedBox(height: 36.h),
 
@@ -605,7 +603,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
             child: Text(
                 '**** ${_accountCtrl.text.trim().length >= 4 ? _accountCtrl.text.trim().substring(_accountCtrl.text.trim().length - 4) : ''}',
                 style: TextStyle(
-                    color: Color(0x80FFFFFF), fontSize: 14.sp)),
+                    color: context.txtSec, fontSize: 14.sp)),
           ),
 
         SizedBox(height: 16.h),
@@ -621,7 +619,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               Row(children: [
                 Text('Verification Progress',
                     style: TextStyle(
-                        color: Color(0xFFCBD5E1),
+                        color: context.txtPri,
                         fontSize: 14.sp, fontWeight: FontWeight.w600)),
                 Spacer(),
                 Text('85%',
@@ -633,7 +631,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(6.r),
                 child: Stack(children: [
-                  Container(height: 8.h, color: Color(0x1AFFFFFF)),
+                  Container(height: 8.h, color: context.border),
                   FractionallySizedBox(
                     widthFactor: 0.85,
                     child: Container(height: 8.h, color: kCyan),
@@ -643,7 +641,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               SizedBox(height: 10.h),
               Text('Securing your funds via GAMEARN Vault...',
                   style: TextStyle(
-                      color: Color(0xFF94A3B8), fontSize: 12.sp)),
+                      color: context.txtSec, fontSize: 12.sp)),
             ],
           ),
         ),
@@ -718,7 +716,6 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
             child: Icon(
               switch (i) {
                 0 => Icons.account_balance_rounded,
-                1 => Icons.paypal_rounded,
                 _ => Icons.account_balance_wallet_rounded,
               },
               color: kCyan, size: 20.w,
@@ -732,12 +729,12 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               children: [
                 Text(m['name'] as String,
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 16.sp, fontWeight: FontWeight.w600)),
                 SizedBox(height: 2.h),
                 Text(m['feeLabel'] as String,
                     style: TextStyle(
-                        color: Color(0x80FFFFFF), fontSize: 12.sp)),
+                        color: context.txtSec, fontSize: 12.sp)),
               ],
             ),
           ),
@@ -749,12 +746,12 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               border: Border.all(
                   color: selected
                       ? kCyan
-                      : Color(0x80FFFFFF),
+                      : context.border,
                   width: 2),
             ),
             child: selected
                 ? Icon(Icons.check_rounded,
-                    color: Color(0xFF0B0E1A), size: 14.w)
+                    color: context.txtPri, size: 14.w)
                 : null,
           ),
         ]),
@@ -767,16 +764,16 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
       padding: EdgeInsets.all(14.r),
       margin: EdgeInsets.only(bottom: 8.h),
       decoration: BoxDecoration(
-        color: Color(0x661E293B),
+        color: context.card,
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: Color(0x80334155)),
+        border: Border.all(color: context.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Bank Details',
               style: TextStyle(
-                  color: Colors.white,
+                  color: context.txtPri,
                   fontSize: 14.sp, fontWeight: FontWeight.w700)),
           SizedBox(height: 12.h),
           _banksLoading
@@ -791,13 +788,13 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               : DropdownButtonFormField<String>(
                   value: _selectedBankCode,
                   dropdownColor: context.card,
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: context.txtPri),
                   decoration: InputDecoration(
                     hintText: 'Select bank',
                     hintStyle: TextStyle(
-                        color: Color(0x80FFFFFF)),
+                        color: context.txtSec),
                     filled: true,
-                    fillColor: Color(0x4D1E293B),
+                    fillColor: context.card,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12.r),
                       borderSide: BorderSide.none,
@@ -842,13 +839,13 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
       controller: ctrl,
       keyboardType:
           number ? TextInputType.number : TextInputType.text,
-      style: TextStyle(color: Colors.white, fontSize: 14.sp),
+      style: TextStyle(color: context.txtPri, fontSize: 14.sp),
       onChanged: (_) => setState(() {}),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: Color(0x80FFFFFF)),
+        hintStyle: TextStyle(color: context.txtSec),
         filled: true,
-        fillColor: Color(0x4D1E293B),
+        fillColor: context.card,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12.r),
           borderSide: BorderSide.none,
@@ -866,22 +863,20 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
       margin: EdgeInsets.only(bottom: 10.h),
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
       decoration: BoxDecoration(
-        color: Color(0x661E293B),
+        color: context.card,
         borderRadius: BorderRadius.circular(10.r),
       ),
       child: Row(
         children: [
           Text(label,
               style: TextStyle(
-                  color: accent
-                      ? Color(0x8CFFFFFF)
-                      : Color(0x8CFFFFFF),
+                  color: context.txtSec,
                   fontSize: big ? 14.sp : 14.sp,
                   fontWeight: FontWeight.w500)),
           Spacer(),
           Text(value,
               style: TextStyle(
-                  color: accent ? kCyan : Color(0xD9FFFFFF),
+                  color: accent ? kCyan : context.txtPri,
                   fontSize: big ? 20.sp : 14.sp,
                   fontWeight: FontWeight.w700)),
         ],
@@ -899,12 +894,12 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
             width: 110.w,
             child: Text(label,
                 style: TextStyle(
-                    color: Color(0x80FFFFFF), fontSize: 12.sp)),
+                    color: context.txtSec, fontSize: 12.sp)),
           ),
           Expanded(
             child: Text(value,
                 style: TextStyle(
-                    color: Colors.white,
+                    color: context.txtPri,
                     fontSize: 16.sp, fontWeight: FontWeight.w600)),
           ),
         ],

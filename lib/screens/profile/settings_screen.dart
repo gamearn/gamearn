@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:gamearn/l10n/app_localizations.dart';
 import '../../theme.dart';
 import '../../services/sound_service.dart';
 import '../wallet/wallet_screen.dart';
@@ -9,6 +10,8 @@ import 'account_security_screen.dart';
 import 'privacy_security_screen.dart';
 import 'language_screen.dart';
 import 'help_support_screen.dart';
+import 'delete_account_screen.dart';
+import '../legal/legal_content_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  SETTINGS & PREFERENCES — Figma matched (1744:1001, 390×844)
@@ -91,7 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: context.card,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
-      builder: (_) => Padding(
+      builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 28.h),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -99,13 +102,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Padding(
               padding: EdgeInsets.only(bottom: 12.h),
-              child: Text('Sound & Vibration',
+              child: Text(AppLocalizations.of(ctx)!.settingsSoundVibration,
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 17.sp, fontWeight: FontWeight.w800)),
             ),
-            _sheetToggle('Sound Effects', _sounds, _toggleSound),
-            _sheetToggle('Vibration', _vibration, _toggleVibration),
+            _sheetToggle(AppLocalizations.of(ctx)!.settingsSoundEffects, _sounds, _toggleSound),
+            _sheetToggle(AppLocalizations.of(ctx)!.settingsVibration, _vibration, _toggleVibration),
           ],
         ),
       ),
@@ -117,7 +120,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       contentPadding: EdgeInsets.zero,
       title: Text(label,
           style: TextStyle(
-              color: Colors.white, fontSize: 15.sp, fontWeight: FontWeight.w600)),
+              color: context.txtPri, fontSize: 15.sp, fontWeight: FontWeight.w600)),
       value: value,
       onChanged: onChanged,
       activeColor: kCyan,
@@ -136,28 +139,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _onThemeChanged() => setState(() {});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Scaffold(
     backgroundColor: context.bg,
     body: SafeArea(
       child: Column(children: [
         Container(
           width: double.infinity,
           padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
-          decoration: const BoxDecoration(
-            color: Color(0xE60B0E1A),
-            border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+          decoration: BoxDecoration(
+            color: context.bg,
+            border: Border(bottom: BorderSide(color: context.border, width: 1)),
           ),
           child: Row(children: [
             GestureDetector(
               onTap: () => Navigator.maybePop(context),
               child: Icon(Icons.close_rounded,
-                  color: const Color(0xFFF1F5F9), size: 20.w),
+                  color: context.txtPri, size: 20.w),
             ),
             Expanded(
-              child: Text('Settings & Preferences',
+              child: Text(l10n.settingsTitle,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      color: const Color(0xFFF1F5F9),
+                      color: context.txtPri,
                       fontSize: 18.sp, fontWeight: FontWeight.w700)),
             ),
             SizedBox(width: 20.w),
@@ -171,12 +176,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               SizedBox(height: 32.h),
 
-              _sectionLabel('Account & Security'),
+              _sectionLabel(l10n.settingsAccountSecurity),
               _SectionCard(children: [
                 _NavRow(
                   icon: Icons.shield_outlined,
-                  title: 'Account Security',
-                  sub: 'Password, 2FA and sessions',
+                  title: l10n.settingsAccountSecurityTile,
+                  sub: l10n.settingsAccountSecuritySub,
                   onTap: () => Navigator.push(context,
                       MaterialPageRoute(
                           builder: (_) => const AccountSecurityScreen())),
@@ -184,8 +189,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _divider(),
                 _NavRow(
                   icon: Icons.account_balance_wallet_outlined,
-                  title: 'Payout Methods',
-                  sub: 'Bank accounts & wallets',
+                  title: l10n.settingsPayoutMethods,
+                  sub: l10n.settingsPayoutMethodsSub,
                   onTap: () => Navigator.push(context,
                       MaterialPageRoute(
                           builder: (_) => const WalletScreen())),
@@ -194,35 +199,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               SizedBox(height: 32.h),
 
-              _sectionLabel('Game Preferences'),
+              _sectionLabel(l10n.settingsGamePrefs),
               _SectionCard(children: [
                 _ToggleRow(
                   icon: _themeIcon,
-                  title: 'Theme Preference',
-                  sub: 'Dark & Light mode',
+                  title: l10n.settingsThemePreference,
+                  sub: l10n.settingsThemePreferenceSub,
                   value: _isDarkNow,
                   onChanged: (_) => _cycleTheme(),
                 ),
                 _divider(),
                 _ToggleRow(
                   icon: Icons.email_outlined,
-                  title: 'Email Alerts',
-                  sub: 'Weekly rewards summary',
+                  title: l10n.settingsEmailAlerts,
+                  sub: l10n.settingsEmailAlertsSub,
                   value: _emailAlerts,
                   onChanged: _toggleEmailAlerts,
                 ),
                 _divider(),
                 _NavRow(
                   icon: Icons.volume_up_outlined,
-                  title: 'Sound & Vibration',
-                  sub: 'Game effects and haptics',
+                  title: l10n.settingsSoundVibration,
+                  sub: l10n.settingsSoundVibrationSub,
                   onTap: _openSoundSheet,
                 ),
                 _divider(),
                 _NavRow(
                   icon: Icons.language_outlined,
-                  title: 'Language',
-                  sub: 'English (NG)',
+                  title: l10n.settingsLanguage,
+                  sub: l10n.settingsLanguageSubEnglish,
                   onTap: () => Navigator.push(context,
                       MaterialPageRoute(
                           builder: (_) => const LanguageScreen())),
@@ -230,8 +235,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _divider(),
                 _NavRow(
                   icon: Icons.privacy_tip_outlined,
-                  title: 'Privacy & Security',
-                  sub: 'Game security update',
+                  title: l10n.settingsPrivacySecurity,
+                  sub: l10n.settingsPrivacySecuritySub,
                   onTap: () => Navigator.push(context,
                       MaterialPageRoute(
                           builder: (_) => const PrivacySecurityScreen())),
@@ -239,11 +244,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _divider(),
                 _NavRow(
                   icon: Icons.help_outline_rounded,
-                  title: 'Help & Support',
-                  sub: 'Get important information',
+                  title: l10n.settingsHelpSupport,
+                  sub: l10n.settingsHelpSupportSub,
                   onTap: () => Navigator.push(context,
                       MaterialPageRoute(
                           builder: (_) => const HelpSupportScreen())),
+                ),
+              ]),
+
+              SizedBox(height: 32.h),
+
+              _sectionLabel(l10n.settingsLegal),
+              _SectionCard(children: [
+                _NavRow(
+                  icon: Icons.description_outlined,
+                  title: l10n.settingsTerms,
+                  sub: l10n.settingsTermsSub,
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              const LegalContentScreen(doc: LegalDoc.terms))),
+                ),
+                _divider(),
+                _NavRow(
+                  icon: Icons.privacy_tip_outlined,
+                  title: l10n.settingsPrivacyPolicy,
+                  sub: l10n.settingsPrivacyPolicySub,
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              const LegalContentScreen(doc: LegalDoc.privacy))),
+                ),
+              ]),
+
+              SizedBox(height: 32.h),
+
+              _sectionLabel(l10n.settingsDangerZone),
+              _SectionCard(children: [
+                _NavRow(
+                  icon: Icons.person_remove_outlined,
+                  titleColor: Colors.redAccent,
+                  iconColor: Colors.redAccent,
+                  title: l10n.settingsDeleteAccount,
+                  sub: l10n.settingsDeleteAccountSub,
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(
+                          builder: (_) => const DeleteAccountScreen())),
                 ),
               ]),
 
@@ -258,11 +304,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.logout_rounded,
-                          color: const Color(0xFF94A3B8), size: 15.w),
+                          color: context.txtSec, size: 15.w),
                       SizedBox(width: 8.w),
-                      Text('Logout',
+                      Text(l10n.logout,
                           style: TextStyle(
-                              color: const Color(0xFF94A3B8),
+                              color: context.txtSec,
                               fontSize: 16.sp, fontWeight: FontWeight.w500)),
                     ],
                   ),
@@ -271,9 +317,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               SizedBox(height: 12.h),
               Center(
-                child: Text('GAMEARN Premium v2.4.1',
+                child: Text(l10n.premiumVersion,
                     style: TextStyle(
-                        color: const Color(0xFF475569),
+                        color: context.txtSec,
                         fontSize: 12.sp, fontWeight: FontWeight.w400)),
               ),
               SizedBox(height: 32.h),
@@ -283,6 +329,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ]),
     ),
   );
+  }
 
   Widget _sectionLabel(String t) => Padding(
     padding: EdgeInsets.only(left: 4.w, bottom: 10.h),
@@ -319,9 +366,12 @@ class _NavRow extends StatelessWidget {
   final String title;
   final String sub;
   final VoidCallback onTap;
+  final Color? iconColor;
+  final Color? titleColor;
   const _NavRow(
       {required this.icon, required this.title,
-       required this.sub, required this.onTap});
+       required this.sub, required this.onTap,
+       this.iconColor, this.titleColor});
 
   @override
   Widget build(BuildContext context) => ListTile(
@@ -330,21 +380,21 @@ class _NavRow extends StatelessWidget {
     leading: Container(
       width: 40.w, height: 40.w,
       decoration: BoxDecoration(
-        color: kCyan.withOpacity(0.1),
+        color: (iconColor ?? kCyan).withOpacity(0.1),
         borderRadius: BorderRadius.circular(8.r),
       ),
-      child: Icon(icon, color: kCyan, size: 20.w),
+      child: Icon(icon, color: iconColor ?? kCyan, size: 20.w),
     ),
     title: Text(title,
         style: TextStyle(
-            color: Colors.white, fontSize: 16.sp,
+            color: titleColor ?? context.txtPri, fontSize: 16.sp,
             fontWeight: FontWeight.w600)),
     subtitle: Text(sub,
         style: TextStyle(
-            color: const Color(0x80FFFFFF), fontSize: 12.sp,
+            color: context.txtSec, fontSize: 12.sp,
             fontWeight: FontWeight.w500)),
     trailing: Icon(Icons.chevron_right_rounded,
-        color: const Color(0x80FFFFFF), size: 16.w),
+        color: context.txtSec, size: 16.w),
   );
 }
 
@@ -374,11 +424,11 @@ class _ToggleRow extends StatelessWidget {
     ),
     title: Text(title,
         style: TextStyle(
-            color: Colors.white, fontSize: 16.sp,
+            color: context.txtPri, fontSize: 16.sp,
             fontWeight: FontWeight.w600)),
     subtitle: Text(sub,
         style: TextStyle(
-            color: const Color(0x80FFFFFF), fontSize: 12.sp,
+            color: context.txtSec, fontSize: 12.sp,
             fontWeight: FontWeight.w500)),
     trailing: Switch(
       value: value,

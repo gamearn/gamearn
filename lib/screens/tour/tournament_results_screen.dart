@@ -221,16 +221,16 @@ class _AppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(24.w, safeTop + 16.h, 24.w, 16.h),
-      decoration: const BoxDecoration(
-        color: Color(0xE60B0E1A),
-        border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF))),
+      decoration: BoxDecoration(
+        color: context.bg,
+        border: const Border(bottom: BorderSide(color: Color(0x4DFFFFFF))),
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
           Text('Tournament Results',
               style: TextStyle(
-                  color: const Color(0xFFF1F5F9),
+                  color: context.txtPri,
                   fontSize: 18.sp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.27,
@@ -240,7 +240,7 @@ class _AppBar extends StatelessWidget {
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
               child: Icon(Icons.close_rounded,
-                  color: const Color(0xFFF1F5F9), size: 20.w),
+                  color: context.txtPri, size: 20.w),
             ),
           ),
         ],

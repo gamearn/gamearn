@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../theme.dart';
 import '../../utils/error_utils.dart';
 import 'live_tournament_screen.dart';
@@ -111,12 +112,10 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
     }
   }
 
-  void _invite(String title) {
+  Future<void> _invite(String title) async {
     HapticFeedback.selectionClick();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Share link for "$title" coming soon!'),
-      backgroundColor: const Color(0xFF22D1EE),
-    ));
+    await SharePlus.instance.share(ShareParams(
+        text: 'Join my "$title" tournament on Gamearn! Play classic Nigerian games and win real money. Download now to join the tournament.'));
   }
 
   @override
@@ -271,16 +270,16 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(24.w, safeTop + 16.h, 24.w, 16.h),
-      decoration: const BoxDecoration(
-        color: Color(0xE60B0E1A),
-        border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF))),
+      decoration: BoxDecoration(
+        color: context.bg,
+        border: const Border(bottom: BorderSide(color: Color(0x4DFFFFFF))),
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
           Text('Tournament Pending',
               style: TextStyle(
-                  color: const Color(0xFFF1F5F9),
+                  color: context.txtPri,
                   fontSize: 18.sp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.27,
@@ -291,7 +290,7 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
               child: Icon(Icons.close_rounded,
-                  color: const Color(0xFFF1F5F9), size: 20.w),
+                  color: context.txtPri, size: 20.w),
             ),
           ),
         ],
@@ -420,7 +419,7 @@ class _TournamentPendingScreenState extends State<TournamentPendingScreen> {
       children: [
         Text('Duration',
             style: TextStyle(
-                color: Colors.white,
+                color: context.txtPri,
                 fontSize: 16.sp,
                 fontWeight: FontWeight.w600,
                 height: 26 / 16)),

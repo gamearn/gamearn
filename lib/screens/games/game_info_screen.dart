@@ -7,6 +7,7 @@ import 'game_lobby_screen.dart';
 import 'game_setup_screen.dart';
 import '../tour/tour_screen.dart';
 import '../tour/tournament_details_screen.dart';
+import '../profile/premium_purchase_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  GAME SECTION SCREEN — Figma matched
@@ -184,23 +185,23 @@ class _GameInfoScreenState extends State<GameInfoScreen> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      color: const Color(0xFF0B0E1A),
+      color: context.card,
       padding: EdgeInsets.fromLTRB(24.w, 12.h, 24.w, 12.h),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white, width: 1)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: context.border, width: 1)),
       ),
       child: Row(children: [
         GestureDetector(
           onTap: () => Navigator.pop(context),
           child: Icon(Icons.close_rounded,
-              color: const Color(0xFFF1F5F9), size: 20.w),
+              color: context.txtPri, size: 20.w),
         ),
         SizedBox(width: 14.w),
         Expanded(
           child: Text('${_meta.title.toUpperCase()} GAME',
               maxLines: 1, overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                  color: const Color(0xFFF1F5F9),
+                  color: context.txtPri,
                   fontSize: 20.sp, fontWeight: FontWeight.w700)),
         ),
       ]),
@@ -629,7 +630,7 @@ class _LeaderboardCardState extends State<_LeaderboardCard> {
         height: 28.h,
         padding: EdgeInsets.all(2.r),
         decoration: BoxDecoration(
-          color: const Color(0x991E293B),
+          color: context.card,
           borderRadius: BorderRadius.circular(8.r),
         ),
         child: Row(
@@ -648,7 +649,7 @@ class _LeaderboardCardState extends State<_LeaderboardCard> {
                         style: TextStyle(
                             color: active
                                 ? const Color(0xFF0B0E1A)
-                                : const Color(0x80FFFFFF),
+                                : context.txtSec,
                             fontSize: 10.sp, fontWeight: FontWeight.w700)),
                   ),
                 ),
@@ -731,7 +732,7 @@ class _LeaderboardRow extends StatelessWidget {
           width: 32.w, height: 32.w,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: const Color(0xFF0F172A),
+            color: context.card,
             border: Border.all(
                 color: top ? kOrange.withOpacity(0.5) : context.border),
           ),
@@ -806,11 +807,11 @@ class _PremiumCard extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 16),
-          const Text(
+          Text(
               'Unlock bigger prize pools, private tournaments and priority '
               'payouts — the premium experience for serious players.',
               style: TextStyle(
-                  color: Color(0xFFCBD5E1), fontSize: 13, height: 1.5)),
+                  color: context.txtSec, fontSize: 13, height: 1.5)),
           const SizedBox(height: 16),
           ..._perks.map((p) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
@@ -827,8 +828,10 @@ class _PremiumCard extends StatelessWidget {
           )),
           const SizedBox(height: 6),
           GestureDetector(
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Premium coming soon'))),
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const PremiumPurchaseScreen())),
             child: Container(
               height: 48,
               decoration: BoxDecoration(

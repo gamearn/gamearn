@@ -182,14 +182,14 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
       elevation: 0,
       leading: IconButton(
         icon: Icon(Icons.close_rounded,
-            color: Color(0xFFF1F5F9), size: 20.w),
+            color: context.txtPri, size: 20.w),
         onPressed: () => _confirmLeave(),
       ),
       title: Column(
         children: [
           Text(widget.tournamentTitle,
               style: TextStyle(
-                  color: Colors.white,
+                  color: context.txtPri,
                   fontSize: 15.sp,
                   fontWeight: FontWeight.w700)),
           Text('Round $_currentRound/$_totalRounds  ·  $_elapsed',
@@ -229,10 +229,10 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
         title: Text('Leave Tournament?',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            style: TextStyle(color: context.txtPri, fontWeight: FontWeight.w700)),
         content: Text(
           'Leaving during a live tournament may result in disqualification.',
-          style: TextStyle(color: Colors.white70, fontSize: 13.sp),
+          style: TextStyle(color: context.txtSec, fontSize: 13.sp),
         ),
         actions: [
           TextButton(

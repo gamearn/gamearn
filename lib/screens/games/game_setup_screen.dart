@@ -8,6 +8,8 @@ import 'ludo_game_screen.dart';
 import 'ayo_game_screen.dart';
 import 'draughts_game_screen.dart';
 import 'whot_game_screen.dart';
+import '../../services/ads_service.dart';
+import '../../services/premium_gate.dart';
 import '../../services/socket_service.dart';
 import '../../utils/error_utils.dart';
 import 'dart:async';
@@ -106,6 +108,7 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
             selected: _players.toString(),
             activeColor: const Color(0xFF22D1EE),
             activeTextColor: const Color(0xFF0B0E1A),
+            inactiveTextColor: context.txtSec,
             containerRx: 8,
             activeRx: 6,
             onChanged: (v) => setState(() => _players = int.parse(v)),
@@ -125,7 +128,7 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
             selected: _tokens.toString(),
             activeColor: const Color(0xFFFFC107),
             activeTextColor: const Color(0xFF0B0E1A),
-            inactiveTextColor: const Color(0xE6FFFFFF),
+            inactiveTextColor: context.txtSec,
             containerRx: 12,
             activeRx: 8,
             onChanged: (v) => setState(() => _tokens = int.parse(v)),
@@ -143,7 +146,7 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
             selected: _dice.toString(),
             activeColor: const Color(0xFFFFC107),
             activeTextColor: const Color(0xFF0B0E1A),
-            inactiveTextColor: const Color(0xE6FFFFFF),
+            inactiveTextColor: context.txtSec,
             containerRx: 12,
             activeRx: 8,
             onChanged: (v) => setState(() => _dice = int.parse(v)),
@@ -417,7 +420,7 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
             selected: _players.toString(),
             activeColor: const Color(0xFF22D1EE),
             activeTextColor: const Color(0xFF0B0E1A),
-            inactiveTextColor: const Color(0x99FFFFFF),
+            inactiveTextColor: context.txtSec,
             containerRx: 8,
             activeRx: 6,
             inactiveFw: FontWeight.w600,
@@ -434,9 +437,9 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Play Options',
+            Text('Play Options',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: context.txtPri,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.24,
@@ -475,10 +478,10 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text('Cards per player',
                         style: TextStyle(
-                            color: Color(0x99FFFFFF),
+                            color: context.txtSec,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                             height: 16 / 12)),
@@ -501,8 +504,8 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: ['4', '5', '6', '7', '8'].map((l) =>
                   Text(l,
-                      style: const TextStyle(
-                          color: Color(0x80FFFFFF),
+                      style: TextStyle(
+                          color: context.txtSec,
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           height: 15 / 10)),
@@ -540,24 +543,24 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text('Special Cards',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: context.txtPri,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           height: 20 / 16)),
                 ),
-                const Text('Null',
+                Text('Null',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         height: 20 / 16)),
                 const SizedBox(width: 12),
-                const Text('Remove',
+                Text('Remove',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         height: 20 / 16)),
@@ -605,7 +608,7 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
               style: TextStyle(
                   color: active
                       ? const Color(0xFF0B0E1A)
-                      : const Color(0x80FFFFFF),
+                      : context.txtSec,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   height: 20 / 14)),
@@ -717,8 +720,8 @@ class _SetupBase extends StatelessWidget {
               children: [
                 Text(title,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        color: Color(0xFFF1F5F9),
+                    style: TextStyle(
+                        color: context.txtPri,
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.27,
@@ -728,7 +731,7 @@ class _SetupBase extends StatelessWidget {
                   child: GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Icon(Icons.close_rounded,
-                        color: const Color(0xFFF1F5F9), size: 20.w),
+                        color: context.txtPri, size: 20.w),
                   ),
                 ),
               ],
@@ -745,9 +748,9 @@ class _SetupBase extends StatelessWidget {
 
                   // ── Header ────────────────────────────────────────
                   // node 1848:6230 — gap=4
-                  const Text('Game Setup',
+                  Text('Game Setup',
                       style: TextStyle(
-                          color: Color(0xFFF1F5F9),
+                          color: context.txtPri,
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
@@ -860,7 +863,7 @@ class _SectionContainer extends StatelessWidget {
             Expanded(
               child: Text(title,
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: titleSize,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.27,
@@ -905,7 +908,7 @@ class _SegmentedPicker extends StatelessWidget {
       height: 48,
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: const Color(0x801E293B),
+        color: context.card,
         borderRadius: BorderRadius.circular(containerRx),
         border: Border.all(color: context.border),
       ),
@@ -967,8 +970,8 @@ class _TurnTimerSection extends StatelessWidget {
           children: [
             Expanded(
               child: Text('Turn Timer',
-                  style: const TextStyle(
-                      color: Color(0x99FFFFFF),
+                  style: TextStyle(
+                      color: context.txtPri,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.27,
@@ -989,21 +992,21 @@ class _TurnTimerSection extends StatelessWidget {
           onChanged: onChanged,
         ),
         // Tick labels
-        const Row(
+        Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('30s', style: _tickStyle),
-            Text('1m',  style: _tickStyle),
-            Text('2m',  style: _tickStyle),
-            Text('3m',  style: _tickStyle),
+            Text('30s', style: _tickStyle(context)),
+            Text('1m',  style: _tickStyle(context)),
+            Text('2m',  style: _tickStyle(context)),
+            Text('3m',  style: _tickStyle(context)),
           ],
         ),
       ],
     );
   }
 
-  static const _tickStyle = TextStyle(
-      color: Color(0x80FFFFFF),
+  static TextStyle _tickStyle(BuildContext context) => TextStyle(
+      color: context.txtSec,
       fontSize: 12,
       fontWeight: FontWeight.w500,
       height: 16 / 12);
@@ -1105,9 +1108,9 @@ class _StatsCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('LEADERBOARD POSITION',
+                Text('LEADERBOARD POSITION',
                     style: TextStyle(
-                        color: Color(0x80FFFFFF),
+                        color: context.txtSec,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.6,
@@ -1141,17 +1144,17 @@ class _StatsCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('ENTRY FEE',
+              Text('ENTRY FEE',
                   style: TextStyle(
-                      color: Color(0x80FFFFFF),
+                      color: context.txtSec,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.6,
                       height: 16 / 12)),
               const SizedBox(height: 0.5),
               Text(entryFee,
-                  style: const TextStyle(
-                      color: Color(0xFFF1F5F9),
+                  style: TextStyle(
+                      color: context.txtPri,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       height: 28 / 18)),
@@ -1256,7 +1259,7 @@ class _SpecialCardRow extends StatelessWidget {
       height: 58,
       padding: const EdgeInsets.fromLTRB(13, 13, 15, 13),
       decoration: BoxDecoration(
-        color: const Color(0x4D1E293B),
+        color: context.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0x80334155)),
       ),
@@ -1278,8 +1281,8 @@ class _SpecialCardRow extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(label,
-                style: const TextStyle(
-                    color: Colors.white,
+                style: TextStyle(
+                    color: context.txtPri,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     height: 16 / 12)),
@@ -1324,12 +1327,12 @@ class _SpecialCardRow extends StatelessWidget {
               duration: const Duration(milliseconds: 160),
               width: 24, height: 24,
               decoration: BoxDecoration(
-                color: removed ? const Color(0xFF22D1EE) : const Color(0xFF0B0E1A),
+                color: removed ? const Color(0xFF22D1EE) : context.card,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
                   color: removed
                       ? const Color(0xFF22D1EE)
-                      : const Color(0x80FFFFFF),
+                      : context.border,
                 ),
               ),
               alignment: Alignment.center,
@@ -1402,20 +1405,20 @@ class _VsBotToggle extends StatelessWidget {
                             fontSize: 18,
                             color: vsBot
                                 ? const Color(0xFF0B0E1A)
-                                : Colors.white)),
+                                : context.txtPri)),
                     const SizedBox(height: 4),
                     Text('vs Bot',
                         style: TextStyle(
                             color: vsBot
                                 ? const Color(0xFF0B0E1A)
-                                : const Color(0x80FFFFFF),
+                                : context.txtSec,
                             fontSize: 13,
                             fontWeight: FontWeight.w700)),
                     Text('Free practice',
                         style: TextStyle(
                             color: vsBot
                                 ? const Color(0xFF0B0E1A).withOpacity(0.6)
-                                : const Color(0x40FFFFFF),
+                                : context.txtSec,
                             fontSize: 10)),
                   ],
                 ),
@@ -1441,20 +1444,20 @@ class _VsBotToggle extends StatelessWidget {
                             fontSize: 18,
                             color: !vsBot
                                 ? const Color(0xFF0B0E1A)
-                                : Colors.white)),
+                                : context.txtPri)),
                     const SizedBox(height: 4),
                     Text('Multiplayer',
                         style: TextStyle(
                             color: !vsBot
                                 ? const Color(0xFF0B0E1A)
-                                : const Color(0x80FFFFFF),
+                                : context.txtSec,
                             fontSize: 13,
                             fontWeight: FontWeight.w700)),
                     Text('Real money',
                         style: TextStyle(
                             color: !vsBot
                                 ? const Color(0xFF0B0E1A).withOpacity(0.6)
-                                : const Color(0x40FFFFFF),
+                                : context.txtSec,
                             fontSize: 10)),
                   ],
                 ),
@@ -1568,8 +1571,13 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
   @override
   void onMatchFound(String roomId, Map<String, dynamic> opponent, int prizePool) {
     if (mounted) setState(() => _status = 'Match found! Joining room...');
-    _socket.joinRoom(roomId, onAck: (data) {
-      widget.onMatchFound(roomId, opponent, prizePool);
+    _socket.joinRoom(roomId, onAck: (data) async {
+      if (await AdsGate.canShowAds()) {
+        await AdsService.instance.showInterstitialIfAvailable();
+      }
+      if (mounted) {
+        widget.onMatchFound(roomId, opponent, prizePool);
+      }
     });
   }
 
@@ -1600,7 +1608,7 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF16223F),
+      backgroundColor: context.card,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -1616,9 +1624,9 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
               ),
             ),
             const SizedBox(height: 24),
-            const Text('Finding Match',
+            Text('Finding Match',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: context.txtPri,
                     fontSize: 18,
                     fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
@@ -1638,7 +1646,7 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                 decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0x6694A3B8)),
+                  border: Border.all(color: context.border),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text('Cancel',

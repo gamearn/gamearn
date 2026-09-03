@@ -131,7 +131,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
                   // Node 1631:849
                   Text('Tournament Info',
                       style: TextStyle(
-                          color: Color(0xFFF1F5F9),
+                          color: context.txtPri,
                           fontSize: 20.sp,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
@@ -164,7 +164,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
                   // SemiBold label
                   Text('Duration',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: context.txtPri,
                           fontSize: 16.sp,
                           fontWeight: FontWeight.w600,
                           height: 26 / 16)),
@@ -220,7 +220,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
     return Container(
       padding: EdgeInsets.fromLTRB(24.w, safeTop + 16.h, 24.w, 16.h),
       decoration: BoxDecoration(
-        color: Color(0xE60B0E1A), // ~90% opacity
+        color: context.bg,
         border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF))),
       ),
       child: Stack(
@@ -229,7 +229,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
           // Title
           Text('Create Tournament',
               style: TextStyle(
-                  color: Color(0xFFF1F5F9),
+                  color: context.txtPri,
                   fontSize: 18.sp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.27,
@@ -241,7 +241,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
               onTap: () => Navigator.pop(context),
               behavior: HitTestBehavior.opaque,
               child: Icon(Icons.close_rounded,
-                  color: const Color(0xFFF1F5F9), size: 20.w),
+                  color: context.txtPri, size: 20.w),
             ),
           ),
         ],
@@ -253,7 +253,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
 
   Widget _fieldLabel(String text) => Text(text,
       style: TextStyle(
-          color: Colors.white,
+          color: context.txtPri,
           fontSize: 16.sp,
           fontWeight: FontWeight.w500,
           height: 24 / 16));
@@ -386,7 +386,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
                     style: TextStyle(
                       color: active
                           ? Color(0xFF22D1EE)
-                          : Color(0xFFF1F5F9),
+                          : context.txtPri,
                       fontSize: 20.sp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,

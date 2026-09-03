@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -9,9 +11,14 @@ import 'theme.dart';
 import 'theme/gamearn_shadcn.dart';
 import 'services/sound_service.dart';
 import 'services/push_service.dart';
+import 'services/language_service.dart';
+import 'l10n/app_localizations.dart';
 import 'services/firestore_cache.dart';
+import 'services/api_service.dart';
+import 'services/ads_service.dart';
 import 'screens/auth/landing_screen.dart';
 import 'screens/auth/email_verify_screen.dart';
+import 'screens/auth/mfa_enrollment_screen.dart';
 import 'screens/auth/profile_setup_screen.dart';
 import 'screens/auth/splash_screen.dart';
 import 'screens/shell.dart';
@@ -29,8 +36,24 @@ void main() async {
   await FirestoreCache.instance.init();
 
   await SoundService.instance.init();
+  await LanguageService.instance.init();
   await PushService.instance.init();
+  await LanguageService.instance.init();
+
+  // Ads: initialize Mobile Ads SDK and pre-load an interstitial in the
+  // background so it's ready before a real-money match starts. Never blocks.
+  unawaited(_initAds());
   runApp(const GamearnApp());
+}
+
+Future<void> _initAds() async {
+  try {
+    await AdsService.instance.init();
+    await AdsService.instance.preloadInterstitial();
+    await AdsService.instance.preloadRewarded();
+  } catch (e) {
+    debugPrint('[main] ads init skipped: $e');
+  }
 }
 
 class GamearnApp extends StatefulWidget {
@@ -41,24 +64,27 @@ class GamearnApp extends StatefulWidget {
 }
 
 class _GamearnAppState extends State<GamearnApp> {
-  // Only show splash on true cold start when no user is cached yet.
-  // If Firebase already has a cached user, skip straight to AuthGate
-  // so the user doesn't have to log in every restart.
-  bool _showInitialSplash = FirebaseAuth.instance.currentUser == null;
+  // Show the splash on every cold start. While it plays, the splash runs
+  // real bootstrap work (backend health ping, network check, ad preload) so
+  // the arena is warm before gameplay begins.
+  bool _showInitialSplash = true;
 
   @override
   void initState() {
     super.initState();
     ThemeNotifier.instance.addListener(_onThemeChanged);
+    LanguageService.instance.addListener(_onLanguageChanged);
   }
 
   @override
   void dispose() {
     ThemeNotifier.instance.removeListener(_onThemeChanged);
+    LanguageService.instance.removeListener(_onLanguageChanged);
     super.dispose();
   }
 
   void _onThemeChanged() => setState(() {});
+  void _onLanguageChanged() => setState(() {});
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +95,9 @@ class _GamearnAppState extends State<GamearnApp> {
       builder: (context, child) => MaterialApp(
         title: 'Gamearn',
         debugShowCheckedModeBanner: false,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: LanguageService.instance.locale,
         theme: kLightTheme,
         darkTheme: kDarkTheme,
         themeMode: ThemeNotifier.instance.themeMode,
@@ -133,11 +162,58 @@ class _AuthGate extends StatelessWidget {
             if (isAdmin) {
               return const Shell(); // swap for AdminShell when ready
             }
-            return const Shell();
+            return const _MfaGate(child: Shell());
           },
         );
       },
     );
+  }
+}
+
+class _MfaGate extends StatefulWidget {
+  final Widget child;
+  const _MfaGate({required this.child});
+
+  @override
+  State<_MfaGate> createState() => _MfaGateState();
+}
+
+class _MfaGateState extends State<_MfaGate> {
+  bool? _needsMfa;
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  Future<void> _check() async {
+    try {
+      final data = await ApiService.getMfaStatus();
+      final mfa = data['mfa'] as Map<String, dynamic>?;
+      final needsFactor = mfa?['needsFactor'] == true;
+      if (!mounted) return;
+      setState(() => _needsMfa = needsFactor);
+    } catch (e) {
+      debugPrint('[MfaGate] status check failed, falling through: $e');
+      if (!mounted) return;
+      setState(() => _needsMfa = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final needs = _needsMfa;
+    if (needs == null) {
+      return const _SplashLoader();
+    }
+    if (needs) {
+      return MfaEnrollmentScreen(
+        standalone: false,
+        onDone: _check,
+      );
+    }
+    return widget.child;
   }
 }
 

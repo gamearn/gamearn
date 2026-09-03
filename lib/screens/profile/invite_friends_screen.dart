@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../theme.dart';
 
 // ════════════════════════════════════════════════════════════════
@@ -30,7 +31,7 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen> {
      'tier': 'Diamond Tier • Level 84', 'following': false},
     {'name': 'Amara', 'emoji': '🦁', 'online': true,
      'tier': 'Master Tier • Level 102', 'following': false},
-    {'name': 'GhostProtocol', 'emoji': '👻', 'online': false,
+    {'name': 'Adekunle', 'emoji': '🦉', 'online': false,
      'tier': 'Gold III • Offline', 'following': true},
     {'name': 'StormWalker', 'emoji': '⛈️', 'online': true,
      'tier': 'Platinum II • In-Game', 'following': false},
@@ -56,14 +57,9 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen> {
     }
   }
 
-  void _shareVia(String method) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text('Sharing via $method'),
-        backgroundColor: kCyan,
-        behavior: SnackBarBehavior.floating,
-      ));
+  Future<void> _shareVia(String method) async {
+    final text = 'Join me on Gamearn! Play Whot, Ludo, Ayo and Draughts and win real money.\nInvite link: $_refLink';
+    await SharePlus.instance.share(ShareParams(text: text));
   }
 
   @override
@@ -75,21 +71,21 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen> {
         Container(
           width: double.infinity,
           padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
-          decoration: const BoxDecoration(
-            color: Color(0xE60B0E1A),
-            border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+          decoration: BoxDecoration(
+            color: context.bg,
+            border: Border(bottom: BorderSide(color: context.border, width: 1)),
           ),
           child: Row(children: [
             GestureDetector(
               onTap: () => Navigator.maybePop(context),
-              child: const Icon(Icons.close_rounded,
-                  color: Color(0xFFF1F5F9), size: 20),
+              child: Icon(Icons.close_rounded,
+                  color: context.txtPri, size: 20),
             ),
-            const Expanded(
+            Expanded(
               child: Text('Invite Friends',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      color: Color(0xFFF1F5F9),
+                      color: context.txtPri,
                       fontSize: 18, fontWeight: FontWeight.w700)),
             ),
             SizedBox(width: 20.w),
@@ -192,9 +188,9 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen> {
               SizedBox(height: 24.h),
 
               // ── QUICK SHARE METHODS ───────────────────────────────────
-              const Text('Quick Share Methods',
+              Text('Quick Share Methods',
                   style: TextStyle(
-                      color: Color(0x99FFFFFF), fontSize: 12,
+                      color: context.txtSec, fontSize: 12,
                       fontWeight: FontWeight.w600)),
               SizedBox(height: 16.h),
               Row(children: [
@@ -209,13 +205,13 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen> {
 
               // ── FRIENDS LIST ──────────────────────────────────────────
               Row(children: [
-                const Expanded(
+                Expanded(
                   child: Text('Active Friends',
                       style: TextStyle(
-                          color: Color(0x99FFFFFF), fontSize: 12,
+                          color: context.txtSec, fontSize: 12,
                           fontWeight: FontWeight.w700)),
                 ),
-                const Text('12 Online',
+                Text('12 Online',
                     style: TextStyle(
                         color: kOrange, fontSize: 12,
                         fontWeight: FontWeight.w500)),
@@ -259,8 +255,8 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen> {
             ),
             SizedBox(height: 8.h),
             Text(label,
-                style: const TextStyle(
-                    color: Color(0x99FFFFFF), fontSize: 10,
+                style: TextStyle(
+                    color: context.txtSec, fontSize: 10,
                     fontWeight: FontWeight.w400)),
           ],
         ),
@@ -285,18 +281,18 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen> {
             color: kCyan, size: 22),
       ),
       SizedBox(width: 14.w),
-      const Expanded(
+      Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('External Contacts',
                 style: TextStyle(
-                    color: Colors.white, fontSize: 14,
+                    color: context.txtPri, fontSize: 14,
                     fontWeight: FontWeight.w600)),
             SizedBox(height: 2),
             Text('Invite friends from your phone book',
                 style: TextStyle(
-                    color: Color(0x99FFFFFF), fontSize: 12)),
+                    color: context.txtSec, fontSize: 12)),
           ],
         ),
       ),
@@ -344,7 +340,7 @@ class _FriendRowState extends State<_FriendRow> {
       margin: EdgeInsets.only(left: 16.w),
       padding: EdgeInsets.all(12.r),
       decoration: BoxDecoration(
-        color: const Color(0x4D1A2131),
+        color: context.card,
         borderRadius: BorderRadius.circular(12.r),
       ),
       child: Row(children: [
@@ -382,13 +378,13 @@ class _FriendRowState extends State<_FriendRow> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(f['name'] as String,
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 16,
+                  style: TextStyle(
+                      color: context.txtPri, fontSize: 16,
                       fontWeight: FontWeight.w600)),
               SizedBox(height: 2.h),
               Text(f['tier'] as String,
-                  style: const TextStyle(
-                      color: Color(0x99FFFFFF), fontSize: 12,
+                  style: TextStyle(
+                      color: context.txtSec, fontSize: 12,
                       fontWeight: FontWeight.w500)),
             ],
           ),
@@ -405,9 +401,9 @@ class _FriendRowState extends State<_FriendRow> {
                     borderRadius: BorderRadius.circular(8.r),
                     border: Border.all(color: context.border),
                   ),
-                  child: const Text('Following',
+                  child: Text('Following',
                       style: TextStyle(
-                          color: Colors.white, fontSize: 12,
+                          color: context.txtPri, fontSize: 12,
                           fontWeight: FontWeight.w600)),
                 ),
               )

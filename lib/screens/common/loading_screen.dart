@@ -79,7 +79,7 @@ class _LoadingScreenState extends State<LoadingScreen>
                       children: [
                         Text(widget.message,
                             style: TextStyle(
-                                color: const Color(0xFFF1F5F9),
+                                color: context.txtPri,
                                 fontSize: 12.sp,
                                 fontWeight: FontWeight.w600)),
                         AnimatedBuilder(
@@ -101,7 +101,7 @@ class _LoadingScreenState extends State<LoadingScreen>
                     Container(
                       height: 6.h,
                       decoration: BoxDecoration(
-                        color: const Color(0x801E293B),
+                        color: context.border.withOpacity(0.5),
                         borderRadius: BorderRadius.circular(9999.r),
                         border: Border.all(
                             color: const Color(0x0DFFFFFF), width: 1),

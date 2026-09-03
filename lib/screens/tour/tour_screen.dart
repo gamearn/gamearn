@@ -51,7 +51,7 @@ class _TourScreenState extends State<TourScreen> {
             child: Row(children: [
               Text('Tournaments',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 20.sp, fontWeight: FontWeight.w900)),
               const Spacer(),
               // Create btn — 40×40 rx=8 #FF5E00
@@ -99,7 +99,7 @@ class _TourScreenState extends State<TourScreen> {
                               style: TextStyle(
                                   color: active
                                       ? const Color(0xFF0B0E1A)
-                                      : const Color(0xFF9A9A9A),
+                                      : context.txtSec,
                                   fontSize: 11.sp,
                                   fontWeight: FontWeight.w700)),
                         ),
@@ -179,7 +179,7 @@ class _TourScreenState extends State<TourScreen> {
         _tab == 0
             ? 'No tournaments yet'
             : 'No ${_tabs[_tab].toLowerCase()} tournaments',
-        style: TextStyle(color: const Color(0xFF9A9A9A), fontSize: 15.sp),
+        style: TextStyle(color: context.txtSec, fontSize: 15.sp),
       ),
       if (_tab == 0) ...[
         SizedBox(height: 20.h),

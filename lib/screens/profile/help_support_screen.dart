@@ -62,21 +62,21 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
         Container(
           width: double.infinity,
           padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
-          decoration: const BoxDecoration(
-            color: Color(0xE60B0E1A),
-            border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+          decoration: BoxDecoration(
+            color: context.bg,
+            border: Border(bottom: BorderSide(color: context.border, width: 1)),
           ),
           child: Row(children: [
             GestureDetector(
               onTap: () => Navigator.maybePop(context),
               child: Icon(Icons.close_rounded,
-                  color: const Color(0xFFF1F5F9), size: 20.w),
+                  color: context.txtPri, size: 20.w),
             ),
             Expanded(
               child: Text('Help & Support',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      color: const Color(0xFFF1F5F9),
+                      color: context.txtPri,
                       fontSize: 18.sp, fontWeight: FontWeight.w700)),
             ),
             SizedBox(width: 20.w),
@@ -125,13 +125,13 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                     SizedBox(height: 18.h),
                     Text('Tournament Rules',
                         style: TextStyle(
-                            color: Colors.white,
+                            color: context.txtPri,
                             fontSize: 20.sp, fontWeight: FontWeight.w700)),
                     SizedBox(height: 8.h),
                     Text(
                       'Master the arena. Everything you\nneed to know about fair play and\nscoring.',
                       style: TextStyle(
-                          color: const Color(0x99FFFFFF), fontSize: 16.sp,
+                          color: context.txtSec, fontSize: 16.sp,
                           fontWeight: FontWeight.w400, height: 1.45),
                     ),
                   ],
@@ -167,7 +167,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
               Text('Frequently Asked',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 24.sp, fontWeight: FontWeight.w700)),
               SizedBox(height: 14.h),
 
@@ -189,7 +189,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                           EdgeInsets.fromLTRB(16.w, 0.h, 16.w, 16.h),
                       title: Text(_faqs[i]['q']!,
                           style: TextStyle(
-                              color: Colors.white,
+                              color: context.txtPri,
                               fontSize: 14.sp,
                               fontWeight: FontWeight.w600)),
                       trailing: Icon(
@@ -207,7 +207,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                           alignment: Alignment.centerLeft,
                           child: Text(_faqs[i]['a']!,
                               style: TextStyle(
-                                  color: const Color(0x99FFFFFF),
+                                  color: context.txtSec,
                                   fontSize: 13.sp, height: 1.5)),
                         ),
                       ],
@@ -263,12 +263,12 @@ class _TopicCard extends StatelessWidget {
           children: [
             Text(title,
                 style: TextStyle(
-                    color: Colors.white,
+                    color: context.txtPri,
                     fontSize: 16.sp, fontWeight: FontWeight.w600)),
             SizedBox(height: 4.h),
             Text(sub,
                 style: TextStyle(
-                    color: const Color(0x99FFFFFF), fontSize: 12.sp,
+                    color: context.txtSec, fontSize: 12.sp,
                     fontWeight: FontWeight.w500, height: 1.4)),
           ],
         ),

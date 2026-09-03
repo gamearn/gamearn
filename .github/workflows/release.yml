@@ -1,16 +1,17 @@
-name: 🚀 Release Build
+name: 🚀 Release Build (Android AAB + APK)
 
 on:
   push:
     tags:
       - 'v*.*.*'   # triggers on tags like v1.0.0, v1.2.3, v2.0.0-beta
+  workflow_dispatch:
 
 permissions:
   contents: write  # needed to create GitHub Releases
 
 jobs:
   build-release:
-    name: Build & Release APK
+    name: Build & Release AAB + APK
     runs-on: ubuntu-latest
 
     steps:
@@ -37,7 +38,6 @@ jobs:
           printf '%s\n' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
           python3 -m json.tool android/app/google-services.json > /dev/null
 
-
       - name: 📦 Get dependencies
         run: flutter pub get
 
@@ -48,6 +48,9 @@ jobs:
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=upload-keystore.jks" >> android/key.properties
+
+      - name: 🏗️ Build release AAB (Signed + Obfuscated)
+        run: flutter build appbundle --release --no-tree-shake-icons --obfuscate --split-debug-info=./debug_symbols --dart-define=NODE_API_BASE=${{ secrets.NODE_API_BASE }}
 
       - name: 🏗️ Build release APK (Signed + Obfuscated)
         run: flutter build apk --release --no-tree-shake-icons --obfuscate --split-debug-info=./debug_symbols --dart-define=NODE_API_BASE=${{ secrets.NODE_API_BASE }}
@@ -60,15 +63,19 @@ jobs:
           path: ./debug_symbols
           retention-days: 90
 
-      - name: ✏️ Rename APK with version tag
+      - name: ✏️ Rename artifacts with version tag
         run: |
           VERSION=${{ github.ref_name }}
-          mv build/app/outputs/flutter-apk/app-release.apk \
-             build/app/outputs/flutter-apk/gamearn-${VERSION}.apk
-          echo "APK_PATH=build/app/outputs/flutter-apk/gamearn-${VERSION}.apk" >> $GITHUB_ENV
+          AAB_DIR=build/app/outputs/bundle/release
+          APK_DIR=build/app/outputs/flutter-apk
+          mv "$AAB_DIR/app-release.aab" "$AAB_DIR/gamearn-${VERSION}.aab"
+          mv "$APK_DIR/app-release.apk" "$APK_DIR/gamearn-${VERSION}.apk"
+          echo "AAB_PATH=$AAB_DIR/gamearn-${VERSION}.aab" >> $GITHUB_ENV
+          echo "AAB_NAME=gamearn-${VERSION}.aab" >> $GITHUB_ENV
+          echo "APK_PATH=$APK_DIR/gamearn-${VERSION}.apk" >> $GITHUB_ENV
           echo "APK_NAME=gamearn-${VERSION}.apk" >> $GITHUB_ENV
 
-      - name: 🎉 Create GitHub Release & upload APK
+      - name: 🎉 Create GitHub Release & upload AAB + APK
         uses: softprops/action-gh-release@v2
         with:
           name: "Gamearn ${{ github.ref_name }}"
@@ -77,34 +84,32 @@ jobs:
             ## 🎮 Gamearn ${{ github.ref_name }}
 
             ### What's new
-            - 🎵 Game sounds (card play, dice roll, captures, win/lose fanfares)
-            - 🤖 In-game bot with rating-based difficulty (beginner → expert)
-            - 📧 Email + phone registration with 6-digit OTP verification
-            - 🔐 MFA-protected withdrawals (email verification code required)
-            - 💳 Flutterwave payments: card, bank transfer, USSD deposits + withdrawals
-            - 🐛 Bug fixes: Ludo home-stretch crash, atomic entry-fee deduction
-            - 🎨 Settings sound toggle wired to SharedPreferences
+            - 🚀 Splash on every launch with backend health + network bootstrap
+            - 🌍 Multi-language (English / Français / Español)
+            - 🌟 Gamearn Premium — weekly / monthly / lifetime plans
+            - 📢 AdMob ads (interstitial before matches, rewarded for free users)
+            - 🤝 Invite & referral — 10% tournament commission
+            - 🔐 MFA (2FA) with email + phone authenticators
+            - 🗑️ Delete account (App Store compliant)
+            - 📄 In-app Terms & Conditions + Privacy Policy
 
             ### Previous releases
-            - ✅ Splash screen with arena initialization animation
             - ✅ Full auth flow: Landing → Register → OTP → Profile Setup → Login
-            - ✅ Home dashboard: wallet balance, streak, tournaments, games, leaderboard
+            - ✅ Home dashboard: wallet, streak, tournaments, games, leaderboard
             - ✅ Tour screen: live tournaments with status badges
-            - ✅ Wallet & Earnings: units system, transaction history
-            - ✅ Profile: avatar, stats, friends, performance, Go Premium
-            - ✅ Settings & Preferences
+            - ✅ Wallet & Earnings: units system, transaction history, Paystack
+            - ✅ Profile: avatar, stats, friends, Go Premium
             - **Whot, Draughts, Ayo, Ludo games with AI bot integration**
 
-            ### Bots
-            Bot opponents run inside the Gamearn backend — no separate service required.
-
             ### Install
-            1. Download `${{ env.APK_NAME }}` below
-            2. Enable **Install from unknown sources** on your Android device
-            3. Open the APK and install
+            > Play Store: upload `${{ env.AAB_NAME }}` (bundle) to the Google Play Console.
+            >
+            > Sideload/QA: install `${{ env.APK_NAME }}` directly.
 
             ---
-            Built from commit `${{ github.sha }}`
-          files: ${{ env.APK_PATH }}
+            Built from commit \`${{ github.sha }}\`
+          files: |
+            ${{ env.AAB_PATH }}
+            ${{ env.APK_PATH }}
           draft: false
           prerelease: false

@@ -52,21 +52,21 @@ class NotificationsScreen extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
-            decoration: const BoxDecoration(
-              color: Color(0xE60B0E1A),
-              border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+            decoration: BoxDecoration(
+              color: context.bg,
+              border: Border(bottom: BorderSide(color: context.border, width: 1)),
             ),
             child: Row(children: [
               GestureDetector(
                 onTap: () => Navigator.maybePop(context),
                 child: Icon(Icons.close_rounded,
-                    color: Color(0xFFF1F5F9), size: 20.w),
+                    color: context.txtPri, size: 20.w),
               ),
               Expanded(
                 child: Text('Notifications',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        color: Color(0xFFF1F5F9),
+                        color: context.txtPri,
                         fontSize: 18.sp, fontWeight: FontWeight.w700)),
               ),
               SizedBox(width: 20.w),
@@ -286,7 +286,7 @@ class _NotifRow extends StatelessWidget {
             // Time — Figma: fs12 w500 #FFFFFF@50, right-aligned
             Text(time,
                 style: TextStyle(
-                    color: Color(0x80FFFFFF),
+                    color: context.txtSec,
                     fontSize: 12.sp,
                     fontWeight: FontWeight.w500)),
           ],

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:http/http.dart' as http;
 import '../../theme.dart';
+import '../../config/api_config.dart';
+import 'dart:convert';
 
 // ════════════════════════════════════════════════════════════════
 //  SPLASH SCREEN — Figma matched (1044:286 "iPhone 13 & 14 - 3")
@@ -11,6 +14,12 @@ import '../../theme.dart';
 //    % fs12 #FF5E00 w500 · bar 280×6 #1E293B@0.5 stroke
 //    white@0.05, cyan fill 4px · connectivity row: green wifi icon
 //    #2BEE79 + "Secure Connection Established" fs9 w500
+//
+//  Plays on EVERY launch. While the 2.8s animation runs it also does
+//  real bootstrap in parallel — pings the backend /health endpoint
+//  and preloads the interstitial/rewarded ads — so the arena is warm
+//  before gameplay. onComplete fires only after the animation AND the
+//  bootstrap (or a hard 5s timeout) both finish.
 // ════════════════════════════════════════════════════════════════
 
 class SplashScreen extends StatefulWidget {
@@ -27,6 +36,10 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _progress;
   late Animation<double> _fadeIn;
 
+  // Bootstrap state surfaced on the connectivity row.
+  String _bootstrapStatus = 'Connecting to Arena...';
+  bool _bootDone = false;
+
   @override
   void initState() {
     super.initState();
@@ -42,7 +55,65 @@ class _SplashScreenState extends State<SplashScreen>
           parent: _ctrl, curve: const Interval(0, 0.4, curve: Curves.easeIn)),
     );
 
-    _ctrl.forward().whenComplete(widget.onComplete);
+    _ctrl.forward();
+    _runBootstrap();
+  }
+
+  /// Run real startup work in parallel with the animation:
+  ///  - ping the backend /health endpoint (doubles as the network check)
+  /// Completes only after the animation AND the ping settle, but never
+  /// blocks longer than a ~4s hard cap so a down backend can't stall launch.
+  ///
+  /// (Ads are already initialised + preloaded in main() before runApp, so the
+  /// splash only handles connectivity/bootstrap here to avoid double loads.)
+  Future<void> _runBootstrap() async {
+    try {
+      // Race animation + backend ping against a hard 4s cap so a slow or
+      // unreachable backend can never stall the splash indefinitely.
+      final readys = <Future<void>>[
+        _ctrl.forward().orCancel,
+        _pingBackend(),
+      ];
+      await Future.any<void>([
+        Future.wait(readys).then((_) {}),
+        Future<void>.delayed(const Duration(milliseconds: 4000)),
+      ]).catchError((_) {});
+    } catch (e) {
+      debugPrint('[Splash] bootstrap error: $e');
+    } finally {
+      if (!mounted) return;
+      widget.onComplete();
+    }
+  }
+
+  Future<void> _pingBackend() async {
+    final stopwatch = Stopwatch()..start();
+    try {
+      final uri = Uri.parse('${ApiConfig.nodeBaseUrl}/health');
+      final res = await http
+          .get(uri)
+          .timeout(const Duration(seconds: 8));
+      final decoded = res.body.isNotEmpty ? jsonDecode(res.body) : null;
+      final healthy = res.statusCode == 200 &&
+          decoded is Map<String, dynamic> &&
+          decoded['success'] == true;
+      _markConnectivity(
+          healthy ? 'Secure Connection Established' : 'Backend degraded');
+    } catch (e) {
+      debugPrint('[Splash] backend ping failed: $e');
+      _markConnectivity('Reconnecting...');
+    }
+    stopwatch.stop();
+    // Debug-only timing note (no user-visible text).
+    debugPrint('[Splash] backend ping: ${stopwatch.elapsedMilliseconds}ms');
+  }
+
+  void _markConnectivity(String status) {
+    if (!mounted) return;
+    setState(() {
+      _bootstrapStatus = status;
+      _bootDone = true;
+    });
   }
 
   @override
@@ -155,14 +226,19 @@ class _SplashScreenState extends State<SplashScreen>
 
               const Spacer(flex: 2),
 
-              // ── Connectivity — Figma: green icon + fs9 text ────────
+              // ── Connectivity — Figma: icon + fs9 text ───────────────
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.wifi_rounded,
-                      color: const Color(0xFF2BEE79), size: 14.w),
+                      color: _bootDone
+                          ? (_bootstrapStatus == 'Secure Connection Established'
+                              ? const Color(0xFF2BEE79)
+                              : kOrange)
+                          : const Color(0xFF2BEE79),
+                      size: 14.w),
                   SizedBox(width: 6.w),
-                  Text('Secure Connection Established',
+                  Text(_bootstrapStatus,
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 9.sp,

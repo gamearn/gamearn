@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gamearn/l10n/app_localizations.dart';
 import '../theme.dart';
 
 // ─────────────────────────────────────────────────────────────────
@@ -395,9 +396,9 @@ class GamearnBottomNav extends StatelessWidget {
     required this.onTap,
   });
 
-  static const _labels = ['Home', 'Games', 'Wallet', 'Profile'];
-
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final labels = [l10n.navHome, l10n.navGames, l10n.navWallet, l10n.navProfile];
     return Container(
       height: 72,
       decoration: BoxDecoration(
@@ -411,25 +412,25 @@ class GamearnBottomNav extends StatelessWidget {
         children: [
           _NavItem(
             icon: HomeNavIcon(isActive: currentIndex == 0),
-            label: _labels[0],
+            label: labels[0],
             isActive: currentIndex == 0,
             onTap: () => onTap(0),
           ),
           _NavItem(
             icon: GameNavIcon(isActive: currentIndex == 1),
-            label: _labels[1],
+            label: labels[1],
             isActive: currentIndex == 1,
             onTap: () => onTap(1),
           ),
           _NavItem(
             icon: WalletNavIcon(isActive: currentIndex == 2),
-            label: _labels[2],
+            label: labels[2],
             isActive: currentIndex == 2,
             onTap: () => onTap(2),
           ),
           _NavItem(
             icon: ProfileNavIcon(isActive: currentIndex == 3),
-            label: _labels[3],
+            label: labels[3],
             isActive: currentIndex == 3,
             onTap: () => onTap(3),
           ),

@@ -97,13 +97,13 @@ class _Header extends StatelessWidget {
         GestureDetector(
           onTap: () => Navigator.pop(context),
           child: Icon(Icons.close_rounded,
-              color: const Color(0xFFF1F5F9), size: 20.w),
+              color: context.txtPri, size: 20.w),
         ),
         SizedBox(width: 12.w),
         Expanded(
           child: Text('Tournament Details',
               style: TextStyle(
-                  color: const Color(0xFFF1F5F9),
+                  color: context.txtPri,
                   fontSize: 18.sp,
                   fontWeight: FontWeight.w700)),
         ),
@@ -240,7 +240,7 @@ class _RankCardState extends State<_RankCard> {
               Expanded(
                 child: Text(d['username'] as String? ?? 'Adebayo',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w500),
                     overflow: TextOverflow.ellipsis),
@@ -256,7 +256,7 @@ class _RankCardState extends State<_RankCard> {
                           fontWeight: FontWeight.w500)),
                   Text('Wins',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: context.txtPri,
                           fontSize: 12.sp,
                           fontWeight: FontWeight.w500)),
                 ],
@@ -293,7 +293,7 @@ class _RankCardState extends State<_RankCard> {
             Expanded(
               child: Text(name,
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w500)),
             ),
@@ -308,7 +308,7 @@ class _RankCardState extends State<_RankCard> {
                         fontWeight: FontWeight.w500)),
                 Text('$wins Wins',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w500)),
               ],
@@ -436,13 +436,13 @@ class _PendingCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 18.sp,
                         fontWeight: FontWeight.w700)),
                 SizedBox(height: 2.h),
                 Text(gameKey.toUpperCase(),
                     style: TextStyle(
-                        color: Colors.white, fontSize: 12.sp)),
+                        color: context.txtPri, fontSize: 12.sp)),
               ],
             ),
           ),
@@ -489,14 +489,14 @@ class _PendingCard extends StatelessWidget {
                     child: Container(
                       width: 32.w, height: 32.h,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: context.card,
                         shape: BoxShape.circle,
                         border: Border.all(color: const Color(0xFF0B0E1A)),
                       ),
                       child: Center(
                         child: Text('+${players.length - 3}',
                             style: TextStyle(
-                                color: Colors.white,
+                                color: context.txtPri,
                                 fontSize: 10.sp,
                                 fontWeight: FontWeight.w600)),
                       ),
@@ -509,7 +509,7 @@ class _PendingCard extends StatelessWidget {
           Expanded(
             child: Text('${players.length} / $maxP Players Joined',
                 style: TextStyle(
-                    color: Colors.white, fontSize: 12.sp)),
+                    color: context.txtPri, fontSize: 12.sp)),
           ),
           GestureDetector(
             onTap: () {
@@ -598,7 +598,7 @@ class _CompletedCard extends StatelessWidget {
                 children: [
                   Text('Tournament Ended',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: context.txtPri,
                           fontSize: 12.sp,
                           fontWeight: FontWeight.w500)),
                   SizedBox(height: 4.h),
@@ -606,13 +606,13 @@ class _CompletedCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          color: Colors.white,
+                          color: context.txtPri,
                           fontSize: 18.sp,
                           fontWeight: FontWeight.w700)),
                   SizedBox(height: 2.h),
                   Text('Total Prize: $prize GC',
                       style: TextStyle(
-                          color: Colors.white, fontSize: 12.sp)),
+                          color: context.txtPri, fontSize: 12.sp)),
                 ],
               ),
             ),
@@ -665,7 +665,7 @@ class _CompletedCard extends StatelessWidget {
               Expanded(
                 child: Text('${w.$2} Place',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w500)),
               ),

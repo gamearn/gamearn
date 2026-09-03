@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:gamearn/l10n/app_localizations.dart';
 import '../../theme.dart';
 import 'withdraw_screen.dart';
 import 'transaction_history_screen.dart';
@@ -37,6 +38,7 @@ class WalletScreen extends StatefulWidget {
 class _WalletScreenState extends State<WalletScreen> {
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
@@ -62,19 +64,19 @@ class _WalletScreenState extends State<WalletScreen> {
                 // ── HEADER — Figma Frame 56 (390×79, bg@90, stroke @30) ──
                 SliverToBoxAdapter(
                   child: Container(
-                    color: const Color(0xE60B0E1A),
+                    color: context.bg,
                     child: Column(children: [
                       Padding(
                         padding: EdgeInsets.fromLTRB(24.w, 28.h, 24.w, 16.h),
                         child: Center(
-                          child: Text('Wallet & Earnings',
+                          child: Text(l10n.walletTitle,
                               style: TextStyle(
-                                  color: const Color(0xFFF1F5F9),
+                                  color: context.txtPri,
                                   fontSize: 18.sp,
                                   fontWeight: FontWeight.w700)),
                         ),
                       ),
-                      Container(height: 1.h, color: const Color(0x4DFFFFFF)),
+                      Container(height: 1.h, color: context.border),
                     ]),
                   ),
                 ),
@@ -124,7 +126,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                         width: 120.w, height: 120.w,
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          color: const Color(0xFF0B0E1A),
+                                          color: context.card,
                                         ),
                                         child: Center(
                                           child: Text('🏆',
@@ -147,7 +149,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                             color: const Color(0xFF0B0E1A),
                                             width: 2.w),
                                       ),
-                                      child: Text('LEVEL $level',
+                                      child: Text(l10n.walletLevel(level),
                                           style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 10.sp,
@@ -165,12 +167,12 @@ class _WalletScreenState extends State<WalletScreen> {
                                 text:
                                     '${NumberFormat('#,##0').format(units)} ',
                                 style: TextStyle(
-                                    color: Colors.white,
+                                    color: context.txtPri,
                                     fontSize: 32.sp,
                                     fontWeight: FontWeight.w700),
                                 children: [
                                   TextSpan(
-                                    text: '/Units',
+                                    text: l10n.walletUnitsSuffix,
                                     style: TextStyle(
                                         color: kCyan,
                                         fontSize: 20.sp,
@@ -180,9 +182,9 @@ class _WalletScreenState extends State<WalletScreen> {
                               ),
                             ),
                             SizedBox(height: 4.h),
-                            Text('\$${usd.toStringAsFixed(2)} USD Equivalent',
+                            Text(l10n.walletNairaEquivalent('₦${(usd * 900).round()}'),
                                 style: TextStyle(
-                                    color: const Color(0x80FFFFFF),
+                                    color: context.txtSec,
                                     fontSize: 16.sp,
                                     fontWeight: FontWeight.w400)),
                             SizedBox(height: 16.h),
@@ -200,7 +202,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                       width: 1.w),
                                 ),
                                 child: Text(
-                                    '$streak-Day Streak Active',
+                                    l10n.walletStreakActive(streak),
                                     style: TextStyle(
                                         color: kCyan,
                                         fontSize: 12.sp,
@@ -218,7 +220,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                       width: 1.w),
                                 ),
                                 child: Text(
-                                    '$streak-Day Streak Active',
+                                    l10n.walletStreakActive(streak),
                                     style: TextStyle(
                                         color: kCyan,
                                         fontSize: 12.sp,
@@ -239,16 +241,16 @@ class _WalletScreenState extends State<WalletScreen> {
                       // Plain text tabs — Figma: no pill backgrounds
                       Row(children: [
                         _TabPill(
-                            label: 'Overview', selected: true,
+                            label: l10n.walletOverview, selected: true,
                             onTap: () {}),
                         SizedBox(width: 0.w),
-                        _TabPill(label: 'Buy', selected: false,
+                        _TabPill(label: l10n.walletBuy, selected: false,
                             onTap: _pushBuy),
                         SizedBox(width: 0.w),
-                        _TabPill(label: 'Sell', selected: false,
+                        _TabPill(label: l10n.walletSell, selected: false,
                             onTap: _pushSell),
                         SizedBox(width: 0.w),
-                        _TabPill(label: 'Withdraw', selected: false,
+                        _TabPill(label: l10n.walletWithdraw, selected: false,
                             onTap: _pushWithdraw),
                       ]),
                       SizedBox(height: 16.h),
@@ -278,7 +280,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                   Icon(Icons.add_circle_outline,
                                       color: Colors.white, size: 18.w),
                                   SizedBox(width: 8.w),
-                                  Text('Add Funds',
+                                  Text(l10n.walletAddFunds,
                                       style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 16.sp,
@@ -303,11 +305,11 @@ class _WalletScreenState extends State<WalletScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(Icons.currency_exchange_rounded,
-                                      color: const Color(0xB3FFFFFF), size: 18.w),
+                                      color: context.txtSec, size: 18.w),
                                   SizedBox(width: 8.w),
-                                  Text('Cash Out',
+                                  Text(l10n.walletCashOut,
                                       style: TextStyle(
-                                          color: const Color(0xB3FFFFFF),
+                                          color: context.txtSec,
                                           fontSize: 16.sp,
                                           fontWeight: FontWeight.w700)),
                                 ],
@@ -326,9 +328,9 @@ class _WalletScreenState extends State<WalletScreen> {
                     padding: EdgeInsets.fromLTRB(24.w, 28.h, 24.w, 14.h),
                     child: Row(
                       children: [
-                        Text('Transaction History',
+                        Text(l10n.walletTransactionHistory,
                             style: TextStyle(
-                                color: const Color(0xFFF1F5F9),
+                                color: context.txtPri,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 18.sp)),
                         const Spacer(),
@@ -339,7 +341,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                 builder: (_) =>
                                     const TransactionHistoryScreen()),
                           ),
-                          child: Text('View All',
+                          child: Text(l10n.walletViewAll,
                               style: TextStyle(
                                   color: kCyan,
                                   fontSize: 14.sp,
@@ -369,16 +371,16 @@ class _WalletScreenState extends State<WalletScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.history_toggle_off,
-                                  color: kTextMuted, size: 48.w),
+                                  color: context.txtSec, size: 48.w),
                               SizedBox(height: 12.h),
-                              Text('No transactions yet',
+                              Text(l10n.walletNoTransactions,
                                   style: TextStyle(
                                       color: context.txtSec,
                                       fontSize: 14.sp)),
                               SizedBox(height: 4.h),
-                              Text('Your gaming wins will appear here',
+                              Text(l10n.walletNoTransactionsSub,
                                   style: TextStyle(
-                                      color: kTextMuted, fontSize: 12.sp)),
+                                      color: context.txtSec, fontSize: 12.sp)),
                             ],
                           ),
                         ),
@@ -412,11 +414,11 @@ class _WalletScreenState extends State<WalletScreen> {
                             'title': d['description'] ?? '',
                             'date': _fmtDate(d['createdAt']),
                             'amount': isStreak
-                                ? '+\$${d['usdAmount'] ?? 0}'
-                                : '${credit ? '+' : '-'}${d['units'] ?? 0} Units',
+                                ? '+₦${d['usdAmount'] ?? 0}'
+                                : l10n.walletUnitsAmount('${credit ? '+' : '-'}', '${d['units'] ?? 0}'),
                             'usd': isStreak
                                 ? ''
-                                : '${credit ? '+' : '-'}\$${d['usdAmount'] ?? 0}',
+                                : '${credit ? '+' : '-'}₦${d['usdAmount'] ?? 0}',
                             'credit': credit,
                           });
                         },
@@ -472,7 +474,7 @@ class _TabPill extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 12.w),
         child: Text(label,
             style: TextStyle(
-                color: selected ? kCyan : const Color(0x99FFFFFF),
+                color: selected ? kCyan : context.txtSec,
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w500)),
       ),
@@ -514,13 +516,13 @@ class _TxRow extends StatelessWidget {
               children: [
                 Text(mock['title'] as String,
                     style: TextStyle(
-                        color: const Color(0xFFF1F5F9),
+                        color: context.txtPri,
                         fontWeight: FontWeight.w600,
                         fontSize: 12.sp)),
                 SizedBox(height: 5.h),
                 Text(mock['date'] as String,
                     style: TextStyle(
-                        color: const Color(0x80FFFFFF), fontSize: 10.sp)),
+                        color: context.txtSec, fontSize: 10.sp)),
               ],
             ),
           ),
@@ -530,13 +532,13 @@ class _TxRow extends StatelessWidget {
             children: [
               Text(mock['amount'] as String,
                   style: TextStyle(
-                      color: credit ? kGreen : const Color(0xFFF1F5F9),
+                      color: credit ? kGreen : context.txtPri,
                       fontWeight: FontWeight.w700,
                       fontSize: 12.sp)),
               if ((mock['usd'] as String).isNotEmpty)
                 Text(mock['usd'] as String,
                     style: TextStyle(
-                        color: const Color(0x80FFFFFF), fontSize: 10.sp)),
+                        color: context.txtSec, fontSize: 10.sp)),
             ],
           ),
         ],

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../../services/api_service.dart';
 import '../../theme.dart';
+import '../auth/mfa_enrollment_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  ACCOUNT SECURITY SCREEN — Figma matched (2076:1835, 390×844)
@@ -22,7 +24,48 @@ class AccountSecurityScreen extends StatefulWidget {
 }
 
 class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
-  bool _twoFA = true;
+  bool _mfaConfigured = false;
+  bool _mfaLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMfaStatus();
+  }
+
+  Future<void> _loadMfaStatus() async {
+    try {
+      final data = await ApiService.getMfaStatus();
+      final mfa = data['mfa'] as Map<String, dynamic>?;
+      if (!mounted) return;
+      setState(() {
+        _mfaConfigured = mfa?['needsFactor'] == false;
+        _mfaLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _mfaLoading = false);
+    }
+  }
+
+  Future<void> _openMfa() async {
+    Map<String, dynamic>? status;
+    try {
+      final data = await ApiService.getMfaStatus();
+      status = data['mfa'] as Map<String, dynamic>?;
+    } catch (_) {}
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) =>
+          MfaEnrollmentScreen(standalone: true, mfaStatus: status),
+    ));
+    _loadMfaStatus();
+  }
+
+  String get _mfaSubtitle {
+    if (_mfaLoading) return 'Loading…';
+    return _mfaConfigured ? 'Enabled' : 'Set up';
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -33,21 +76,21 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
         Container(
           width: double.infinity,
           padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
-          decoration: const BoxDecoration(
-            color: Color(0xE60B0E1A),
-            border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+          decoration: BoxDecoration(
+            color: context.bg,
+            border: Border(bottom: BorderSide(color: context.border, width: 1)),
           ),
           child: Row(children: [
             GestureDetector(
               onTap: () => Navigator.maybePop(context),
               child: Icon(Icons.close_rounded,
-                  color: const Color(0xFFF1F5F9), size: 20.w),
+                  color: context.txtPri, size: 20.w),
             ),
             Expanded(
               child: Text('Account Security',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      color: const Color(0xFFF1F5F9),
+                      color: context.txtPri,
                       fontSize: 18.sp, fontWeight: FontWeight.w700)),
             ),
             SizedBox(width: 20.w),
@@ -95,18 +138,18 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                   Text(
                     'Multi-layer encryption is active. Your\ngaming assets are protected by\nGamearn Void protocols.',
                     style: TextStyle(
-                        color: const Color(0x80FFFFFF), fontSize: 16.sp,
+                        color: context.txtSec, fontSize: 16.sp,
                         fontWeight: FontWeight.w400, height: 1.4),
                   ),
                   SizedBox(height: 16.h),
                   // Updated — Figma: "Updated 2m ago" fs14 #FFFFFF@60
                   Row(children: [
                     Icon(Icons.shield_outlined,
-                        color: const Color(0x99FFFFFF), size: 14.w),
+                        color: context.txtSec, size: 14.w),
                     SizedBox(width: 6.w),
                     Text('Updated 2m ago',
                         style: TextStyle(
-                            color: const Color(0x99FFFFFF), fontSize: 14.sp,
+                            color: context.txtSec, fontSize: 14.sp,
                             fontWeight: FontWeight.w400)),
                   ]),
                 ]),
@@ -143,7 +186,7 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                         // Title — Figma: fs20 w700
                         Text('Vault Status',
                             style: TextStyle(
-                                color: Colors.white,
+                                color: context.txtPri,
                                 fontSize: 20.sp, fontWeight: FontWeight.w700)),
                         SizedBox(height: 12.h),
                         // Pill — Figma: 101×23 #FF5E00, text #0B0E1A
@@ -180,58 +223,54 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                 SizedBox(width: 12.w),
                 Text('Two-Factor Auth',
                     style: TextStyle(
-                        color: const Color(0xFFE5E2E1),
+                        color: context.txtPri,
                         fontSize: 20.sp, fontWeight: FontWeight.w700)),
               ]),
               SizedBox(height: 14.h),
 
               // Card — Figma: 342×131 #201F1F@40, horizontal layout
-              Container(
-                padding: EdgeInsets.all(24.r),
-                decoration: BoxDecoration(
-                  color: const Color(0x66201F1F),
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-                child: Row(children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Enable 2FA Protection',
+              GestureDetector(
+                onTap: _openMfa,
+                child: Container(
+                  padding: EdgeInsets.all(24.r),
+                  decoration: BoxDecoration(
+                    color: const Color(0x66201F1F),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Row(children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Two-Factor Authentication',
+                              style: TextStyle(
+                                  color: context.txtPri,
+                                  fontSize: 16.sp, fontWeight: FontWeight.w400)),
+                          SizedBox(height: 8.h),
+                          Text(
+                            _mfaSubtitle,
                             style: TextStyle(
-                                color: const Color(0xFFE5E2E1),
-                                fontSize: 16.sp, fontWeight: FontWeight.w400)),
-                        SizedBox(height: 8.h),
-                        Text(
-                          'Secure your account with a code from your email or phone on every new login attempt.',
-                          style: TextStyle(
-                              color: const Color(0xFFE2BFA0), fontSize: 12.sp,
-                              fontWeight: FontWeight.w500, height: 1.4),
-                        ),
-                      ],
+                                color: _mfaConfigured
+                                    ? kCyan
+                                    : context.txtSec,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w600),
+                          ),
+                          SizedBox(height: 8.h),
+                          Text(
+                            'Secure your account with a code from your email or phone.',
+                            style: TextStyle(
+                                color: context.txtSec, fontSize: 12.sp,
+                                fontWeight: FontWeight.w500, height: 1.4),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  SizedBox(width: 16.w),
-                  Switch(
-                    value: _twoFA,
-                    onChanged: (v) {
-                      setState(() => _twoFA = v);
-                      ScaffoldMessenger.of(context)
-                        ..hideCurrentSnackBar()
-                        ..showSnackBar(SnackBar(
-                          content: Text(
-                              v ? '2FA enabled' : '2FA disabled'),
-                          backgroundColor:
-                              v ? kCyan : context.txtSec,
-                          behavior: SnackBarBehavior.floating,
-                        ));
-                    },
-                    activeColor: kOrange,
-                    activeTrackColor: kOrange.withOpacity(0.4),
-                    inactiveThumbColor: context.txtSec,
-                    inactiveTrackColor: context.border,
-                  ),
-                ]),
+                    SizedBox(width: 16.w),
+                    Icon(Icons.chevron_right_rounded,
+                        color: context.txtSec, size: 22.w),
+                  ]),
+                ),
               ),
 
               SizedBox(height: 32.h),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gamearn/l10n/app_localizations.dart';
 import '../../theme.dart';
+import '../../services/language_service.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  SELECT LANGUAGE SCREEN — Figma matched (2110:3215, 390×844)
@@ -9,8 +11,7 @@ import '../../theme.dart';
 //    #FFFFFF@60
 //  Suggested: English (US) fs18 w700 + sub "Default system
 //    language" fs12 #FFFFFF@60 · selected row #22D1EE@10, radio 24
-//  All Languages: Spanish / French / German / Chinese (Simplified)
-//    / Japanese / Portuguese fs18 w500 + radio 24 outline
+//  All Languages: French / Spanish fs18 w500 + radio 24 outline
 //  Save: 343×56 #FF5E00 · footer "Secured by Gamearn" fs12 #475569
 // ════════════════════════════════════════════════════════════════
 
@@ -22,18 +23,20 @@ class LanguageScreen extends StatefulWidget {
 }
 
 class _LanguageScreenState extends State<LanguageScreen> {
-  String _selected = 'English (US)';
+  String _selected = LanguageService.instance.languageCode;
   final _searchCtrl = TextEditingController();
 
-  static const _languages = [
-    'Spanish', 'French', 'German',
-    'Chinese (Simplified)', 'Japanese', 'Portuguese',
+  static const _languages = <String>[
+    AppLanguage.french,
+    AppLanguage.spanish,
   ];
+
+  String _displayName(String code) => AppLanguage.displayName(code);
 
   List<String> get _filtered {
     final q = _searchCtrl.text.trim().toLowerCase();
     if (q.isEmpty) return _languages;
-    return _languages.where((l) => l.toLowerCase().contains(q)).toList();
+    return _languages.where((l) => _displayName(l).toLowerCase().contains(q)).toList();
   }
 
   @override
@@ -43,7 +46,9 @@ class _LanguageScreenState extends State<LanguageScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Scaffold(
     backgroundColor: context.bg,
     body: SafeArea(
       child: Column(children: [
@@ -51,21 +56,21 @@ class _LanguageScreenState extends State<LanguageScreen> {
         Container(
           width: double.infinity,
           padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
-          decoration: const BoxDecoration(
-            color: Color(0xE60B0E1A),
-            border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+          decoration: BoxDecoration(
+            color: context.bg,
+            border: Border(bottom: BorderSide(color: context.border, width: 1)),
           ),
           child: Row(children: [
             GestureDetector(
               onTap: () => Navigator.maybePop(context),
               child: Icon(Icons.close_rounded,
-                  color: Color(0xFFF1F5F9), size: 20.w),
+                  color: context.txtPri, size: 20.w),
             ),
             Expanded(
-              child: Text('Select Language',
+              child: Text(l10n.languageTitle,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      color: Color(0xFFF1F5F9),
+                      color: context.txtPri,
                       fontSize: 18.sp, fontWeight: FontWeight.w700)),
             ),
             SizedBox(width: 20.w),
@@ -89,18 +94,18 @@ class _LanguageScreenState extends State<LanguageScreen> {
                 ),
                 child: Row(children: [
                   Icon(Icons.search_rounded,
-                      color: Color(0x99FFFFFF), size: 20.w),
+                      color: context.txtSec, size: 20.w),
                   SizedBox(width: 12.w),
                   Expanded(
                     child: TextField(
                       controller: _searchCtrl,
                       onChanged: (_) => setState(() {}),
                       style: TextStyle(
-                          color: Colors.white, fontSize: 16.sp),
+                          color: context.txtPri, fontSize: 16.sp),
                       decoration: InputDecoration(
-                        hintText: 'Search for a language',
+                        hintText: l10n.languageSearchHint,
                         hintStyle: TextStyle(
-                            color: Color(0x99FFFFFF), fontSize: 16.sp),
+                            color: context.txtSec, fontSize: 16.sp),
                         border: InputBorder.none,
                         isDense: true,
                       ),
@@ -112,28 +117,28 @@ class _LanguageScreenState extends State<LanguageScreen> {
               SizedBox(height: 24.h),
 
               // ── SUGGESTED ─────────────────────────────────────────────
-              Text('Suggested',
+              Text(l10n.languageSuggested,
                   style: TextStyle(
-                      color: Color(0x99FFFFFF), fontSize: 12.sp,
+                      color: context.txtSec, fontSize: 12.sp,
                       fontWeight: FontWeight.w500)),
               SizedBox(height: 10.h),
               _langRow(
-                name: 'English (US)',
-                sub: 'Default system language',
-                selected: _selected == 'English (US)',
-                onTap: () => setState(() => _selected = 'English (US)'),
+                name: l10n.languageEnglishUs,
+                sub: l10n.languageDefaultSystem,
+                selected: _selected == AppLanguage.english,
+                onTap: () => setState(() => _selected = AppLanguage.english),
               ),
 
               SizedBox(height: 24.h),
 
               // ── ALL LANGUAGES ─────────────────────────────────────────
-              Text('All Languages',
+              Text(l10n.languageAll,
                   style: TextStyle(
-                      color: Color(0x99FFFFFF), fontSize: 12.sp,
+                      color: context.txtSec, fontSize: 12.sp,
                       fontWeight: FontWeight.w500)),
               SizedBox(height: 10.h),
               ..._filtered.map((lang) => _langRow(
-                    name: lang,
+                    name: _displayName(lang),
                     selected: _selected == lang,
                     onTap: () => setState(() => _selected = lang),
                   )),
@@ -151,9 +156,11 @@ class _LanguageScreenState extends State<LanguageScreen> {
               width: double.infinity,
               height: 56.h,
               child: ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
+                  await LanguageService.instance.setLanguage(_selected);
+                  if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Language set to $_selected'),
+                    content: Text(l10n.languageSetTo(_displayName(_selected))),
                     backgroundColor: kOrange,
                     behavior: SnackBarBehavior.floating,
                   ));
@@ -165,7 +172,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
                       borderRadius: BorderRadius.circular(12.r)),
                   elevation: 0,
                 ),
-                child: Text('Save',
+                child: Text(l10n.save,
                     style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
@@ -173,10 +180,10 @@ class _LanguageScreenState extends State<LanguageScreen> {
               ),
             ),
             SizedBox(height: 24.h),
-            Text('Secured by Gamearn',
+            Text(l10n.secByGamearn,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: Color(0xFF475569), fontSize: 12.sp,
+                    color: context.txtSec, fontSize: 12.sp,
                     fontWeight: FontWeight.w400)),
             SizedBox(height: 12.h),
           ]),
@@ -184,6 +191,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
       ]),
     ),
   );
+  }
 
   Widget _langRow({
     required String name,
@@ -206,13 +214,13 @@ class _LanguageScreenState extends State<LanguageScreen> {
             children: [
               Text(name,
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 18.sp, fontWeight: FontWeight.w700)),
               if (sub != null) ...[
                 SizedBox(height: 3.h),
                 Text(sub,
                     style: TextStyle(
-                        color: Color(0x99FFFFFF), fontSize: 12.sp,
+                        color: context.txtSec, fontSize: 12.sp,
                         fontWeight: FontWeight.w500)),
               ],
             ],
@@ -223,7 +231,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
             ? Icon(Icons.check_circle_rounded,
                 color: kCyan, size: 24.w)
             : Icon(Icons.radio_button_unchecked_rounded,
-                color: Colors.white, size: 24.w),
+                color: context.txtPri, size: 24.w),
       ]),
     ),
   );

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../theme.dart';
 import '../wallet/buy_coins_screen.dart';
 import 'live_tournament_screen.dart';
@@ -156,13 +157,13 @@ class _TournamentEntryScreenState extends State<TournamentEntryScreen>
               SizedBox(height: 20.h),
               Text("You're In!",
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontWeight: FontWeight.w900,
                       fontSize: 24.sp)),
               SizedBox(height: 8.h),
               Text('Successfully registered for\n${widget.title}',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, fontSize: 14.sp)),
+                  style: TextStyle(color: context.txtSec, fontSize: 14.sp)),
               SizedBox(height: 6.h),
               Text('${widget.entryFee} coins deducted',
                   style: TextStyle(color: Colors.white38, fontSize: 12.sp)),
@@ -219,12 +220,12 @@ class _TournamentEntryScreenState extends State<TournamentEntryScreen>
               SizedBox(height: 12.h),
               Text('Not Enough Coins',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontWeight: FontWeight.w700,
                       fontSize: 18.sp)),
               SizedBox(height: 8.h),
               Text('You need ${widget.entryFee - _coinBalance} more coins.',
-                  style: TextStyle(color: Colors.white54, fontSize: 13.sp)),
+                  style: TextStyle(color: context.txtSec, fontSize: 13.sp)),
               SizedBox(height: 24.h),
               SizedBox(
                 width: double.infinity, height: 50.h,
@@ -253,12 +254,10 @@ class _TournamentEntryScreenState extends State<TournamentEntryScreen>
     );
   }
 
-  void _invite() {
+  Future<void> _invite() async {
     HapticFeedback.selectionClick();
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Share link coming soon!'),
-      backgroundColor: _cyan,
-    ));
+    await SharePlus.instance.share(ShareParams(
+        text: 'Check out "${widget.title}" on Gamearn! Play classic Nigerian games and win real money. Download now to join the tournament.'));
   }
 
   @override
@@ -324,7 +323,7 @@ class _TournamentEntryScreenState extends State<TournamentEntryScreen>
                     Center(
                       child: Text('Secured by GamEarn Wallet',
                           style: TextStyle(
-                              color: Colors.white, fontSize: 10.sp)),
+                              color: context.txtSec, fontSize: 10.sp)),
                     ),
                   ],
                 );
@@ -355,12 +354,12 @@ class _Header extends StatelessWidget {
         GestureDetector(
           onTap: () => Navigator.pop(context),
           child: Icon(Icons.close_rounded,
-              color: const Color(0xFFF1F5F9), size: 20.w),
+              color: context.txtPri, size: 20.w),
         ),
         SizedBox(width: 12.w),
         Text('Tournament Created',
             style: TextStyle(
-                color: const Color(0xFFF1F5F9),
+                color: context.txtPri,
                 fontSize: 18.sp,
                 fontWeight: FontWeight.w700)),
       ]),
@@ -390,9 +389,9 @@ class _TournamentCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: context.card,
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: const Color(0xFF1E293B)),
+        border: Border.all(color: context.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(children: [
@@ -429,13 +428,13 @@ class _TournamentCard extends StatelessWidget {
               SizedBox(height: 14.h),
               Text(title,
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 20.sp,
                       fontWeight: FontWeight.w700)),
               SizedBox(height: 6.h),
               Text('Join the elite circle of ${gameKey.toUpperCase()} masters.',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w500)),
             ],
@@ -467,14 +466,14 @@ class _Countdown extends StatelessWidget {
             Container(
               height: 64.h,
               decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
+                color: context.card,
                 borderRadius: BorderRadius.circular(12.r),
-                border: Border.all(color: const Color(0xFF1E293B)),
+                border: Border.all(color: context.border),
               ),
               child: Center(
                 child: Text(c.$1,
                     style: TextStyle(
-                        color: Colors.white,
+                        color: context.txtPri,
                         fontSize: 20.sp,
                         fontWeight: FontWeight.w700)),
               ),
@@ -482,7 +481,7 @@ class _Countdown extends StatelessWidget {
             SizedBox(height: 8.h),
             Text(c.$2,
                 style: TextStyle(
-                    color: Colors.white,
+                    color: context.txtSec,
                     fontSize: 12.sp,
                     fontWeight: FontWeight.w500)),
           ]),
@@ -503,16 +502,16 @@ class _EntryFeeSection extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(20.r),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: context.card,
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: const Color(0xFF1E293B)),
+        border: Border.all(color: context.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('ENTRY FEE',
               style: TextStyle(
-                  color: const Color(0xFF94A3B8),
+                  color: context.txtSec,
                   fontSize: 12.sp,
                   fontWeight: FontWeight.w700)),
           SizedBox(height: 6.h),
@@ -551,7 +550,7 @@ class _ProgressSection extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(20.r),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: context.card,
         borderRadius: BorderRadius.circular(12.r),
       ),
       child: Column(
@@ -575,7 +574,7 @@ class _ProgressSection extends StatelessWidget {
           SizedBox(height: 10.h),
           Text(
               'The tournament will unlock automatically once the pool is filled.',
-              style: TextStyle(color: Colors.white, fontSize: 10.sp)),
+              style: TextStyle(color: context.txtSec, fontSize: 10.sp)),
         ],
       ),
     );
@@ -608,12 +607,12 @@ class _ProgressRingSection extends StatelessWidget {
             children: [
               Text('$joined',
                   style: TextStyle(
-                      color: const Color(0xFFF1F5F9),
+                      color: context.txtPri,
                       fontSize: 32.sp,
                       fontWeight: FontWeight.w700)),
               Text('Players joined',
                   style: TextStyle(
-                      color: const Color(0xFF64748B),
+                      color: context.txtSec,
                       fontSize: 10.sp,
                       fontWeight: FontWeight.w700)),
               SizedBox(height: 6.h),
@@ -631,7 +630,7 @@ class _ProgressRingSection extends StatelessWidget {
       SizedBox(height: 10.h),
       Text('$left units left to Go Live',
           style: TextStyle(
-              color: Colors.white,
+              color: context.txtPri,
               fontSize: 12.sp,
               fontWeight: FontWeight.w500)),
     ]);
@@ -681,7 +680,7 @@ class _ExpiryRule extends StatelessWidget {
       children: [
         Text('Expiry Rule',
             style: TextStyle(
-                color: Colors.white,
+                color: context.txtPri,
                 fontSize: 16.sp,
                 fontWeight: FontWeight.w700)),
         SizedBox(height: 8.h),

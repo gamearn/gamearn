@@ -56,6 +56,9 @@ Prompt.txt
 # Node
 node_modules/
 
+# Firebase Cloud Functions deps
+functions/node_modules/
+
 # Firebase cache
 .firebase/
 
@@ -63,4 +66,17 @@ node_modules/
 opencode.json
 
 # Internal docs (not for repo)
-DESIGN_SYSTEM_REVIEW.md
+DESIGN_SYSTEM_REVIEW.md
+
+# Internal design/figma working files (local only)
+FIGMA_ALIGNMENT_LOG.md
+FIGMA_ALIGNMENT_PLAN.md
+figma_design.json
+figma_design_bearer.json
+figma_file_tree.json
+
+# Internal figma tooling (local only)
+parse.py
+parse_figma.py
+tool/figma_colors.ps1
+tool/figma_export.ps1

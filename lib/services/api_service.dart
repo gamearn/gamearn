@@ -100,6 +100,7 @@ class ApiService {
   static Future<Map<String, dynamic>> registerBackendUser({
     required String phoneNumber,
     required String displayName,
+    String? referralCode,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -110,6 +111,8 @@ class ApiService {
       'phoneNumber': phoneNumber,
       'displayName': displayName,
       'idToken': idToken,
+      if (referralCode != null && referralCode.isNotEmpty)
+        'referralCode': referralCode,
     }, auth: false);
     return data is Map<String, dynamic> ? data : <String, dynamic>{};
   }
@@ -160,6 +163,106 @@ class ApiService {
           .toList();
     }
     return const [];
+  }
+
+  // ── MFA (Multi-Factor Authentication) ──────────────────────────────────────
+
+  /// Current MFA configuration + linked authenticators.
+  static Future<Map<String, dynamic>> getMfaStatus() async {
+    final data = await get('/auth/mfa/status');
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  /// Begin enrolling a second factor.
+  /// Type 'email'  -> sends a 6-digit code to [value].
+  /// Type 'phone'  -> returns a hint; SMS delivered via Firebase on the client.
+  static Future<Map<String, dynamic>> enrollMfa({
+    required String factor,
+    String? value,
+  }) async {
+    final data = await post('/auth/mfa/enroll', {
+      'factor': factor,
+      if (value != null) 'value': value,
+    });
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  /// Verify a second factor.
+  /// Email factor: { email, code }.
+  /// Phone factor: { phone, idToken } (firebase-verified SMS).
+  static Future<Map<String, dynamic>> verifyMfa({
+    required String factor,
+    String? email,
+    String? phone,
+    String? code,
+    String? idToken,
+  }) async {
+    final data = await post('/auth/mfa/verify', {
+      'factor': factor,
+      if (email != null) 'email': email,
+      if (phone != null) 'phone': phone,
+      if (code != null) 'code': code,
+      if (idToken != null) 'idToken': idToken,
+    });
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  // ── Premium (server-side DB-backed pricing) ────────────────────────────────
+
+  /// Active premium plans from the server: `{ code, name, priceNaira, price, durationDays }`.
+  static Future<List<Map<String, dynamic>>> getPremiumPlans() async {
+    final data = await get('/premium/plans');
+    if (data is List) {
+      return data
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+    return const [];
+  }
+
+  /// Current user's premium status: `{ isPremium, premiumUntil }`.
+  static Future<Map<String, dynamic>> getPremiumStatus() async {
+    final data = await get('/premium/status');
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  /// Start a Paystack premium purchase. Returns
+  /// `{ txRef, paymentLink, plan, planName, amount }`.
+  static Future<Map<String, dynamic>> initiatePremium({
+    required String plan,
+    String paymentMethod = 'card',
+  }) async {
+    final data = await post('/premium/initiate', {
+      'plan': plan,
+      'paymentMethod': paymentMethod,
+    });
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  /// Verify a premium purchase and grant it if paid.
+  static Future<Map<String, dynamic>> verifyPremium(String txRef) async {
+    final data = await post('/premium/verify/$txRef', {});
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  // ── Account ────────────────────────────────────────────────────────────────
+
+  /// Permanently delete the account. Sends the typed-confirmation string.
+  static Future<Map<String, dynamic>> deleteAccount({
+    required String confirmation,
+  }) async {
+    final data = await post('/auth/delete-account', {'confirmation': confirmation});
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  // ── Referral ───────────────────────────────────────────────────────────────
+
+  /// User's referral code/link, referees count and total commission earned:
+  /// `{ referralCode, referralLink, referees, totalCommission }`.
+  static Future<Map<String, dynamic>> getReferralInfo() async {
+    final data = await get('/referral/me');
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
   }
 }
 

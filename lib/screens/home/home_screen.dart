@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:gamearn/l10n/app_localizations.dart';
 
 import '../../services/firestore_cache.dart';
 import '../../theme.dart';
@@ -66,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
@@ -116,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 children: [
                                   Text(username,
                                       style: TextStyle(
-                                          color: Colors.white,
+                                          color: context.txtPri,
                                           fontWeight: FontWeight.w400,
                                           fontSize: 16.sp)),
                                   Text(status,
@@ -157,14 +159,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Text('$_welcomeMsg $username!',
                                 style: TextStyle(
-                                    color: const Color(0xFFF1F5F9),
+                                    color: context.txtPri,
                                     fontSize: 28.sp,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -0.3)),
                             SizedBox(height: 2.h),
-                            Text('You can earn points by keeping your streak.',
+                            Text(l10n.homeEarnByKeepingStreak,
                                 style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
+                                    color: context.txtSec,
                                     fontSize: 16.sp)),
                           ],
                         ),
@@ -177,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 0),
                         child: Row(children: [
                           Expanded(child: _StatCard(
-                            label: 'Wallet Balance',
+                            label: l10n.homeWalletBalance,
                             value: '₦$balance',
                             sub: '+500 / day',
                             icon: Icons.account_balance_wallet_rounded,
@@ -187,9 +189,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             onTap: () => Navigator.push(context,
                                 MaterialPageRoute(builder: (_) => const DailyStreakScreen())),
                             child: _StatCard(
-                              label: 'Daily Streak',
+                              label: l10n.homeDailyStreak,
                               value: '$streak Days',
-                              sub: 'Tap to claim',
+                              sub: l10n.homeTapToClaim,
                               icon: Icons.local_fire_department_rounded,
                             ),
                           )),
@@ -201,12 +203,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 10.h),
-                        child: _SectionHeader(title: 'Active Tournaments', showAll: true),
+                        child: _SectionHeader(title: l10n.homeActiveTournaments),
                       ),
                     ),
                     SliverToBoxAdapter(
                       child: SizedBox(
-                        height: 195.h,
+                        height: 150.h,
                         child: FutureBuilder<List<Map<String, dynamic>>>(
                           future: FirestoreCache.instance.query('home/tournaments',
                             ttl: const Duration(minutes: 5),
@@ -230,11 +232,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
 
-                    // ── GAMES GRID — Figma 1485:630 ──────────────────────
+                    // ── GAMES GRID — reduced sizes ─────────────────────────
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 12.h),
-                        child: _SectionHeader(title: 'GAMES', showAll: true, orangeViewAll: true),
+                        child: _SectionHeader(title: l10n.homeGames),
                       ),
                     ),
                     SliverToBoxAdapter(
@@ -262,9 +264,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 10.h),
-                        child: Text('Global Leaderboard',
+                        child:                         Text(l10n.homeGlobalLeaderboard,
                             style: TextStyle(
-                                color: Colors.white,
+                                color: context.txtPri,
                                 fontSize: 18.sp,
                                 fontWeight: FontWeight.w700)),
                       ),
@@ -342,7 +344,7 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 107.h,
+    height: 90.h,
     padding: EdgeInsets.all(16.r),
     decoration: BoxDecoration(
       color: kCyan.withOpacity(0.05),
@@ -360,7 +362,7 @@ class _StatCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                    color: const Color(0xFFF1F5F9),
+                    color: context.txtPri,
                     fontSize: 12.sp, fontWeight: FontWeight.w500)),
           ),
         ]),
@@ -368,7 +370,7 @@ class _StatCard extends StatelessWidget {
         Text(value,
             maxLines: 1, overflow: TextOverflow.ellipsis,
             style: TextStyle(
-                color: const Color(0xFFF1F5F9),
+                color: context.txtPri,
                 fontSize: 20.sp, fontWeight: FontWeight.w700)),
         SizedBox(height: 8.h),
         Text(sub,
@@ -384,22 +386,11 @@ class _StatCard extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 class _SectionHeader extends StatelessWidget {
   final String title;
-  final bool showAll;
-  final bool orangeViewAll;
-  const _SectionHeader({required this.title, required this.showAll, this.orangeViewAll = false});
+  const _SectionHeader({required this.title});
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(title, style: TextStyle(
-          color: Colors.white, fontSize: 18.sp, fontWeight: FontWeight.w700)),
-      if (showAll)
-        Text('View All', style: TextStyle(
-            color: orangeViewAll ? kOrange : kCyan,
-            fontSize: 12.sp, fontWeight: FontWeight.w700)),
-    ],
-  );
+  Widget build(BuildContext context) => Text(title, style: TextStyle(
+      color: context.txtPri, fontSize: 18.sp, fontWeight: FontWeight.w700));
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -411,6 +402,7 @@ class _TournamentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final title     = data['title']       as String? ?? 'Tournament';
     final prize     = data['prizePool']   as String? ?? '0';
     final players   = data['playerCount'] as int?     ?? 0;
@@ -420,10 +412,10 @@ class _TournamentCard extends StatelessWidget {
 
     return Container(
       width: 342.w,
-      height: 195.h,
+      height: 150.h,
       margin: EdgeInsets.only(right: 16.w),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: context.card,
         borderRadius: BorderRadius.circular(12.r),
       ),
       child: ClipRRect(
@@ -450,9 +442,9 @@ class _TournamentCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  if (active) _Chip(label: '● Live', color: const Color(0xFF2AE500)),
+                  if (active) _Chip(label: '● ${l10n.homeLive}', color: const Color(0xFF2AE500)),
                   if (active) SizedBox(width: 8.w),
-                  _Chip(label: '$players Players', color: Colors.white),
+                  _Chip(label: l10n.homePlayersCount(players), color: Colors.white),
                 ]),
                 const Spacer(),
                 Text(title,
@@ -463,7 +455,7 @@ class _TournamentCard extends StatelessWidget {
                         fontSize: 15.sp, fontWeight: FontWeight.w800)),
                 SizedBox(height: 4.h),
                 Row(children: [
-                  Text('Prize Pool  ',
+                  Text(l10n.homePrizePool,
                       style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11.sp)),
                   Text('₦$prize',
                       style: TextStyle(
@@ -513,7 +505,7 @@ class _GamesGrid extends StatelessWidget {
         crossAxisCount: 2,
         crossAxisSpacing: 15.w,
         mainAxisSpacing: 15.w,
-        childAspectRatio: 1,
+        childAspectRatio: 0.75,
       ),
       itemCount: games.length,
       itemBuilder: (_, i) => _GameTile(data: games[i], uid: uid),
@@ -528,10 +520,12 @@ class _GameTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final title    = data['title']     as String? ?? 'Game';
     final assetKey = (data['assetKey'] as String? ?? '').toLowerCase();
     final count    = data['playCount'] as int? ?? 0;
     final asset    = _assetFor(assetKey);
+    final playLabel = count >= 1000 ? '${(count / 1000).toStringAsFixed(1)}k' : '$count';
 
     String gameKey = 'whot';
     Widget gameScreen = WhotGameScreen(
@@ -568,7 +562,7 @@ class _GameTile extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: const Color(0xFF1E293B), width: 1.w),
+          border: Border.all(color: context.border, width: 1.w),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12.r),
@@ -601,10 +595,7 @@ class _GameTile extends StatelessWidget {
                           color: Colors.white,
                           fontSize: 12.sp, fontWeight: FontWeight.w800),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text(
-                    count >= 1000
-                        ? '${(count / 1000).toStringAsFixed(1)}k playing'
-                        : '$count playing',
+                  Text(l10n.homePlayingCount(playLabel),
                     style: TextStyle(
                         color: kCyan, fontSize: 10.sp),
                   ),
@@ -629,7 +620,6 @@ class _LeaderboardSection extends StatefulWidget {
 
 class _LeaderboardSectionState extends State<_LeaderboardSection> {
   int _tab = 0;
-  static const _tabs = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
 
   String get _field => switch (_tab) {
     1 => 'weeklyScore',
@@ -640,6 +630,8 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final tabs = [l10n.homeLbDaily, l10n.homeLbWeekly, l10n.homeLbMonthly, l10n.homeLbYearly];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -653,7 +645,7 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
               borderRadius: BorderRadius.circular(8.r),
             ),
             child: Row(
-              children: List.generate(_tabs.length, (i) {
+              children: List.generate(tabs.length, (i) {
                 final active = i == _tab;
                 return Expanded(
                   child: GestureDetector(
@@ -665,7 +657,7 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
                         borderRadius: BorderRadius.circular(6.r),
                       ),
                       child: Center(
-                            child: Text(_tabs[i],
+                            child: Text(tabs[i],
                                 style: TextStyle(
                                     color: active ? const Color(0xFF0B0E1A) : context.txtSec,
                                 fontSize: 11.sp, fontWeight: FontWeight.w700)),
@@ -698,7 +690,7 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
             if (docs.isEmpty) {
               return Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
-                child: Center(child: Text('No data yet.',
+                child: Center(child: Text(l10n.homeNoDataYet,
                     style: TextStyle(color: context.txtSec))),
               );
             }
@@ -734,7 +726,7 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
                       width: 32.w, height: 32.w,
                       decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFF0F172A),
+                          color: context.card,
                           border: Border.all(
                               color: top ? kOrange.withOpacity(0.5) : context.border)),
                       child: Center(child: Text(emoji,
@@ -746,7 +738,7 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
                             color: context.txtPri, fontSize: 13.sp,
                             fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis)),
-                    Text('$score pts',
+                    Text(l10n.homeScorePts((score as num).toInt()),
                         style: TextStyle(
                             color: kCyan, fontSize: 13.sp, fontWeight: FontWeight.w700)),
                   ]),
@@ -766,7 +758,7 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
               decoration: BoxDecoration(
                 color: kCyan, borderRadius: BorderRadius.circular(8.r)),
               child: Center(
-                child: Text('View Full Leaderboard',
+                child: Text(l10n.homeViewFullLeaderboard,
                     style: TextStyle(
                         color: const Color(0xFF0B0E1A),
                         fontSize: 14.sp, fontWeight: FontWeight.w800)),
@@ -781,7 +773,7 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
                 border: Border.all(color: context.border),
               ),
               child: Center(
-                child: Text('My Rankings',
+                child: Text(l10n.homeMyRankings,
                     style: TextStyle(
                         color: context.txtPri,
                         fontSize: 14.sp, fontWeight: FontWeight.w700)),

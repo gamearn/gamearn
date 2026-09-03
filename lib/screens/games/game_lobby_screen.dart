@@ -190,7 +190,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                             child: Center(
                               child: Text(_fmt(s),
                                   style: TextStyle(
-                                      color: active ? const Color(0xFF0B0E1A) : Colors.white70,
+                                      color: active ? const Color(0xFF0B0E1A) : context.txtSec,
                                       fontSize: 13.sp,
                                       fontWeight: active ? FontWeight.w900 : FontWeight.w500)),
                             ),
@@ -346,7 +346,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
               child: Center(
                 child: Text(label,
                     style: TextStyle(
-                        color: active ? const Color(0xFF0B0E1A) : const Color(0xFF9A9A9A),
+                        color: active ? const Color(0xFF0B0E1A) : context.txtSec,
                         fontSize: 13.sp,
                         fontWeight: active ? FontWeight.w900 : FontWeight.w600)),
               ),
@@ -387,7 +387,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                   child: Center(
                     child: Text(o,
                         style: TextStyle(
-                            color: active ? const Color(0xFF0B0E1A) : const Color(0xFF9A9A9A),
+                            color: active ? const Color(0xFF0B0E1A) : context.txtSec,
                             fontSize: 12.sp,
                             fontWeight: active ? FontWeight.w900 : FontWeight.w600)),
                   ),

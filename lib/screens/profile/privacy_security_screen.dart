@@ -39,21 +39,21 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
         Container(
           width: double.infinity,
           padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
-          decoration: const BoxDecoration(
-            color: Color(0xE60B0E1A),
-            border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+          decoration: BoxDecoration(
+            color: context.bg,
+            border: Border(bottom: BorderSide(color: context.border, width: 1)),
           ),
           child: Row(children: [
             GestureDetector(
               onTap: () => Navigator.maybePop(context),
               child: Icon(Icons.close_rounded,
-                  color: const Color(0xFFF1F5F9), size: 20.w),
+                  color: context.txtPri, size: 20.w),
             ),
             Expanded(
               child: Text('Privacy & Security',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      color: const Color(0xFFF1F5F9),
+                      color: context.txtPri,
                       fontSize: 18.sp, fontWeight: FontWeight.w700)),
             ),
             SizedBox(width: 20.w),
@@ -108,7 +108,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                     Text(
                       'Manage your digital footprint and\nsecure your gaming legacy across the\nGamearn.',
                       style: TextStyle(
-                          color: const Color(0x99FFFFFF), fontSize: 16.sp,
+                          color: context.txtSec, fontSize: 16.sp,
                           fontWeight: FontWeight.w400, height: 1.625),
                     ),
                   ]),
@@ -248,14 +248,14 @@ class _Section extends StatelessWidget {
         Expanded(
           child: Text(title,
               style: TextStyle(
-                  color: Colors.white,
+                  color: context.txtPri,
                   fontSize: 20.sp, fontWeight: FontWeight.w700,
                   letterSpacing: -0.5.w)),
         ),
         if (trailingText != null)
           Text(trailingText!,
               style: TextStyle(
-                  color: const Color(0xB3FFFFFF), fontSize: 12.sp,
+                  color: context.txtSec, fontSize: 12.sp,
                   fontWeight: FontWeight.w500)),
       ]),
       SizedBox(height: 16.h),
@@ -296,12 +296,12 @@ class _ToggleTile extends StatelessWidget {
           children: [
             Text(title,
                 style: TextStyle(
-                    color: Colors.white,
+                    color: context.txtPri,
                     fontSize: 14.sp, fontWeight: FontWeight.w700)),
             SizedBox(height: 2.h),
             Text(sub,
                 style: TextStyle(
-                    color: const Color(0xB3FFFFFF), fontSize: 12.sp,
+                    color: context.txtSec, fontSize: 12.sp,
                     fontWeight: FontWeight.w500)),
           ],
         ),
@@ -353,12 +353,12 @@ class _RadioTile extends StatelessWidget {
             children: [
               Text(title,
                   style: TextStyle(
-                      color: Colors.white,
+                      color: context.txtPri,
                       fontSize: 14.sp, fontWeight: FontWeight.w700)),
               SizedBox(height: 2.h),
               Text(sub,
                   style: TextStyle(
-                      color: const Color(0xB3FFFFFF), fontSize: 12.sp,
+                      color: context.txtSec, fontSize: 12.sp,
                       fontWeight: FontWeight.w500, height: 1.3)),
             ],
           ),
@@ -412,12 +412,12 @@ class _AppRow extends StatelessWidget {
           children: [
             Text(name,
                 style: TextStyle(
-                    color: Colors.white,
+                    color: context.txtPri,
                     fontSize: 14.sp, fontWeight: FontWeight.w700)),
             SizedBox(height: 2.h),
             Text(sub,
                 style: TextStyle(
-                    color: const Color(0xB3FFFFFF), fontSize: 12.sp,
+                    color: context.txtSec, fontSize: 12.sp,
                     fontWeight: FontWeight.w500, height: 1.3)),
           ],
         ),
@@ -427,7 +427,7 @@ class _AppRow extends StatelessWidget {
         onTap: onDisconnect,
         child: Text('Disconnect',
             style: TextStyle(
-                color: const Color(0xE6FFFFFF), fontSize: 12.sp,
+                color: context.txtPri, fontSize: 12.sp,
                 fontWeight: FontWeight.w500)),
       ),
     ]),

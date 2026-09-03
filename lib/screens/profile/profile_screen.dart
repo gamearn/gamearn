@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:gamearn/l10n/app_localizations.dart';
 import '../../services/firestore_cache.dart';
 import '../../theme.dart';
 import 'invite_friends_screen.dart';
+import 'premium_purchase_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  PROFILE SCREEN — Figma matched (390×844)  [1726:1605]
@@ -94,24 +97,25 @@ class ProfileScreen extends StatelessWidget {
 
   // ── HEADER — Figma: Frame 56 ──────────────────────────────────
   Widget _header(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
-      decoration: const BoxDecoration(
-        color: Color(0xE60B0E1A),
-        border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+      decoration: BoxDecoration(
+        color: context.bg,
+        border: Border(bottom: BorderSide(color: context.border, width: 1)),
       ),
       child: Row(children: [
         GestureDetector(
           onTap: () => Navigator.maybePop(context),
           child: Icon(Icons.close_rounded,
-              color: Color(0xFFF1F5F9), size: 20.w),
+              color: context.txtPri, size: 20.w),
         ),
         Expanded(
-          child: Text('My Profile',
+          child: Text(l10n.profileTitle,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: Color(0xFFF1F5F9),
+                  color: context.txtPri,
                   fontSize: 18.sp, fontWeight: FontWeight.w700)),
         ),
         SizedBox(width: 20.w), // balance
@@ -181,6 +185,7 @@ class ProfileScreen extends StatelessWidget {
   // ── EDIT / SHARE — Figma: 165×44 r8 ───────────────────────────
   Widget _actionButtons(BuildContext context, String uid,
       String username, String bio) {
+    final l10n = AppLocalizations.of(context)!;
     return Row(children: [
       Expanded(
         child: GestureDetector(
@@ -192,7 +197,7 @@ class ProfileScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(8.r),
             ),
             child: Center(
-              child: Text('Edit Profile',
+              child: Text(l10n.profileEdit,
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 14.sp, fontWeight: FontWeight.w700)),
@@ -208,11 +213,11 @@ class ProfileScreen extends StatelessWidget {
           child: Container(
             height: 44.h,
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
+              color: context.card,
               borderRadius: BorderRadius.circular(8.r),
             ),
             child: Center(
-              child: Text('Wallet',
+              child: Text(l10n.profileWallet,
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 14.sp, fontWeight: FontWeight.w700)),
@@ -225,20 +230,21 @@ class ProfileScreen extends StatelessWidget {
 
   // ── STAT BOXES — Figma: 3×106×82 r12 ──────────────────────────
   Widget _statRow(BuildContext context, int wins, int games, int dayStreak) {
+    final l10n = AppLocalizations.of(context)!;
     return Row(children: [
       Expanded(child: _ProfileStat(
           value: _fmtCount(wins * 4 + 200),
-          label: 'Followers',
-          fill: const Color(0x801E293B))),
+          label: l10n.profileFollowers,
+          fill: context.border.withOpacity(0.5))),
       SizedBox(width: 10.w),
       Expanded(child: _ProfileStat(
           value: _fmtCount(games * 3 + 100),
-          label: 'Following',
-          fill: const Color(0x801E293B))),
+          label: l10n.profileFollowing,
+          fill: context.border.withOpacity(0.5))),
       SizedBox(width: 10.w),
       Expanded(child: _ProfileStat(
           value: '$dayStreak',
-          label: 'Day Streak',
+          label: l10n.profileDayStreak,
           fill: kCyan.withOpacity(0.10),
           accent: true,
           icon: Icons.local_fire_department_rounded)),
@@ -247,11 +253,12 @@ class ProfileScreen extends StatelessWidget {
 
   // ── SEARCH BAR — Figma: 342×48 r24 #1E293B@50 ─────────────────
   Widget _searchBar(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       height: 48.h,
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
-        color: const Color(0x801E293B),
+        color: context.border.withOpacity(0.5),
         borderRadius: BorderRadius.circular(24.r),
       ),
       child: Row(children: [
@@ -259,7 +266,7 @@ class ProfileScreen extends StatelessWidget {
             color: Color(0x80FFFFFF), size: 18.w),
         SizedBox(width: 12.w),
         Expanded(
-          child: Text('Search Friends',
+          child: Text(l10n.profileSearchFriends,
               style: TextStyle(
                   color: context.txtSec,
                   fontSize: 16.sp, fontWeight: FontWeight.w400)),
@@ -271,15 +278,19 @@ class ProfileScreen extends StatelessWidget {
   // ── ACTIVE FRIENDS ────────────────────────────────────────────
   Widget _activeFriends(BuildContext context,
       List<String> friends, int dayStreak) {
+    final l10n = AppLocalizations.of(context)!;
+    final online = friends.isEmpty
+        ? 12
+        : (friends.length.clamp(0, 12) as num).toInt();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(
-          child: Text('Active Friends',
+          child: Text(l10n.profileActiveFriends,
               style: TextStyle(
-                  color: Color(0x99FFFFFF),
+                  color: context.txtSec,
                   fontSize: 12.sp, fontWeight: FontWeight.w700)),
         ),
-        Text('${friends.isEmpty ? 12 : friends.length.clamp(0, 12)} Online',
+        Text(l10n.profileOnline(online),
             style: TextStyle(
                 color: kOrange, fontSize: 12.sp, fontWeight: FontWeight.w500)),
       ]),
@@ -293,44 +304,55 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _externalContacts(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.only(top: 16.h),
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12.r),
-        color: context.card,
-      ),
-      child: Row(children: [
-        Container(
-          width: 48.w, height: 48.h,
-          decoration: const BoxDecoration(
-            color: Color(0x1AFFFFFF),
-            shape: BoxShape.circle,
+    final l10n = AppLocalizations.of(context)!;
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final refCode = uid.length >= 8 ? uid.substring(0, 8).toUpperCase() : 'CYBER_X_99';
+    final refLink = 'gamearn.gg/ref/$refCode';
+    return GestureDetector(
+      onTap: () async {
+        final text = l10n.profileJoinShare(refLink);
+        await SharePlus.instance.share(ShareParams(text: text));
+      },
+      child: Container(
+        margin: EdgeInsets.only(top: 16.h),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12.r),
+          color: context.card,
+        ),
+        child: Row(children: [
+          Container(
+            width: 48.w, height: 48.h,
+            decoration: BoxDecoration(
+              color: context.txtPri.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.person_add_alt_1_rounded,
+                color: context.txtPri.withOpacity(0.5), size: 22.w),
           ),
-          child: Icon(Icons.person_add_alt_1_rounded,
-              color: Color(0x80FFFFFF), size: 22.w),
-        ),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: Text('Invite from Contacts',
-              style: TextStyle(
-                  color: context.txtPri,
-                  fontSize: 14.sp, fontWeight: FontWeight.w600)),
-        ),
-        Icon(Icons.chevron_right_rounded,
-            color: context.txtPri.withOpacity(0.4), size: 20.w),
-      ]),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Text(l10n.profileInviteFromContacts,
+                style: TextStyle(
+                    color: context.txtPri,
+                    fontSize: 14.sp, fontWeight: FontWeight.w600)),
+          ),
+          Icon(Icons.chevron_right_rounded,
+              color: context.txtPri.withOpacity(0.4), size: 20.w),
+        ]),
+      ),
     );
   }
 
   // ── PERFORMANCE STATS — Figma: Frame 126 ──────────────────────
   Widget _performance(BuildContext context, int level, int xp,
       int xpNext, int wins, num allTime) {
+    final l10n = AppLocalizations.of(context)!;
     final pts = allTime > 0
         ? _fmtNum(allTime.toInt())
         : '24,580';
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Performance Stats',
+      Text(l10n.profilePerformanceStats,
           style: TextStyle(
               color: context.txtPri, fontSize: 18.sp, fontWeight: FontWeight.w700)),
       SizedBox(height: 14.h),
@@ -338,7 +360,7 @@ class ProfileScreen extends StatelessWidget {
         width: double.infinity,
         padding: EdgeInsets.all(20.r),
         decoration: BoxDecoration(
-          color: const Color(0x801E293B),
+          color: context.border.withOpacity(0.5),
           borderRadius: BorderRadius.circular(12.r),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -347,7 +369,7 @@ class ProfileScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('All-time Points',
+                  Text(l10n.profileAllTimePoints,
                       style: TextStyle(
                           color: context.txtSec, fontSize: 12.sp,
                           fontWeight: FontWeight.w700)),
@@ -365,28 +387,28 @@ class ProfileScreen extends StatelessWidget {
                 color: kCyan.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(9999.r),
               ),
-              child: Text('+12% this week',
+              child: Text(l10n.profileThisWeek,
                   style: TextStyle(
                       color: kCyan, fontSize: 12.sp, fontWeight: FontWeight.w700)),
             ),
           ]),
           SizedBox(height: 20.h),
-          _progressRow('Level $level XP', xp, xpNext),
+          _progressRow(context, l10n.profileLevelXp('$level'), xp, xpNext),
           SizedBox(height: 14.h),
-          _progressRow('Total Wins', wins, (wins * 2).clamp(10, 1000)),
+          _progressRow(context, l10n.profileTotalWins, wins, (wins * 2).clamp(10, 1000)),
         ]),
       ),
     ]);
   }
 
-  Widget _progressRow(String label, int value, int total) {
+  Widget _progressRow(BuildContext context, String label, int value, int total) {
     final pct = total > 0 ? (value / total).clamp(0.0, 1.0) : 0.0;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(
           child: Text(label,
               style: TextStyle(
-                  color: Color(0x80FFFFFF), fontSize: 11.sp,
+                  color: context.txtSec, fontSize: 11.sp,
                   fontWeight: FontWeight.w600)),
         ),
         Text('$value / $total',
@@ -408,17 +430,18 @@ class ProfileScreen extends StatelessWidget {
 
   // ── RANK CARDS — Figma: Frame 127 165×106 r12 ─────────────────
   Widget _rankCards(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Row(children: [
       Expanded(child: _RankCard(
           icon: Icons.emoji_events_rounded,
           iconColor: kCyan,
-          label: 'Region Rank',
+          label: l10n.profileRegionRank,
           value: '#42')),
       SizedBox(width: 12.w),
       Expanded(child: _RankCard(
           icon: Icons.public_rounded,
           iconColor: const Color(0xFFFFC107),
-          label: 'Global Rank',
+          label: l10n.profileGlobalRank,
           value: '#1,204')),
     ]);
   }
@@ -442,7 +465,7 @@ const List<Map<String, dynamic>> kMockFriends = [
    'sub': 'Diamond Tier • Level 84', 'following': false},
   {'name': 'Amara', 'emoji': '🦁', 'online': true,
    'sub': 'Master Tier • Level 102', 'following': false},
-  {'name': 'GhostProtocol', 'emoji': '👻', 'online': false,
+  {'name': 'Adekunle', 'emoji': '🦉', 'online': false,
    'sub': 'Gold III • Offline', 'following': true},
   {'name': 'StormWalker', 'emoji': '⛈️', 'online': true,
    'sub': 'Platinum II • In-Game', 'following': false},
@@ -500,24 +523,24 @@ class _RankCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     height: 106.h,
     padding: EdgeInsets.all(16.r),
-    decoration: BoxDecoration(
-      color: const Color(0x801E293B),
-      borderRadius: BorderRadius.circular(12.r),
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: iconColor, size: 18.w),
-        SizedBox(height: 4.h),
-        Text(label,
-            style: TextStyle(
-                color: Color(0x80FFFFFF), fontSize: 12.sp,
-                fontWeight: FontWeight.w700)),
-        SizedBox(height: 2.h),
-        Text(value,
-            style: TextStyle(
-                color: Color(0xFFF1F5F9), fontSize: 18.sp,
-                fontWeight: FontWeight.w700)),
+      decoration: BoxDecoration(
+        color: context.border.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: iconColor, size: 18.w),
+          SizedBox(height: 4.h),
+          Text(label,
+              style: TextStyle(
+                  color: context.txtSec, fontSize: 12.sp,
+                  fontWeight: FontWeight.w700)),
+          SizedBox(height: 2.h),
+          Text(value,
+              style: TextStyle(
+                  color: context.txtPri, fontSize: 18.sp,
+                  fontWeight: FontWeight.w700)),
       ],
     ),
   );
@@ -575,6 +598,7 @@ class _MockFriendRow extends StatelessWidget {
 Widget _friendRow(BuildContext context,
     {required String emoji, required String name,
      required String sub, required bool online, required bool following}) {
+  final l10n = AppLocalizations.of(context)!;
   return Container(
     height: 74.h,
     padding: EdgeInsets.all(12.r),
@@ -588,9 +612,9 @@ Widget _friendRow(BuildContext context,
       Stack(children: [
         Container(
           width: 48.w, height: 48.h,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Color(0xFF0B0E1A),
+            color: context.card,
           ),
           child: Center(
               child: Text(emoji, style: TextStyle(fontSize: 24.sp))),
@@ -602,7 +626,7 @@ Widget _friendRow(BuildContext context,
             decoration: BoxDecoration(
               color: online ? const Color(0xFF22C55E) : const Color(0xFF475569),
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF1A2131), width: 2),
+              border: Border.all(color: context.border, width: 2),
             ),
           ),
         ),
@@ -626,7 +650,7 @@ Widget _friendRow(BuildContext context,
                 style: TextStyle(
                     color: online
                         ? context.txtPri.withOpacity(0.6)
-                        : const Color(0xFF64748B),
+                        : context.txtSec,
                     fontSize: 12.sp, fontWeight: FontWeight.w500)),
           ],
         ),
@@ -638,12 +662,12 @@ Widget _friendRow(BuildContext context,
           padding: EdgeInsets.symmetric(horizontal: 16.w),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8.r),
-            border: Border.all(color: const Color(0x801E293B)),
+            border: Border.all(color: context.border),
           ),
           child: Center(
-            child: Text('Following',
+            child: Text(l10n.profileFollowingBtn,
                 style: TextStyle(
-                    color: Color(0x99FFFFFF),
+                    color: context.txtSec,
                     fontSize: 12.sp, fontWeight: FontWeight.w700)),
           ),
         )
@@ -655,7 +679,7 @@ Widget _friendRow(BuildContext context,
             borderRadius: BorderRadius.circular(8.r),
           ),
           child: Center(
-            child: Text('Invite',
+            child: Text(l10n.profileInviteBtn,
                 style: TextStyle(
                     color: Colors.white,
                     fontSize: 12.sp, fontWeight: FontWeight.w700)),
@@ -671,10 +695,11 @@ class _PremiumSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SizedBox(
         width: double.infinity,
-        child: Text('Go Premium',
+        child: Text(l10n.profileGoPremium,
             textAlign: TextAlign.center,
             style: TextStyle(
                 color: context.txtPri, fontSize: 18.sp,
@@ -685,9 +710,9 @@ class _PremiumSection extends StatelessWidget {
         width: double.infinity,
         padding: EdgeInsets.all(24.r),
         decoration: BoxDecoration(
-          color: const Color(0x800F172A),
+          color: context.card.withOpacity(0.5),
           borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: const Color(0xFF1E293B)),
+          border: Border.all(color: context.border),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
@@ -705,12 +730,12 @@ class _PremiumSection extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Gamearn Premium',
+                  Text(l10n.profilePremiumTitle,
                       style: TextStyle(
                           color: context.txtPri,
                           fontSize: 16.sp, fontWeight: FontWeight.w800)),
                   SizedBox(height: 2.h),
-                  Text('Exclusive rewards',
+                  Text(l10n.profilePremiumSub,
                       style: TextStyle(
                           color: kCyan, fontSize: 12.sp,
                           fontWeight: FontWeight.w600)),
@@ -720,14 +745,15 @@ class _PremiumSection extends StatelessWidget {
           ]),
           SizedBox(height: 16.h),
           Text(
-              'Unlock bigger prize pools, private tournaments and priority '
-              'payouts — the premium experience for serious players.',
+              l10n.profilePremiumBody,
               style: TextStyle(
-                  color: Color(0xFFCBD5E1), fontSize: 13.sp, height: 1.5)),
+                  color: context.txtSec, fontSize: 13.sp, height: 1.5)),
           SizedBox(height: 16.h),
           GestureDetector(
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Premium coming soon'))),
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const PremiumPurchaseScreen())),
             child: Container(
               height: 48.h,
               decoration: BoxDecoration(
@@ -735,9 +761,9 @@ class _PremiumSection extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10.r),
               ),
               child: Center(
-                child: Text('Go Premium',
+                child: Text(l10n.profileGoPremium,
                     style: TextStyle(
-                        color: Color(0xFF0B0E1A),
+                        color: context.txtPri,
                         fontSize: 14.sp, fontWeight: FontWeight.w800)),
               ),
             ),
@@ -790,6 +816,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -801,13 +828,13 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                   color: context.txtPri.withOpacity(0.24),
                   borderRadius: BorderRadius.circular(2.r))),
           SizedBox(height: 20.h),
-          Text('Edit Profile',
+          Text(l10n.profileEditSheetTitle,
               style: TextStyle(color: context.txtPri,
                   fontSize: 17.sp, fontWeight: FontWeight.w800)),
           SizedBox(height: 20.h),
-          _field(_nameCtrl, 'Username', Icons.person_outline_rounded),
+          _field(_nameCtrl, l10n.profileUsernameHint, Icons.person_outline_rounded),
           SizedBox(height: 12.h),
-          _field(_bioCtrl, 'Bio', Icons.edit_note_rounded),
+          _field(_bioCtrl, l10n.profileBioHint, Icons.edit_note_rounded),
           SizedBox(height: 20.h),
           GestureDetector(
             onTap: _saving ? null : _save,
@@ -818,7 +845,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
               child: Center(child: _saving
                   ? const CircularProgressIndicator(
                       color: Colors.white, strokeWidth: 2)
-                  : Text('Save',
+                  : Text(l10n.profileSave,
                       style: TextStyle(color: Colors.white,
                           fontSize: 15.sp, fontWeight: FontWeight.w800))),
             ),

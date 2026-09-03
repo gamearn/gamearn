@@ -13,17 +13,21 @@ import '../../theme.dart';
 import '../../utils/error_utils.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
-const _bg = Color(0xFF0B0E1A);
-const _navy = Color(0xFF0D1B4B);
-const _navyDeep = Color(0xFF060D2E);
+const _bgDark = Color(0xFF0B0E1A);
+const _navyDark = Color(0xFF0D1B4B);
 const _cyan = Color(0xFF22D1EE);
 const _orange = Color(0xFFFF5E00);
 const _white = Color(0xFFFFFFFF);
 const _cardBg = Color(0xFFF4F6FF);
 const _shapeCol = Color(0xFF0D1B4B);
-const _txtPri = Color(0xFFF1F5F9);
-const _txtSub = Color(0xFF94A3B8);
+const _txtPriDark = Color(0xFFF1F5F9);
+const _txtSubDark = Color(0xFF94A3B8);
 const _timerBg = Color(0xFF3D2B1F);
+
+Color _bgFor(BuildContext c) => c.isDark ? _bgDark : kLightBg;
+Color _navyFor(BuildContext c) => c.isDark ? _navyDark : kLightCard;
+Color _txtPriFor(BuildContext c) => c.isDark ? _txtPriDark : kLightText;
+Color _txtSubFor(BuildContext c) => c.isDark ? _txtSubDark : kLightSub;
 
 // ── Shapes ────────────────────────────────────────────────────────────────────
 enum WhotShape { cross, square, circle, triangle, star, whot }
@@ -406,6 +410,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   late AnimationController _bokehCtrl;
   late AnimationController _glowCtrl;
   late Animation<double> _glowAnim;
+  late AnimationController _sidebarCtrl;
+  late Animation<Offset> _sidebarAnim;
 
   // ── Game state ────────────────────────────────────────────────────────────
   List<WhotCard> _hand = [];
@@ -461,6 +467,12 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     _glowAnim = Tween(begin: 0.5, end: 1.0)
         .animate(CurvedAnimation(parent: _glowCtrl, curve: Curves.easeInOut));
 
+    _sidebarCtrl =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 280))
+          ..value = 1.0;
+    _sidebarAnim = Tween(begin: const Offset(1, 0), end: Offset.zero).animate(
+        CurvedAnimation(parent: _sidebarCtrl, curve: Curves.easeOutCubic));
+
     (widget.socketService ?? _DummySocket()).connect(
         roomId: widget.roomId, playerId: widget.playerId, handler: this);
 
@@ -476,6 +488,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   void dispose() {
     _bokehCtrl.dispose();
     _glowCtrl.dispose();
+    _sidebarCtrl.dispose();
     _timer?.cancel();
     widget.socketService?.disconnect();
     super.dispose();
@@ -640,6 +653,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   void onChooseShape() {
     if (!mounted) return;
     setState(() => _showShapeChooser = true);
+    _openSuitChooser();
   }
 
   @override
@@ -700,6 +714,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     }
     if (card.isWhot && chosen == null) {
       setState(() => _showShapeChooser = true);
+      _openSuitChooser();
       return;
     }
 
@@ -902,8 +917,8 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg,
-          style: TextStyle(color: _txtPri, fontWeight: FontWeight.w600)),
-      backgroundColor: _navy,
+          style: TextStyle(color: _txtPriFor(context), fontWeight: FontWeight.w600)),
+      backgroundColor: _navyFor(context),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       duration: const Duration(seconds: 2),
@@ -917,17 +932,16 @@ class _WhotGameScreenState extends State<WhotGameScreen>
       body: Stack(children: [
         _BokehBg(ctrl: _bokehCtrl, bokeh: _bokeh),
         MediaQuery.of(context).orientation == Orientation.landscape
-            ? _landscape()
-            : _portrait(),
+            ? _landscape(context)
+            : _portrait(context),
         if (_isDealing)  _loadingOverlay(),
         if (_dealFailed) _errorOverlay(),
         if (_showShapeChooser) _shapeChooser(),
-        if (_showCallOverlay)  _callCardOverlay(),
-      ]),
+        if (_showCallOverlay)  _callCardOverlay(),      ]),
     );
   }
 
-  Widget _portrait() => SafeArea(
+  Widget _portrait(BuildContext context) => SafeArea(
     child: Column(children: [
       Padding(
         padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
@@ -963,19 +977,19 @@ class _WhotGameScreenState extends State<WhotGameScreen>
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
+              color: context.card,
               borderRadius: BorderRadius.circular(11),
               border: Border.all(color: Colors.white.withOpacity(0.06)),
             ),
             child: Column(children: [
               const SizedBox(height: 12),
-              _oppSection(),
+              _oppSection(context),
               const Spacer(),
-              _centreArea(),
+              _centreArea(context),
               const Spacer(),
-              _actionChips(),
+              _actionChips(context),
               const SizedBox(height: 10),
-              _handFan(),
+              _handFan(context),
               const SizedBox(height: 12),
             ]),
           ),
@@ -984,7 +998,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     ]),
   );
 
-  Widget _oppSection() => Padding(
+  Widget _oppSection(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -999,7 +1013,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
           const SizedBox(height: 4),
           Text(widget.opponentName,
               style: TextStyle(
-                  color: _txtPri, fontSize: 11,
+                  color: _txtPriFor(context), fontSize: 11,
                   fontWeight: FontWeight.w600)),
           if (_botBusy)
             const Text('thinking…',
@@ -1015,7 +1029,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
         Container(
           width: 36, height: 36,
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: context.card,
             shape: BoxShape.circle,
             border: Border.all(color: _cyan.withOpacity(0.3)),
           ),
@@ -1030,7 +1044,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     ),
   );
 
-  Widget _centreArea() => Row(
+  Widget _centreArea(BuildContext context) => Row(
     mainAxisAlignment: MainAxisAlignment.center,
     children: [
       GestureDetector(
@@ -1066,7 +1080,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
           child: Container(
             width: 80, height: 80,
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
+              color: context.card,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Center(
@@ -1078,7 +1092,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     ],
   );
 
-  Widget _actionChips() {
+  Widget _actionChips(BuildContext context) {
     final canCallCard = _hand.length == 1 && !_calledCard;
     final canDraw     = _isMyTurn && !_botBusy;
 
@@ -1145,7 +1159,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     );
   }
 
-  Widget _handFan() {
+  Widget _handFan(BuildContext context) {
     final playable = _playableIndices();
     return SizedBox(
       height: 160,
@@ -1166,7 +1180,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
     );
   }
 
-  Widget _landscape() => SafeArea(
+  Widget _landscape(BuildContext context) => SafeArea(
     child: Stack(children: [
       Positioned(
         top: 12, right: 12,
@@ -1204,7 +1218,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
                 child: Container(
                   width: 59, height: 59,
                   decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: context.card,
                       borderRadius: BorderRadius.circular(11)),
                   child: Center(
                       child: _CardW(card: _topCard, w: 50, h: 62)),
@@ -1287,51 +1301,148 @@ class _WhotGameScreenState extends State<WhotGameScreen>
 
   Widget _shapeChooser() {
     const suits = [
-      (WhotShape.circle,   '●  Circle'),
-      (WhotShape.triangle, '▲  Triangle'),
-      (WhotShape.cross,    '✚  Cross'),
-      (WhotShape.square,   '■  Square'),
-      (WhotShape.star,     '★  Star'),
+      (WhotShape.circle,   'Circle'),
+      (WhotShape.triangle, 'Triangle'),
+      (WhotShape.cross,    'Cross'),
+      (WhotShape.square,   'Square'),
+      (WhotShape.star,     'Star'),
     ];
-    return Container(
-      color: Colors.black.withOpacity(0.85),
-      child: Center(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 32),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F172A),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _cyan.withOpacity(0.3)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Choose a suit',
-                  style: TextStyle(color: Colors.white,
-                      fontSize: 18, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 20),
-              ...suits.map((s) => GestureDetector(
-                onTap: () => _playCard(chosen: s.$1),
-                child: Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _cyan.withOpacity(0.2)),
+    return Stack(children: [
+      Positioned.fill(
+        child: GestureDetector(
+          onTap: () => _closeSuitChooser(),
+          child: Container(
+            color: Colors.black.withOpacity(0.55),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 24),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: context.card,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: _cyan.withOpacity(0.4)),
+                    ),
+                    child: const Text('Call a suit',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800)),
                   ),
-                  child: Center(child: Text(s.$2,
-                      style: TextStyle(color: Colors.white,
-                          fontSize: 16, fontWeight: FontWeight.w600))),
                 ),
-              )),
-            ],
+              ),
+            ),
           ),
         ),
       ),
-    );
+      // Right slide-in sidebar
+      Align(
+        alignment: Alignment.centerRight,
+        child: SlideTransition(
+          position: _sidebarAnim,
+          child: Container(
+            width: 232.w,
+            height: double.infinity,
+            decoration: BoxDecoration(
+              color: context.card,
+              border: Border(left: BorderSide(color: _cyan.withOpacity(0.25))),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 24,
+                    offset: const Offset(-4, 0)),
+              ],
+            ),
+            child: SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+                    child: Row(children: [
+                      const Expanded(
+                        child: Text('Choose a suit',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800)),
+                      ),
+                      GestureDetector(
+                        onTap: _closeSuitChooser,
+                        child: Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: context.card,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded,
+                              color: Colors.white, size: 20),
+                        ),
+                      ),
+                    ]),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      children: [
+                        ...suits.map((s) => GestureDetector(
+                          onTap: () => _playCard(chosen: s.$1),
+                          child: Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: context.card,
+                              borderRadius: BorderRadius.circular(14),
+                              border:
+                                  Border.all(color: _cyan.withOpacity(0.22)),
+                            ),
+                            child: Row(children: [
+                              // Shape-only card (no numbers)
+                              _CardW(
+                                card: WhotCard(shape: s.$1, number: 1),
+                                w: 40,
+                                h: 56,
+                                shapeOnly: true,
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Text(s.$2,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700)),
+                              ),
+                              const Icon(Icons.chevron_right_rounded,
+                                  color: _cyan, size: 20),
+                            ]),
+                          ),
+                        )),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  void _openSuitChooser() {
+    _sidebarCtrl.reset();
+    _sidebarCtrl.forward();
+  }
+
+  void _closeSuitChooser() {
+    _sidebarCtrl.reverse().then((_) {
+      if (mounted) setState(() => _showShapeChooser = false);
+    });
   }
 
   Widget _callCardOverlay() => GestureDetector(
@@ -1366,23 +1477,23 @@ class _TimerBadge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     width: 52, height: 52,
     decoration: BoxDecoration(
-      color: const Color(0xFF1E293B),
+      color: context.card,
       borderRadius: BorderRadius.circular(12),
       border: Border.all(
-          color: myTurn ? _cyan : Colors.white.withOpacity(0.1), width: 2),
+          color: myTurn ? _cyan : context.border.withOpacity(0.1), width: 2),
     ),
     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       Text('$sec',
           style: TextStyle(
               color: sec <= 5 ? Colors.red : _cyan,
               fontSize: 20, fontWeight: FontWeight.w900)),
-      const Text('sec',
-          style: TextStyle(color: _txtSub, fontSize: 9)),
+      Text('sec',
+          style: TextStyle(color: context.txtSec, fontSize: 9)),
     ]),
   );
 }
 
-// ── REPLACED FANHAND WIDGET CLASS ────────────────────────────────────────────
+// ── FAN-STYLE HAND (scrollable fan, ~6 visible cards) ───────────────────────
 class _FanHand extends StatelessWidget {
   final List<WhotCard> cards;
   final int selected;
@@ -1404,52 +1515,78 @@ class _FanHand extends StatelessWidget {
     if (n == 0) return const SizedBox.shrink();
 
     const cardW = 62.0, cardH = 88.0;
+    // How many cards are fanned out & visible at once (objective: ~5-6)
+    final visible = min(n, 6);
+    // Cards behind the fan (hidden, reachable by scrolling)
+    final stacked = n - visible;
 
-    // 100° total spread, scales down for small hands to avoid gap
-    final spread = 100.0 * min(1.0, n / 6.0);
-    final step   = n > 1 ? spread / (n - 1) : 0.0;
-
-    // r=180 verified to fit within 340px table at 6 cards (338px total)
+    // Angular spread per fan window
+    final spread = 100.0 * min(1.0, visible / 6.0);
+    final step   = visible > 1 ? spread / (visible - 1) : 0.0;
     const r = 180.0;
 
-    return SizedBox(
-      height: 160,
-      child: Stack(
-        alignment: Alignment.bottomCenter,
-        children: List.generate(n, (i) {
-          final deg = -spread / 2 + i * step;
-          final rad = deg * pi / 180;
-          final dx  = r * sin(rad);
-          final dy  = -r * (1 - cos(rad)) * 0.18;
-          final sel = selected == i;
-          final ok  = !myTurn || playable.isEmpty || playable.contains(i);
+    // Horizontal overlap so the fan reads as one curved cluster (~44% overlap)
+    final overlap = cardW * 0.56;
+    final windowWidth = overlap * (visible - 1) + cardW;
 
-          return Positioned(
-            bottom: sel ? 22 : 0,
-            child: Transform.translate(
-              offset: Offset(dx, dy),
-              child: Transform.rotate(
-                angle: rad * 0.8,
-                child: GestureDetector(
-                  onTap: () => onTap(i),
-                  child: Opacity(
-                    opacity: ok ? 1.0 : 0.38,
-                    child: _CardW(
-                      card: cards[i],
-                      w: cardW,
-                      h: cardH,
-                      selected: sel,
-                      glowOrange: sel && ok,
+    return SizedBox(
+      height: 170,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 20.w),
+        child: SizedBox(
+          width: windowWidth,
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: List.generate(n, (i) {
+              // Fan window index (last `visible` cards fan out; earlier stack behind)
+              final rel = i - stacked;
+              final fanIdx = max(rel, 0);
+              final isInFan = rel >= 0;
+
+              double deg = 0, dx = 0, dy = 0;
+              if (isInFan) {
+                deg = -spread / 2 + fanIdx * step;
+                final rad = deg * pi / 180;
+                dx = r * sin(rad) + fanIdx * overlap - (windowWidth / 2);
+                dy = -r * (1 - cos(rad)) * 0.18;
+              } else {
+                // Stacked behind — offset left of the fan
+                dx = -(stacked - i) * 3.0 - 26.0 - (windowWidth / 2 - cardW / 2);
+                dy = 6.0;
+              }
+
+              final sel = selected == i;
+              final ok = !myTurn || playable.isEmpty || playable.contains(i);
+
+              return Positioned(
+                left: windowWidth / 2 + dx - cardW / 2,
+                bottom: (sel ? 22 : 0) + dy.abs(),
+                child: Transform.rotate(
+                  angle: isInFan ? rad(deg) * 0.8 : 0.0,
+                  child: GestureDetector(
+                    onTap: () => onTap(i),
+                    child: Opacity(
+                      opacity: ok ? 1.0 : 0.38,
+                      child: _CardW(
+                        card: cards[i],
+                        w: cardW,
+                        h: cardH,
+                        selected: sel,
+                        glowOrange: sel && ok,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          );
-        }),
+              );
+            }),
+          ),
+        ),
       ),
     );
   }
+
+  double rad(double deg) => deg * pi / 180;
 }
 
 class _OppFan extends StatelessWidget {
@@ -1485,7 +1622,7 @@ class _OppFan extends StatelessWidget {
 class _CardW extends StatelessWidget {
   final WhotCard card;
   final double w, h;
-  final bool selected, glowCyan, glowOrange;
+  final bool selected, glowCyan, glowOrange, shapeOnly;
 
   const _CardW(
       {required this.card,
@@ -1493,7 +1630,8 @@ class _CardW extends StatelessWidget {
       required this.h,
       this.selected = false,
       this.glowCyan = false,
-      this.glowOrange = false});
+      this.glowOrange = false,
+      this.shapeOnly = false});
 
   @override
   Widget build(BuildContext context) => AnimatedContainer(
@@ -1521,15 +1659,17 @@ class _CardW extends StatelessWidget {
         ),
         child: ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child:
-                CustomPaint(painter: _CardPainter(card: card, sel: selected))),
+            child: CustomPaint(
+                painter: _CardPainter(
+                    card: card, sel: selected, shapeOnly: shapeOnly))),
       );
 }
 
 class _CardPainter extends CustomPainter {
   final WhotCard card;
   final bool sel;
-  _CardPainter({required this.card, this.sel = false});
+  final bool shapeOnly;
+  _CardPainter({required this.card, this.sel = false, this.shapeOnly = false});
 
   @override
   void paint(Canvas c, Size s) {
@@ -1554,8 +1694,8 @@ class _CardPainter extends CustomPainter {
             ..strokeWidth = 2.5);
     }
 
-    _corners(c, w, h, card.number, card.shape);
-    final cx = w / 2, cy = h / 2 + 4, r = min(w, h) * 0.28;
+    if (!shapeOnly) _corners(c, w, h, card.number, card.shape);
+    final cx = w / 2, cy = h / 2 + (shapeOnly ? 0 : 4), r = min(w, h) * 0.28;
     if (card.shape == WhotShape.whot)
       _whotCenter(c, cx, cy, w, h);
     else
@@ -1566,7 +1706,7 @@ class _CardPainter extends CustomPainter {
     c.drawRRect(
         RRect.fromRectAndRadius(
             Rect.fromLTWH(0, 0, w, h), const Radius.circular(10)),
-        Paint()..color = _navy);
+        Paint()..color = _navyDark);
     _fdText(c, w, h);
     c.save();
     c.translate(w, h);
@@ -1665,7 +1805,7 @@ class _CardPainter extends CustomPainter {
         RRect.fromRectAndRadius(
             Rect.fromLTWH(w * 0.1, h * 0.28, w * 0.8, h * 0.38),
             const Radius.circular(6)),
-        Paint()..color = _navy);
+        Paint()..color = _navyDark);
     final st = TextStyle(
         color: _white, fontSize: w * 0.18, fontWeight: FontWeight.w900);
     _pt(c, 'Wọt', st, Offset(cx - w * 0.18, h * 0.31));
@@ -1723,19 +1863,6 @@ class _CardPainter extends CustomPainter {
   bool shouldRepaint(_CardPainter o) => o.card != card || o.sel != sel;
 }
 
-class _ShapeOnly extends CustomPainter {
-  final WhotShape shape;
-  _ShapeOnly({required this.shape});
-  @override
-  void paint(Canvas c, Size s) {
-    _CardPainter(card: WhotCard(shape: shape, number: 1))._dbl(
-        c, shape, s.width / 2, s.height / 2, min(s.width, s.height) * 0.32);
-  }
-
-  @override
-  bool shouldRepaint(_ShapeOnly o) => o.shape != shape;
-}
-
 class _PileBtn extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
@@ -1779,8 +1906,8 @@ class _AvatarW extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(size * 0.22),
         border: Border.all(
-            color: active ? _cyan : Colors.white.withOpacity(0.1), width: 2),
-        color: _navy,
+            color: active ? _cyan : context.border.withOpacity(0.1), width: 2),
+        color: _navyFor(context),
       ),
       child: ClipRRect(
           borderRadius: BorderRadius.circular(size * 0.2),
@@ -1799,11 +1926,11 @@ class _AvatarW extends StatelessWidget {
               width: 20,
               height: 20,
               decoration: BoxDecoration(
-                  color: _navy,
+                  color: _navyFor(context),
                   shape: BoxShape.circle,
-                  border: Border.all(color: _bg, width: 1.5)),
+                  border: Border.all(color: _bgFor(context), width: 1.5)),
               child:
-                  const Icon(Icons.hourglass_empty, color: _txtSub, size: 12))),
+                  Icon(Icons.hourglass_empty, color: _txtSubFor(context), size: 12))),
     ]);
   }
 
@@ -1844,7 +1971,7 @@ class _GameOverDialog extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: _navy,
+            color: context.card,
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
                 color: isWinner
@@ -1854,7 +1981,7 @@ class _GameOverDialog extends StatelessWidget {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text(isWinner ? '🏆 You Win!' : '💀 You Lost',
                 style: TextStyle(
-                    color: _txtPri, fontSize: 26, fontWeight: FontWeight.w900)),
+                    color: context.txtPri, fontSize: 26, fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             if (isWinner)
               Text('Prize: $prizePool',
@@ -1902,7 +2029,11 @@ class _BokehBg extends StatelessWidget {
         animation: ctrl,
         builder: (_, __) => CustomPaint(
           size: MediaQuery.of(context).size,
-          painter: _BokehPainter(bokeh: bokeh, t: ctrl.value),
+          painter: _BokehPainter(
+            bokeh: bokeh, t: ctrl.value,
+            bgColor: _bgFor(context),
+            circleColor: context.isDark ? Colors.white : const Color(0xFF0D1B4B),
+          ),
         ),
       );
 }
@@ -1910,19 +2041,21 @@ class _BokehBg extends StatelessWidget {
 class _BokehPainter extends CustomPainter {
   final List<_Bokeh> bokeh;
   final double t;
-  _BokehPainter({required this.bokeh, required this.t});
+  final Color bgColor;
+  final Color circleColor;
+  _BokehPainter({required this.bokeh, required this.t, required this.bgColor, required this.circleColor});
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(
-        Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = _bg);
+        Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = bgColor);
     for (final b in bokeh) {
       final pulse = (sin(t * 2 * pi + b.p) + 1) / 2;
       canvas.drawCircle(
         Offset(b.x * size.width, b.y * size.height),
         b.r * (0.85 + pulse * 0.3),
         Paint()
-          ..color = Colors.white.withOpacity(b.o * (0.6 + pulse * 0.4))
+          ..color = circleColor.withOpacity(b.o * (0.6 + pulse * 0.4))
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
       );
     }

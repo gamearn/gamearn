@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
+import '../../services/ads_service.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  DAILY STREAK SCREEN — Figma matched (1450:948, 390×844)
@@ -55,21 +56,21 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                   child: Container(
                     width: double.infinity,
                     padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
-                    decoration: const BoxDecoration(
-                      color: Color(0xE60B0E1A),
-                      border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+                    decoration: BoxDecoration(
+                      color: context.bg,
+                      border: Border(bottom: BorderSide(color: context.border, width: 1)),
                     ),
                     child: Row(children: [
                       GestureDetector(
                         onTap: () => Navigator.maybePop(context),
                         child: Icon(Icons.close_rounded,
-                            color: const Color(0xFFF1F5F9), size: 20.w),
+                            color: context.txtPri, size: 20.w),
                       ),
                       Expanded(
                         child: Text('Daily Streak',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                                color: const Color(0xFFF1F5F9),
+                                color: context.txtPri,
                                 fontSize: 18.sp, fontWeight: FontWeight.w700)),
                       ),
                       SizedBox(width: 20.w),
@@ -112,7 +113,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                             // Streak — Figma: fs56 w700
                             Text('$streak',
                                 style: TextStyle(
-                                    color: Colors.white,
+                                    color: context.txtPri,
                                     fontSize: 56.sp,
                                     fontWeight: FontWeight.w700)),
                             SizedBox(height: 4.h),
@@ -174,14 +175,14 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                                 children: [
                                   Text('Next Milestone',
                                       style: TextStyle(
-                                          color: const Color(0x99FFFFFF),
+                                          color: context.txtSec,
                                           fontSize: 12.sp,
                                           fontWeight:
                                               FontWeight.w500)),
                                   SizedBox(height: 4.h),
                                   Text('50 Day Badge',
                                       style: TextStyle(
-                                          color: Colors.white,
+                                          color: context.txtPri,
                                           fontSize: 20.sp,
                                           fontWeight:
                                               FontWeight.w700)),
@@ -223,13 +224,13 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                             Expanded(
                               child: Text('Day ${streak >= 30 ? 30 : streak} Reached',
                                   style: TextStyle(
-                                      color: const Color(0x99FFFFFF),
+                                      color: context.txtSec,
                                       fontSize: 10.sp,
                                       fontWeight: FontWeight.w700)),
                             ),
                             Text('Day 50 Milestone',
                                 style: TextStyle(
-                                    color: const Color(0x99FFFFFF),
+                                    color: context.txtSec,
                                     fontSize: 10.sp,
                                     fontWeight: FontWeight.w700)),
                           ]),
@@ -273,7 +274,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                     child: Container(
                       padding: EdgeInsets.all(24.r),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A),
+                        color: context.card,
                         borderRadius: BorderRadius.circular(12.r),
                       ),
                       child: Column(
@@ -291,7 +292,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                           Text('Protect Your Streak',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: Colors.white,
+                                  color: context.txtPri,
                                   fontSize: 20.sp,
                                   fontWeight: FontWeight.w700)),
                           SizedBox(height: 6.h),
@@ -299,7 +300,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                             'Missed a day? Use a Streak Freeze to keep\nyour progress safe.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                                color: const Color(0x99FFFFFF),
+                                color: context.txtSec,
                                 fontSize: 12.sp,
                                 fontWeight: FontWeight.w500,
                                 height: 1.4),
@@ -345,14 +346,14 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                         children: [
                           Text('Streak Rules',
                               style: TextStyle(
-                                  color: const Color(0xFFF1F5F9),
+                                  color: context.txtPri,
                                   fontSize: 14.sp,
                                   fontWeight: FontWeight.w700)),
                           SizedBox(height: 4.h),
                           Text(
                             'Play at least one tournament match every 24 hours\nto maintain your streak. Streaks reset at 00:00 UTC.',
                             style: TextStyle(
-                                color: const Color(0x80FFFFFF),
+                                color: context.txtSec,
                                 fontSize: 12.sp,
                                 fontWeight: FontWeight.w400,
                                 height: 1.4),
@@ -444,8 +445,8 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                     Text(label,
                         style: TextStyle(
                             color: completed
-                                ? Colors.white
-                                : const Color(0xCCFFFFFF),
+                                ? context.txtPri
+                                : context.txtPri.withOpacity(0.8),
                             fontSize: 15.sp,
                             fontWeight: FontWeight.w700)),
                     SizedBox(height: 3.h),
@@ -471,12 +472,12 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                   padding: EdgeInsets.symmetric(
                       horizontal: 10.w, vertical: 5.h),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF181818),
+                    color: context.border,
                     borderRadius: BorderRadius.circular(10.r),
                   ),
                   child: Text('🔒 Locked',
                       style: TextStyle(
-                          color: const Color(0x99FFFFFF),
+                          color: context.txtSec,
                           fontSize: 10.sp,
                           fontWeight: FontWeight.w700)),
                 ),
@@ -493,16 +494,27 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
     required Color bg,
     required Color mainColor,
   }) => GestureDetector(
-    onTap: () {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text('$main — coming soon'),
-          backgroundColor: bg == const Color(0xFF029FB9)
-              ? const Color(0xFF029FB9)
-              : kCyan,
-          behavior: SnackBarBehavior.floating,
-        ));
+    onTap: () async {
+      if (main == 'Watch Ad') {
+        await AdsService.instance.preloadRewarded();
+        final earned = await AdsService.instance.showRewarded();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            content: Text(earned ? 'Streak protected!' : 'No credit earned this time'),
+            backgroundColor: earned ? kGreen : kCyan,
+            behavior: SnackBarBehavior.floating,
+          ));
+      } else {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            content: Text('$main — coming soon'),
+            backgroundColor: bg,
+            behavior: SnackBarBehavior.floating,
+          ));
+      }
     },
     child: Container(
       height: 56.h,
@@ -516,11 +528,11 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
         children: [
           Text(top,
               style: TextStyle(
-                  color: const Color(0xB3FFFFFF), fontSize: 10.sp,
+                  color: context.txtSec, fontSize: 10.sp,
                   fontWeight: FontWeight.w700)),
           Text(main,
               style: TextStyle(
-                  color: mainColor, fontSize: 14.sp,
+                  color: context.txtPri, fontSize: 14.sp,
                   fontWeight: FontWeight.w700)),
         ],
       ),

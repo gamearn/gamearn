@@ -40,21 +40,21 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             Container(
               width: double.infinity,
               padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
-              decoration: const BoxDecoration(
-                color: Color(0xE60B0E1A),
-                border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+              decoration: BoxDecoration(
+                color: context.bg,
+                border: Border(bottom: BorderSide(color: context.border, width: 1)),
               ),
               child: Row(children: [
                 GestureDetector(
                   onTap: () => Navigator.maybePop(context),
                   child: Icon(Icons.close_rounded,
-                      color: const Color(0xFFF1F5F9), size: 20.w),
+                      color: context.txtPri, size: 20.w),
                 ),
                 Expanded(
                   child: Text('Transaction History',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          color: const Color(0xFFF1F5F9),
+                          color: context.txtPri,
                           fontSize: 18.sp,
                           fontWeight: FontWeight.w700)),
                 ),
@@ -151,7 +151,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                          color: const Color(0xFFF1F5F9),
+                                          color: context.txtPri,
                                           fontSize: 12.sp,
                                           fontWeight: FontWeight.w700)),
                                   SizedBox(height: 2.h),
@@ -159,7 +159,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                           ? _fmtDate(ts.toDate())
                                           : '',
                                       style: TextStyle(
-                                          color: const Color(0x80FFFFFF),
+                                          color: context.txtSec,
                                           fontSize: 10.sp)),
                                 ],
                               ),
@@ -173,16 +173,16 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                   style: TextStyle(
                                     color: credit
                                         ? kGreen
-                                        : Colors.white,
+                                        : context.txtPri,
                                     fontSize: 12.sp,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
                                 SizedBox(height: 2.h),
                                 Text(
-                                  '${credit ? '+' : '-'}\$${_fmtNum(usdAmt)}',
+                                  '${credit ? '+' : '-'}₦${_fmtNum(usdAmt)}',
                                   style: TextStyle(
-                                      color: const Color(0x80FFFFFF),
+                                      color: context.txtSec,
                                       fontSize: 10.sp),
                                 ),
                               ],

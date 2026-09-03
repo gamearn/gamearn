@@ -1,0 +1,13 @@
+# Matchfile — configures fastlane match certificate/profile sync.
+# Certs + profiles live in a private git repo (MATCH_REPO), decrypted with
+# MATCH_PASSWORD. See the project README / CI secrets for setup.
+
+git_url(ENV["MATCH_REPO"])
+storage_mode("git")
+type("appstore") # distribution certs + App Store profiles for bundle id below
+app_identifier("com.gamearn")
+readonly(true)
+
+# Match will auto-create a new certificate/profile if one is missing (default).
+# Force `readonly false` (default) so CI can provision on first run.
+readonly(false)

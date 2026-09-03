@@ -1,0 +1,179 @@
+{
+  "@@locale": "en",
+  "@@context": "Core app strings for Gamearn.",
+
+  "appName": "Gamearn",
+  "appTagline": "Play. Earn. Compete.",
+
+  "appTitle": "Gamearn",
+  "secByGamearn": "Secured by Gamearn",
+  "premiumVersion": "GAMEARN Premium v2.4.1",
+
+  "navHome": "Home",
+  "navGames": "Games",
+  "navWallet": "Wallet",
+  "navProfile": "Profile",
+
+  "settingsTitle": "Settings & Preferences",
+  "settingsSoundVibration": "Sound & Vibration",
+  "settingsSoundEffects": "Sound Effects",
+  "settingsVibration": "Vibration",
+  "settingsAccountSecurity": "Account & Security",
+  "settingsAccountSecurityTile": "Account Security",
+  "settingsAccountSecuritySub": "Password, 2FA and sessions",
+  "settingsPayoutMethods": "Payout Methods",
+  "settingsPayoutMethodsSub": "Bank accounts & wallets",
+  "settingsGamePrefs": "Game Preferences",
+  "settingsThemePreference": "Theme Preference",
+  "settingsThemePreferenceSub": "Dark & Light mode",
+  "settingsEmailAlerts": "Email Alerts",
+  "settingsEmailAlertsSub": "Weekly rewards summary",
+  "settingsSoundVibrationSub": "Game effects and haptics",
+  "settingsLanguage": "Language",
+  "settingsLanguageSubEnglish": "English (NG)",
+  "settingsPrivacySecurity": "Privacy & Security",
+  "settingsPrivacySecuritySub": "Game security update",
+  "settingsHelpSupport": "Help & Support",
+  "settingsHelpSupportSub": "Get important information",
+  "settingsLegal": "Legal",
+  "settingsTerms": "Terms & Conditions",
+  "settingsTermsSub": "Rules for using Gamearn",
+  "settingsPrivacyPolicy": "Privacy Policy",
+  "settingsPrivacyPolicySub": "How we handle your data",
+  "settingsDangerZone": "Danger Zone",
+  "settingsDeleteAccount": "Delete Account",
+  "settingsDeleteAccountSub": "Permanently remove your account and data",
+  "logout": "Logout",
+
+  "languageTitle": "Select Language",
+  "languageSearchHint": "Search for a language",
+  "languageSuggested": "Suggested",
+  "languageEnglishUs": "English (US)",
+  "languageDefaultSystem": "Default system language",
+  "languageAll": "All Languages",
+  "languageSpanish": "Spanish",
+  "languageFrench": "French",
+  "languageGerman": "German",
+  "languageChinese": "Chinese (Simplified)",
+  "languageJapanese": "Japanese",
+  "languagePortuguese": "Portuguese",
+  "save": "Save",
+  "languageSetTo": "Language set to {lang}",
+  "@languageSetTo": {
+    "placeholders": {
+      "lang": {"type": "String"}
+    }
+  },
+
+  "walletTitle": "Wallet & Earnings",
+  "walletUnitsSuffix": "/Units",
+  "walletNairaEquivalent": "{amount} Naira Equivalent",
+  "@walletNairaEquivalent": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "walletStreakActive": "{days}-Day Streak Active",
+  "walletLevel": "LEVEL {level}",
+  "@walletLevel": {
+    "placeholders": {
+      "level": {"type": "int"}
+    }
+  },
+  "walletOverview": "Overview",
+  "walletBuy": "Buy",
+  "walletSell": "Sell",
+  "walletWithdraw": "Withdraw",
+  "walletAddFunds": "Add Funds",
+  "walletCashOut": "Cash Out",
+  "walletTransactionHistory": "Transaction History",
+  "walletViewAll": "View All",
+  "walletNoTransactions": "No transactions yet",
+  "walletNoTransactionsSub": "Your gaming wins will appear here",
+  "walletUnitsAmount": "{sign}{units} Units",
+  "@walletUnitsAmount": {
+    "placeholders": {
+      "sign": {"type": "String"},
+      "units": {"type": "String"}
+    }
+  },
+
+  "homeEarnByKeepingStreak": "You can earn points by keeping your streak.",
+  "homeWalletBalance": "Wallet Balance",
+  "homeDailyStreak": "Daily Streak",
+  "homeTapToClaim": "Tap to claim",
+  "homeActiveTournaments": "Active Tournaments",
+  "homeGames": "GAMES",
+  "homeGlobalLeaderboard": "Global Leaderboard",
+  "homeLive": "Live",
+  "homePlayersCount": "{count} Players",
+  "@homePlayersCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "homePrizePool": "Prize Pool",
+  "homePlayingCount": "{count} playing",
+  "@homePlayingCount": {
+    "placeholders": {
+      "count": {"type": "String"}
+    }
+  },
+  "homeViewFullLeaderboard": "View Full Leaderboard",
+  "homeMyRankings": "My Rankings",
+  "homeNoDataYet": "No data yet.",
+  "homeLbDaily": "Daily",
+  "homeLbWeekly": "Weekly",
+  "homeLbMonthly": "Monthly",
+  "homeLbYearly": "Yearly",
+  "homeScorePts": "{score} pts",
+  "@homeScorePts": {
+    "placeholders": {
+      "score": {"type": "int"}
+    }
+  },
+
+  "profileTitle": "My Profile",
+  "profileEdit": "Edit Profile",
+  "profileWallet": "Wallet",
+  "profileFollowers": "Followers",
+  "profileFollowing": "Following",
+  "profileDayStreak": "Day Streak",
+  "profileSearchFriends": "Search Friends",
+  "profileActiveFriends": "Active Friends",
+  "profileOnline": "{count} Online",
+  "@profileOnline": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "profileInviteFromContacts": "Invite from Contacts",
+  "profilePerformanceStats": "Performance Stats",
+  "profileAllTimePoints": "All-time Points",
+  "profileThisWeek": "+12% this week",
+  "profileLevelXp": "Level {level} XP",
+  "@profileLevelXp": {
+    "placeholders": {
+      "level": {"type": "String"}
+    }
+  },
+  "profileTotalWins": "Total Wins",
+  "profileRegionRank": "Region Rank",
+  "profileGlobalRank": "Global Rank",
+  "profileFollowingBtn": "Following",
+  "profileInviteBtn": "Invite",
+  "profileGoPremium": "Go Premium",
+  "profilePremiumTitle": "Gamearn Premium",
+  "profilePremiumSub": "Exclusive rewards",
+  "profilePremiumBody": "Unlock bigger prize pools, private tournaments and priority payouts — the premium experience for serious players.",
+  "profileEditSheetTitle": "Edit Profile",
+  "profileUsernameHint": "Username",
+  "profileBioHint": "Bio",
+  "profileSave": "Save",
+  "profileJoinShare": "Join me on Gamearn! Play Whot, Ludo, Ayo and Draughts and win real money.\nInvite link: {link}",
+  "@profileJoinShare": {
+    "placeholders": {
+      "link": {"type": "String"}
+    }
+  }
+}

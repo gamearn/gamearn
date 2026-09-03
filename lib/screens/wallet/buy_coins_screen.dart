@@ -154,21 +154,21 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
           Container(
             width: double.infinity,
             padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
-            decoration: const BoxDecoration(
-              color: Color(0xE60B0E1A),
-              border: Border(bottom: BorderSide(color: Color(0x4DFFFFFF), width: 1)),
+            decoration: BoxDecoration(
+              color: context.bg,
+              border: Border(bottom: BorderSide(color: context.border, width: 1)),
             ),
             child: Row(children: [
               GestureDetector(
                 onTap: () => Navigator.maybePop(context),
                 child: Icon(Icons.close_rounded,
-                    color: const Color(0xFFF1F5F9), size: 20.w),
+                    color: context.txtPri, size: 20.w),
               ),
               Expanded(
                 child: Text('Buy Coins',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        color: const Color(0xFFF1F5F9),
+                        color: context.txtPri,
                         fontSize: 18.sp,
                         fontWeight: FontWeight.w700)),
               ),
@@ -191,8 +191,7 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
                     final units = w['units'] ?? 24500;
                     final usd = (w['usdEquiv'] ?? 245.0).toDouble();
                     return Container(
-                      padding: EdgeInsets.all(20.r),
-                      decoration: BoxDecoration(
+                      padding: EdgeInsets.all(20.r),                      decoration: BoxDecoration(
                         color: kCyan.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12.r),
                         border: Border.all(
@@ -223,7 +222,7 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
                                 text: TextSpan(
                                   text: '$units',
                                   style: TextStyle(
-                                      color: Colors.white,
+                                      color: context.txtPri,
                                       fontSize: 32.sp,
                                       fontWeight: FontWeight.w700),
                                   children: [
@@ -237,7 +236,7 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
                                   ],
                                 ),
                               ),
-                              Text('\$${usd.toStringAsFixed(2)}',
+                              Text('₦${(usd * _usdToNgn).round()}',
                                   style: TextStyle(
                                       color: kCyan.withOpacity(0.6),
                                       fontSize: 12.sp)),
@@ -256,7 +255,7 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
                   Expanded(
                     child: Text('Select a Coin Pack',
                         style: TextStyle(
-                            color: Colors.white,
+                            color: context.txtPri,
                             fontSize: 18.sp,
                             fontWeight: FontWeight.w700)),
                   ),
@@ -292,7 +291,7 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
                 // ── PAYMENT METHOD ──────────────────────────────────
                 Text('Payment Method',
                     style: TextStyle(
-                        color: const Color(0xFFF1F5F9),
+                        color: context.txtPri,
                         fontSize: 18.sp,
                         fontWeight: FontWeight.w700)),
                 SizedBox(height: 12.h),
@@ -338,7 +337,7 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
                 Center(
                   child: Text('Secured by Paystack  •  Instant credit',
                       style: TextStyle(
-                          color: const Color(0x61FFFFFF),
+                          color: context.txtSec,
                           fontSize: 11.sp)),
                 ),
 
@@ -375,7 +374,7 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
           Expanded(
             child: Text(label,
                 style: TextStyle(
-                    color: Colors.white, fontSize: 16.sp,
+                    color: context.txtPri, fontSize: 16.sp,
                     fontWeight: FontWeight.w500)),
           ),
           Container(
@@ -384,12 +383,12 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
               shape: BoxShape.circle,
               color: selected ? kCyan : Colors.transparent,
               border: Border.all(
-                  color: selected ? kCyan : const Color(0x80FFFFFF),
+                  color: selected ? kCyan : context.border,
                   width: 2.w),
             ),
             child: selected
                 ? Icon(Icons.check_rounded,
-                    color: const Color(0xFF0B0E1A), size: 14.w)
+                    color: context.txtPri, size: 14.w)
                 : null,
           ),
         ]),
@@ -469,11 +468,11 @@ class _PackCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(pack['name'] as String,
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: isBest ? 18.sp : 16.sp,
-                          fontWeight: FontWeight.w700)),
+                Text(pack['name'] as String,
+                    style: TextStyle(
+                        color: context.txtPri,
+                        fontSize: isBest ? 18.sp : 16.sp,
+                        fontWeight: FontWeight.w700)),
                   SizedBox(height: 2.h),
                   Text('${pack['coins']} Coins',
                       style: TextStyle(
@@ -496,7 +495,7 @@ class _PackCard extends StatelessWidget {
               ),
               child: Center(
                 child: Text(
-                    '\$${(pack['usd'] as double).toStringAsFixed(2)}',
+                    '₦${((pack['usd'] as double) * _BuyCoinsScreenState._usdToNgn).round()}',
                     style: TextStyle(
                         color: Colors.white,
                         fontSize: 14.sp,

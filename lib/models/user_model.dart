@@ -19,6 +19,8 @@ class UserModel {
   final bool isAdmin;
   final bool online;
   final List<String> friends;
+  final bool isPremium;
+  final DateTime? premiumUntil;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -41,6 +43,8 @@ class UserModel {
     this.isAdmin = false,
     this.online = false,
     this.friends = const [],
+    this.isPremium = false,
+    this.premiumUntil,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -68,6 +72,10 @@ class UserModel {
       isAdmin: d['isAdmin'] ?? false,
       online: d['online'] ?? false,
       friends: List<String>.from(d['friends'] ?? []),
+      isPremium: d['isPremium'] ?? false,
+      premiumUntil: d['premiumUntil'] != null
+          ? (d['premiumUntil'] as Timestamp).toDate()
+          : null,
       createdAt: d['createdAt'] != null
           ? (d['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
@@ -95,6 +103,10 @@ class UserModel {
         'isAdmin': isAdmin,
         'online': online,
         'friends': friends,
+        'isPremium': isPremium,
+        'premiumUntil': premiumUntil != null
+            ? Timestamp.fromDate(premiumUntil!)
+            : null,
         'createdAt': Timestamp.fromDate(createdAt),
         'updatedAt': FieldValue.serverTimestamp(),
       };
@@ -117,6 +129,8 @@ class UserModel {
     bool? isAdmin,
     bool? online,
     List<String>? friends,
+    bool? isPremium,
+    DateTime? premiumUntil,
   }) =>
       UserModel(
         uid: uid,
@@ -137,6 +151,8 @@ class UserModel {
         isAdmin: isAdmin ?? this.isAdmin,
         online: online ?? this.online,
         friends: friends ?? this.friends,
+        isPremium: isPremium ?? this.isPremium,
+        premiumUntil: premiumUntil ?? this.premiumUntil,
         createdAt: createdAt,
         updatedAt: updatedAt,
       );
