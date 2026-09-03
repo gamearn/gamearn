@@ -97,11 +97,14 @@ jobs:
           files: ${{ env.IPA_PATH }}
 
       - name: ✈️ Upload to TestFlight (App Store Connect)
-        if: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 != '' }}
+        if: ${{ env.UPLOAD_TO_TESTFLIGHT == 'true' }}
         run: |
           cd ios
           bundle exec fastlane upload_testflight
         env:
+          # Expose the presence of the API key as an env var — `secrets` is not
+          # allowed directly in `if:`, but `env` is.
+          UPLOAD_TO_TESTFLIGHT: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 != '' && 'true' || 'false' }}
           APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
           APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
           APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
