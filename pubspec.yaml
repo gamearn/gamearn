@@ -108,8 +108,6 @@ flutter:
     - assets/games/draughts.jpg
     # Audio — replace .mp3 files with real assets
     - assets/audio/sfx/
-    # Phone input country flags
-    - packages/intl_phone_number_input/assets/flags/
     # Auth backgrounds
     - assets/auth/login_bg.png
     - assets/auth/signup_bg.png
