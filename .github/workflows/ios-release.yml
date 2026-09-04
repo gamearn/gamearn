@@ -51,7 +51,8 @@ jobs:
         env:
           GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
         run: |
-          printf '%s\n' "$GOOGLE_SERVICE_INFO_PLIST" > ios/Runner/GoogleService-Info.plist
+          # Secret holds base64 of the plist (matches GOOGLE_SERVICES_JSON for Android)
+          printf '%s' "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
           plutil -lint ios/Runner/GoogleService-Info.plist
 
       - name: 📦 Get dependencies
