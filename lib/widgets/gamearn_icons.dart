@@ -20,8 +20,8 @@ class HomeNavIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isActive ? _kActive : _kInactive;
     return SizedBox(
-      width: 24,
-      height: 24,
+      width: 22,
+      height: 22,
       child: CustomPaint(painter: _HomePainter(color: color)),
     );
   }
@@ -125,8 +125,8 @@ class GameNavIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isActive ? _kActive : _kInactive;
     return SizedBox(
-      width: 24,
-      height: 24,
+      width: 22,
+      height: 22,
       child: CustomPaint(painter: _GamePainter(color: color)),
     );
   }
@@ -218,8 +218,8 @@ class ProfileNavIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isActive ? _kActive : _kInactive;
     return SizedBox(
-      width: 24,
-      height: 24,
+      width: 22,
+      height: 22,
       child: CustomPaint(painter: _ProfilePainter(color: color)),
     );
   }
@@ -290,8 +290,8 @@ class WalletNavIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isActive ? _kActive : _kInactive;
     return SizedBox(
-      width: 24,
-      height: 24,
+      width: 22,
+      height: 22,
       child: CustomPaint(painter: _WalletPainter(color: color)),
     );
   }

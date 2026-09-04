@@ -87,15 +87,11 @@ class NotificationsScreen extends StatelessWidget {
                   return const Center(child: CircularProgressIndicator(
                       color: kCyan, strokeWidth: 2));
                 }
-                final docs = snap.data?.docs ?? [];
-                final items = docs.isNotEmpty
-                    ? docs.map((d) {
-                        final data =
-                            d.data() as Map<String, dynamic>;
-                        data['_id'] = d.id;
-                        return data;
-                      }).toList()
-                    : _mockNotifs();
+                final items = (snap.data?.docs ?? []).map((d) {
+                  final data = d.data() as Map<String, dynamic>;
+                  data['_id'] = d.id;
+                  return data;
+                }).toList();
 
                 if (items.isEmpty) {
                   return Center(
@@ -162,45 +158,6 @@ class NotificationsScreen extends StatelessWidget {
     }
     await batch.commit();
   }
-
-  List<Map<String, dynamic>> _mockNotifs() => [
-    {
-      'type': 'tournament', 'read': false,
-      'title': 'Tournament Win! 🏆',
-      'body': 'You won the WHOT Championship and earned ₦5,000',
-      'time': '2m ago',
-    },
-    {
-      'type': 'challenge', 'read': false,
-      'title': 'New Challenge',
-      'body': 'Player_X challenged you to a Lúdò match',
-      'time': '15m ago',
-    },
-    {
-      'type': 'achievement', 'read': true,
-      'title': 'Achievement Unlocked',
-      'body': 'You earned the "First Win" badge',
-      'time': '1h ago',
-    },
-    {
-      'type': 'reward', 'read': true,
-      'title': 'Daily Reward',
-      'body': 'Claim your 100 coin daily reward now',
-      'time': '3h ago',
-    },
-    {
-      'type': 'streak', 'read': true,
-      'title': '7 Day Streak! 🔥',
-      'body': 'Amazing! You\'ve played 7 days in a row',
-      'time': 'Yesterday',
-    },
-    {
-      'type': 'system', 'read': true,
-      'title': 'New Game Available',
-      'body': 'Ayò Òpón is now available to play',
-      'time': '2d ago',
-    },
-  ];
 }
 
 // ── NOTIFICATION ROW ──────────────────────────────────────────────
@@ -215,12 +172,14 @@ class _NotifRow extends StatelessWidget {
     final type  = data['type']  as String? ?? 'system';
     final title = data['title'] as String? ?? '';
     final body  = data['body']  as String? ?? '';
-    final time  = data['time']  as String? ?? '';
     final read  = data['read']  as bool?   ?? true;
     final id    = data['_id']   as String? ?? '';
 
     final color = _kTypeColors[type] ?? kCyan;
     final icon  = _kTypeIcons[type]  ?? Icons.notifications_outlined;
+
+    final createdAt = data['createdAt'];
+    final time = _relativeTime(createdAt is Timestamp ? createdAt.toDate() : null);
 
     return GestureDetector(
       onTap: () {
@@ -294,4 +253,15 @@ class _NotifRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String _relativeTime(DateTime? dt) {
+  if (dt == null) return '';
+  final now = DateTime.now();
+  final diff = now.difference(dt);
+  if (diff.inMinutes < 1) return 'now';
+  if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+  if (diff.inDays < 1) return '${diff.inHours}h ago';
+  if (diff.inDays < 7) return '${diff.inDays}d ago';
+  return '${dt.day}/${dt.month}/${dt.year}';
 }

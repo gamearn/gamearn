@@ -235,13 +235,13 @@ class _DrafuSetupScreenState extends State<DrafuSetupScreen> {
   Future<void> _startGame() async {
     HapticFeedback.heavyImpact();
     if (!mounted) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'player_main';
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (_vsBot) {
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => DraughtsGameScreen(
           roomId: 'practice_bot',
           playerId: uid,
-          opponentName: 'Gamearn AI Bot',
+          opponentName: 'Gamearn Bot',
           prizePool: 'Practice',
           onBack: () => Navigator.pop(context),
         ),
@@ -265,7 +265,7 @@ class _DrafuSetupScreenState extends State<DrafuSetupScreen> {
             builder: (_) => DraughtsGameScreen(
               roomId:       roomId,
               playerId:     uid,
-              opponentName: opponent['displayName'] as String? ?? 'Challenger',
+              opponentName: opponent['displayName'] as String? ?? 'Opponent',
               prizePool:    EntryFees.naira(prizePool * 2),
               onBack:       () => Navigator.pop(context),
             ),
@@ -317,13 +317,13 @@ class _AyoSetupScreenState extends State<AyoSetupScreen> {
   Future<void> _startGame() async {
     HapticFeedback.heavyImpact();
     if (!mounted) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'player_main';
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (_vsBot) {
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => AyoGameScreen(
           roomId: 'practice_bot',
           playerId: uid,
-          opponentName: 'Gamearn AI Bot',
+          opponentName: 'Gamearn Bot',
           prizePool: 'Practice',
           onBack: () => Navigator.pop(context),
         ),
@@ -347,7 +347,7 @@ class _AyoSetupScreenState extends State<AyoSetupScreen> {
             builder: (_) => AyoGameScreen(
               roomId:       roomId,
               playerId:     uid,
-              opponentName: opponent['displayName'] as String? ?? 'Challenger',
+              opponentName: opponent['displayName'] as String? ?? 'Opponent',
               prizePool:    EntryFees.naira(prizePool * 2),
               onBack:       () => Navigator.pop(context),
             ),
@@ -620,7 +620,7 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
   Future<void> _startGame() async {
     HapticFeedback.heavyImpact();
     if (!mounted) return;
-    final uid  = FirebaseAuth.instance.currentUser?.uid ?? 'player_main';
+    final uid  = FirebaseAuth.instance.currentUser?.uid ?? '';
     final name = FirebaseAuth.instance.currentUser?.displayName ?? 'Player';
     if (_vsBot) {
       Navigator.push(context, MaterialPageRoute(
@@ -628,7 +628,7 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
           roomId:        'practice_bot',
           playerId:      uid,
           playerName:    name,
-          opponentName:  'Gamearn AI Bot',
+          opponentName:  'Gamearn Bot',
           prizePool:     'Practice',
           playerRating:  1200,
           startingCards:  _startCards.round(),
@@ -656,7 +656,7 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
               roomId:        roomId,
               playerId:      uid,
               playerName:    name,
-              opponentName:  opponent['displayName'] as String? ?? 'Challenger',
+              opponentName:  opponent['displayName'] as String? ?? 'Opponent',
               prizePool:     EntryFees.naira(prizePool * 2),
               onBack:        () => Navigator.pop(context),
             ),

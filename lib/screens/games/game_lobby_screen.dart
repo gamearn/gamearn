@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 import 'ludo_game_screen.dart';
 import 'ayo_game_screen.dart';
@@ -266,6 +267,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
             onTap: () {
               HapticFeedback.vibrate();
               Widget activeGameScreen;
+              final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
               // Explicit Dynamic Constructor Mapping to inject state selections
               switch (widget.gameKey) {
@@ -274,18 +276,18 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                   break;
                 case 'ayo':
                   activeGameScreen = AyoGameScreen(
-                    roomId: _vsComputer ? 'practice_bot' : 'match_room_${DateTime.now().millisecondsSinceEpoch}',
-                    playerId: 'player_main',
-                    opponentName: _vsComputer ? 'Gamearn AI Bot' : 'Challenger',
+                    roomId: _vsComputer ? 'practice_bot' : 'practice_bot',
+                    playerId: uid,
+                    opponentName: 'Gamearn Bot',
                     prizePool: dynamicPotStr,
                     onBack: () => Navigator.pop(context),
                   );
                   break;
                 case 'draughts':
                   activeGameScreen = DraughtsGameScreen(
-                    roomId: _vsComputer ? 'practice_bot' : 'match_room_${DateTime.now().millisecondsSinceEpoch}',
-                    playerId: 'player_main',
-                    opponentName: _vsComputer ? 'Gamearn AI Bot' : 'Challenger',
+                    roomId: _vsComputer ? 'practice_bot' : 'practice_bot',
+                    playerId: uid,
+                    opponentName: 'Gamearn Bot',
                     prizePool: dynamicPotStr,
                     onBack: () => Navigator.pop(context),
                   );

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:gamearn/l10n/app_localizations.dart';
 import '../../services/firestore_cache.dart';
+import '../../services/avatar_pipeline.dart';
+import '../../widgets/cached_avatar.dart';
 import '../../theme.dart';
 import 'invite_friends_screen.dart';
 import 'premium_purchase_screen.dart';
@@ -63,6 +66,8 @@ class ProfileScreen extends StatelessWidget {
             final avatarEmoji = kAvatars.firstWhere(
                 (a) => a['name'] == avatar,
                 orElse: () => kAvatars[0])['emoji'] ?? '🤖';
+            final avatarUrl = user['avatarUrl'] as String? ?? 
+                              user['profilePicUrl'] as String? ?? '';
 
             return Column(children: [
               _header(context),
@@ -70,7 +75,7 @@ class ProfileScreen extends StatelessWidget {
                 child: ListView(
                   padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 32.h),
                   children: [
-                    _avatarBlock(context, avatarEmoji, username, bio),
+                    _avatarBlock(context, avatarEmoji, username, bio, uid, avatarUrl),
                     SizedBox(height: 32.h),
                     _actionButtons(context, uid, username, bio),
                     SizedBox(height: 32.h),
@@ -125,7 +130,7 @@ class ProfileScreen extends StatelessWidget {
 
   // ── AVATAR + NAME ─────────────────────────────────────────────
   Widget _avatarBlock(BuildContext context, String emoji,
-      String name, String bio) {
+      String name, String bio, String uid, String avatarUrl) {
     return Column(children: [
       Stack(
         clipBehavior: Clip.none,
@@ -147,21 +152,31 @@ class ProfileScreen extends StatelessWidget {
               decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: context.bg),
-              child: Center(child: Text(emoji,
-                  style: TextStyle(fontSize: 60.sp))),
+              child: ClipOval(
+                child: avatarUrl.isNotEmpty
+                    ? ProductionCachedAvatarWidget(
+                        targetProfileUrl: avatarUrl,
+                        displayDiameter: 124.w,
+                      )
+                    : Center(child: Text(emoji,
+                        style: TextStyle(fontSize: 60.sp))),
+              ),
             ),
           ),
           Positioned(
             bottom: 0, right: 0,
-            child: Container(
-              width: 24.w, height: 24.h,
-              decoration: BoxDecoration(
-                color: kOrange,
-                shape: BoxShape.circle,
-                border: Border.all(color: context.bg, width: 2),
+            child: GestureDetector(
+              onTap: () => _showAvatarPicker(context, uid),
+              child: Container(
+                width: 24.w, height: 24.h,
+                decoration: BoxDecoration(
+                  color: kOrange,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: context.bg, width: 2),
+                ),
+                child: Icon(Icons.edit_rounded,
+                    color: Colors.white, size: 12.w),
               ),
-              child: Icon(Icons.edit_rounded,
-                  color: Colors.white, size: 12.w),
             ),
           ),
         ],
@@ -180,6 +195,74 @@ class ProfileScreen extends StatelessWidget {
               color: context.txtSec,
               fontSize: 16.sp, fontWeight: FontWeight.w600)),
     ]);
+  }
+
+  // ── AVATAR PICKER ──────────────────────────────────────────────
+  static Future<void> _showAvatarPicker(BuildContext context, String uid) async {
+    final picked = await AvatarExecutionPipeline.pickAndProcessImage();
+    if (picked == null) return;
+
+    // Show loading indicator
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: kOrange),
+      ),
+    );
+
+    try {
+      final success = await AvatarExecutionPipeline.commitAvatarMutation(
+        imageFile: picked,
+        targetUserId: uid,
+      );
+
+      if (!context.mounted) return;
+      Navigator.pop(context); // Dismiss loading
+
+      if (success) {
+        // Get the full download URL and update Firestore
+        final url = await FirebaseStorage.instance
+            .ref('users/$uid/profile.jpg')
+            .getDownloadURL();
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .update({
+          'avatarUrl': url,
+          'profilePicUrl': url,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        FirestoreCache.instance.invalidate('users/$uid');
+
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile picture updated'),
+            backgroundColor: kGreen,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to upload. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.pop(context); // Dismiss loading on error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // ── EDIT / SHARE — Figma: 165×44 r8 ───────────────────────────

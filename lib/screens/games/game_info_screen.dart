@@ -74,37 +74,21 @@ class _GameInfoScreenState extends State<GameInfoScreen> {
       heroTitle: 'Wọ́t Game',
       prize: '#4,500.00', prizeSub: '+600/units',
       days: '12 Days', daysSub: 'Next reward in 7 days',
-      mockTournaments: [
-        {'title': 'WHOT Championship', 'prize': '4,500', 'players': 128, 'active': true},
-        {'title': 'WHOT Masters', 'prize': '2,000', 'players': 64, 'active': false},
-      ],
     ),
     'ludo': _SectionMeta(
       heroTitle: 'Lúùdò Game',
       prize: '#2,500.00', prizeSub: '+250/units',
       days: '5 Days', daysSub: 'Next reward in 5 days',
-      mockTournaments: [
-        {'title': 'Lúdò Grand Prix', 'prize': '2,500', 'players': 64, 'active': true},
-        {'title': 'Lúdò Classic', 'prize': '1,200', 'players': 32, 'active': false},
-      ],
     ),
     'ayo': _SectionMeta(
       heroTitle: 'Ayò Ọ̀pọ́n',
       prize: '#3,500.00', prizeSub: '+350/units',
       days: '10 Days', daysSub: 'Next reward in 5 days',
-      mockTournaments: [
-        {'title': 'Ayò Masters', 'prize': '3,500', 'players': 32, 'active': true},
-        {'title': 'Ayò Showdown', 'prize': '1,500', 'players': 16, 'active': false},
-      ],
     ),
     'draughts': _SectionMeta(
       heroTitle: 'Dráfù Game',
       prize: '#1,500.00', prizeSub: '+75/units',
       days: '5 Days', daysSub: 'Next reward in 7 days',
-      mockTournaments: [
-        {'title': 'Draughts Open', 'prize': '1,500', 'players': 24, 'active': true},
-        {'title': 'Draughts Cup', 'prize': '800', 'players': 16, 'active': false},
-      ],
     ),
   };
 
@@ -300,7 +284,17 @@ class _GameInfoScreenState extends State<GameInfoScreen> {
                     key.contains(gt);
               })
               .toList();
-          if (items.isEmpty) items = _section.mockTournaments;
+          if (items.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 16.h),
+                child: Text(
+                  'No tournaments yet',
+                  style: TextStyle(color: context.txtSec, fontSize: 12.sp),
+                ),
+              ),
+            );
+          }
           return ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
@@ -394,11 +388,9 @@ class _GameMeta {
 
 class _SectionMeta {
   final String heroTitle, prize, prizeSub, days, daysSub;
-  final List<Map<String, dynamic>> mockTournaments;
   const _SectionMeta({
     required this.heroTitle, required this.prize, required this.prizeSub,
     required this.days, required this.daysSub,
-    required this.mockTournaments,
   });
 }
 
@@ -614,14 +606,6 @@ class _LeaderboardCardState extends State<_LeaderboardCard> {
     _ => 'dailyScore',
   };
 
-  static const _mock = [
-    {'name': 'Chukwudi', 'score': 5000, 'emoji': '👑'},
-    {'name': 'Amaka',    'score': 4580, 'emoji': '⚡'},
-    {'name': 'Tunde',    'score': 4160, 'emoji': '🔥'},
-    {'name': 'Ngozi',    'score': 3740, 'emoji': '💎'},
-    {'name': 'Emeka',    'score': 3320, 'emoji': '🏆'},
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -669,15 +653,15 @@ class _LeaderboardCardState extends State<_LeaderboardCard> {
         builder: (_, snap) {
           final docs = snap.data?.docs ?? [];
           if (docs.isEmpty) {
-            return Column(children: List.generate(_mock.length, (i) {
-              final m = _mock[i];
-              return _LeaderboardRow(
-                rank: i,
-                emoji: m['emoji'] as String,
-                name: m['name'] as String,
-                score: m['score'] as int,
-              );
-            }));
+            return Padding(
+              padding: EdgeInsets.symmetric(vertical: 16.h),
+              child: Center(
+                child: Text(
+                  'No data yet',
+                  style: TextStyle(color: context.txtSec),
+                ),
+              ),
+            );
           }
           return Column(children: docs.asMap().entries.map((e) {
             final d = e.value.data() as Map<String, dynamic>;

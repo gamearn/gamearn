@@ -21,7 +21,9 @@ import 'screens/auth/email_verify_screen.dart';
 import 'screens/auth/mfa_enrollment_screen.dart';
 import 'screens/auth/profile_setup_screen.dart';
 import 'screens/auth/splash_screen.dart';
+import 'screens/common/loading_screen.dart';
 import 'screens/shell.dart';
+import 'screens/admin/admin_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -126,7 +128,7 @@ class _AuthGate extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (ctx, authSnap) {
         if (authSnap.connectionState == ConnectionState.waiting) {
-          return const _SplashLoader();
+          return const LoadingScreen();
         }
         final user = authSnap.data;
         if (user == null) return const LandingScreen();
@@ -152,7 +154,7 @@ class _AuthGate extends StatelessWidget {
               .snapshots(),
           builder: (ctx, userSnap) {
             if (userSnap.connectionState == ConnectionState.waiting) {
-              return const _SplashLoader();
+              return const LoadingScreen();
             }
             final exists = userSnap.data?.exists ?? false;
             if (!exists) return const ProfileSetupScreen();
@@ -160,7 +162,7 @@ class _AuthGate extends StatelessWidget {
             final data = userSnap.data!.data() as Map<String, dynamic>;
             final isAdmin = data['isAdmin'] == true;
             if (isAdmin) {
-              return const Shell(); // swap for AdminShell when ready
+              return const AdminShell();
             }
             return const _MfaGate(child: Shell());
           },
@@ -205,7 +207,7 @@ class _MfaGateState extends State<_MfaGate> {
   Widget build(BuildContext context) {
     final needs = _needsMfa;
     if (needs == null) {
-      return const _SplashLoader();
+      return const LoadingScreen();
     }
     if (needs) {
       return MfaEnrollmentScreen(
@@ -214,19 +216,5 @@ class _MfaGateState extends State<_MfaGate> {
       );
     }
     return widget.child;
-  }
-}
-
-class _SplashLoader extends StatelessWidget {
-  const _SplashLoader();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: kBgDeep,
-      body: Center(
-        child: CircularProgressIndicator(color: kCyan),
-      ),
-    );
   }
 }

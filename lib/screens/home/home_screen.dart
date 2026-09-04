@@ -130,12 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             // Notification btn — 40×40 r9999 #22D1EE@10
-                            _TopBtn(
-                              icon: Icons.notifications_outlined,
-                              onTap: () => Navigator.push(context,
-                                  MaterialPageRoute(builder: (_) => const NotificationsScreen())),
-                              badge: true,
-                            ),
+                            _NotificationButton(uid: uid),
                             SizedBox(width: 12.w),
                             // Settings btn
                             _TopBtn(
@@ -218,9 +213,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                 .limit(10),
                           ),
                           builder: (_, snap) {
-                            final items = (snap.data?.isNotEmpty ?? false)
-                                ? snap.data!
-                                : _mockTournaments();
+                            final items = snap.data ?? const <Map<String, dynamic>>[];
+                            if (items.isEmpty) {
+                              return Center(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+                                  child: Text(l10n.homeNoDataYet,
+                                      style: TextStyle(color: context.txtSec)),
+                                ),
+                              );
+                            }
                             return ListView.builder(
                               scrollDirection: Axis.horizontal,
                               padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -249,9 +251,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               .limit(6),
                         ),
                         builder: (_, snap) {
-                          final games = (snap.data?.isNotEmpty ?? false)
-                              ? snap.data!
-                              : _mockGames();
+                          final games = snap.data ?? const <Map<String, dynamic>>[];
+                          if (games.isEmpty) {
+                            return Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+                              child: Text(l10n.homeNoDataYet,
+                                  style: TextStyle(color: context.txtSec)),
+                            );
+                          }
                           return Padding(
                             padding: EdgeInsets.symmetric(horizontal: 24.w),
                             child: _GamesGrid(games: games, uid: uid),
@@ -282,19 +289,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  List<Map<String, dynamic>> _mockTournaments() => [
-    {'title': 'WHOT Championship', 'prizePool': '50,000', 'playerCount': 128, 'active': true,  'assetKey': 'whot'},
-    {'title': 'Lúdò Grand Prix',   'prizePool': '25,000', 'playerCount': 64,  'active': false, 'assetKey': 'ludo'},
-    {'title': 'Ayò Masters',       'prizePool': '15,000', 'playerCount': 32,  'active': true,  'assetKey': 'ayo'},
-  ];
-
-  List<Map<String, dynamic>> _mockGames() => [
-    {'title': 'WHOT',     'playCount': 2100, 'assetKey': 'whot'},
-    {'title': 'Lúdò',     'playCount': 1200, 'assetKey': 'ludo'},
-    {'title': 'Ayò Òpón', 'playCount': 850,  'assetKey': 'ayo'},
-    {'title': 'Draughts', 'playCount': 420,  'assetKey': 'draughts'},
-  ];
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -331,6 +325,35 @@ class _TopBtn extends StatelessWidget {
       ),
     ]),
   );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  NOTIFICATION BUTTON — bell with unread badge, driven by real data
+// ════════════════════════════════════════════════════════════════
+class _NotificationButton extends StatelessWidget {
+  final String uid;
+  const _NotificationButton({required this.uid});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('notifications')
+          .where('userId', isEqualTo: uid)
+          .where('read', isEqualTo: false)
+          .limit(1)
+          .snapshots(),
+      builder: (context, snap) {
+        final hasUnread = (snap.data?.docs.isNotEmpty ?? false);
+        return _TopBtn(
+          icon: Icons.notifications_outlined,
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+          badge: hasUnread,
+        );
+      },
+    );
+  }
 }
 
 // ════════════════════════════════════════════════════════════════

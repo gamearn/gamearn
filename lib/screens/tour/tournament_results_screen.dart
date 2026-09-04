@@ -53,8 +53,8 @@ class TournamentResultsScreen extends StatelessWidget {
           final title   = data['title']     as String? ?? 'Tournament';
           final prize   = data['prizePool'] as String? ?? '0';
           final results = (data['results'] as List?)
-                  ?.cast<Map<String, dynamic>>() ??
-              _mockResults;
+              ?.cast<Map<String, dynamic>>() ??
+              const <Map<String, dynamic>>[];
 
           final totalNaira =
               int.tryParse(prize.replaceAll(',', '').replaceAll('₦', '')) ?? 0;
@@ -172,7 +172,18 @@ class TournamentResultsScreen extends StatelessWidget {
 
                           // ── Podium — node 2322:2810 ───────────────────
                           // py=16 gap=16 items-end justify-center
-                          _Podium(results: results, prizes: prizes),
+                          if (results.isEmpty)
+                            Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16.h),
+                              child: Text(
+                                'Results will appear here once the tournament finishes',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    color: context.txtSec, fontSize: 12.sp),
+                              ),
+                            )
+                          else
+                            _Podium(results: results, prizes: prizes),
                           SizedBox(height: 16.h),
 
                           // ── User Performance card — node 2326:1464 ────
@@ -181,7 +192,8 @@ class TournamentResultsScreen extends StatelessWidget {
                           if (myRank != null) SizedBox(height: 16.h),
 
                           // ── Leaderboard — node 2327:1521 ─────────────
-                          _Leaderboard(results: results, uid: uid),
+                          if (results.isNotEmpty)
+                            _Leaderboard(results: results, uid: uid),
                         ],
                       ),
                     ),
@@ -199,16 +211,6 @@ class TournamentResultsScreen extends StatelessWidget {
       ? '0'
       : n.toString().replaceAllMapped(
           RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
-
-  // Mock data — Firestore results[] field replaces this
-  static final List<Map<String, dynamic>> _mockResults = [
-    {'uid': 'uid1', 'username': 'KING_BURNA',  'points': 9200, 'avatar': _kAvatarWin},
-    {'uid': 'uid2', 'username': 'OLUWASEUN',   'points': 7100, 'avatar': _kAvatar2nd},
-    {'uid': 'uid3', 'username': 'CHIDEX',      'points': 5800, 'avatar': _kAvatar3rd},
-    {'uid': 'uid4', 'username': 'AYO_TECH',    'points': 2815, 'avatar': _kAvatarP1},
-    {'uid': 'uid5', 'username': 'LADY_LUDO',   'points': 2790, 'avatar': _kAvatarP2},
-    {'uid': 'uid6', 'username': 'JOS_GAMER',   'points': 2750, 'avatar': null},
-  ];
 }
 
 // ── AppBar ──────────────────────────────────────────────────────────────────
