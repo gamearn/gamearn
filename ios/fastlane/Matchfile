@@ -6,8 +6,8 @@ git_url(ENV["MATCH_REPO"])
 storage_mode("git")
 type("appstore") # distribution certs + App Store profiles for bundle id below
 app_identifier("com.gamearn")
-readonly(true)
 
-# Match will auto-create a new certificate/profile if one is missing (default).
-# Force `readonly false` (default) so CI can provision on first run.
+# Writable on purpose: on the first CI run match provisions the Distribution
+# cert + App Store profile via the ASC API key and commits them to MATCH_REPO.
+# Leave false so CI never needs a local Mac.
 readonly(false)
