@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../../theme.dart';
 import '../../utils/error_utils.dart';
 import '../../services/sound_service.dart';
+import '../../services/socket_service.dart';
 import '../../config/api_config.dart';
 
 const Color _kRed    = Color(0xFFE53935);
@@ -129,12 +130,28 @@ class LudoGameScreen extends StatefulWidget {
   final int tokenCount;
   final int playerRating;
   final int diceCount;
-  const LudoGameScreen({super.key, this.tokenCount = 4, this.playerRating = 1200, this.diceCount = 1});
+  final String? roomId;
+  final String? playerId;
+  final String? opponentName;
+  final int prizePool;
+  const LudoGameScreen({
+    super.key,
+    this.tokenCount = 4,
+    this.playerRating = 1200,
+    this.diceCount = 1,
+    this.roomId,
+    this.playerId,
+    this.opponentName,
+    this.prizePool = 0,
+  });
+  bool get isMultiplayer =>
+      roomId != null && roomId!.isNotEmpty && roomId != 'practice_bot';
   @override State<LudoGameScreen> createState() => _LudoGameScreenState();
 }
 
 class _LudoGameScreenState extends State<LudoGameScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin
+    implements GameEventHandler {
 
   final _PracticeLudoService _svc = _PracticeLudoService();
   late List<List<_Piece>> _pieces;
@@ -150,6 +167,18 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   int  _tokenCount  = 4;
   bool _dualHome    = false;
 
+  // ── Multiplayer ────────────────────────────────────────────────
+  bool _isMp         = false;
+  late String _roomId;
+  String _opponentName = 'Computer';
+  int _prizePool     = 0;
+  bool _opponentGone = false;
+  bool _scattering   = false;
+  bool _gameOverShown = false;
+  GamearnSocketService? _socket;
+  final Random _srng = Random();
+  List<Offset> _scatterPoints = [];
+
   bool get _isHuman => _current == _humanIndex;
 
   bool _botBusy    = false;
@@ -160,33 +189,244 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
   List<Map<String, dynamic>> _pendingBotActions = [];
 
-  late AnimationController _diceCtrl;
-  late Animation<double>   _diceRot;
   late AnimationController _pulseCtrl;
   late Animation<double>   _pulse;
+  late AnimationController _diceScatterCtrl;
 
   @override
   void initState() {
     super.initState();
+    _isMp         = widget.isMultiplayer;
+    _roomId       = widget.roomId ?? '';
+    _opponentName = widget.opponentName ?? 'Opponent';
+    _prizePool    = widget.prizePool;
     _reset();
-    _diceCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500));
-    _diceRot = Tween<double>(begin: 0, end: 2 * pi)
-        .animate(CurvedAnimation(parent: _diceCtrl, curve: Curves.easeOut));
     _pulseCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 700))
       ..repeat(reverse: true);
     _pulse = Tween<double>(begin: 0.85, end: 1.18)
         .animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
-    _startPractice();
+    _diceScatterCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1100))
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed && mounted) {
+          setState(() {
+            _scattering = false;
+            _rolling = false;
+          });
+        }
+      });
+    if (_isMp) {
+      _connectSocket();
+    } else {
+      _startPractice();
+    }
   }
 
   @override
   void dispose() {
-    _svc.endSession();
-    _diceCtrl.dispose();
+    if (_isMp) {
+      _socket?.disconnect();
+    } else {
+      _svc.endSession();
+    }
     _pulseCtrl.dispose();
+    _diceScatterCtrl.dispose();
     super.dispose();
+  }
+
+  void _connectSocket() {
+    setState(() => _waiting = true);
+    _socket = GamearnSocketService();
+    _socket!.connect(this);
+  }
+
+  // ── GameEventHandler ───────────────────────────────────────────
+
+  @override
+  void onConnected() {
+    if (_roomId.isEmpty) return;
+    _socket?.joinRoom(_roomId, onAck: (data) {
+      if (!mounted) return;
+      final gs = data['gameState'];
+      if (gs is Map<String, dynamic>) _applyServerGameState(gs);
+    });
+  }
+
+  @override
+  void onGameStateSync(Map<String, dynamic> gameState) {
+    if (mounted) _applyServerGameState(gameState);
+  }
+
+  @override
+  void onMatchFound(String roomId, Map<String, dynamic> opponent, int prizePool) {
+    if (!mounted) return;
+    _roomId = roomId.isNotEmpty ? roomId : _roomId;
+    _opponentName =
+        (opponent['displayName'] as String?)?.isNotEmpty == true
+            ? opponent['displayName'] as String
+            : _opponentName;
+    _prizePool = prizePool;
+    setState(() {});
+  }
+
+  @override
+  void onMatchStarted(Map<String, dynamic> gameState, int entryFee, int prizePool) {
+    if (!mounted) return;
+    _prizePool = prizePool;
+    _applyServerGameState(gameState);
+  }
+
+  @override
+  void onMoveMade(String playerUid, Map<String, dynamic> move,
+      Map<String, dynamic> gameState, bool isGameOver) {
+    if (!mounted) return;
+    if ((move['action'] as String?) == 'roll_dice') _playScatter();
+    _applyServerGameState(gameState);
+    if (isGameOver && !_gameOverShown) {
+      _winner = _indexOfUid(playerUid);
+      _showGameOver();
+    }
+  }
+
+  @override
+  void onGameOver(String? winnerUid, int prize, String result) {
+    if (!mounted) return;
+    _prizePool = prize;
+    _winner = _indexOfUid(winnerUid);
+    _gameOver = true;
+    if (!_gameOverShown) _showGameOver();
+  }
+
+  @override
+  void onOpponentDisconnected(int graceSeconds) {
+    if (mounted) setState(() => _opponentGone = true);
+  }
+
+  @override
+  void onOpponentReconnected() {
+    if (mounted) setState(() => _opponentGone = false);
+  }
+
+  @override
+  void onOpponentForfeited(String? winnerUid) {
+    if (!mounted) return;
+    _winner = _indexOfUid(winnerUid);
+    _gameOver = true;
+    if (!_gameOverShown) _showGameOver();
+  }
+
+  @override
+  void onError(String message) {
+    if (!mounted) return;
+    setState(() => _waiting = true);
+    showAppError(context, message);
+  }
+
+  @override
+  void onDisconnected(String reason) {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void onPlayerJoined(String uid, String displayName) {}
+
+  @override
+  void onMatchAborted(String reason) {
+    if (!mounted) return;
+    showAppError(context, 'Match cancelled: $reason');
+  }
+
+  @override
+  void onRematchRequested() {}
+
+  @override
+  void onRematchAccepted(String newRoomId) {
+    if (!mounted) return;
+    setState(() {
+      _roomId = newRoomId;
+      _gameOver = false;
+      _gameOverShown = false;
+      _winner = -1;
+      _waiting = true;
+      _pieces = [];
+      _dice = 0;
+      _diceValues = [];
+      _legal = [];
+      _legalMoves = [];
+      _scattering = false;
+      _opponentGone = false;
+    });
+    _socket?.joinRoom(_roomId, onAck: (data) {
+      if (!mounted) return;
+      final gs = data['gameState'];
+      if (gs is Map<String, dynamic>) _applyServerGameState(gs);
+    });
+  }
+
+  int _indexOfUid(String? uid) {
+    if (uid == null || uid.isEmpty) return -1;
+    if (uid == widget.playerId) return _humanIndex;
+    for (int i = 0; i < _playerCount; i++) {
+      if (i != _humanIndex) return i;
+    }
+    return 1 - _humanIndex;
+  }
+
+  void _playScatter() {
+    if (!mounted) return;
+    setState(() {
+      _scattering = true;
+      _buildScatterPoints();
+    });
+    _diceScatterCtrl.forward(from: 0);
+  }
+
+  void _buildScatterPoints() {
+    _scatterPoints = List.generate(5, (i) {
+      final side = i.isEven;
+      final top = (i ~/ 2).isEven;
+      return Offset(
+        side ? 0.16 + _srng.nextDouble() * 0.22 : 0.62 + _srng.nextDouble() * 0.22,
+        top ? 0.18 + _srng.nextDouble() * 0.22 : 0.60 + _srng.nextDouble() * 0.22,
+      );
+    });
+  }
+
+  // ── Server state ───────────────────────────────────────────────
+
+  void _applyServerGameState(Map<String, dynamic> gs) {
+    final players = gs['players'] as List? ?? [];
+    _updatePiecesFromPlayers(players);
+    _playerCount = players.isNotEmpty ? players.length : _playerCount;
+
+    final myUid = widget.playerId;
+    if (myUid != null && myUid.isNotEmpty) {
+      for (int i = 0; i < players.length; i++) {
+        if (((players[i] as Map)['uid'] as String?) == myUid) {
+          _humanIndex = i;
+          break;
+        }
+      }
+    }
+
+    final idx = gs['currentPlayerIndex'] as int?;
+    if (idx != null && idx >= 0 && idx < _playerCount) _current = idx;
+
+    final isMyTurn = _current == _humanIndex;
+    final dv = (gs['diceValues'] as List?)?.cast<int>() ?? [];
+    final legal = (gs['legalPieceIds'] as List?)?.cast<int>() ?? [];
+
+    setState(() {
+      _diceValues = dv;
+      _dice = dv.isNotEmpty ? dv.first : (gs['diceValue'] as int? ?? 0);
+      _legal = legal;
+      _legalMoves =
+          (gs['legalMoves'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      _selected = null;
+      _rolling = false;
+      _waiting = dv.isEmpty || !isMyTurn;
+    });
   }
 
   void _reset() {
@@ -207,15 +447,30 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     _diceCount   = 1;
     _tokenCount  = 4;
     _dualHome    = false;
+    _opponentGone = false;
+    _scattering   = false;
+    _gameOverShown = false;
   }
 
   void _updatePiecesFromPlayers(List<dynamic> players) {
     while (_pieces.length < players.length) _pieces.add([]);
+    // Server colors: ['red','green','yellow','blue'] — map to Flutter palette
+    // indices [red=0, yellow=1, green=2, blue=3] so pieces match their base
+    // and home stretch.
+    const _colorToIdx = {'red': 0, 'green': 2, 'yellow': 1, 'blue': 3};
     for (int pl = 0; pl < players.length && pl < 4; pl++) {
-      final serverPieces = (players[pl] as Map)['pieces'] as List? ?? [];
+      final player = players[pl] as Map;
+      final serverPieces = player['pieces'] as List? ?? [];
+      final colorName = (player['color'] as String?)?.toLowerCase();
+      final cIdx = _dualHome
+          ? null
+          : (_colorToIdx[colorName] ?? (player['index'] as int? ?? pl));
       _pieces[pl] = serverPieces
-          .map((s) => _pieceFromServer(s as Map<String, dynamic>))
-          .toList();
+          .map((s) {
+        final p = _pieceFromServer(s as Map<String, dynamic>);
+        if (cIdx != null) p.colorIdx = cIdx;
+        return p;
+      }).toList();
     }
   }
 
@@ -340,11 +595,19 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   }
 
   Future<void> _humanRoll() async {
-    if (_svc.sessionId == null) return;
-    if (!_waiting || _rolling || _gameOver || !_isHuman || _botBusy) return;
+    if (_gameOver || _botBusy) return;
+    if (!_waiting || _rolling || !_isHuman || _scattering) return;
     setState(() => _rolling = true);
     SoundService.instance.play(SoundType.diceRoll);
-    _diceCtrl.forward(from: 0);
+
+    if (_isMp) {
+      _socket?.rollDice();
+      return;
+    }
+
+    if (_svc.sessionId == null) return;
+    setState(() {});
+    _playScatter();
 
     try {
       final data = await _svc.rollDice();
@@ -431,6 +694,11 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
     final dv = _resolveDiceValue(idx);
 
+    if (_isMp) {
+      _socket?.movePiece(idx, dv ?? _dice);
+      return;
+    }
+
     try {
       final data = await _svc.movePiece(idx, diceValue: dv);
       if (!mounted) return;
@@ -486,7 +754,18 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   }
 
   void _showGameOver() {
+    if (!mounted || _gameOverShown) return;
+    _gameOverShown = true;
+    _gameOver = true;
     final humanWon = _winner == _humanIndex;
+    final winnerName = _isMp
+        ? (humanWon ? 'You' : _opponentName)
+        : (_winner >= 0 && _winner < _kNames.length ? _kNames[_winner % 4] : 'Opponent');
+    final subtitle = _isMp
+        ? (_prizePool > 0
+            ? '${humanWon ? 'You won' : '$winnerName won'}\nPrize: \u20A6${(_prizePool / 100).toStringAsFixed(0)}'
+            : '$winnerName wins!')
+        : '$winnerName house wins!';
     SoundService.instance.play(humanWon ? SoundType.gameWin : SoundType.gameLose);
     showDialog(
       context: context,
@@ -500,7 +779,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           textAlign: TextAlign.center,
         ),
         content: Text(
-          '${_kNames[_winner % 4]} house wins!',
+          subtitle,
           style: const TextStyle(color: kTextSec),
           textAlign: TextAlign.center,
         ),
@@ -509,11 +788,15 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              setState(() => _reset());
-              _startPractice();
+              if (_isMp) {
+                _socket?.requestRematch();
+              } else {
+                setState(() => _reset());
+                _startPractice();
+              }
             },
-            child: const Text('Play Again',
-                style: TextStyle(color: kCyan, fontWeight: FontWeight.w700)),
+            child: Text(_isMp ? 'Rematch' : 'Play Again',
+                style: const TextStyle(color: kCyan, fontWeight: FontWeight.w700)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -526,12 +809,23 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
   String get _statusText {
     if (_gameOver)   return 'Game Over';
+    if (_opponentGone) return 'Opponent disconnected \u2014 waiting\u2026';
+    if (_isMp) {
+      if (!_isHuman) return '${_shortName(_opponentName)} is rolling\u2026';
+      if (_rolling || _scattering) return 'Rolling\u2026';
+      if (_waiting)    return 'Tap the \u{1F3B2} to roll';
+      if (_legal.isEmpty) return 'Roll the dice first';
+      return 'Tap a glowing piece to move';
+    }
     if (_botBusy)    return 'Computer is thinking\u2026';
     if (!_isHuman)   return 'Computer\'s turn';
     if (_waiting)    return 'Tap \u{1F3B2} to roll';
     if (_legal.isEmpty) return 'Roll the dice first';
     return 'Tap a glowing piece to move';
   }
+
+  String _shortName(String name) =>
+      name.length <= 12 ? name : '${name.substring(0, 12)}\u2026';
 
   @override
   Widget build(BuildContext context) {
@@ -550,14 +844,34 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18.sp)),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white54),
-            onPressed: () {
-              _svc.endSession();
-              setState(() => _reset());
-              _startPractice();
-            },
-          )
+          if (!_isMp)
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded, color: Colors.white54),
+              onPressed: () {
+                _svc.endSession();
+                setState(() => _reset());
+                _startPractice();
+              },
+            )
+          else if (_prizePool > 0)
+            Padding(
+              padding: EdgeInsets.only(right: 12.w),
+              child: Center(
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                  decoration: BoxDecoration(
+                    color: kOrange.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: Border.all(color: kOrange.withOpacity(0.5)),
+                  ),
+                  child: Text('\u20A6${(_prizePool / 100).toStringAsFixed(0)}',
+                      style: TextStyle(
+                          color: kOrange,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.sp)),
+                ),
+              ),
+            ),
         ],
       ),
       body: SafeArea(
@@ -570,8 +884,11 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               final colors = uniqueColors.map((ci) => _kColors[ci]).toList();
               final homes = uniqueColors.map((ci) => playerPieceList.where((p) => p.colorIdx == ci && p.home).length).toList();
               final perColorTotal = _tokenCount > 4 ? 4 : _tokenCount;
+              final label = isHuman
+                  ? 'You'
+                  : (_isMp ? _shortName(_opponentName) : 'Computer');
               return _Strip(
-                label: isHuman ? 'You' : 'Computer',
+                label: label,
                 colors: colors,
                 active: _current == i && !_gameOver,
                 homes: homes,
@@ -583,7 +900,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 final bs = min(c.maxWidth, c.maxHeight);
                 return Center(
                   child: AnimatedBuilder(
-                    animation: _pulse,
+                    animation: Listenable.merge([_pulse, _diceScatterCtrl]),
                     builder: (_, __) => SizedBox(
                       width: bs,
                       height: bs,
@@ -609,6 +926,19 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                           waiting: _waiting,
                           onTap: _onPieceTap,
                         ),
+                        _CenterDice(
+                          boardSize: bs,
+                          dice: _dice,
+                          diceValues: _diceValues,
+                          diceCount: _diceCount,
+                          waiting: _waiting,
+                          canRoll: _isHuman && !_gameOver,
+                          scattering: _scattering,
+                          t: _diceScatterCtrl.value,
+                          points: _scatterPoints,
+                          pulse: _pulse.value,
+                          onRoll: _humanRoll,
+                        ),
                       ]),
                     ),
                   ),
@@ -616,18 +946,10 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               }),
             ),
             _BottomBar(
-              dice: _dice,
-              diceValues: _diceValues,
-              diceCount: _diceCount,
-              waiting: _waiting,
-              isHuman: _isHuman,
-              rolling: _rolling,
-              busy: _botBusy,
-              gameOver: _gameOver,
-              legal: _legal,
-              rot: _diceRot,
               status: _statusText,
-              onRoll: _humanRoll,
+              isHuman: _isHuman,
+              waiting: _waiting,
+              gameOver: _gameOver,
             ),
             SizedBox(height: 8.h),
           ],
@@ -1022,34 +1344,19 @@ class _Strip extends StatelessWidget {
 }
 
 class _BottomBar extends StatelessWidget {
-  final int dice;
-  final List<int> diceValues;
-  final int diceCount;
-  final bool waiting, isHuman, rolling, busy, gameOver;
-  final List<int> legal;
-  final Animation<double> rot;
   final String status;
-  final VoidCallback onRoll;
+  final bool isHuman, waiting, gameOver;
 
   const _BottomBar({
-    required this.dice, required this.diceValues, required this.diceCount,
-    required this.waiting, required this.isHuman,
-    required this.rolling, required this.busy, required this.gameOver,
-    required this.legal, required this.rot, required this.status,
-    required this.onRoll,
+    required this.status,
+    required this.isHuman,
+    required this.waiting,
+    required this.gameOver,
   });
-
-  bool get _canRoll => isHuman && waiting && !gameOver && !busy;
-
-  String _face(int r) {
-    const f = ['\u2680','\u2681','\u2682','\u2683','\u2684','\u2685'];
-    return (r >= 1 && r <= 6) ? f[r - 1] : '\u{1F3B2}';
-  }
 
   @override
   Widget build(BuildContext context) {
-    final showTwoDice = diceCount >= 2 && diceValues.length >= 2;
-
+    final canRoll = isHuman && waiting && !gameOver;
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 8.w),
       padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 12.h),
@@ -1064,68 +1371,142 @@ class _BottomBar extends StatelessWidget {
             child: Text(
               status,
               style: TextStyle(
-                color: _canRoll ? kCyan : (!isHuman ? kTextSec : kOrange),
+                color: canRoll ? kCyan : (isHuman ? kOrange : kTextSec),
                 fontSize: 13.sp, fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          if (showTwoDice)
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              _dicePip(diceValues[0]),
-              SizedBox(width: 6.w),
-              _dicePip(diceValues[1]),
-            ])
-          else
-            AnimatedBuilder(
-              animation: rot,
-              builder: (_, __) => Transform.rotate(
-                angle: rolling ? rot.value : 0,
-                child: GestureDetector(
-                  onTap: _canRoll ? onRoll : null,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 52.w, height: 52.h,
-                    decoration: BoxDecoration(
-                      color: _canRoll ? kOrange : kBgDeep,
-                      borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(
-                        color: _canRoll ? kOrange : kBorder, width: 2),
-                      boxShadow: _canRoll
-                          ? [BoxShadow(
-                                color: kOrange.withOpacity(0.45),
-                                blurRadius: 14, spreadRadius: 1)]
-                          : [],
-                    ),
-                    child: Center(
-                      child: dice == 0
-                          ? Icon(Icons.casino_rounded,
-                              color: Colors.white, size: 26.w)
-                          : Text(_face(dice),
-                              style: TextStyle(fontSize: 28.sp)),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          Icon(Icons.casino_rounded,
+              color: canRoll ? kCyan : Colors.white12, size: 20.w),
         ],
       ),
     );
   }
+}
 
-  Widget _dicePip(int value) {
-    return Container(
-      width: 36.w, height: 36.h,
-      decoration: BoxDecoration(
-        color: kOrange,
-        borderRadius: BorderRadius.circular(8.r),
-        border: Border.all(color: kOrange, width: 2),
-        boxShadow: [BoxShadow(
-            color: kOrange.withOpacity(0.45),
-            blurRadius: 8, spreadRadius: 0)],
-      ),
-      child: Center(
-        child: Text(_face(value),
-            style: TextStyle(fontSize: 20.sp)),
+// ── Centre dice with board-scatter roll animation ─────────────────────────────
+// The dice lives in the middle of the board. On a roll it bounces out across the
+// board, tumbles (rotating + cycling faces), then returns to the centre to show
+// the result.
+
+class _CenterDice extends StatelessWidget {
+  final double boardSize;
+  final int dice;
+  final List<int> diceValues;
+  final int diceCount;
+  final bool waiting;
+  final bool canRoll;
+  final bool scattering;
+  final double t;
+  final List<Offset> points;
+  final double pulse;
+  final VoidCallback onRoll;
+
+  const _CenterDice({
+    required this.boardSize,
+    required this.dice,
+    required this.diceValues,
+    required this.diceCount,
+    required this.waiting,
+    required this.canRoll,
+    required this.scattering,
+    required this.t,
+    required this.points,
+    required this.pulse,
+    required this.onRoll,
+  });
+
+  static String _face(int r) {
+    const f = ['\u2680', '\u2681', '\u2682', '\u2683', '\u2684', '\u2685'];
+    return (r >= 1 && r <= 6) ? f[r - 1] : '\u2680';
+  }
+
+  Offset _normPos() {
+    if (!scattering || points.isEmpty) return const Offset(0.5, 0.5);
+    final pts = [const Offset(0.5, 0.5), ...points, const Offset(0.5, 0.5)];
+    final n = pts.length - 1;
+    final f = t * n;
+    var i = f.floor();
+    if (i < 0) i = 0;
+    if (i > n - 1) i = n - 1;
+    final frac = (f - i).clamp(0.0, 1.0);
+    return Offset.lerp(pts[i], pts[i + 1], frac)!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final box = boardSize * 0.12;
+    final norm = _normPos();
+    final left = norm.dx * boardSize - box / 2;
+    final top  = norm.dy * boardSize - box / 2;
+    final angle = scattering ? t * 10 * pi : 0.0;
+    final scale = scattering
+        ? (1.0 + 0.28 * sin(t * 6 * pi))
+        : (canRoll && waiting ? pulse : 1.0);
+    final enabled = canRoll && waiting && !scattering;
+
+    final faceCount = (diceValues.length >= 2 || diceCount >= 2) ? 2 : 1;
+    final showTwo = faceCount == 2;
+    final cell = showTwo ? box * 0.46 : box;
+
+    final faces = <String>[];
+    if (scattering) {
+      final base = (t * 24).floor() % 6;
+      faces.add(_face(base + 1));
+      if (showTwo) faces.add(_face((base + 3) % 6 + 1));
+    } else {
+      final v0 = diceValues.isNotEmpty ? diceValues[0] : dice;
+      final v1 = diceValues.length >= 2 ? diceValues[1] : 0;
+      faces.add(_face(v0));
+      if (showTwo) faces.add(_face(v1));
+    }
+
+    Widget dieShell(String face, double w) => Container(
+          width: w,
+          height: w,
+          decoration: BoxDecoration(
+            color: enabled ? kOrange : (dice > 0 || scattering ? kOrange : kBgDeep),
+            borderRadius: BorderRadius.circular(w * 0.22),
+            border: Border.all(
+                color: enabled ? kOrange : kBorder, width: 2),
+            boxShadow: enabled
+                ? [BoxShadow(
+                    color: kOrange.withOpacity(0.5),
+                    blurRadius: 16, spreadRadius: 2)]
+                : [],
+          ),
+          child: Center(
+            child: dice == 0 && !scattering
+                ? Icon(Icons.casino_rounded,
+                    color: Colors.white, size: w * 0.5)
+                : Text(face,
+                    style: TextStyle(fontSize: w * 0.5, height: 1)),
+          ),
+        );
+
+    return Positioned(
+      left: left,
+      top: top,
+      width: box,
+      height: box,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: enabled ? onRoll : null,
+        child: Transform.rotate(
+          angle: angle,
+          child: Transform.scale(
+            scale: scale,
+            child: Center(
+              child: showTwo
+                  ? Row(mainAxisSize: MainAxisSize.min, children: [
+                      dieShell(faces[0], cell),
+                      SizedBox(width: box * 0.08),
+                      dieShell(faces[1], cell),
+                    ])
+                  : dieShell(faces[0], box),
+            ),
+          ),
+        ),
       ),
     );
   }

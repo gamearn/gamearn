@@ -177,6 +177,7 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
   }
 
   void _showMatchmakingDialog(String gameType, int entryFee) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -186,7 +187,14 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
           Navigator.push(context, MaterialPageRoute(
-            builder: (_) => LudoGameScreen(tokenCount: _tokens, diceCount: _dice),
+            builder: (_) => LudoGameScreen(
+              tokenCount: _tokens,
+              diceCount: _dice,
+              roomId: roomId,
+              playerId: uid,
+              opponentName: (opponent['displayName'] as String?) ?? 'Opponent',
+              prizePool: prizePool,
+            ),
           ));
         },
       ),
