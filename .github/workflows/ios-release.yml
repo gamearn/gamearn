@@ -73,14 +73,15 @@ jobs:
           TEAM_ID: ${{ secrets.TEAM_ID }}
           # App Store Connect API key — lets match CREATE the Distribution cert +
           # App Store profile for com.gamearn if missing and commit to MATCH_REPO,
-          # so no local Mac is ever required.
+          # so no local Mac is ever required. setup_ci unlocks a keychain so
+          # match never prompts for an Apple ID password in CI.
           APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
           APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
         run: |
           cd ios
           bundle install
-          bundle exec fastlane match appstore --force_for_new_devices true
+          bundle exec fastlane sync_signing
 
       - name: 🏗️ Build & export iOS IPA (App Store)
         env:

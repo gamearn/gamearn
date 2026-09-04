@@ -13,6 +13,30 @@ fastlane_version "2.220.0"
 default_platform(:ios)
 
 platform :ios do
+  desc "Set up CI keychain + sync signing assets via match (API-key provisioned)"
+  lane :sync_signing do
+    setup_ci   # creates + unlocks a temp keychain; fixes errSecInternalComponent
+    team_id = ENV["TEAM_ID"]
+    UI.user_error!("TEAM_ID is not set.") if team_id.nil? || team_id.empty?
+
+    match(
+      type: "appstore",
+      app_identifier: "com.gamearn",
+      readonly: false,
+      team_id: team_id,
+      # Authenticate provisioning via the App Store Connect API key in env,
+      # so no Apple ID username/password prompt is needed in CI.
+      api_key: app_store_connect_api_key(
+        key_id: ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"],
+        issuer_id: ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"],
+        key: ENV["APP_STORE_CONNECT_API_KEY_BASE64"],
+        is_key_content_base64: true,
+        duration: 1200,
+        in_house: false,
+      ),
+    )
+  end
+
   desc "Build & export an App Store IPA (signed via match)"
   lane :build_ipa do
     team_id = ENV["TEAM_ID"]
