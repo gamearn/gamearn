@@ -171,6 +171,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   bool _isMp         = false;
   late String _roomId;
   String _opponentName = 'Computer';
+  Map<int, String> _playerNames = {}; // per-seat names (2-4 player rooms)
   int _prizePool     = 0;
   bool _opponentGone = false;
   bool _scattering   = false;
@@ -399,6 +400,14 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     final players = gs['players'] as List? ?? [];
     _updatePiecesFromPlayers(players);
     _playerCount = players.isNotEmpty ? players.length : _playerCount;
+
+    // Capture per-seat names for 3-4 player rooms
+    _playerNames = {
+      for (int i = 0; i < players.length; i++)
+        i: ((players[i] as Map)['displayName'] as String?)?.trim().isNotEmpty == true
+            ? (players[i] as Map)['displayName'] as String
+            : 'Player ${i + 1}',
+    };
 
     final myUid = widget.playerId;
     if (myUid != null && myUid.isNotEmpty) {
@@ -759,7 +768,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     _gameOver = true;
     final humanWon = _winner == _humanIndex;
     final winnerName = _isMp
-        ? (humanWon ? 'You' : _opponentName)
+        ? (humanWon ? 'You' : _nameFor(_winner))
         : (_winner >= 0 && _winner < _kNames.length ? _kNames[_winner % 4] : 'Opponent');
     final subtitle = _isMp
         ? (_prizePool > 0
@@ -811,7 +820,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     if (_gameOver)   return 'Game Over';
     if (_opponentGone) return 'Opponent disconnected \u2014 waiting\u2026';
     if (_isMp) {
-      if (!_isHuman) return '${_shortName(_opponentName)} is rolling\u2026';
+      if (!_isHuman) return '${_nameFor(_current)} is rolling\u2026';
       if (_rolling || _scattering) return 'Rolling\u2026';
       if (_waiting)    return 'Tap the \u{1F3B2} to roll';
       if (_legal.isEmpty) return 'Roll the dice first';
@@ -826,6 +835,18 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
   String _shortName(String name) =>
       name.length <= 12 ? name : '${name.substring(0, 12)}\u2026';
+
+  /// Seat label for a player index — "You" for this device, the seat display
+  /// name otherwise. Falls back to the passed opponent name for 2-player rooms.
+  String _nameFor(int i) {
+    if (i == _humanIndex) return 'You';
+    final n = _playerNames[i];
+    if (n != null && n.isNotEmpty) return _shortName(n);
+    if (_opponentName.isNotEmpty && _opponentName != 'Computer') {
+      return _shortName(_opponentName);
+    }
+    return 'Player ${i + 1}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -886,7 +907,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               final perColorTotal = _tokenCount > 4 ? 4 : _tokenCount;
               final label = isHuman
                   ? 'You'
-                  : (_isMp ? _shortName(_opponentName) : 'Computer');
+                  : (_isMp ? _nameFor(i) : 'Computer');
               return _Strip(
                 label: label,
                 colors: colors,

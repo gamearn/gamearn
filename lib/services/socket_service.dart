@@ -377,10 +377,15 @@ class MatchmakingService {
 
   /// Join matchmaking queue.
   /// Match result is delivered via socket 'match_found' event — not this response.
+  /// [playerCount] is the room size (Ludo 2-4, others 2).
+  /// [options] are the game-specific MP options that must match the opponent's
+  /// (server segments the queue by these, so they can never mismatch).
   static Future<Map<String, dynamic>?> joinQueue({
     required String gameType,  // 'whot' | 'ludo' | 'ayo' | 'draughts'
     required int entryFee,     // in kobo e.g. 50000 = ₦500
     bool rated = true,
+    int playerCount = 2,
+    Map<String, dynamic>? options,
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -394,9 +399,11 @@ class MatchmakingService {
           'Authorization': 'Bearer $token',
         },
         body: jsonEncode({
-          'gameType':  gameType,
-          'entryFee':  entryFee,
-          'rated':     rated,
+          'gameType':    gameType,
+          'entryFee':    entryFee,
+          'rated':       rated,
+          'playerCount': playerCount,
+          'options':     options ?? {},
         }),
       ).timeout(const Duration(seconds: 15));
 

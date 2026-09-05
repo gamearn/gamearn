@@ -173,17 +173,18 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
       ));
       return;
     }
-    _showMatchmakingDialog('ludo', EntryFees.get('ludo', 'beginner'));
+    _showMatchmakingDialog('ludo', _players, {'diceCount': _dice});
   }
 
-  void _showMatchmakingDialog(String gameType, int entryFee) {
+  void _showMatchmakingDialog(String gameType, int playerCount, Map<String, dynamic> options) {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => _MatchmakingDialog(
         gameType: gameType,
-        entryFee: entryFee,
+        playerCount: playerCount,
+        options: options,
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
           Navigator.push(context, MaterialPageRoute(
@@ -256,17 +257,18 @@ class _DrafuSetupScreenState extends State<DrafuSetupScreen> {
       ));
       return;
     }
-    _showMatchmakingDialog('draughts', EntryFees.get('draughts', 'beginner'));
+    _showMatchmakingDialog('draughts', 2, {});
   }
 
-  void _showMatchmakingDialog(String gameType, int entryFee) {
+  void _showMatchmakingDialog(String gameType, int playerCount, Map<String, dynamic> options) {
     final uid  = FirebaseAuth.instance.currentUser?.uid ?? '';
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => _MatchmakingDialog(
         gameType: gameType,
-        entryFee: entryFee,
+        playerCount: playerCount,
+        options: options,
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
           Navigator.push(context, MaterialPageRoute(
@@ -274,7 +276,7 @@ class _DrafuSetupScreenState extends State<DrafuSetupScreen> {
               roomId:       roomId,
               playerId:     uid,
               opponentName: opponent['displayName'] as String? ?? 'Opponent',
-              prizePool:    EntryFees.naira(prizePool * 2),
+              prizePool:    EntryFees.naira(prizePool),
               onBack:       () => Navigator.pop(context),
             ),
           ));
@@ -338,17 +340,18 @@ class _AyoSetupScreenState extends State<AyoSetupScreen> {
       ));
       return;
     }
-    _showMatchmakingDialog('ayo', EntryFees.get('ayo', 'beginner'));
+    _showMatchmakingDialog('ayo', 2, {});
   }
 
-  void _showMatchmakingDialog(String gameType, int entryFee) {
+  void _showMatchmakingDialog(String gameType, int playerCount, Map<String, dynamic> options) {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => _MatchmakingDialog(
         gameType: gameType,
-        entryFee: entryFee,
+        playerCount: playerCount,
+        options: options,
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
           Navigator.push(context, MaterialPageRoute(
@@ -356,7 +359,7 @@ class _AyoSetupScreenState extends State<AyoSetupScreen> {
               roomId:       roomId,
               playerId:     uid,
               opponentName: opponent['displayName'] as String? ?? 'Opponent',
-              prizePool:    EntryFees.naira(prizePool * 2),
+              prizePool:    EntryFees.naira(prizePool),
               onBack:       () => Navigator.pop(context),
             ),
           ));
@@ -645,10 +648,19 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
       ));
       return;
     }
-    _showMatchmakingDialog('whot', EntryFees.get('whot', 'beginner'));
+    _showMatchmakingDialog(
+      'whot',
+      2, // multiplayer Whot is 2-seat; _players (2-5) applies to practice only
+      {
+        'startCards': _startCards.round(),
+        'continuous': _continuous,
+        'nulled': _specials.where((s) => s['nulled'] == true).map((s) => s['num']).toList(),
+        'removed': _specials.where((s) => s['removed'] == true).map((s) => s['num']).toList(),
+      },
+    );
   }
 
-  void _showMatchmakingDialog(String gameType, int entryFee) {
+  void _showMatchmakingDialog(String gameType, int playerCount, Map<String, dynamic> options) {
     final uid  = FirebaseAuth.instance.currentUser?.uid ?? '';
     final name = FirebaseAuth.instance.currentUser?.displayName ?? 'Player';
     showDialog(
@@ -656,7 +668,8 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
       barrierDismissible: false,
       builder: (_) => _MatchmakingDialog(
         gameType: gameType,
-        entryFee: entryFee,
+        playerCount: playerCount,
+        options: options,
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
           Navigator.push(context, MaterialPageRoute(
@@ -665,7 +678,7 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
               playerId:      uid,
               playerName:    name,
               opponentName:  opponent['displayName'] as String? ?? 'Opponent',
-              prizePool:     EntryFees.naira(prizePool * 2),
+              prizePool:     EntryFees.naira(prizePool),
               onBack:        () => Navigator.pop(context),
             ),
           ));
@@ -1487,12 +1500,14 @@ class _VsBotToggle extends StatelessWidget {
 
 class _MatchmakingDialog extends StatefulWidget {
   final String gameType;
-  final int entryFee;
+  final int playerCount;        // room size (Ludo 2-4, others 2)
+  final Map<String, dynamic> options; // game-specific MP options -> joinQueue
   final void Function(String roomId, Map<String, dynamic> opponent, int prizePool) onMatchFound;
 
   const _MatchmakingDialog({
     required this.gameType,
-    required this.entryFee,
+    required this.playerCount,
+    required this.options,
     required this.onMatchFound,
   });
 
@@ -1507,6 +1522,10 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
   int _errorCount = 0;
   Timer? _ticker;
   String _status = 'Searching for opponent...';
+
+  // Stake tier — chosen by the player before queueing. Changes the entry fee.
+  static const _tiers = ['beginner', 'intermediate', 'expert'];
+  String _tier = 'beginner';
 
   @override
   void initState() {
@@ -1530,6 +1549,8 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
     return m > 0 ? '${m}m ${s}s' : '${s}s';
   }
 
+  int get _stakeKobo => EntryFees.get(widget.gameType, _tier);
+
   Future<void> _cancel() async {
     await MatchmakingService.leaveQueue(widget.gameType);
     await _socket.disconnect();
@@ -1542,9 +1563,44 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
   void onConnected() {
     _errorCount = 0;
     if (mounted) setState(() => _status = 'Connected — searching...');
+    _joinQueueForCurrentStake();
+  }
+
+  void _joinQueueForCurrentStake() {
     MatchmakingService.joinQueue(
       gameType: widget.gameType,
-      entryFee: widget.entryFee,
+      entryFee: _stakeKobo,
+      playerCount: widget.playerCount,
+      options: widget.options,
+    );
+  }
+
+  void _selectTier(String tier) {
+    if (tier == _tier) return;
+    setState(() => _tier = tier);
+    // Requeue under the new stake so opponents always share the same tier.
+    MatchmakingService.leaveQueue(widget.gameType).then((_) {
+      if (mounted) _joinQueueForCurrentStake();
+    });
+  }
+
+  String get _tierLabel => _displayTierLabel(_tier);
+  String _displayTierLabel(String tier) =>
+      '${tier[0].toUpperCase()}${tier.substring(1)} · ${EntryFees.naira(EntryFees.get(widget.gameType, tier))}';
+  String _tierFromLabel(String label) => label.split(' · ').first.toLowerCase();
+
+  Widget _buildTierSelector() {
+    final labels = _tiers.map(_displayTierLabel).toList();
+    return _SegmentedPicker(
+      options: labels,
+      selected: _tierLabel,
+      activeColor: const Color(0xFF22D1EE),
+      activeTextColor: const Color(0xFF0B0E1A),
+      inactiveTextColor: context.txtSec,
+      containerRx: 10,
+      activeRx: 6,
+      inactiveFw: FontWeight.w600,
+      onChanged: (v) => _selectTier(_tierFromLabel(v)),
     );
   }
 
@@ -1637,7 +1693,13 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
                     color: context.txtPri,
                     fontSize: 18,
                     fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+
+            // ── Stake tier selector ───────────────────────────────
+            // Switches the entry fee so opponents always share the same stake.
+            _buildTierSelector(),
+            const SizedBox(height: 16),
+
             Text(_status,
                 textAlign: TextAlign.center,
                 style: TextStyle(
