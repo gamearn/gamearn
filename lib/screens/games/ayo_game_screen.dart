@@ -10,6 +10,7 @@ import 'package:gamearn/config/api_config.dart';
 import '../../theme.dart';
 import '../../utils/error_utils.dart';
 import '../../services/sound_service.dart';
+import '../../services/socket_service.dart';
 
 // ── Palette (matches Gamearn design tokens) ───────────────────────────────────
 const _bg       = Color(0xFF0B0E1A);
@@ -125,7 +126,8 @@ class AyoGameScreen extends StatefulWidget {
 }
 
 class _AyoGameScreenState extends State<AyoGameScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin
+    implements GameEventHandler {
 
   // ── Animations ────────────────────────────────────────────────────────────
   late AnimationController _glowCtrl;
@@ -155,6 +157,14 @@ class _AyoGameScreenState extends State<AyoGameScreen>
   // Service
   final _PracticeAyoService _svc = _PracticeAyoService();
 
+  // Multiplayer (socket)
+  bool  _isMp         = false;
+  String _roomId      = '';
+  int   _humanIndex   = 0;
+  bool  _opponentGone = false;
+  bool  _gameOverShown = false;
+  GamearnSocketService? _socket;
+
   // ── Init ──────────────────────────────────────────────────────────────────
   @override
   void initState() {
@@ -164,12 +174,26 @@ class _AyoGameScreenState extends State<AyoGameScreen>
       ..repeat(reverse: true);
     _glowAnim = Tween(begin: 0.6, end: 1.0).animate(
       CurvedAnimation(parent: _glowCtrl, curve: Curves.easeInOut));
-    _startGame();
+    _isMp = widget.roomId.isNotEmpty && widget.roomId != 'practice_bot';
+    if (_isMp) {
+      _roomId     = widget.roomId;
+      _humanIndex = 0;
+      _isLoading  = false;
+      _statusMsg  = 'Waiting for opponent…';
+      _socket     = GamearnSocketService();
+      _socket!.connect(this);
+    } else {
+      _startGame();
+    }
   }
 
   @override
   void dispose() {
-    _svc.deleteSession();
+    if (_isMp) {
+      _socket?.disconnect();
+    } else {
+      _svc.deleteSession();
+    }
     _glowCtrl.dispose();
     _highlightTimer?.cancel();
     _turnTimer?.cancel();
@@ -207,9 +231,9 @@ class _AyoGameScreenState extends State<AyoGameScreen>
 
   // ── Human pit tap ─────────────────────────────────────────────────────────
   void _onHoleTap(int holeIndex) {
-    // holeIndex is 0–5 (relative to human's row)
-    if (_currentPlayerIndex != 0 || _botBusy || _isTerminal) return;
-    if (_board[holeIndex] == 0) {
+    // holeIndex is 0–5 (relative to the human's own row)
+    if (!_isMyTurn || _botBusy || _isTerminal) return;
+    if (_board[_myPits[holeIndex]] == 0) {
       _toast('Empty pit — pick another');
       return;
     }
@@ -218,7 +242,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
 
   // ── Execute human move ────────────────────────────────────────────────────
   Future<void> _executeHumanMove() async {
-    if (_selectedHole < 0 || _currentPlayerIndex != 0 || _botBusy) return;
+    if (_selectedHole < 0 || !_isMyTurn || _botBusy) return;
 
     final hole = _selectedHole;
     _turnTimer?.cancel();
@@ -229,6 +253,13 @@ class _AyoGameScreenState extends State<AyoGameScreen>
     });
 
     HapticFeedback.lightImpact();
+
+    if (_isMp) {
+      setState(() => _statusMsg = 'Move sent…');
+      _socket?.sowPit(_myPits[hole]);
+      _highlightLastLand();
+      return;
+    }
 
     try {
       final data = await _svc.movePiece(hole);
@@ -317,7 +348,8 @@ class _AyoGameScreenState extends State<AyoGameScreen>
 
   // ── Game over ─────────────────────────────────────────────────────────────
   void _showGameOver({String? winner, Map<String, dynamic>? finalScores}) {
-    if (!mounted) return;
+    if (!mounted || _gameOverShown) return;
+    _gameOverShown = true;
     _turnTimer?.cancel();
     setState(() { _isTerminal = true; _botBusy = false; });
 
@@ -325,11 +357,14 @@ class _AyoGameScreenState extends State<AyoGameScreen>
     // seeds); fall back to store comparison only if no winner is given.
     final isWinner = winner != null
         ? _isMe(winner)
-        : _stores[0] > _stores[1];
-    final humanScore =
-        (finalScores?['player0'] as num?)?.toInt() ?? _stores[0];
-    final botScore =
-        (finalScores?['player1'] as num?)?.toInt() ?? _stores[1];
+        : _stores[_isMp ? _humanIndex : 0] >
+            _stores[_isMp ? 1 - _humanIndex : 1];
+    final humanScore = _isMp
+        ? _stores[_humanIndex]
+        : (finalScores?['player0'] as num?)?.toInt() ?? _stores[0];
+    final botScore = _isMp
+        ? _stores[1 - _humanIndex]
+        : (finalScores?['player1'] as num?)?.toInt() ?? _stores[1];
 
     SoundService.instance.play(isWinner ? SoundType.gameWin : SoundType.gameLose);
 
@@ -345,10 +380,185 @@ class _AyoGameScreenState extends State<AyoGameScreen>
         onClose: widget.onBack ?? () => Navigator.maybePop(context),
         onRematch: () {
           Navigator.pop(context);
-          _startGame();
+          if (_isMp) {
+            _socket?.requestRematch();
+          } else {
+            _startGame();
+          }
         },
       ),
     );
+  }
+
+  // ── Socket multiplayer ────────────────────────────────────────────────
+
+  List<int> get _myPits =>
+      _humanIndex == 0 ? [0, 1, 2, 3, 4, 5] : [6, 7, 8, 9, 10, 11];
+
+  List<int> get _oppPits =>
+      _humanIndex == 0 ? [6, 7, 8, 9, 10, 11] : [0, 1, 2, 3, 4, 5];
+
+  bool get _isMyTurn => _currentPlayerIndex == _humanIndex;
+
+  String _mpStatus() {
+    if (_opponentGone) return 'Opponent disconnected — waiting…';
+    if (_isTerminal)   return 'Game Over';
+    return _isMyTurn
+        ? 'Your turn — pick a pit'
+        : '${widget.opponentName} is thinking…';
+  }
+
+  void _applyServerState(Map<String, dynamic> gs) {
+    if (!mounted) return;
+    final players = gs['players'] as List? ?? [];
+    final myUid = widget.playerId;
+    var hi = 0;
+    if (myUid.isNotEmpty) {
+      for (int i = 0; i < players.length; i++) {
+        if ((players[i] as Map)['uid'] == myUid) { hi = i; break; }
+      }
+    }
+    final board  = List<int>.from(gs['board'] as List? ?? const []);
+    final stores = List<int>.from(gs['stores'] as List? ?? [0, 0]);
+    final current = gs['currentPlayerIndex'] as int? ?? 0;
+
+    setState(() {
+      _board              = board;
+      _stores             = stores;
+      _currentPlayerIndex = current;
+      _humanIndex         = hi;
+      _selectedHole       = -1;
+      _lastPit            = -1;
+      _lastLandPit        = -1;
+      _isTerminal         = false;
+      _isLoading          = false;
+      _loadFailed         = false;
+      _botBusy            = !_isMyTurn;
+      _statusMsg          = _mpStatus();
+    });
+  }
+
+  @override
+  void onConnected() {
+    if (_roomId.isNotEmpty) _socket?.joinRoom(_roomId, onAck: (_) {});
+  }
+
+  @override
+  void onMatchFound(String roomId, Map<String, dynamic> opponent, int prizePool) {
+    if (!mounted) return;
+    _roomId = roomId.isNotEmpty ? roomId : _roomId;
+    setState(() {});
+  }
+
+  @override
+  void onMatchStarted(Map<String, dynamic> gameState, int entryFee, int prizePool) {
+    _applyServerState(gameState);
+  }
+
+  @override
+  void onMoveMade(String playerUid, Map<String, dynamic> move,
+      Map<String, dynamic> gameState, bool isGameOver) {
+    if (!mounted) return;
+    _applyServerState(gameState);
+    if (isGameOver && !_gameOverShown) _showGameOver(winner: playerUid);
+  }
+
+  @override
+  void onGameOver(String? winnerUid, int prize, String result) {
+    if (!mounted || _gameOverShown) return;
+    _showGameOver(winner: winnerUid);
+  }
+
+  @override
+  void onGameStateSync(Map<String, dynamic> gameState) {
+    _applyServerState(gameState);
+  }
+
+  @override
+  void onPlayerJoined(String uid, String displayName) {}
+
+  @override
+  void onOpponentDisconnected(int graceSeconds) {
+    if (mounted) setState(() => _opponentGone = true);
+  }
+
+  @override
+  void onOpponentReconnected() {
+    if (mounted) setState(() => _opponentGone = false);
+  }
+
+  @override
+  void onOpponentForfeited(String? winnerUid) {
+    if (!mounted || _gameOverShown) return;
+    _showGameOver(winner: winnerUid);
+  }
+
+  @override
+  void onRematchRequested() {
+    if (!mounted || !_isMp) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: _card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        title: const Text('Rematch',
+            style: TextStyle(color: _txtPri, fontWeight: FontWeight.w800)),
+        content: Text('${widget.opponentName} wants a rematch',
+            style: const TextStyle(color: _txtSub)),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _socket?.acceptRematch();
+            },
+            child: const Text('Accept', style: TextStyle(color: _cyan)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Decline', style: TextStyle(color: _txtSub)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void onRematchAccepted(String newRoomId) {
+    if (!mounted || !_isMp) return;
+    _roomId       = newRoomId;
+    _gameOverShown = false;
+    _isTerminal   = false;
+    _opponentGone = false;
+    setState(() {
+      _board     = List.filled(_kHoles, 0);
+      _stores    = [0, 0];
+      _statusMsg = 'Waiting for opponent…';
+    });
+    _socket?.joinRoom(newRoomId, onAck: (_) {});
+  }
+
+  @override
+  void onMatchAborted(String reason) {
+    if (!mounted) return;
+    showAppError(context, reason);
+    Navigator.maybePop(context);
+  }
+
+  @override
+  void onError(String message) {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _statusMsg = 'Connection lost — retrying…';
+    });
+    showAppError(context, message);
+  }
+
+  @override
+  void onDisconnected(String reason) {
+    if (mounted) setState(() {});
   }
 
   /// True when [uid] refers to this screen's human player.
@@ -364,7 +574,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
   // ── Turn timeout ──────────────────────────────────────────────────────────
   void _startTurnTimer() {
     _turnTimer?.cancel();
-    if (!mounted || _isTerminal || _botBusy || _currentPlayerIndex != 0) return;
+    if (!mounted || _isMp || _isTerminal || _botBusy || !_isMyTurn) return;
     _turnTimerSec = 20;
     _turnTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) {
@@ -386,9 +596,9 @@ class _AyoGameScreenState extends State<AyoGameScreen>
   }
 
   void _forceMoveOnTimeout() {
-    if (!mounted || _botBusy || _isTerminal || _currentPlayerIndex != 0) return;
+    if (!mounted || _isMp || _botBusy || _isTerminal || !_isMyTurn) return;
     for (int i = 0; i < _kHolesEach; i++) {
-      if (_board[i] > 0) {
+      if (_board[_myPits[i]] > 0) {
         _selectedHole = i;
         _executeHumanMove();
         return;
@@ -472,9 +682,10 @@ class _AyoGameScreenState extends State<AyoGameScreen>
               _playerRow(
                 name:   widget.opponentName,
                 avatar: widget.opponentAvatar,
-                score:  _stores[1],
+                score:  _stores[1 - _humanIndex],
                 isBot:  true,
-                active: _currentPlayerIndex == 1 && !_isTerminal,
+                active: !_isMyTurn && !_isTerminal,
+                thinking: _botBusy,
               ),
 
               SizedBox(height: 12.h),
@@ -485,7 +696,9 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                   padding: EdgeInsets.symmetric(horizontal: 12.w),
                   child: _AyoBoardWidget(
                     board:        _board,
-                    currentPlayerIndex: _currentPlayerIndex,
+                    topHoles:     _oppPits.reversed.toList(),
+                    bottomHoles:  _myPits,
+                    isMyTurn:     _isMyTurn,
                     selectedHole: _selectedHole,
                     lastPit:      _lastPit,
                     lastLandPit:  _lastLandPit,
@@ -508,7 +721,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                     color: _surface,
                     borderRadius: BorderRadius.circular(20.r),
                     border: Border.all(
-                      color: _currentPlayerIndex == 0 && !_botBusy
+                      color: _isMyTurn && !_botBusy
                           ? _cyan.withOpacity(0.4)
                           : _border,
                     ),
@@ -556,7 +769,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                           ),
                           child: Text(
                             'Sow from pit ${_selectedHole + 1}  '
-                            '(${_board[_selectedHole]} seeds)',
+                            '(${_board[_myPits[_selectedHole]]} seeds)',
                             style: TextStyle(
                                 color: _bg, fontSize: 13.sp,
                                 fontWeight: FontWeight.w800),
@@ -572,9 +785,10 @@ class _AyoGameScreenState extends State<AyoGameScreen>
               _playerRow(
                 name:   widget.playerName,
                 avatar: widget.playerAvatar,
-                score:  _stores[0],
+                score:  _stores[_humanIndex],
                 isBot:  false,
-                active: _currentPlayerIndex == 0 && !_isTerminal,
+                active: _isMyTurn && !_isTerminal,
+                thinking: false,
               ),
 
               SizedBox(height: 16.h),
@@ -591,6 +805,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
     required int score,
     required bool isBot,
     required bool active,
+    bool thinking = false,
   }) => Padding(
     padding: EdgeInsets.symmetric(horizontal: 16.w),
     child: Row(
@@ -629,7 +844,10 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                   style: TextStyle(
                       color: _txtPri, fontSize: 13.sp,
                       fontWeight: FontWeight.w700)),
-              if (active)
+              if (thinking)
+                Text('thinking…',
+                    style: TextStyle(color: _cyan, fontSize: 11.sp))
+              else if (active)
                 Text('Your turn',
                     style: TextStyle(color: _cyan, fontSize: 11.sp)),
             ],
@@ -713,7 +931,9 @@ class _AyoGameScreenState extends State<AyoGameScreen>
 // ═════════════════════════════════════════════════════════════════════════════
 class _AyoBoardWidget extends StatelessWidget {
   final List<int> board;
-  final int currentPlayerIndex;
+  final List<int> topHoles;
+  final List<int> bottomHoles;
+  final bool isMyTurn;
   final int selectedHole;
   final int lastPit;
   final int lastLandPit;
@@ -722,7 +942,9 @@ class _AyoBoardWidget extends StatelessWidget {
 
   const _AyoBoardWidget({
     required this.board,
-    required this.currentPlayerIndex,
+    required this.topHoles,
+    required this.bottomHoles,
+    required this.isMyTurn,
     required this.selectedHole,
     required this.lastPit,
     required this.lastLandPit,
@@ -751,13 +973,13 @@ class _AyoBoardWidget extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            // ── BOT ROW (holes 6–11, displayed right to left) ────────────
+            // ── OPPONENT ROW (displayed right to left) ────────────────
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 12.w),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: List.generate(6, (i) {
-                  final holeIdx = 11 - i;
+                  final holeIdx = topHoles[i];
                   return _HoleWidget(
                     seeds:      board[holeIdx],
                     isSelected: false,
@@ -775,25 +997,24 @@ class _AyoBoardWidget extends StatelessWidget {
             // ── SEPARATOR MARGIN ─────────────────────────────────────────
             SizedBox(height: 12.h),
 
-            // ── HUMAN ROW (holes 0–5, left to right) ─────────────────────
+            // ── HUMAN ROW (left to right) ─────────────────────────────
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 12.w),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: List.generate(6, (i) {
-                  final holeIdx = i;
-                  final isPlayable = currentPlayerIndex == 0 &&
-                      !botBusy &&
-                      board[holeIdx] > 0;
+                  final holeIdx = bottomHoles[i];
+                  final isPlayable =
+                      isMyTurn && !botBusy && board[holeIdx] > 0;
                   return _HoleWidget(
                     seeds:      board[holeIdx],
-                    isSelected: selectedHole == holeIdx,
+                    isSelected: selectedHole == i,
                     isLastSown: lastPit == holeIdx,
                     isLastLand: lastLandPit == holeIdx,
                     isPlayable: isPlayable,
                     label:      '${i + 1}',
                     size:       holeSize,
-                    onTap:      () => onHoleTap(holeIdx),
+                    onTap:      () => onHoleTap(i),
                   );
                 }),
               ),

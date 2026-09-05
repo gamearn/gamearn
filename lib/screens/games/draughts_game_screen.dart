@@ -9,6 +9,7 @@ import 'package:gamearn/config/api_config.dart';
 import '../../theme.dart';
 import '../../utils/error_utils.dart';
 import '../../services/sound_service.dart';
+import '../../services/socket_service.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _bg      = Color(0xFF0B0E1A);
@@ -161,7 +162,8 @@ class DraughtsGameScreen extends StatefulWidget {
 }
 
 class _DraughtsGameScreenState extends State<DraughtsGameScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin
+    implements GameEventHandler {
 
   // ── Animations ────────────────────────────────────────────────────────────
   late AnimationController _glowCtrl;
@@ -196,6 +198,14 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
   // Service
   final _PracticeDraughtsService _svc = _PracticeDraughtsService();
 
+  // Multiplayer (socket)
+  bool  _isMp         = false;
+  String _roomId      = '';
+  int   _humanIndex   = 0;
+  bool  _opponentGone = false;
+  bool  _gameOverShown = false;
+  GamearnSocketService? _socket;
+
   // ── Init ──────────────────────────────────────────────────────────────────
   @override
   void initState() {
@@ -205,12 +215,26 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
       ..repeat(reverse: true);
     _glowAnim = Tween(begin: 0.6, end: 1.0).animate(
         CurvedAnimation(parent: _glowCtrl, curve: Curves.easeInOut));
-    _startGame();
+    _isMp = widget.roomId.isNotEmpty && widget.roomId != 'practice_bot';
+    if (_isMp) {
+      _roomId      = widget.roomId;
+      _humanIndex  = 0;
+      _isLoading   = false;
+      _statusMsg   = 'Waiting for opponent…';
+      _socket      = GamearnSocketService();
+      _socket!.connect(this);
+    } else {
+      _startGame();
+    }
   }
 
   @override
   void dispose() {
-    _svc.deleteSession();
+    if (_isMp) {
+      _socket?.disconnect();
+    } else {
+      _svc.deleteSession();
+    }
     _glowCtrl.dispose();
     _turnTimer?.cancel();
     super.dispose();
@@ -250,8 +274,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
 
   // ── Square tap ───────────────────────────────────────────────────────────
   void _onSquareTap(int sq) {
-    if (_currentPlayer != 0 || _botBusy || _isTerminal) return;
-    final cell = _board[sq];
+    if (!_isMyTurn || _botBusy || _isTerminal) return;
+    final cell = _dispBoard[sq];
 
     // Tap a move hint → execute the move
     if (_legalMoves.contains(sq) && _selectedSq >= 0) {
@@ -285,6 +309,20 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
     HapticFeedback.lightImpact();
     _turnTimer?.cancel();
     setState(() { _botBusy = true; _statusMsg = 'Sending move…'; });
+
+    if (_isMp) {
+      final sFrom = _serverOf(from);
+      final sTo   = _serverOf(to);
+      setState(() {
+        _selectedSq   = -1;
+        _legalMoves   = [];
+        _captureMoves = [];
+        _statusMsg    = 'Move sent…';
+      });
+      _socket?.moveDraughts(sFrom ~/ _kBoardSize, sFrom % _kBoardSize,
+          sTo ~/ _kBoardSize, sTo % _kBoardSize);
+      return;
+    }
 
     try {
       final data = await _svc.movePiece(from, to);
@@ -382,8 +420,46 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
 
   // ── Hint generators (render-only — server validates) ──────────────────────
 
+  /// Display board in the human's perspective: own pieces are always 1/2 at
+  /// the bottom, opponent pieces 3/4 at the top. Identity in practice mode.
+  List<int> get _dispBoard {
+    if (_humanIndex != 1) return _board;
+    final out = List<int>.filled(_kCells, _kEmpty);
+    for (int r = 0; r < _kBoardSize; r++) {
+      for (int c = 0; c < _kBoardSize; c++) {
+        final s = r * _kBoardSize + c;
+        var cell = _board[s];
+        if (cell == _kBotMan)      cell = _kHumanMan;
+        else if (cell == _kBotKing) cell = _kHumanKing;
+        else if (cell == _kHumanMan) cell = _kBotMan;
+        else if (cell == _kHumanKing) cell = _kBotKing;
+        out[(_kBoardSize - 1 - r) * _kBoardSize + c] = cell;
+      }
+    }
+    return out;
+  }
+
+  /// Server square for a display square (self-inverse).
+  int _serverOf(int dispSq) {
+    if (_humanIndex != 1) return dispSq;
+    final r = dispSq ~/ _kBoardSize, c = dispSq % _kBoardSize;
+    return (_kBoardSize - 1 - r) * _kBoardSize + c;
+  }
+
+  bool get _isMyTurn => _currentPlayer == _humanIndex;
+
+  void _countDisplayPieces() {
+    var own = 0, opp = 0;
+    for (final c in _dispBoard) {
+      if (c == _kHumanMan || c == _kHumanKing) own++;
+      if (c == _kBotMan || c == _kBotKing)     opp++;
+    }
+    _humanPieces = own;
+    _botPieces   = opp;
+  }
+
   List<int> _getMovesFrom(int from) {
-    final board = _board;
+    final board = _dispBoard;
     final piece = board[from];
     final row   = from ~/ _kBoardSize;
     final col   = from % _kBoardSize;
@@ -414,7 +490,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
   }
 
   List<int> _getCapturesFrom(int from) {
-    final board  = _board;
+    final board  = _dispBoard;
     final piece  = board[from];
     if (piece == _kEmpty) return [];
     final row    = from ~/ _kBoardSize;
@@ -445,7 +521,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
 
   bool _anyPieceHasCapture() {
     for (int sq = 0; sq < _kCells; sq++) {
-      final c = _board[sq];
+      final c = _dispBoard[sq];
       if (c == _kHumanMan || c == _kHumanKing) {
         if (_getCapturesFrom(sq).isNotEmpty) return true;
       }
@@ -472,50 +548,217 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
   }
 
   void _endGame({required bool humanWins}) {
-    if (!mounted) return;
+    _presentGameOver(isWinner: humanWins, isDraw: false);
+  }
+
+  void _endDraw() {
+    _presentGameOver(isWinner: false, isDraw: true);
+  }
+
+  void _presentGameOver({required bool isWinner, required bool isDraw}) {
+    if (!mounted || _gameOverShown) return;
+    _gameOverShown = true;
     _turnTimer?.cancel();
-    SoundService.instance.play(humanWins ? SoundType.gameWin : SoundType.gameLose);
+    SoundService.instance.play(
+        isWinner ? SoundType.gameWin : SoundType.gameLose);
     setState(() { _isTerminal = true; _botBusy = false; });
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => _GameOverDialog(
-        isWinner:     humanWins,
+        isWinner:     isWinner,
+        isDraw:       isDraw,
         humanPieces:  _humanPieces,
         botPieces:    _botPieces,
         prizePool:    widget.prizePool,
         opponentName: widget.opponentName,
         onClose:  widget.onBack ?? () => Navigator.maybePop(context),
-        onRematch: () { Navigator.pop(context); _startGame(); },
+        onRematch: () {
+          Navigator.pop(context);
+          if (_isMp) {
+            _socket?.requestRematch();
+          } else {
+            _startGame();
+          }
+        },
       ),
     );
   }
 
-  void _endDraw() {
+  // ── Socket multiplayer ────────────────────────────────────────────────
+
+  String _mpStatus() {
+    if (_opponentGone) return 'Opponent disconnected — waiting…';
+    if (_isTerminal)   return 'Game Over';
+    return _isMyTurn
+        ? 'Your turn — select a piece'
+        : '${widget.opponentName} is thinking…';
+  }
+
+  void _applyServerState(Map<String, dynamic> gs) {
     if (!mounted) return;
-    _turnTimer?.cancel();
-    SoundService.instance.play(SoundType.gameLose);
-    setState(() { _isTerminal = true; _botBusy = false; });
+    final players = gs['players'] as List? ?? [];
+    final myUid = widget.playerId;
+    var hi = 0;
+    if (myUid.isNotEmpty) {
+      for (int i = 0; i < players.length; i++) {
+        if ((players[i] as Map)['uid'] == myUid) { hi = i; break; }
+      }
+    }
+    final board = List<int>.from(gs['board'] as List? ?? const []);
+    final current = gs['currentPlayerIndex'] as int? ?? 0;
+
+    setState(() {
+      _board         = board;
+      _humanIndex    = hi;
+      _currentPlayer = current;
+      _selectedSq    = -1;
+      _legalMoves    = [];
+      _captureMoves  = [];
+      _lastFrom      = -1;
+      _lastTo        = -1;
+      _isTerminal    = false;
+      _isLoading     = false;
+      _loadFailed    = false;
+      _countDisplayPieces();
+      _botBusy   = !_isMyTurn;
+      _statusMsg = _mpStatus();
+    });
+  }
+
+  @override
+  void onConnected() {
+    if (_roomId.isNotEmpty) _socket?.joinRoom(_roomId, onAck: (_) {});
+  }
+
+  @override
+  void onMatchFound(String roomId, Map<String, dynamic> opponent, int prizePool) {
+    if (!mounted) return;
+    _roomId = roomId.isNotEmpty ? roomId : _roomId;
+    setState(() {});
+  }
+
+  @override
+  void onMatchStarted(Map<String, dynamic> gameState, int entryFee, int prizePool) {
+    _applyServerState(gameState);
+  }
+
+  @override
+  void onMoveMade(String playerUid, Map<String, dynamic> move,
+      Map<String, dynamic> gameState, bool isGameOver) {
+    if (!mounted) return;
+    _applyServerState(gameState);
+    if (isGameOver && !_gameOverShown) {
+      _presentGameOver(
+          isWinner: playerUid == widget.playerId, isDraw: false);
+    }
+  }
+
+  @override
+  void onGameOver(String? winnerUid, int prize, String result) {
+    if (!mounted || _gameOverShown) return;
+    _presentGameOver(
+        isWinner: winnerUid != null && winnerUid == widget.playerId,
+        isDraw:   winnerUid == null);
+  }
+
+  @override
+  void onGameStateSync(Map<String, dynamic> gameState) {
+    _applyServerState(gameState);
+  }
+
+  @override
+  void onPlayerJoined(String uid, String displayName) {}
+
+  @override
+  void onOpponentDisconnected(int graceSeconds) {
+    if (mounted) setState(() => _opponentGone = true);
+  }
+
+  @override
+  void onOpponentReconnected() {
+    if (mounted) setState(() => _opponentGone = false);
+  }
+
+  @override
+  void onOpponentForfeited(String? winnerUid) {
+    if (!mounted || _gameOverShown) return;
+    _presentGameOver(
+        isWinner: winnerUid != null && winnerUid == widget.playerId,
+        isDraw:   winnerUid == null);
+  }
+
+  @override
+  void onRematchRequested() {
+    if (!mounted || !_isMp) return;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _GameOverDialog(
-        isWinner:     false,
-        isDraw:       true,
-        humanPieces:  _humanPieces,
-        botPieces:    _botPieces,
-        prizePool:    widget.prizePool,
-        opponentName: widget.opponentName,
-        onClose:  widget.onBack ?? () => Navigator.maybePop(context),
-        onRematch: () { Navigator.pop(context); _startGame(); },
+      builder: (_) => AlertDialog(
+        backgroundColor: _card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        title: const Text('Rematch',
+            style: TextStyle(color: _txtPri, fontWeight: FontWeight.w800)),
+        content: Text('${widget.opponentName} wants a rematch',
+            style: const TextStyle(color: _txtSub)),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _socket?.acceptRematch();
+            },
+            child: const Text('Accept', style: TextStyle(color: _cyan)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Decline', style: TextStyle(color: _txtSub)),
+          ),
+        ],
       ),
     );
+  }
+
+  @override
+  void onRematchAccepted(String newRoomId) {
+    if (!mounted || !_isMp) return;
+    _roomId       = newRoomId;
+    _gameOverShown = false;
+    _isTerminal   = false;
+    _opponentGone = false;
+    setState(() {
+      _board        = List.filled(_kCells, _kEmpty);
+      _statusMsg    = 'Waiting for opponent…';
+    });
+    _socket?.joinRoom(newRoomId, onAck: (_) {});
+  }
+
+  @override
+  void onMatchAborted(String reason) {
+    if (!mounted) return;
+    showAppError(context, reason);
+    Navigator.maybePop(context);
+  }
+
+  @override
+  void onError(String message) {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _statusMsg = 'Connection lost — retrying…';
+    });
+    showAppError(context, message);
+  }
+
+  @override
+  void onDisconnected(String reason) {
+    if (mounted) setState(() {});
   }
 
   // ── Turn timeout ──────────────────────────────────────────────────────────
   void _startTurnTimer() {
     _turnTimer?.cancel();
-    if (!mounted || _isTerminal || _botBusy || _currentPlayer != 0) return;
+    if (!mounted || _isMp || _isTerminal || _botBusy || !_isMyTurn) return;
     _turnTimerSec = 20;
     _turnTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) {
@@ -537,10 +780,10 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
   }
 
   void _forceMoveOnTimeout() {
-    if (!mounted || _botBusy || _isTerminal || _currentPlayer != 0) return;
+    if (!mounted || _isMp || _botBusy || _isTerminal || !_isMyTurn) return;
     final anyCapture = _anyPieceHasCapture();
     for (int sq = 0; sq < _kCells; sq++) {
-      final c = _board[sq];
+      final c = _dispBoard[sq];
       if (c == _kHumanMan || c == _kHumanKing) {
         final legal = anyCapture ? _getCapturesFrom(sq) : _getMovesFrom(sq);
         if (legal.isEmpty) continue;
@@ -617,7 +860,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
                 avatar:  widget.opponentAvatar,
                 pieces:  _botPieces,
                 isBot:   true,
-                active:  _currentPlayer == 1 && !_isTerminal,
+                active:  !_isMyTurn && !_isTerminal,
                 isBusy:  _botBusy,
               ),
 
@@ -630,7 +873,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: _DraughtsBoardWidget(
-                      board:        _board,
+                      board:        _dispBoard,
                       selectedSq:   _selectedSq,
                       legalMoves:   _legalMoves,
                       captureMoves: _captureMoves,
@@ -655,7 +898,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
                     color: _surface,
                     borderRadius: BorderRadius.circular(20.r),
                     border: Border.all(
-                      color: _currentPlayer == 0 && !_botBusy
+                      color: _isMyTurn && !_botBusy
                           ? _cyan.withOpacity(0.4)
                           : _border,
                     ),
@@ -687,7 +930,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen>
                 avatar: widget.playerAvatar,
                 pieces: _humanPieces,
                 isBot:  false,
-                active: _currentPlayer == 0 && !_isTerminal,
+                active: _isMyTurn && !_isTerminal,
                 isBusy: false,
               ),
 

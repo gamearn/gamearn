@@ -305,7 +305,8 @@ class GamearnSocketService {
 
   // ── Ayo convenience method ────────────────────────────────────
 
-  void sowPit(int pit) => makeMove({'action': 'sow', 'pit': pit});
+  void sowPit(int pitIndex) =>
+      makeMove({'action': 'sow', 'pitIndex': pitIndex});
 
   // ── Draughts convenience method ───────────────────────────────
 
@@ -313,8 +314,10 @@ class GamearnSocketService {
       {List<Map<String, int>>? captures}) {
     makeMove({
       'action': 'move',
-      'from': {'row': fromRow, 'col': fromCol},
-      'to':   {'row': toRow,   'col': toCol},
+      'fromRow': fromRow,
+      'fromCol': fromCol,
+      'toRow': toRow,
+      'toCol': toCol,
       if (captures != null) 'captures': captures,
     });
   }
