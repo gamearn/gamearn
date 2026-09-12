@@ -54,7 +54,7 @@ platform :ios do
       export_team_id: team_id,
       skip_archive: false,
       clean: true,
-      derive_data_path: "build/ios/DerivedData",
+      derived_data_path: "build/ios/DerivedData",
     )
 
     ipa = Dir["build/ios/ipa/*.ipa"].first

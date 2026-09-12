@@ -1,7 +1,7 @@
 name: gamearn
 description: Gamearn - Play. Earn. Compete.
 publish_to: 'none'
-version: 2.0.20+20
+version: 2.0.21+21
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
