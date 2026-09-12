@@ -9,8 +9,9 @@ import '../../services/firestore_cache.dart';
 import '../../services/avatar_pipeline.dart';
 import '../../widgets/cached_avatar.dart';
 import '../../theme.dart';
-import 'invite_friends_screen.dart';
+import '../../utils/error_utils.dart';
 import 'premium_purchase_screen.dart';
+import '../wallet/wallet_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  PROFILE SCREEN — Figma matched (390×844)  [1726:1605]
@@ -50,24 +51,28 @@ class ProfileScreen extends StatelessWidget {
         child: FutureBuilder<Map<String, dynamic>>(
           future: FirestoreCache.instance.doc('users', uid),
           builder: (_, userSnap) {
-            final user     = userSnap.data ?? {};
+            final user = userSnap.data ?? {};
             final username = user['username'] as String? ?? 'Player';
-            final avatar   = user['avatar']   as String? ?? 'BOT';
-            final level    = user['level']    as int?    ?? 1;
-            final xp       = user['xp']       as int?    ?? 0;
-            final xpNext   = user['xpNext']   as int?    ?? 500;
-            final wins     = user['wins']      as int?    ?? 0;
-            final games    = user['gamesPlayed'] as int? ?? 0;
-            final dayStreak = user['dayStreak'] as int?    ?? 0;
-            final allTime  = user['allTimeScore'] as num? ?? 0;
-            final bio      = user['bio']      as String? ?? 'Ready to play!';
-            final friends  = (user['friends'] as List?)?.cast<String>() ?? [];
+            final avatar = user['avatar'] as String? ?? 'BOT';
+            final level = user['level'] as int? ?? 1;
+            final xp = user['xp'] as int? ?? 0;
+            final xpNext = user['xpNext'] as int? ?? 500;
+            final wins = user['wins'] as int? ?? 0;
+            final dayStreak = user['dayStreak'] as int? ?? 0;
+            final followers = user['followers'] as int? ?? 0;
+            final following = user['following'] as int? ?? 0;
+            final regionRank = user['regionRank'] as int?;
+            final globalRank = user['globalRank'] as int?;
+            final allTime = user['allTimeScore'] as num? ?? 0;
+            final bio = user['bio'] as String? ?? 'Ready to play!';
+            final friends = (user['friends'] as List?)?.cast<String>() ?? [];
 
-            final avatarEmoji = kAvatars.firstWhere(
-                (a) => a['name'] == avatar,
-                orElse: () => kAvatars[0])['emoji'] ?? '🤖';
-            final avatarUrl = user['avatarUrl'] as String? ?? 
-                              user['profilePicUrl'] as String? ?? '';
+            final avatarEmoji = kAvatars.firstWhere((a) => a['name'] == avatar,
+                    orElse: () => kAvatars[0])['emoji'] ??
+                '🤖';
+            final avatarUrl = user['avatarUrl'] as String? ??
+                user['profilePicUrl'] as String? ??
+                '';
 
             return Column(children: [
               _header(context),
@@ -75,11 +80,12 @@ class ProfileScreen extends StatelessWidget {
                 child: ListView(
                   padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 32.h),
                   children: [
-                    _avatarBlock(context, avatarEmoji, username, bio, uid, avatarUrl),
+                    _avatarBlock(
+                        context, avatarEmoji, username, bio, uid, avatarUrl),
                     SizedBox(height: 32.h),
                     _actionButtons(context, uid, username, bio),
                     SizedBox(height: 32.h),
-                    _statRow(context, wins, games, dayStreak),
+                    _statRow(context, followers, following, dayStreak),
                     SizedBox(height: 32.h),
                     _searchBar(context),
                     SizedBox(height: 32.h),
@@ -87,7 +93,7 @@ class ProfileScreen extends StatelessWidget {
                     SizedBox(height: 32.h),
                     _performance(context, level, xp, xpNext, wins, allTime),
                     SizedBox(height: 32.h),
-                    _rankCards(context),
+                    _rankCards(context, regionRank, globalRank),
                     SizedBox(height: 32.h),
                     const _PremiumSection(),
                   ],
@@ -111,71 +117,73 @@ class ProfileScreen extends StatelessWidget {
         border: Border(bottom: BorderSide(color: context.border, width: 1)),
       ),
       child: Row(children: [
-        GestureDetector(
-          onTap: () => Navigator.maybePop(context),
-          child: Icon(Icons.close_rounded,
-              color: context.txtPri, size: 20.w),
-        ),
         Expanded(
           child: Text(l10n.profileTitle,
               textAlign: TextAlign.center,
               style: TextStyle(
                   color: context.txtPri,
-                  fontSize: 18.sp, fontWeight: FontWeight.w700)),
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w700)),
         ),
-        SizedBox(width: 20.w), // balance
       ]),
     );
   }
 
   // ── AVATAR + NAME ─────────────────────────────────────────────
-  Widget _avatarBlock(BuildContext context, String emoji,
-      String name, String bio, String uid, String avatarUrl) {
+  Widget _avatarBlock(BuildContext context, String emoji, String name,
+      String bio, String uid, String avatarUrl) {
     return Column(children: [
       Stack(
         clipBehavior: Clip.none,
         children: [
           Container(
-            width: 128.w, height: 128.h,
+            width: 128.w,
+            height: 128.h,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white,
-              boxShadow: [BoxShadow(
-                  color: kCyan.withOpacity(0.25),
-                  blurRadius: 24, spreadRadius: 4)],
+              boxShadow: [
+                BoxShadow(
+                    color: kCyan.withOpacity(0.25),
+                    blurRadius: 24,
+                    spreadRadius: 4)
+              ],
             ),
           ),
           Positioned(
-            top: 2, left: 2,
+            top: 2,
+            left: 2,
             child: Container(
-              width: 124.w, height: 124.h,
-              decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: context.bg),
+              width: 124.w,
+              height: 124.h,
+              decoration:
+                  BoxDecoration(shape: BoxShape.circle, color: context.bg),
               child: ClipOval(
                 child: avatarUrl.isNotEmpty
                     ? ProductionCachedAvatarWidget(
                         targetProfileUrl: avatarUrl,
                         displayDiameter: 124.w,
                       )
-                    : Center(child: Text(emoji,
-                        style: TextStyle(fontSize: 60.sp))),
+                    : Center(
+                        child: Text(emoji, style: TextStyle(fontSize: 60.sp))),
               ),
             ),
           ),
           Positioned(
-            bottom: 0, right: 0,
+            bottom: 0,
+            right: 0,
             child: GestureDetector(
               onTap: () => _showAvatarPicker(context, uid),
               child: Container(
-                width: 24.w, height: 24.h,
+                width: 24.w,
+                height: 24.h,
                 decoration: BoxDecoration(
                   color: kOrange,
                   shape: BoxShape.circle,
                   border: Border.all(color: context.bg, width: 2),
                 ),
-                child: Icon(Icons.edit_rounded,
-                    color: Colors.white, size: 12.w),
+                child:
+                    Icon(Icons.edit_rounded, color: Colors.white, size: 12.w),
               ),
             ),
           ),
@@ -186,19 +194,23 @@ class ProfileScreen extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
               color: context.txtPri,
-              fontSize: 24.sp, fontWeight: FontWeight.w700)),
+              fontSize: 24.sp,
+              fontWeight: FontWeight.w700)),
       SizedBox(height: 4.h),
       Text(bio,
           textAlign: TextAlign.center,
-          maxLines: 1, overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
               color: context.txtSec,
-              fontSize: 16.sp, fontWeight: FontWeight.w600)),
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w600)),
     ]);
   }
 
   // ── AVATAR PICKER ──────────────────────────────────────────────
-  static Future<void> _showAvatarPicker(BuildContext context, String uid) async {
+  static Future<void> _showAvatarPicker(
+      BuildContext context, String uid) async {
     final picked = await AvatarExecutionPipeline.pickAndProcessImage();
     if (picked == null) return;
 
@@ -227,10 +239,7 @@ class ProfileScreen extends StatelessWidget {
             .ref('users/$uid/profile.jpg')
             .getDownloadURL();
 
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .update({
+        await FirebaseFirestore.instance.collection('users').doc(uid).update({
           'avatarUrl': url,
           'profilePicUrl': url,
           'updatedAt': FieldValue.serverTimestamp(),
@@ -256,18 +265,13 @@ class ProfileScreen extends StatelessWidget {
     } catch (e) {
       if (!context.mounted) return;
       Navigator.pop(context); // Dismiss loading on error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      showAppError(context, e);
     }
   }
 
   // ── EDIT / SHARE — Figma: 165×44 r8 ───────────────────────────
-  Widget _actionButtons(BuildContext context, String uid,
-      String username, String bio) {
+  Widget _actionButtons(
+      BuildContext context, String uid, String username, String bio) {
     final l10n = AppLocalizations.of(context)!;
     return Row(children: [
       Expanded(
@@ -283,7 +287,8 @@ class ProfileScreen extends StatelessWidget {
               child: Text(l10n.profileEdit,
                   style: TextStyle(
                       color: Colors.white,
-                      fontSize: 14.sp, fontWeight: FontWeight.w700)),
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w700)),
             ),
           ),
         ),
@@ -291,8 +296,8 @@ class ProfileScreen extends StatelessWidget {
       SizedBox(width: 12.w),
       Expanded(
         child: GestureDetector(
-          onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const InviteFriendsScreen())),
+          onTap: () => Navigator.push(
+              context, MaterialPageRoute(builder: (_) => const WalletScreen())),
           child: Container(
             height: 44.h,
             decoration: BoxDecoration(
@@ -302,8 +307,9 @@ class ProfileScreen extends StatelessWidget {
             child: Center(
               child: Text(l10n.profileWallet,
                   style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14.sp, fontWeight: FontWeight.w700)),
+                      color: context.txtPri,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w700)),
             ),
           ),
         ),
@@ -312,25 +318,29 @@ class ProfileScreen extends StatelessWidget {
   }
 
   // ── STAT BOXES — Figma: 3×106×82 r12 ──────────────────────────
-  Widget _statRow(BuildContext context, int wins, int games, int dayStreak) {
+  Widget _statRow(
+      BuildContext context, int followers, int following, int dayStreak) {
     final l10n = AppLocalizations.of(context)!;
     return Row(children: [
-      Expanded(child: _ProfileStat(
-          value: _fmtCount(wins * 4 + 200),
-          label: l10n.profileFollowers,
-          fill: context.border.withOpacity(0.5))),
+      Expanded(
+          child: _ProfileStat(
+              value: _fmtCount(followers),
+              label: l10n.profileFollowers,
+              fill: context.border.withOpacity(0.5))),
       SizedBox(width: 10.w),
-      Expanded(child: _ProfileStat(
-          value: _fmtCount(games * 3 + 100),
-          label: l10n.profileFollowing,
-          fill: context.border.withOpacity(0.5))),
+      Expanded(
+          child: _ProfileStat(
+              value: _fmtCount(following),
+              label: l10n.profileFollowing,
+              fill: context.border.withOpacity(0.5))),
       SizedBox(width: 10.w),
-      Expanded(child: _ProfileStat(
-          value: '$dayStreak',
-          label: l10n.profileDayStreak,
-          fill: kCyan.withOpacity(0.10),
-          accent: true,
-          icon: Icons.local_fire_department_rounded)),
+      Expanded(
+          child: _ProfileStat(
+              value: '$dayStreak',
+              label: l10n.profileDayStreak,
+              fill: kCyan.withOpacity(0.10),
+              accent: true,
+              icon: Icons.local_fire_department_rounded)),
     ]);
   }
 
@@ -345,33 +355,32 @@ class ProfileScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(24.r),
       ),
       child: Row(children: [
-        Icon(Icons.search_rounded,
-            color: Color(0x80FFFFFF), size: 18.w),
+        Icon(Icons.search_rounded, color: Color(0x80FFFFFF), size: 18.w),
         SizedBox(width: 12.w),
         Expanded(
           child: Text(l10n.profileSearchFriends,
               style: TextStyle(
                   color: context.txtSec,
-                  fontSize: 16.sp, fontWeight: FontWeight.w400)),
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w400)),
         ),
       ]),
     );
   }
 
   // ── ACTIVE FRIENDS ────────────────────────────────────────────
-  Widget _activeFriends(BuildContext context,
-      List<String> friends, int dayStreak) {
+  Widget _activeFriends(
+      BuildContext context, List<String> friends, int dayStreak) {
     final l10n = AppLocalizations.of(context)!;
-    final online = friends.isEmpty
-        ? 12
-        : (friends.length.clamp(0, 12) as num).toInt();
+    final online = friends.length;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(
           child: Text(l10n.profileActiveFriends,
               style: TextStyle(
                   color: context.txtSec,
-                  fontSize: 12.sp, fontWeight: FontWeight.w700)),
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w700)),
         ),
         Text(l10n.profileOnline(online),
             style: TextStyle(
@@ -381,7 +390,11 @@ class ProfileScreen extends StatelessWidget {
       if (friends.isNotEmpty)
         for (final f in friends.take(5)) _FriendRow(uid: f)
       else
-        for (final m in kMockFriends) _MockFriendRow(data: m),
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 14.h),
+          child: Text('No friends online right now.',
+              style: TextStyle(color: context.txtSec, fontSize: 13.sp)),
+        ),
       _externalContacts(context),
     ]);
   }
@@ -389,7 +402,8 @@ class ProfileScreen extends StatelessWidget {
   Widget _externalContacts(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final refCode = uid.length >= 8 ? uid.substring(0, 8).toUpperCase() : 'CYBER_X_99';
+    final refCode =
+        uid.length >= 8 ? uid.substring(0, 8).toUpperCase() : 'PLAYER';
     final refLink = 'gamearn.gg/ref/$refCode';
     return GestureDetector(
       onTap: () async {
@@ -405,7 +419,8 @@ class ProfileScreen extends StatelessWidget {
         ),
         child: Row(children: [
           Container(
-            width: 48.w, height: 48.h,
+            width: 48.w,
+            height: 48.h,
             decoration: BoxDecoration(
               color: context.txtPri.withOpacity(0.1),
               shape: BoxShape.circle,
@@ -418,7 +433,8 @@ class ProfileScreen extends StatelessWidget {
             child: Text(l10n.profileInviteFromContacts,
                 style: TextStyle(
                     color: context.txtPri,
-                    fontSize: 14.sp, fontWeight: FontWeight.w600)),
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600)),
           ),
           Icon(Icons.chevron_right_rounded,
               color: context.txtPri.withOpacity(0.4), size: 20.w),
@@ -428,16 +444,16 @@ class ProfileScreen extends StatelessWidget {
   }
 
   // ── PERFORMANCE STATS — Figma: Frame 126 ──────────────────────
-  Widget _performance(BuildContext context, int level, int xp,
-      int xpNext, int wins, num allTime) {
+  Widget _performance(BuildContext context, int level, int xp, int xpNext,
+      int wins, num allTime) {
     final l10n = AppLocalizations.of(context)!;
-    final pts = allTime > 0
-        ? _fmtNum(allTime.toInt())
-        : '24,580';
+    final pts = _fmtNum(allTime.toInt());
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(l10n.profilePerformanceStats,
           style: TextStyle(
-              color: context.txtPri, fontSize: 18.sp, fontWeight: FontWeight.w700)),
+              color: context.txtPri,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w700)),
       SizedBox(height: 14.h),
       Container(
         width: double.infinity,
@@ -454,12 +470,14 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   Text(l10n.profileAllTimePoints,
                       style: TextStyle(
-                          color: context.txtSec, fontSize: 12.sp,
+                          color: context.txtSec,
+                          fontSize: 12.sp,
                           fontWeight: FontWeight.w700)),
                   SizedBox(height: 2.h),
                   Text('$pts pts',
                       style: TextStyle(
-                          color: kOrange, fontSize: 20.sp,
+                          color: kOrange,
+                          fontSize: 20.sp,
                           fontWeight: FontWeight.w700)),
                 ],
               ),
@@ -472,26 +490,31 @@ class ProfileScreen extends StatelessWidget {
               ),
               child: Text(l10n.profileThisWeek,
                   style: TextStyle(
-                      color: kCyan, fontSize: 12.sp, fontWeight: FontWeight.w700)),
+                      color: kCyan,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w700)),
             ),
           ]),
           SizedBox(height: 20.h),
           _progressRow(context, l10n.profileLevelXp('$level'), xp, xpNext),
           SizedBox(height: 14.h),
-          _progressRow(context, l10n.profileTotalWins, wins, (wins * 2).clamp(10, 1000)),
+          _progressRow(
+              context, l10n.profileTotalWins, wins, (wins * 2).clamp(10, 1000)),
         ]),
       ),
     ]);
   }
 
-  Widget _progressRow(BuildContext context, String label, int value, int total) {
+  Widget _progressRow(
+      BuildContext context, String label, int value, int total) {
     final pct = total > 0 ? (value / total).clamp(0.0, 1.0) : 0.0;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(
           child: Text(label,
               style: TextStyle(
-                  color: context.txtSec, fontSize: 11.sp,
+                  color: context.txtSec,
+                  fontSize: 11.sp,
                   fontWeight: FontWeight.w600)),
         ),
         Text('$value / $total',
@@ -512,20 +535,22 @@ class ProfileScreen extends StatelessWidget {
   }
 
   // ── RANK CARDS — Figma: Frame 127 165×106 r12 ─────────────────
-  Widget _rankCards(BuildContext context) {
+  Widget _rankCards(BuildContext context, int? regionRank, int? globalRank) {
     final l10n = AppLocalizations.of(context)!;
     return Row(children: [
-      Expanded(child: _RankCard(
-          icon: Icons.emoji_events_rounded,
-          iconColor: kCyan,
-          label: l10n.profileRegionRank,
-          value: '#42')),
+      Expanded(
+          child: _RankCard(
+              icon: Icons.emoji_events_rounded,
+              iconColor: kCyan,
+              label: l10n.profileRegionRank,
+              value: regionRank == null ? '—' : '#${_fmtNum(regionRank)}')),
       SizedBox(width: 12.w),
-      Expanded(child: _RankCard(
-          icon: Icons.public_rounded,
-          iconColor: const Color(0xFFFFC107),
-          label: l10n.profileGlobalRank,
-          value: '#1,204')),
+      Expanded(
+          child: _RankCard(
+              icon: Icons.public_rounded,
+              iconColor: const Color(0xFFFFC107),
+              label: l10n.profileGlobalRank,
+              value: globalRank == null ? '—' : '#${_fmtNum(globalRank)}')),
     ]);
   }
 
@@ -537,22 +562,10 @@ class ProfileScreen extends StatelessWidget {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       isScrollControlled: true,
-      builder: (_) => _EditProfileSheet(
-          uid: uid, username: username, bio: bio),
+      builder: (_) => _EditProfileSheet(uid: uid, username: username, bio: bio),
     );
   }
 }
-
-const List<Map<String, dynamic>> kMockFriends = [
-  {'name': 'Chukwudi', 'emoji': '🦅', 'online': true,
-   'sub': 'Diamond Tier • Level 84', 'following': false},
-  {'name': 'Amara', 'emoji': '🦁', 'online': true,
-   'sub': 'Master Tier • Level 102', 'following': false},
-  {'name': 'Adekunle', 'emoji': '🦉', 'online': false,
-   'sub': 'Gold III • Offline', 'following': true},
-  {'name': 'StormWalker', 'emoji': '⛈️', 'online': true,
-   'sub': 'Platinum II • In-Game', 'following': false},
-];
 
 // ── STAT BOX — Figma: 106×82 r12 ────────────────────────────────
 class _ProfileStat extends StatelessWidget {
@@ -560,38 +573,44 @@ class _ProfileStat extends StatelessWidget {
   final Color fill;
   final bool accent;
   final IconData? icon;
-  const _ProfileStat({required this.value, required this.label,
-      required this.fill, this.accent = false, this.icon});
+  const _ProfileStat(
+      {required this.value,
+      required this.label,
+      required this.fill,
+      this.accent = false,
+      this.icon});
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 82.h,
-    padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
-    decoration: BoxDecoration(
-      color: fill,
-      borderRadius: BorderRadius.circular(12.r),
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (icon != null) ...[
-          Icon(icon, color: kCyan, size: 20.w),
-          SizedBox(height: 2.h),
-        ] else
-          Text(value,
-              style: TextStyle(
-                  color: context.txtPri,
-                  fontSize: 20.sp, fontWeight: FontWeight.w700)),
-        SizedBox(height: 2.h),
-        Text(label,
-            style: TextStyle(
-                color: accent
-                    ? kCyan.withOpacity(0.7)
-                    : context.txtSec.withOpacity(0.5),
-                fontSize: 12.sp, fontWeight: FontWeight.w500)),
-      ],
-    ),
-  );
+        height: 82.h,
+        padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: kCyan, size: 20.w),
+              SizedBox(height: 2.h),
+            ] else
+              Text(value,
+                  style: TextStyle(
+                      color: context.txtPri,
+                      fontSize: 20.sp,
+                      fontWeight: FontWeight.w700)),
+            SizedBox(height: 2.h),
+            Text(label,
+                style: TextStyle(
+                    color: accent
+                        ? kCyan.withOpacity(0.7)
+                        : context.txtSec.withOpacity(0.5),
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w500)),
+          ],
+        ),
+      );
 }
 
 // ── RANK CARD — Figma: 165×106 r12 #1E293B@50 ───────────────────
@@ -599,34 +618,39 @@ class _RankCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final String label, value;
-  const _RankCard({required this.icon, required this.iconColor,
-      required this.label, required this.value});
+  const _RankCard(
+      {required this.icon,
+      required this.iconColor,
+      required this.label,
+      required this.value});
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 106.h,
-    padding: EdgeInsets.all(16.r),
-      decoration: BoxDecoration(
-        color: context.border.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12.r),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: iconColor, size: 18.w),
-          SizedBox(height: 4.h),
-          Text(label,
-              style: TextStyle(
-                  color: context.txtSec, fontSize: 12.sp,
-                  fontWeight: FontWeight.w700)),
-          SizedBox(height: 2.h),
-          Text(value,
-              style: TextStyle(
-                  color: context.txtPri, fontSize: 18.sp,
-                  fontWeight: FontWeight.w700)),
-      ],
-    ),
-  );
+        height: 106.h,
+        padding: EdgeInsets.all(16.r),
+        decoration: BoxDecoration(
+          color: context.border.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: iconColor, size: 18.w),
+            SizedBox(height: 4.h),
+            Text(label,
+                style: TextStyle(
+                    color: context.txtSec,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w700)),
+            SizedBox(height: 2.h),
+            Text(value,
+                style: TextStyle(
+                    color: context.txtPri,
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w700)),
+          ],
+        ),
+      );
 }
 
 // ── FRIEND ROW (live) — Figma: 342×74 r12 #1A2131@30 ────────────
@@ -641,71 +665,59 @@ class _FriendRow extends StatelessWidget {
       child: FutureBuilder<Map<String, dynamic>>(
         future: FirestoreCache.instance.doc('users', uid),
         builder: (_, snap) {
-          final u      = snap.data ?? {};
-          final name   = u['username'] as String? ?? 'Player';
-          final level  = u['level'] as int? ?? 1;
+          final u = snap.data ?? {};
+          final name = u['username'] as String? ?? 'Player';
+          final level = u['level'] as int? ?? 1;
+          final tier = u['tier'] as String? ?? 'Player';
           final online = u['online'] as bool? ?? false;
-          final emoji  = kAvatars.firstWhere(
-              (a) => a['name'] == (u['avatar'] ?? 'BOT'),
-              orElse: () => kAvatars[0])['emoji'] ?? '🤖';
+          final emoji = kAvatars.firstWhere(
+                  (a) => a['name'] == (u['avatar'] ?? 'BOT'),
+                  orElse: () => kAvatars[0])['emoji'] ??
+              '🤖';
 
           return _friendRow(context,
-              emoji: emoji, name: name,
-              sub: 'Diamond Tier • Level $level',
-              online: online, following: !online);
+              emoji: emoji,
+              name: name,
+              sub: '$tier • Level $level',
+              online: online,
+              following: true);
         },
       ),
     );
   }
 }
 
-// ── MOCK FRIEND ROW (fallback) ──────────────────────────────────
-class _MockFriendRow extends StatelessWidget {
-  final Map<String, dynamic> data;
-  const _MockFriendRow({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    final online = data['online'] as bool? ?? false;
-    return Padding(
-      padding: EdgeInsets.only(bottom: 10.h),
-      child: _friendRow(context,
-          emoji: data['emoji'] as String? ?? '🤖',
-          name: data['name'] as String? ?? 'Player',
-          sub: data['sub'] as String? ?? 'Diamond Tier • Level 1',
-          online: online, following: data['following'] as bool? ?? false),
-    );
-  }
-}
-
 Widget _friendRow(BuildContext context,
-    {required String emoji, required String name,
-     required String sub, required bool online, required bool following}) {
+    {required String emoji,
+    required String name,
+    required String sub,
+    required bool online,
+    required bool following}) {
   final l10n = AppLocalizations.of(context)!;
   return Container(
     height: 74.h,
     padding: EdgeInsets.all(12.r),
     decoration: BoxDecoration(
-      color: following
-          ? const Color(0x1A251A31)
-          : const Color(0x4D1A2131),
+      color: following ? const Color(0x1A251A31) : const Color(0x4D1A2131),
       borderRadius: BorderRadius.circular(12.r),
     ),
     child: Row(children: [
       Stack(children: [
         Container(
-          width: 48.w, height: 48.h,
+          width: 48.w,
+          height: 48.h,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: context.card,
           ),
-          child: Center(
-              child: Text(emoji, style: TextStyle(fontSize: 24.sp))),
+          child: Center(child: Text(emoji, style: TextStyle(fontSize: 24.sp))),
         ),
         Positioned(
-          bottom: 1, right: 1,
+          bottom: 1,
+          right: 1,
           child: Container(
-            width: 12.w, height: 12.h,
+            width: 12.w,
+            height: 12.h,
             decoration: BoxDecoration(
               color: online ? const Color(0xFF22C55E) : const Color(0xFF475569),
               shape: BoxShape.circle,
@@ -721,20 +733,24 @@ Widget _friendRow(BuildContext context,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(name,
-                maxLines: 1, overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                     color: online
                         ? context.txtPri
                         : context.txtPri.withOpacity(0.7),
-                    fontSize: 16.sp, fontWeight: FontWeight.w700)),
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700)),
             SizedBox(height: 2.h),
             Text(sub,
-                maxLines: 1, overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                     color: online
                         ? context.txtPri.withOpacity(0.6)
                         : context.txtSec,
-                    fontSize: 12.sp, fontWeight: FontWeight.w500)),
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w500)),
           ],
         ),
       ),
@@ -751,12 +767,14 @@ Widget _friendRow(BuildContext context,
             child: Text(l10n.profileFollowingBtn,
                 style: TextStyle(
                     color: context.txtSec,
-                    fontSize: 12.sp, fontWeight: FontWeight.w700)),
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w700)),
           ),
         )
       else
         Container(
-          width: 64.w, height: 32.h,
+          width: 64.w,
+          height: 32.h,
           decoration: BoxDecoration(
             color: kOrange,
             borderRadius: BorderRadius.circular(8.r),
@@ -765,7 +783,8 @@ Widget _friendRow(BuildContext context,
             child: Text(l10n.profileInviteBtn,
                 style: TextStyle(
                     color: Colors.white,
-                    fontSize: 12.sp, fontWeight: FontWeight.w700)),
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w700)),
           ),
         ),
     ]),
@@ -785,7 +804,8 @@ class _PremiumSection extends StatelessWidget {
         child: Text(l10n.profileGoPremium,
             textAlign: TextAlign.center,
             style: TextStyle(
-                color: context.txtPri, fontSize: 18.sp,
+                color: context.txtPri,
+                fontSize: 18.sp,
                 fontWeight: FontWeight.w700)),
       ),
       SizedBox(height: 14.h),
@@ -800,7 +820,8 @@ class _PremiumSection extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Container(
-              width: 44.w, height: 44.h,
+              width: 44.w,
+              height: 44.h,
               decoration: BoxDecoration(
                 color: const Color(0xFFFFC107).withOpacity(0.12),
                 shape: BoxShape.circle,
@@ -816,19 +837,20 @@ class _PremiumSection extends StatelessWidget {
                   Text(l10n.profilePremiumTitle,
                       style: TextStyle(
                           color: context.txtPri,
-                          fontSize: 16.sp, fontWeight: FontWeight.w800)),
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w800)),
                   SizedBox(height: 2.h),
                   Text(l10n.profilePremiumSub,
                       style: TextStyle(
-                          color: kCyan, fontSize: 12.sp,
+                          color: kCyan,
+                          fontSize: 12.sp,
                           fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
           ]),
           SizedBox(height: 16.h),
-          Text(
-              l10n.profilePremiumBody,
+          Text(l10n.profilePremiumBody,
               style: TextStyle(
                   color: context.txtSec, fontSize: 13.sp, height: 1.5)),
           SizedBox(height: 16.h),
@@ -847,7 +869,8 @@ class _PremiumSection extends StatelessWidget {
                 child: Text(l10n.profileGoPremium,
                     style: TextStyle(
                         color: context.txtPri,
-                        fontSize: 14.sp, fontWeight: FontWeight.w800)),
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w800)),
               ),
             ),
           ),
@@ -875,21 +898,25 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.username);
-    _bioCtrl  = TextEditingController(text: widget.bio);
+    _bioCtrl = TextEditingController(text: widget.bio);
   }
 
   @override
   void dispose() {
-    _nameCtrl.dispose(); _bioCtrl.dispose(); super.dispose();
+    _nameCtrl.dispose();
+    _bioCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
       await FirebaseFirestore.instance
-          .collection('users').doc(widget.uid).update({
+          .collection('users')
+          .doc(widget.uid)
+          .update({
         'username': _nameCtrl.text.trim(),
-        'bio':      _bioCtrl.text.trim(),
+        'bio': _bioCtrl.text.trim(),
       });
       if (mounted) Navigator.pop(context);
     } finally {
@@ -901,36 +928,45 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Padding(
-      padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         padding: EdgeInsets.all(24.r),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 40.w, height: 4.h,
+          Container(
+              width: 40.w,
+              height: 4.h,
               decoration: BoxDecoration(
                   color: context.txtPri.withOpacity(0.24),
                   borderRadius: BorderRadius.circular(2.r))),
           SizedBox(height: 20.h),
           Text(l10n.profileEditSheetTitle,
-              style: TextStyle(color: context.txtPri,
-                  fontSize: 17.sp, fontWeight: FontWeight.w800)),
+              style: TextStyle(
+                  color: context.txtPri,
+                  fontSize: 17.sp,
+                  fontWeight: FontWeight.w800)),
           SizedBox(height: 20.h),
-          _field(_nameCtrl, l10n.profileUsernameHint, Icons.person_outline_rounded),
+          _field(_nameCtrl, l10n.profileUsernameHint,
+              Icons.person_outline_rounded),
           SizedBox(height: 12.h),
           _field(_bioCtrl, l10n.profileBioHint, Icons.edit_note_rounded),
           SizedBox(height: 20.h),
           GestureDetector(
             onTap: _saving ? null : _save,
             child: Container(
-              width: double.infinity, height: 48.h,
+              width: double.infinity,
+              height: 48.h,
               decoration: BoxDecoration(
                   color: kOrange, borderRadius: BorderRadius.circular(12.r)),
-              child: Center(child: _saving
-                  ? const CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2)
-                  : Text(l10n.profileSave,
-                      style: TextStyle(color: Colors.white,
-                          fontSize: 15.sp, fontWeight: FontWeight.w800))),
+              child: Center(
+                  child: _saving
+                      ? const CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2)
+                      : Text(l10n.profileSave,
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w800))),
             ),
           ),
         ]),
@@ -951,7 +987,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           child: Row(children: [
             Icon(icon, color: kCyan, size: 18.w),
             SizedBox(width: 10.w),
-            Expanded(child: TextField(
+            Expanded(
+                child: TextField(
               controller: ctrl,
               style: TextStyle(color: context.txtPri),
               decoration: InputDecoration(

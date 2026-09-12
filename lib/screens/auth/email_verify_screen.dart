@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:app_links/app_links.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
+import '../../utils/error_utils.dart';
 import 'profile_setup_screen.dart';
 
 /// Firebase link-based email verification screen.
@@ -140,7 +141,7 @@ class _EmailVerifyScreenState extends State<EmailVerifyScreen> {
       _startCooldown();
       _showSnack('A new verification link was sent!', color: kCyan);
     } on FirebaseAuthException catch (e) {
-      _showSnack(e.message ?? 'Could not send verification email');
+      if (mounted) showAppError(context, e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -187,119 +188,122 @@ class _EmailVerifyScreenState extends State<EmailVerifyScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  icon: Icon(Icons.close_rounded,
-                      color: Color(0xFFF1F5F9), size: 20.w),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-              const Spacer(),
-              Container(
-                width: 72.w,
-                height: 72.w,
-                decoration: BoxDecoration(
-                  color: kOrange.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.mark_email_read_outlined,
-                    color: kOrange, size: 34.w),
-              ),
-              SizedBox(height: 24.h),
-              Text('Verify Your Email',
-                  style: TextStyle(
-                      color: context.txtPri,
-                      fontSize: 24.sp,
-                      fontWeight: FontWeight.w800)),
-              SizedBox(height: 10.h),
-              Text(
-                'We sent a verification link to\n${widget.email}',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: context.txtSec, fontSize: 13.sp),
-              ),
-              SizedBox(height: 14.h),
-              Text(
-                'Tap the link in the email and you will come back here to continue automatically.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: context.txtSec, fontSize: 12.sp),
-              ),
-              SizedBox(height: 32.h),
-              Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                decoration: BoxDecoration(
-                  color: context.card,
-                  borderRadius: BorderRadius.circular(20.r),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.timer_outlined,
-                        color: context.txtSec, size: 16.w),
-                    SizedBox(width: 6.w),
-                    Text(_timerDisplay,
-                        style: TextStyle(
-                            color: context.txtPri,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15.sp)),
-                  ],
-                ),
-              ),
-              SizedBox(height: 16.h),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text("Didn't get the email?  ",
-                      style: TextStyle(color: context.txtSec, fontSize: 13.sp)),
-                  GestureDetector(
-                    onTap: _secondsLeft == 0 ? _resend : null,
-                    child: Text('Resend Email',
-                        style: TextStyle(
-                            color: _secondsLeft == 0
-                                ? kCyan
-                                : context.txtSec,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13.sp)),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                height: 54.h,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : _continueManually,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kOrange,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r)),
-                  ),
-                  child: _loading
-                      ? SizedBox(
-                          width: 22.w,
-                          height: 22.w,
-                          child: const CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IconButton(
+                          icon: Icon(Icons.close_rounded,
+                              color: context.txtPri, size: 20.w),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        width: 72.w,
+                        height: 72.w,
+                        decoration: BoxDecoration(
+                          color: kOrange.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.mark_email_read_outlined,
+                            color: kOrange, size: 34.w),
+                      ),
+                      SizedBox(height: 24.h),
+                      Text('Verify Your Email',
+                          style: TextStyle(
+                              color: context.txtPri,
+                              fontSize: 24.sp,
+                              fontWeight: FontWeight.w800)),
+                      SizedBox(height: 10.h),
+                      Text(
+                        'We sent a verification link to\n${widget.email}',
+                        textAlign: TextAlign.center,
+                        style:
+                            TextStyle(color: context.txtSec, fontSize: 13.sp),
+                      ),
+                      SizedBox(height: 14.h),
+                      Text(
+                        'Tap the link in the email and you will come back here to continue automatically.',
+                        textAlign: TextAlign.center,
+                        style:
+                            TextStyle(color: context.txtSec, fontSize: 12.sp),
+                      ),
+                      SizedBox(height: 32.h),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 16.w, vertical: 8.h),
+                        decoration: BoxDecoration(
+                          color: context.card,
+                          borderRadius: BorderRadius.circular(20.r),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('I\'ve Verified — Continue',
+                            Icon(Icons.timer_outlined,
+                                color: context.txtSec, size: 16.w),
+                            SizedBox(width: 6.w),
+                            Text(_timerDisplay,
                                 style: TextStyle(
-                                    color: Colors.white,
+                                    color: context.txtPri,
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 16.sp)),
-                            SizedBox(width: 8.w),
-                            Icon(Icons.arrow_forward,
-                                color: Colors.white, size: 18.w),
+                                    fontSize: 15.sp)),
                           ],
                         ),
-                ),
-              ),
-              SizedBox(height: 16.h),
-              Text('SECURED BY GAMEARN SHIELD',
-                  style: kLabel.copyWith(color: context.txtSec)),
-              SizedBox(height: 24.h),
+                      ),
+                      SizedBox(height: 16.h),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text("Didn't get the email?  ",
+                              style: TextStyle(
+                                  color: context.txtSec, fontSize: 13.sp)),
+                          GestureDetector(
+                            onTap: _secondsLeft == 0 ? _resend : null,
+                            child: Text('Resend Email',
+                                style: TextStyle(
+                                    color: _secondsLeft == 0
+                                        ? kCyan
+                                        : context.txtSec,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13.sp)),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54.h,
+                        child: ElevatedButton(
+                          onPressed: _loading ? null : _continueManually,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: kOrange,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12.r)),
+                          ),
+                          child: _loading
+                              ? SizedBox(
+                                  width: 22.w,
+                                  height: 22.w,
+                                  child: const CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 2))
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text('I\'ve Verified — Continue',
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 16.sp)),
+                                    SizedBox(width: 8.w),
+                                    Icon(Icons.arrow_forward,
+                                        color: Colors.white, size: 18.w),
+                                  ],
+                                ),
+                        ),
+                      ),
+                      SizedBox(height: 16.h),
+                      Text('SECURED BY GAMEARN SHIELD',
+                          style: kLabel.copyWith(color: context.txtSec)),
+                      SizedBox(height: 24.h),
                     ],
                   ),
                 ),

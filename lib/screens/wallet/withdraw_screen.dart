@@ -328,7 +328,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           builder: (_, snap) {
             final w = (snap.data?.data() as Map?) ?? {};
             final usd = (w['usdEquiv'] ?? 245.0).toDouble();
-            final units = w['units'] ?? 12500;
+            final units = w['units'] ?? 0;
             return Container(
               padding: EdgeInsets.all(24.r),
               decoration: BoxDecoration(

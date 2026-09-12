@@ -17,7 +17,7 @@ import 'services/firestore_cache.dart';
 import 'services/api_service.dart';
 import 'services/ads_service.dart';
 import 'screens/auth/landing_screen.dart';
-import 'screens/auth/email_verify_screen.dart';
+import 'screens/auth/signup_email_otp_screen.dart';
 import 'screens/auth/mfa_enrollment_screen.dart';
 import 'screens/auth/profile_setup_screen.dart';
 import 'screens/auth/splash_screen.dart';
@@ -37,10 +37,11 @@ void main() async {
   );
   await FirestoreCache.instance.init();
 
-  await SoundService.instance.init();
   await LanguageService.instance.init();
-  await PushService.instance.init();
-  await LanguageService.instance.init();
+
+  // Non-critical services warm up after first paint instead of delaying launch.
+  unawaited(SoundService.instance.init());
+  unawaited(PushService.instance.init());
 
   // Ads: initialize Mobile Ads SDK and pre-load an interstitial in the
   // background so it's ready before a real-money match starts. Never blocks.
@@ -106,13 +107,15 @@ class _GamearnAppState extends State<GamearnApp> {
         builder: (context, child) => sh.ShadcnLayer(
           theme: ThemeNotifier.instance.themeMode == ThemeMode.dark ||
                   (ThemeNotifier.instance.themeMode == ThemeMode.system &&
-                      MediaQuery.platformBrightnessOf(context) == Brightness.dark)
+                      MediaQuery.platformBrightnessOf(context) ==
+                          Brightness.dark)
               ? kGamearnDarkShadcnTheme
               : kGamearnLightShadcnTheme,
           child: child!,
         ),
         home: _showInitialSplash
-            ? SplashScreen(onComplete: () => setState(() => _showInitialSplash = false))
+            ? SplashScreen(
+                onComplete: () => setState(() => _showInitialSplash = false))
             : const _AuthGate(),
       ),
     );
@@ -135,15 +138,17 @@ class _AuthGate extends StatelessWidget {
 
         // Email/password users must verify their email before proceeding.
         // The backend also enforces this server-side on /auth/register.
-        final isPasswordUser = user.providerData.any((p) => p.providerId == 'password');
+        final isPasswordUser =
+            user.providerData.any((p) => p.providerId == 'password');
         final email = user.email;
         if (isPasswordUser &&
             !user.emailVerified &&
             email != null &&
             email.isNotEmpty) {
-          return EmailVerifyScreen(
+          return SignupEmailOtpScreen(
             email: email,
             name: user.displayName ?? '',
+            allowImmediateResend: true,
           );
         }
 

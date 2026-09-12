@@ -24,7 +24,7 @@ import '../profile/daily_streak_screen.dart';
 //          two 40×40 r9999 #22D1EE@10 icon buttons right
 //  Welcome: fs28 Bold #F1F5F9, subtitle fs16 white@50
 //  Stats: 163×107 r12 #22D1EE@5 (Wallet Balance / Daily Streak)
-//  Tournaments: horizontal scroll cards (342×195, gap 16)
+//  Tournaments: vertically scrolling, full-width cards with a next-card peek
 //  Games: 2×2 grid, 163×163 r12 tiles with image+overlay+gradient
 //  Leaderboard: tabbed (Daily/Weekly/Monthly/Yearly)
 //  Bottom nav: Home(orange) | Tournament | Wallet | Profile
@@ -32,13 +32,14 @@ import '../profile/daily_streak_screen.dart';
 
 String _avatarEmoji(String avatar) =>
     kAvatars.firstWhere((a) => a['name'] == avatar,
-        orElse: () => kAvatars[0])['emoji'] ?? '🤖';
+        orElse: () => kAvatars[0])['emoji'] ??
+    '🤖';
 
 const Map<String, String> kGameAssets = {
-  'whot':     'assets/games/whot.jpg',
-  'ludo':     'assets/games/ludo.png',
-  'ayo':      'assets/games/ayo.jpg',
-  'draughts': 'assets/games/draughts.jpg',
+  'whot': 'assets/games/whot_icon.jpg',
+  'ludo': 'assets/games/ludo_icon.jpg',
+  'ayo': 'assets/games/ayo_icon.jpg',
+  'draughts': 'assets/games/draughts_icon.jpg',
 };
 
 String? _assetFor(String key) {
@@ -47,6 +48,29 @@ String? _assetFor(String key) {
   }
   if (key.contains('draft')) return kGameAssets['draughts'];
   return null;
+}
+
+const List<Map<String, dynamic>> _builtInGames = [
+  {'title': 'Whot', 'assetKey': 'whot', 'playCount': 0, 'active': true},
+  {'title': 'Ludo', 'assetKey': 'ludo', 'playCount': 0, 'active': true},
+  {'title': 'Ayo', 'assetKey': 'ayo', 'playCount': 0, 'active': true},
+  {'title': 'Draughts', 'assetKey': 'draughts', 'playCount': 0, 'active': true},
+];
+
+List<Map<String, dynamic>> _gamesWithLiveData(
+    List<Map<String, dynamic>>? remoteGames) {
+  final remote = remoteGames ?? const <Map<String, dynamic>>[];
+  return _builtInGames.map((local) {
+    final key = local['assetKey'] as String;
+    final match = remote.cast<Map<String, dynamic>?>().firstWhere(
+          (game) =>
+              (game?['assetKey'] as String? ?? '').toLowerCase().contains(key),
+          orElse: () => null,
+        );
+    return match == null
+        ? Map<String, dynamic>.from(local)
+        : {...local, ...match};
+  }).toList(growable: false);
 }
 
 class HomeScreen extends StatefulWidget {
@@ -78,15 +102,19 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (_, userSnap) {
             final user = userSnap.data ?? {};
             final username = user['username'] as String? ?? 'Player';
-            final avatar   = user['avatar']   as String? ?? 'BOT';
-            final status   = user['memberStatus'] as String? ?? 'Active Member';
+            final avatar = user['avatar'] as String? ?? 'BOT';
+            final status = user['memberStatus'] as String? ?? 'Active Member';
 
             return StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance.collection('wallets').doc(uid).snapshots(),
+              stream: FirebaseFirestore.instance
+                  .collection('wallets')
+                  .doc(uid)
+                  .snapshots(),
               builder: (_, walSnap) {
-                final wallet  = (walSnap.data?.data() as Map<String, dynamic>?) ?? {};
+                final wallet =
+                    (walSnap.data?.data() as Map<String, dynamic>?) ?? {};
                 final balance = wallet['balance'] ?? 0;
-                final streak  = user['dayStreak'] ?? 0;
+                final streak = user['dayStreak'] ?? 0;
 
                 return CustomScrollView(
                   slivers: [
@@ -99,7 +127,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           Row(children: [
                             // Avatar 40×40 r9999
                             Container(
-                              width: 40.w, height: 40.w,
+                              width: 40.w,
+                              height: 40.w,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(color: kOrange, width: 2.w),
@@ -135,8 +164,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             // Settings btn
                             _TopBtn(
                               icon: Icons.settings_outlined,
-                              onTap: () => Navigator.push(context,
-                                  MaterialPageRoute(builder: (_) => const SettingsScreen())),
+                              onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const SettingsScreen())),
                             ),
                           ]),
                           SizedBox(height: 12.h),
@@ -161,8 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             SizedBox(height: 2.h),
                             Text(l10n.homeEarnByKeepingStreak,
                                 style: TextStyle(
-                                    color: context.txtSec,
-                                    fontSize: 16.sp)),
+                                    color: context.txtSec, fontSize: 16.sp)),
                           ],
                         ),
                       ),
@@ -173,20 +203,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 0),
                         child: Row(children: [
-                          Expanded(child: _StatCard(
+                          Expanded(
+                              child: _StatCard(
                             label: l10n.homeWalletBalance,
                             value: '₦$balance',
-                            sub: '+500 / day',
                             icon: Icons.account_balance_wallet_rounded,
                           )),
                           SizedBox(width: 16.w),
-                          Expanded(child: GestureDetector(
-                            onTap: () => Navigator.push(context,
-                                MaterialPageRoute(builder: (_) => const DailyStreakScreen())),
+                          Expanded(
+                              child: GestureDetector(
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const DailyStreakScreen())),
                             child: _StatCard(
                               label: l10n.homeDailyStreak,
                               value: '$streak Days',
-                              sub: l10n.homeTapToClaim,
                               icon: Icons.local_fire_department_rounded,
                             ),
                           )),
@@ -198,14 +230,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 10.h),
-                        child: _SectionHeader(title: l10n.homeActiveTournaments),
+                        child:
+                            _SectionHeader(title: l10n.homeActiveTournaments),
                       ),
                     ),
                     SliverToBoxAdapter(
                       child: SizedBox(
-                        height: 150.h,
+                        // One 150px card, its 12px gap and about 25% of the
+                        // following card remain visible as a scroll cue.
+                        height: 200.h,
                         child: FutureBuilder<List<Map<String, dynamic>>>(
-                          future: FirestoreCache.instance.query('home/tournaments',
+                          future: FirestoreCache.instance.query(
+                            'home/tournaments',
                             ttl: const Duration(minutes: 5),
                             build: () => FirebaseFirestore.instance
                                 .collection('tournaments')
@@ -213,21 +249,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                 .limit(10),
                           ),
                           builder: (_, snap) {
-                            final items = snap.data ?? const <Map<String, dynamic>>[];
+                            final items =
+                                snap.data ?? const <Map<String, dynamic>>[];
                             if (items.isEmpty) {
                               return Center(
                                 child: Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 24.w, vertical: 16.h),
                                   child: Text(l10n.homeNoDataYet,
                                       style: TextStyle(color: context.txtSec)),
                                 ),
                               );
                             }
                             return ListView.builder(
-                              scrollDirection: Axis.horizontal,
                               padding: EdgeInsets.symmetric(horizontal: 24.w),
                               itemCount: items.length,
-                              itemBuilder: (_, i) => _TournamentCard(data: items[i]),
+                              itemBuilder: (_, i) =>
+                                  _TournamentCard(data: items[i]),
                             );
                           },
                         ),
@@ -243,7 +281,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     SliverToBoxAdapter(
                       child: FutureBuilder<List<Map<String, dynamic>>>(
-                        future: FirestoreCache.instance.query('home/arena',
+                        future: FirestoreCache.instance.query(
+                          'home/arena',
                           ttl: const Duration(minutes: 5),
                           build: () => FirebaseFirestore.instance
                               .collection('arena')
@@ -251,14 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               .limit(6),
                         ),
                         builder: (_, snap) {
-                          final games = snap.data ?? const <Map<String, dynamic>>[];
-                          if (games.isEmpty) {
-                            return Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
-                              child: Text(l10n.homeNoDataYet,
-                                  style: TextStyle(color: context.txtSec)),
-                            );
-                          }
+                          final games = _gamesWithLiveData(snap.data);
                           return Padding(
                             padding: EdgeInsets.symmetric(horizontal: 24.w),
                             child: _GamesGrid(games: games, uid: uid),
@@ -271,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 10.h),
-                        child:                         Text(l10n.homeGlobalLeaderboard,
+                        child: Text(l10n.homeGlobalLeaderboard,
                             style: TextStyle(
                                 color: context.txtPri,
                                 fontSize: 18.sp,
@@ -302,29 +334,34 @@ class _TopBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Stack(clipBehavior: Clip.none, children: [
-      Container(
-        width: 40.w, height: 40.w,
-        decoration: BoxDecoration(
-          color: kCyan.withOpacity(0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: kCyan, size: 20.w),
-      ),
-      if (badge) Positioned(
-        top: -1, right: -1,
-        child: Container(
-          width: 11.w, height: 11.w,
-          decoration: BoxDecoration(
-            color: kOrange,
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFF0B0E1A), width: 1.5),
+        onTap: onTap,
+        child: Stack(clipBehavior: Clip.none, children: [
+          Container(
+            width: 40.w,
+            height: 40.w,
+            decoration: BoxDecoration(
+              color: kCyan.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: kCyan, size: 20.w),
           ),
-        ),
-      ),
-    ]),
-  );
+          if (badge)
+            Positioned(
+              top: -1,
+              right: -1,
+              child: Container(
+                width: 11.w,
+                height: 11.w,
+                decoration: BoxDecoration(
+                  color: kOrange,
+                  shape: BoxShape.circle,
+                  border:
+                      Border.all(color: const Color(0xFF0B0E1A), width: 1.5),
+                ),
+              ),
+            ),
+        ]),
+      );
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -360,48 +397,47 @@ class _NotificationButton extends StatelessWidget {
 //  STAT CARD — Figma 163×107 r12 #22D1EE@5
 // ════════════════════════════════════════════════════════════════
 class _StatCard extends StatelessWidget {
-  final String label, value, sub;
+  final String label, value;
   final IconData icon;
-  const _StatCard({required this.label, required this.value,
-      required this.sub, required this.icon});
+  const _StatCard(
+      {required this.label, required this.value, required this.icon});
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 90.h,
-    padding: EdgeInsets.all(16.r),
-    decoration: BoxDecoration(
-      color: kCyan.withOpacity(0.05),
-      borderRadius: BorderRadius.circular(12.r),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Row(children: [
-          Icon(icon, color: kCyan, size: 13.w),
-          SizedBox(width: 6.w),
-          Flexible(
-            child: Text(label,
+        height: 90.h,
+        padding: EdgeInsets.all(16.r),
+        decoration: BoxDecoration(
+          color: kCyan.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(children: [
+              Icon(icon, color: kCyan, size: 13.w),
+              SizedBox(width: 6.w),
+              Flexible(
+                child: Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: context.txtPri,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w500)),
+              ),
+            ]),
+            SizedBox(height: 8.h),
+            Text(value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                     color: context.txtPri,
-                    fontSize: 12.sp, fontWeight: FontWeight.w500)),
-          ),
-        ]),
-        SizedBox(height: 8.h),
-        Text(value,
-            maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                color: context.txtPri,
-                fontSize: 20.sp, fontWeight: FontWeight.w700)),
-        SizedBox(height: 8.h),
-        Text(sub,
-            style: TextStyle(
-                color: kCyan, fontSize: 12.sp, fontWeight: FontWeight.w500)),
-      ],
-    ),
-  );
+                    fontSize: 20.sp,
+                    fontWeight: FontWeight.w700)),
+          ],
+        ),
+      );
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -412,12 +448,13 @@ class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
 
   @override
-  Widget build(BuildContext context) => Text(title, style: TextStyle(
-      color: context.txtPri, fontSize: 18.sp, fontWeight: FontWeight.w700));
+  Widget build(BuildContext context) => Text(title,
+      style: TextStyle(
+          color: context.txtPri, fontSize: 18.sp, fontWeight: FontWeight.w700));
 }
 
 // ════════════════════════════════════════════════════════════════
-//  TOURNAMENT CARD — Figma 342×195 r12
+//  TOURNAMENT CARD — full-width 150px card, 12px vertical gap
 // ════════════════════════════════════════════════════════════════
 class _TournamentCard extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -426,17 +463,17 @@ class _TournamentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final title     = data['title']       as String? ?? 'Tournament';
-    final prize     = data['prizePool']   as String? ?? '0';
-    final players   = data['playerCount'] as int?     ?? 0;
-    final active    = data['active']      as bool?    ?? false;
-    final assetKey  = (data['assetKey']   as String? ?? 'whot').toLowerCase();
-    final asset     = _assetFor(assetKey) ?? kGameAssets['whot']!;
+    final title = data['title'] as String? ?? 'Tournament';
+    final prize = data['prizePool'] as String? ?? '0';
+    final players = data['playerCount'] as int? ?? 0;
+    final active = data['active'] as bool? ?? false;
+    final assetKey = (data['assetKey'] as String? ?? 'whot').toLowerCase();
+    final asset = _assetFor(assetKey) ?? kGameAssets['whot']!;
 
     return Container(
-      width: 342.w,
+      width: double.infinity,
       height: 150.h,
-      margin: EdgeInsets.only(right: 16.w),
+      margin: EdgeInsets.only(bottom: 12.h),
       decoration: BoxDecoration(
         color: context.card,
         borderRadius: BorderRadius.circular(12.r),
@@ -465,9 +502,14 @@ class _TournamentCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  if (active) _Chip(label: '● ${l10n.homeLive}', color: const Color(0xFF2AE500)),
+                  if (active)
+                    _Chip(
+                        label: '● ${l10n.homeLive}',
+                        color: const Color(0xFF2AE500)),
                   if (active) SizedBox(width: 8.w),
-                  _Chip(label: l10n.homePlayersCount(players), color: Colors.white),
+                  _Chip(
+                      label: l10n.homePlayersCount(players),
+                      color: Colors.white),
                 ]),
                 const Spacer(),
                 Text(title,
@@ -475,14 +517,19 @@ class _TournamentCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 15.sp, fontWeight: FontWeight.w800)),
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w800)),
                 SizedBox(height: 4.h),
                 Row(children: [
                   Text(l10n.homePrizePool,
-                      style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11.sp)),
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 11.sp)),
                   Text('₦$prize',
                       style: TextStyle(
-                          color: kCyan, fontSize: 14.sp, fontWeight: FontWeight.w800)),
+                          color: kCyan,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w800)),
                 ]),
               ],
             ),
@@ -500,15 +547,16 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-    decoration: BoxDecoration(
-      color: color.withOpacity(0.15),
-      borderRadius: BorderRadius.circular(9.r),
-      border: Border.all(color: color.withOpacity(0.6)),
-    ),
-    child: Text(label, style: TextStyle(
-      color: color, fontSize: 10.sp, fontWeight: FontWeight.w700)),
-  );
+        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(9.r),
+          border: Border.all(color: color.withOpacity(0.6)),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                color: color, fontSize: 10.sp, fontWeight: FontWeight.w700)),
+      );
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -521,18 +569,21 @@ class _GamesGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 15.w,
-        mainAxisSpacing: 15.w,
-        childAspectRatio: 0.75,
-      ),
-      itemCount: games.length,
-      itemBuilder: (_, i) => _GameTile(data: games[i], uid: uid),
-    );
+    return LayoutBuilder(builder: (_, constraints) {
+      final columns = constraints.maxWidth >= 320 ? 4 : 2;
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          crossAxisSpacing: 8.w,
+          mainAxisSpacing: 8.w,
+          childAspectRatio: columns == 4 ? 0.72 : 0.9,
+        ),
+        itemCount: games.length,
+        itemBuilder: (_, i) => _GameTile(data: games[i], uid: uid),
+      );
+    });
   }
 }
 
@@ -544,11 +595,12 @@ class _GameTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final title    = data['title']     as String? ?? 'Game';
+    final title = data['title'] as String? ?? 'Game';
     final assetKey = (data['assetKey'] as String? ?? '').toLowerCase();
-    final count    = data['playCount'] as int? ?? 0;
-    final asset    = _assetFor(assetKey);
-    final playLabel = count >= 1000 ? '${(count / 1000).toStringAsFixed(1)}k' : '$count';
+    final count = data['playCount'] as int? ?? 0;
+    final asset = _assetFor(assetKey);
+    final playLabel =
+        count >= 1000 ? '${(count / 1000).toStringAsFixed(1)}k' : '$count';
 
     String gameKey = 'whot';
     Widget gameScreen = WhotGameScreen(
@@ -558,7 +610,8 @@ class _GameTile extends StatelessWidget {
       opponentName: 'Gamearn Bot',
     );
     if (assetKey.contains('ludo')) {
-      gameKey = 'ludo'; gameScreen = const LudoGameScreen();
+      gameKey = 'ludo';
+      gameScreen = const LudoGameScreen();
     } else if (assetKey.contains('ayo')) {
       gameKey = 'ayo';
       gameScreen = AyoGameScreen(
@@ -578,10 +631,11 @@ class _GameTile extends StatelessWidget {
     }
 
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => GameInfoScreen(
-              gameKey: gameKey, gameScreen: gameScreen,
-              playCount: count))),
+      onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => GameInfoScreen(
+                  gameKey: gameKey, gameScreen: gameScreen, playCount: count))),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12.r),
@@ -590,8 +644,7 @@ class _GameTile extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12.r),
           child: Stack(fit: StackFit.expand, children: [
-            if (asset != null)
-              Image.asset(asset, fit: BoxFit.cover),
+            if (asset != null) Image.asset(asset, fit: BoxFit.cover),
             // Figma: #22D1EE@10 overlay
             Container(
               color: kCyan.withOpacity(0.1),
@@ -602,13 +655,20 @@ class _GameTile extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0x22222118), Color(0x00222118), Color(0x00222118), Color(0x22222118)],
+                  colors: [
+                    Color(0x22222118),
+                    Color(0x00222118),
+                    Color(0x00222118),
+                    Color(0x22222118)
+                  ],
                   stops: [0.0, 0.5, 0.5, 1.0],
                 ),
               ),
             ),
             Positioned(
-              left: 8.w, right: 8.w, bottom: 8.h,
+              left: 8.w,
+              right: 8.w,
+              bottom: 8.h,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -616,11 +676,13 @@ class _GameTile extends StatelessWidget {
                   Text(title,
                       style: TextStyle(
                           color: Colors.white,
-                          fontSize: 12.sp, fontWeight: FontWeight.w800),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text(l10n.homePlayingCount(playLabel),
-                    style: TextStyle(
-                        color: kCyan, fontSize: 10.sp),
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w800),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  Text(
+                    l10n.homePlayingCount(playLabel),
+                    style: TextStyle(color: kCyan, fontSize: 10.sp),
                   ),
                 ],
               ),
@@ -645,16 +707,21 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
   int _tab = 0;
 
   String get _field => switch (_tab) {
-    1 => 'weeklyScore',
-    2 => 'monthlyScore',
-    3 => 'yearlyScore',
-    _ => 'dailyScore',
-  };
+        1 => 'weeklyScore',
+        2 => 'monthlyScore',
+        3 => 'yearlyScore',
+        _ => 'dailyScore',
+      };
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final tabs = [l10n.homeLbDaily, l10n.homeLbWeekly, l10n.homeLbMonthly, l10n.homeLbYearly];
+    final tabs = [
+      l10n.homeLbDaily,
+      l10n.homeLbWeekly,
+      l10n.homeLbMonthly,
+      l10n.homeLbYearly
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -680,10 +747,13 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
                         borderRadius: BorderRadius.circular(6.r),
                       ),
                       child: Center(
-                            child: Text(tabs[i],
-                                style: TextStyle(
-                                    color: active ? const Color(0xFF0B0E1A) : context.txtSec,
-                                fontSize: 11.sp, fontWeight: FontWeight.w700)),
+                        child: Text(tabs[i],
+                            style: TextStyle(
+                                color: active
+                                    ? const Color(0xFF0B0E1A)
+                                    : context.txtSec,
+                                fontSize: 11.sp,
+                                fontWeight: FontWeight.w700)),
                       ),
                     ),
                   ),
@@ -693,9 +763,9 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
           ),
         ),
         SizedBox(height: 12.h),
-
         FutureBuilder<List<Map<String, dynamic>>>(
-          future: FirestoreCache.instance.query('home/leaderboard/${_field}',
+          future: FirestoreCache.instance.query(
+            'home/leaderboard/${_field}',
             ttl: const Duration(minutes: 5),
             build: () => FirebaseFirestore.instance
                 .collection('leaderboard')
@@ -706,15 +776,18 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
             if (snap.connectionState == ConnectionState.waiting) {
               return Padding(
                 padding: EdgeInsets.all(24.r),
-                child: const Center(child: CircularProgressIndicator(color: kCyan, strokeWidth: 2)),
+                child: const Center(
+                    child: CircularProgressIndicator(
+                        color: kCyan, strokeWidth: 2)),
               );
             }
             final docs = snap.data ?? [];
             if (docs.isEmpty) {
               return Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
-                child: Center(child: Text(l10n.homeNoDataYet,
-                    style: TextStyle(color: context.txtSec))),
+                child: Center(
+                    child: Text(l10n.homeNoDataYet,
+                        style: TextStyle(color: context.txtSec))),
               );
             }
             return ListView.builder(
@@ -723,73 +796,86 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
               padding: EdgeInsets.symmetric(horizontal: 24.w),
               itemCount: docs.length,
               itemBuilder: (_, i) {
-                final d    = docs[i];
-                final name  = d['username'] as String? ?? 'Player';
+                final d = docs[i];
+                final name = d['username'] as String? ?? 'Player';
                 final score = d[_field] ?? 0;
                 final emoji = _avatarEmoji(d['avatar'] as String? ?? 'BOT');
-                final top   = i < 3;
+                final top = i < 3;
                 return Container(
                   margin: EdgeInsets.only(bottom: 8.h),
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
                   decoration: BoxDecoration(
                     color: context.card,
                     borderRadius: BorderRadius.circular(10.r),
                     border: Border.all(
-                        color: top ? kOrange.withOpacity(0.3) : Colors.transparent),
+                        color: top
+                            ? kOrange.withOpacity(0.3)
+                            : Colors.transparent),
                   ),
                   child: Row(children: [
-                    SizedBox(width: 26.w,
+                    SizedBox(
+                        width: 26.w,
                         child: Text(_rankLabel(i),
                             style: TextStyle(
                                 color: top ? kOrange : const Color(0xFF9A9A9A),
-                                fontSize: 13.sp, fontWeight: FontWeight.w900),
+                                fontSize: 13.sp,
+                                fontWeight: FontWeight.w900),
                             textAlign: TextAlign.center)),
                     SizedBox(width: 10.w),
                     Container(
-                      width: 32.w, height: 32.w,
+                      width: 32.w,
+                      height: 32.w,
                       decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: context.card,
                           border: Border.all(
-                              color: top ? kOrange.withOpacity(0.5) : context.border)),
-                      child: Center(child: Text(emoji,
-                          style: TextStyle(fontSize: 16.w))),
+                              color: top
+                                  ? kOrange.withOpacity(0.5)
+                                  : context.border)),
+                      child: Center(
+                          child: Text(emoji, style: TextStyle(fontSize: 16.w))),
                     ),
                     SizedBox(width: 10.w),
-                    Expanded(child: Text(name,
-                        style: TextStyle(
-                            color: context.txtPri, fontSize: 13.sp,
-                            fontWeight: FontWeight.w600),
-                        overflow: TextOverflow.ellipsis)),
+                    Expanded(
+                        child: Text(name,
+                            style: TextStyle(
+                                color: context.txtPri,
+                                fontSize: 13.sp,
+                                fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis)),
                     Text(l10n.homeScorePts((score as num).toInt()),
                         style: TextStyle(
-                            color: kCyan, fontSize: 13.sp, fontWeight: FontWeight.w700)),
+                            color: kCyan,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w700)),
                   ]),
                 );
               },
             );
           },
         ),
-
         SizedBox(height: 16.h),
-
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 24.w),
           child: Column(children: [
             Container(
-              width: double.infinity, height: 43.h,
+              width: double.infinity,
+              height: 43.h,
               decoration: BoxDecoration(
-                color: kCyan, borderRadius: BorderRadius.circular(8.r)),
+                  color: kCyan, borderRadius: BorderRadius.circular(8.r)),
               child: Center(
                 child: Text(l10n.homeViewFullLeaderboard,
                     style: TextStyle(
                         color: const Color(0xFF0B0E1A),
-                        fontSize: 14.sp, fontWeight: FontWeight.w800)),
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w800)),
               ),
             ),
             SizedBox(height: 8.h),
             Container(
-              width: double.infinity, height: 43.h,
+              width: double.infinity,
+              height: 43.h,
               decoration: BoxDecoration(
                 color: context.card,
                 borderRadius: BorderRadius.circular(8.r),
@@ -799,7 +885,8 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
                 child: Text(l10n.homeMyRankings,
                     style: TextStyle(
                         color: context.txtPri,
-                        fontSize: 14.sp, fontWeight: FontWeight.w700)),
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w700)),
               ),
             ),
           ]),
@@ -808,7 +895,6 @@ class _LeaderboardSectionState extends State<_LeaderboardSection> {
     );
   }
 
-  String _rankLabel(int i) => switch (i) {
-    0 => '🥇', 1 => '🥈', 2 => '🥉', _ => '#${i + 1}'
-  };
+  String _rankLabel(int i) =>
+      switch (i) { 0 => '🥇', 1 => '🥈', 2 => '🥉', _ => '#${i + 1}' };
 }

@@ -47,7 +47,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
               .collection('users').doc(uid).snapshots(),
           builder: (_, snap) {
             final user = (snap.data?.data() as Map?) ?? {};
-            final streak = user['dayStreak'] as int? ?? 42;
+            final streak = user['dayStreak'] as int? ?? 0;
 
             return CustomScrollView(
               slivers: [

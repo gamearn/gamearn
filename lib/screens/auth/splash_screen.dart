@@ -45,7 +45,7 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2800),
+      duration: const Duration(milliseconds: 1200),
     );
     _progress = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
@@ -76,7 +76,7 @@ class _SplashScreenState extends State<SplashScreen>
       ];
       await Future.any<void>([
         Future.wait(readys).then((_) {}),
-        Future<void>.delayed(const Duration(milliseconds: 4000)),
+        Future<void>.delayed(const Duration(milliseconds: 1800)),
       ]).catchError((_) {});
     } catch (e) {
       debugPrint('[Splash] bootstrap error: $e');
@@ -90,9 +90,7 @@ class _SplashScreenState extends State<SplashScreen>
     final stopwatch = Stopwatch()..start();
     try {
       final uri = Uri.parse('${ApiConfig.nodeBaseUrl}/health');
-      final res = await http
-          .get(uri)
-          .timeout(const Duration(seconds: 8));
+      final res = await http.get(uri).timeout(const Duration(seconds: 2));
       final decoded = res.body.isNotEmpty ? jsonDecode(res.body) : null;
       final healthy = res.statusCode == 200 &&
           decoded is Map<String, dynamic> &&
@@ -137,7 +135,8 @@ class _SplashScreenState extends State<SplashScreen>
               FadeTransition(
                 opacity: _fadeIn,
                 child: Container(
-                  width: 112.w, height: 112.w,
+                  width: 112.w,
+                  height: 112.w,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(25.r),
                   ),
@@ -160,7 +159,7 @@ class _SplashScreenState extends State<SplashScreen>
                   'WELCOME TO\nGAMEARN',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: context.txtPri,
                     fontSize: 32.sp,
                     fontWeight: FontWeight.w700,
                   ),
@@ -180,7 +179,7 @@ class _SplashScreenState extends State<SplashScreen>
                       children: [
                         Text('Initializing Arena...',
                             style: TextStyle(
-                                color: const Color(0xFFF1F5F9),
+                                color: context.txtPri,
                                 fontSize: 12.sp,
                                 fontWeight: FontWeight.w600)),
                         AnimatedBuilder(
@@ -240,7 +239,7 @@ class _SplashScreenState extends State<SplashScreen>
                   SizedBox(width: 6.w),
                   Text(_bootstrapStatus,
                       style: TextStyle(
-                          color: Colors.white,
+                          color: context.txtPri,
                           fontSize: 9.sp,
                           fontWeight: FontWeight.w500)),
                 ],

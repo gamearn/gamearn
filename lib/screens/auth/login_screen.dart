@@ -5,8 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 import '../../widgets/auth_background.dart';
 import '../../widgets/gamearn_ui.dart';
+import '../../utils/error_utils.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
+import 'phone_login_code_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,18 +19,22 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   bool _loading = false;
   bool _obscure = true;
+  bool _phoneMode = false;
 
   @override
   void dispose() {
     _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _login() async {
+    if (_phoneMode) return _sendPhoneCode();
     if (_emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) return;
     setState(() => _loading = true);
     try {
@@ -40,14 +46,61 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.of(context).popUntil((r) => r.isFirst);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e.message ?? 'Login failed'),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-      ));
+      showAppError(context, e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  String? _normalisePhone(String raw) {
+    final value = raw.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (value.startsWith('+') && value.length >= 11) return value;
+    if (value.startsWith('0') && value.length == 11) {
+      return '+234${value.substring(1)}';
+    }
+    if (value.length == 10) return '+234$value';
+    return null;
+  }
+
+  Future<void> _sendPhoneCode() async {
+    final phone = _normalisePhone(_phoneCtrl.text);
+    if (phone == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Enter a valid phone number, including country code.'),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+    setState(() => _loading = true);
+    await FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: phone,
+      verificationCompleted: (credential) async {
+        await FirebaseAuth.instance.signInWithCredential(credential);
+        if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+      },
+      verificationFailed: (error) {
+        if (!mounted) return;
+        setState(() => _loading = false);
+        showAppError(context, error);
+      },
+      codeSent: (verificationId, resendToken) {
+        if (!mounted) return;
+        setState(() => _loading = false);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PhoneLoginCodeScreen(
+              phone: phone,
+              verificationId: verificationId,
+              resendToken: resendToken,
+            ),
+          ),
+        );
+      },
+      codeAutoRetrievalTimeout: (_) {
+        if (mounted) setState(() => _loading = false);
+      },
+    );
   }
 
   @override
@@ -131,56 +184,89 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Email
-                          GaInput(
-                            controller: _emailCtrl,
-                            labelText: 'Email Address',
-                            hintText: 'e.g. name@example.com',
-                            keyboardType: TextInputType.emailAddress,
+                          Container(
+                            padding: EdgeInsets.all(4.w),
+                            decoration: BoxDecoration(
+                              color: context.card,
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: Border.all(color: context.border),
+                            ),
+                            child: Row(children: [
+                              Expanded(
+                                  child: _AuthModeButton(
+                                label: 'Email',
+                                icon: Icons.email_outlined,
+                                selected: !_phoneMode,
+                                onTap: () => setState(() => _phoneMode = false),
+                              )),
+                              Expanded(
+                                  child: _AuthModeButton(
+                                label: 'Phone',
+                                icon: Icons.phone_outlined,
+                                selected: _phoneMode,
+                                onTap: () => setState(() => _phoneMode = true),
+                              )),
+                            ]),
                           ),
                           SizedBox(height: 16.h),
+                          // Email
+                          GaInput(
+                            controller: _phoneMode ? _phoneCtrl : _emailCtrl,
+                            labelText:
+                                _phoneMode ? 'Phone Number' : 'Email Address',
+                            hintText: _phoneMode
+                                ? '+234 801 234 5678'
+                                : 'e.g. name@example.com',
+                            keyboardType: _phoneMode
+                                ? TextInputType.phone
+                                : TextInputType.emailAddress,
+                          ),
+                          if (!_phoneMode) SizedBox(height: 16.h),
 
                           // Password
-                          GaInput(
-                            controller: _passCtrl,
-                            labelText: 'Password',
-                            hintText: 'Enter your password',
-                            obscureText: _obscure,
-                            suffix: IconButton(
-                              icon: SvgPicture.asset(
-                                'assets/icons/login_eye.svg',
-                                width: 22.w,
-                                height: 15.h,
-                                colorFilter: ColorFilter.mode(
-                                    context.txtSec,
-                                    BlendMode.srcIn),
+                          if (!_phoneMode)
+                            GaInput(
+                              controller: _passCtrl,
+                              labelText: 'Password',
+                              hintText: 'Enter your password',
+                              obscureText: _obscure,
+                              suffix: IconButton(
+                                icon: SvgPicture.asset(
+                                  'assets/icons/login_eye.svg',
+                                  width: 22.w,
+                                  height: 15.h,
+                                  colorFilter: ColorFilter.mode(
+                                      context.txtSec, BlendMode.srcIn),
+                                ),
+                                onPressed: () =>
+                                    setState(() => _obscure = !_obscure),
                               ),
-                              onPressed: () => setState(
-                                  () => _obscure = !_obscure),
                             ),
-                          ),
 
                           // Forgot Password?
-                          SizedBox(height: 8.h),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: GaButton.text(
-                              label: 'Forgot Password?',
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) =>
-                                          const ForgotPasswordScreen()),
-                                );
-                              },
+                          if (!_phoneMode) SizedBox(height: 8.h),
+                          if (!_phoneMode)
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: GaButton.text(
+                                label: 'Forgot Password?',
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const ForgotPasswordScreen()),
+                                  );
+                                },
+                              ),
                             ),
-                          ),
                           SizedBox(height: 16.h),
 
                           // Login button
                           GaButton.primary(
-                            label: 'Login to Gamearn',
+                            label: _phoneMode
+                                ? 'Send SMS code'
+                                : 'Login to Gamearn',
                             isLoading: _loading,
                             onPressed: _login,
                             trailing: SvgPicture.asset(
@@ -194,11 +280,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           // OR divider
                           Row(children: [
                             Expanded(
-                                child: Divider(
-                                    color: context.border, height: 1)),
+                                child:
+                                    Divider(color: context.border, height: 1)),
                             Padding(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 16.w),
+                              padding: EdgeInsets.symmetric(horizontal: 16.w),
                               child: Text('OR',
                                   style: TextStyle(
                                       color: context.txtSec,
@@ -206,8 +291,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                       fontWeight: FontWeight.w500)),
                             ),
                             Expanded(
-                                child: Divider(
-                                    color: context.border, height: 1)),
+                                child:
+                                    Divider(color: context.border, height: 1)),
                           ]),
                           SizedBox(height: 16.h),
 
@@ -218,8 +303,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
-                                    builder: (_) =>
-                                        const RegisterScreen()),
+                                    builder: (_) => const RegisterScreen()),
                               );
                             },
                           ),
@@ -234,13 +318,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: context.isDark
                                   ? const Color(0x80161B30)
                                   : Colors.white,
-                              borderRadius:
-                                  BorderRadius.circular(16.r),
+                              borderRadius: BorderRadius.circular(16.r),
                               border: Border.all(color: context.border),
                             ),
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Dots + Tutorial
                                 Row(children: [
@@ -250,30 +332,25 @@ class _LoginScreenState extends State<LoginScreen> {
                                     decoration: BoxDecoration(
                                       color: kOrange,
                                       borderRadius:
-                                          BorderRadius.circular(
-                                              9999.r),
+                                          BorderRadius.circular(9999.r),
                                     ),
                                   ),
                                   SizedBox(width: 6.w),
-                                  _Dot(
-                                      color: context.border),
+                                  _Dot(color: context.border),
                                   SizedBox(width: 6.w),
-                                  _Dot(
-                                      color: context.border),
+                                  _Dot(color: context.border),
                                   const Spacer(),
                                   Text('Tutorial',
                                       style: TextStyle(
                                           color: kCyan,
                                           fontSize: 12.sp,
-                                          fontWeight:
-                                              FontWeight.w500)),
+                                          fontWeight: FontWeight.w500)),
                                 ]),
                                 SizedBox(height: 28.h),
                                 Row(children: [
                                   Expanded(
                                     child: _TutorialItem(
-                                      asset:
-                                          'assets/icons/tutorial_play.svg',
+                                      asset: 'assets/icons/tutorial_play.svg',
                                       label: 'Play',
                                       sub: 'Ludo, Ayo & more',
                                       color: kCyan,
@@ -281,8 +358,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                   Expanded(
                                     child: _TutorialItem(
-                                      asset:
-                                          'assets/icons/tutorial_earn.svg',
+                                      asset: 'assets/icons/tutorial_earn.svg',
                                       label: 'Earn',
                                       sub: 'Win daily rewards',
                                       color: kOrange,
@@ -290,8 +366,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                   Expanded(
                                     child: _TutorialItem(
-                                      asset:
-                                          'assets/icons/tutorial_wallet.svg',
+                                      asset: 'assets/icons/tutorial_wallet.svg',
                                       label: 'Wallet',
                                       sub: 'Instant withdrawal',
                                       color: kGreen,
@@ -352,6 +427,45 @@ class _Dot extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(9999.r),
+      ),
+    );
+  }
+}
+
+class _AuthModeButton extends StatelessWidget {
+  const _AuthModeButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? kCyan.withValues(alpha: 0.14) : Colors.transparent,
+      borderRadius: BorderRadius.circular(9.r),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9.r),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 11.h),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 18.w, color: selected ? kCyan : context.txtSec),
+            SizedBox(width: 7.w),
+            Text(label,
+                style: TextStyle(
+                  color: selected ? kCyan : context.txtSec,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w700,
+                )),
+          ]),
+        ),
       ),
     );
   }

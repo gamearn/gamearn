@@ -69,11 +69,12 @@ class ApiService {
       };
 
       final decoded = jsonDecode(res.body);
-      final json = decoded is Map<String, dynamic>
-          ? decoded
-          : <String, dynamic>{};
+      final json =
+          decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
 
-      if (res.statusCode >= 200 && res.statusCode < 300 && json['success'] == true) {
+      if (res.statusCode >= 200 &&
+          res.statusCode < 300 &&
+          json['success'] == true) {
         return json['data'];
       }
 
@@ -88,11 +89,41 @@ class ApiService {
       rethrow;
     } catch (e) {
       debugPrint('[Api] $method $path error: $e');
-      throw ApiException(code: 'NETWORK_ERROR', message: 'Network error. Please try again.');
+      throw ApiException(
+          code: 'NETWORK_ERROR', message: 'Network error. Please try again.');
     }
   }
 
   // ── Auth / OTP ──────────────────────────────────────────────────────────────
+
+  static Future<void> requestSignupEmailOtp(String email) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null)
+      throw ApiException(code: 'AUTH_MISSING', message: 'Not signed in.');
+    await post(
+        '/auth/signup/email-otp/request',
+        {
+          'idToken': await user.getIdToken(true),
+          'email': email,
+        },
+        auth: false);
+  }
+
+  static Future<void> verifySignupEmailOtp(String email, String code) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null)
+      throw ApiException(code: 'AUTH_MISSING', message: 'Not signed in.');
+    await post(
+        '/auth/signup/email-otp/verify',
+        {
+          'idToken': await user.getIdToken(),
+          'email': email,
+          'code': code,
+        },
+        auth: false);
+    await user.reload();
+    await user.getIdToken(true);
+  }
 
   /// Register the signed-in user in the backend.
   /// Sends the Firebase ID token in the body (route has no Bearer auth).
@@ -107,13 +138,16 @@ class ApiService {
       throw ApiException(code: 'AUTH_MISSING', message: 'Not signed in.');
     }
     final idToken = await user.getIdToken(true);
-    final data = await post('/auth/register', {
-      'phoneNumber': phoneNumber,
-      'displayName': displayName,
-      'idToken': idToken,
-      if (referralCode != null && referralCode.isNotEmpty)
-        'referralCode': referralCode,
-    }, auth: false);
+    final data = await post(
+        '/auth/register',
+        {
+          'phoneNumber': phoneNumber,
+          'displayName': displayName,
+          'idToken': idToken,
+          if (referralCode != null && referralCode.isNotEmpty)
+            'referralCode': referralCode,
+        },
+        auth: false);
     return data is Map<String, dynamic> ? data : <String, dynamic>{};
   }
 
@@ -252,7 +286,8 @@ class ApiService {
   static Future<Map<String, dynamic>> deleteAccount({
     required String confirmation,
   }) async {
-    final data = await post('/auth/delete-account', {'confirmation': confirmation});
+    final data =
+        await post('/auth/delete-account', {'confirmation': confirmation});
     return data is Map<String, dynamic> ? data : <String, dynamic>{};
   }
 

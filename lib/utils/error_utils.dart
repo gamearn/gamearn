@@ -30,12 +30,28 @@ String friendlyMessage(Object e) {
         return 'Incorrect password. Please try again.';
       case 'user-not-found':
         return 'No account found for that email.';
+      case 'invalid-credential':
+        return 'Those details did not match an account. If you joined with Google or Facebook, use that sign-in button instead.';
       case 'account-exists-with-different-credential':
         return 'An account already exists with this email. Sign in using the other method.';
       case 'operation-not-allowed':
         return 'This sign-in option is not enabled yet.';
       default:
-        return e.message ?? 'Something went wrong. Please try again.';
+        return 'We couldn\'t complete that request. Please try again.';
+    }
+  }
+  if (e is FirebaseException) {
+    switch (e.code) {
+      case 'permission-denied':
+        return 'You don\'t have permission to do that.';
+      case 'unavailable':
+        return 'This service is temporarily unavailable. Please try again.';
+      case 'not-found':
+        return 'The requested information could not be found.';
+      case 'resource-exhausted':
+        return 'The service is busy right now. Please try again shortly.';
+      default:
+        return 'We couldn\'t load this right now. Please try again.';
     }
   }
   if (e is ApiException) {
@@ -46,14 +62,18 @@ String friendlyMessage(Object e) {
         return 'Too many attempts. Please wait a moment and try again.';
       case 'VALIDATION_ERROR':
       case 'NOT_FOUND':
-        return e.message.isEmpty ? 'Please check your details and try again.' : e.message;
+        return e.message.isEmpty
+            ? 'Please check your details and try again.'
+            : e.message;
       case 'CONFLICT':
         return e.message.isEmpty ? 'This is already registered.' : e.message;
       default:
         if (e.statusCode >= 500) {
           return 'Something went wrong on our end. Please try again shortly.';
         }
-        return e.message.isEmpty ? 'Something went wrong. Please try again.' : e.message;
+        return e.message.isEmpty
+            ? 'Something went wrong. Please try again.'
+            : e.message;
     }
   }
   if (e is TimeoutException) {
@@ -63,10 +83,24 @@ String friendlyMessage(Object e) {
     return 'Can\'t reach the server. Check your connection and try again.';
   }
   final s = e.toString();
-  if (s.startsWith('Connection failed') || s.contains('SocketException')) {
+  final lower = s.toLowerCase();
+  if (lower.contains('session expired')) {
+    return 'This game session expired. Start a new game to continue.';
+  }
+  if (lower.contains('already rolled') || lower.contains('roll already')) {
+    return 'You have already rolled for this turn.';
+  }
+  if (lower.contains('not your turn')) {
+    return 'Please wait for your turn.';
+  }
+  if (s.startsWith('Connection failed') ||
+      s.contains('SocketException') ||
+      lower.contains('network-request-failed') ||
+      lower.contains('clientexception') ||
+      lower.contains('failed host lookup')) {
     return 'Can\'t reach game servers. Check your connection and try again.';
   }
-  if (e is String) return s;
+  if (e is String && !s.contains('Exception') && s.length <= 120) return s;
   return 'Something went wrong. Please try again.';
 }
 
@@ -75,7 +109,9 @@ bool isRetryable(Object e) {
   if (e is ApiException) {
     return e.code == 'NETWORK_ERROR' || e.statusCode >= 500;
   }
-  return e is TimeoutException || e is SocketException || e is http.ClientException;
+  return e is TimeoutException ||
+      e is SocketException ||
+      e is http.ClientException;
 }
 
 /// Show a consistent, themed error snackbar. Optionally attach a Retry action

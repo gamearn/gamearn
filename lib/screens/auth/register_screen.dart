@@ -6,8 +6,9 @@ import '../../theme.dart';
 import '../../widgets/auth_background.dart';
 import '../../widgets/gamearn_ui.dart';
 import 'login_screen.dart';
-import 'otp_screen.dart';
-import 'email_verify_screen.dart';
+import '../../utils/error_utils.dart';
+import '../../services/api_service.dart';
+import 'signup_email_otp_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -19,7 +20,6 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   bool _loading = false;
   bool _obscure = true;
@@ -29,16 +29,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
-    _phoneCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
-  }
-
-  String _formatNigerianNumber(String raw) {
-    raw = raw.replaceAll(RegExp(r'\s+'), '');
-    if (raw.startsWith('0')) return '+234${raw.substring(1)}';
-    if (raw.startsWith('+234')) return raw;
-    return '+234$raw';
   }
 
   Future<void> _register() async {
@@ -54,12 +46,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final email = _emailCtrl.text.trim();
     final password = _passCtrl.text;
     final name = _nameCtrl.text.trim();
-    final phoneRaw = _phoneCtrl.text.trim();
-
-    if (email.isEmpty ||
-        password.isEmpty ||
-        name.isEmpty ||
-        phoneRaw.isEmpty) {
+    if (email.isEmpty || password.isEmpty || name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Please fill all fields'),
         backgroundColor: Colors.redAccent,
@@ -70,93 +57,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _loading = true);
 
-    if (phoneRaw.length < 10) {
-      try {
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-        await FirebaseAuth.instance.currentUser
-            ?.updateDisplayName(name);
-        await FirebaseAuth.instance.currentUser
-            ?.sendEmailVerification(
-          ActionCodeSettings(
-            url: 'https://gamearn-app.web.app/verify',
-            handleCodeInApp: true,
-            androidPackageName: 'com.gamearn',
+    try {
+      final credential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
+      await credential.user?.updateDisplayName(name);
+      await ApiService.requestSignupEmailOtp(email);
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SignupEmailOtpScreen(email: email, name: name),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      showAppError(context, e);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      showAppError(context, e);
+      // Firebase may already have created the account even when the first
+      // ZeptoMail request fails. Keep that valid session and let the user
+      // retry delivery instead of trapping them behind "email in use".
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SignupEmailOtpScreen(
+            email: email,
+            name: name,
+            allowImmediateResend: true,
           ),
-        );
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                EmailVerifyScreen(email: email, name: name),
-          ),
-        );
-      } on FirebaseAuthException catch (e) {
-        if (!mounted) return;
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content:
-              Text(e.message ?? 'Registration failed'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
-      return;
+        ),
+      );
     }
-
-    final formattedPhone = _formatNigerianNumber(phoneRaw);
-
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: formattedPhone,
-      verificationCompleted:
-          (PhoneAuthCredential credential) async {
-        try {
-          final userCred = await FirebaseAuth.instance
-              .signInWithCredential(credential);
-          if (userCred.user != null) {
-            await userCred.user!.updateEmail(email);
-            await userCred.user!.updatePassword(password);
-          }
-        } catch (e) {
-          debugPrint('Auto verification failed: $e');
-        }
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        if (!mounted) return;
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              e.message ?? 'Phone verification failed'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ));
-      },
-      codeSent:
-          (String verificationId, int? resendToken) {
-        if (!mounted) return;
-        setState(() => _loading = false);
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => OtpScreen(
-              verificationId: verificationId,
-              email: email,
-              password: password,
-              phone: formattedPhone,
-              name: name,
-            ),
-          ),
-        );
-      },
-      codeAutoRetrievalTimeout:
-          (String verificationId) {
-        if (mounted) setState(() => _loading = false);
-      },
-      timeout: const Duration(seconds: 60),
-    );
   }
 
   @override
@@ -171,19 +105,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
             SafeArea(
               child: SingleChildScrollView(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 16.h),
 
                     // ── Top bar: back + "Create Account" ──
                     Padding(
-                      padding: EdgeInsets.fromLTRB(
-                          16.w, 0, 16.w, 0),
+                      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 0),
                       child: Row(children: [
                         GestureDetector(
-                          onTap: () =>
-                              Navigator.maybePop(context),
+                          onTap: () => Navigator.maybePop(context),
                           child: SvgPicture.asset(
                             'assets/icons/back_button.svg',
                             width: 48.w,
@@ -194,13 +125,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           child: Center(
                             child: Text('Create Account',
                                 style: TextStyle(
-                                    color:
-                                        context.txtPri,
+                                    color: context.txtPri,
                                     fontSize: 18.sp,
-                                    fontWeight:
-                                        FontWeight.w700,
-                                    letterSpacing:
-                                        -0.27)),
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.27)),
                           ),
                         ),
                         SizedBox(width: 48.w),
@@ -214,29 +142,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         width: 80.w,
                         height: 80.w,
                         decoration: BoxDecoration(
-                          borderRadius:
-                              BorderRadius.circular(16.r),
-                          border: Border.all(
-                              color: context.border,
-                              width: 1),
+                          borderRadius: BorderRadius.circular(16.r),
+                          border: Border.all(color: context.border, width: 1),
                         ),
                         child: ClipRRect(
-                          borderRadius:
-                              BorderRadius.circular(16.r),
+                          borderRadius: BorderRadius.circular(16.r),
                           child: Image.asset(
                             'assets/auth/signup_avatar.png',
                             fit: BoxFit.cover,
-                            errorBuilder:
-                                (_, __, ___) => Container(
+                            errorBuilder: (_, __, ___) => Container(
                               color: context.isDark ? kBgDeep : kLightBg,
                               child: Center(
                                 child: Text('G',
                                     style: TextStyle(
                                         color: kCyan,
                                         fontSize: 40.sp,
-                                        fontWeight:
-                                            FontWeight
-                                                .w900)),
+                                        fontWeight: FontWeight.w900)),
                               ),
                             ),
                           ),
@@ -249,8 +170,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           style: TextStyle(
                               color: context.txtPri,
                               fontSize: 32.sp,
-                              fontWeight:
-                                  FontWeight.w700,
+                              fontWeight: FontWeight.w700,
                               letterSpacing: -0.8)),
                     ),
                     SizedBox(height: 8.h),
@@ -261,19 +181,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         style: TextStyle(
                             color: context.txtSec,
                             fontSize: 16.sp,
-                            fontWeight:
-                                FontWeight.w400),
+                            fontWeight: FontWeight.w400),
                       ),
                     ),
                     SizedBox(height: 24.h),
 
                     // ── Form ─────────────────────────────
                     Padding(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 24.w),
+                      padding: EdgeInsets.symmetric(horizontal: 24.w),
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Full Name
                           GaInput(
@@ -306,47 +223,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           SizedBox(height: 16.h),
 
-                          // Phone Number (compound)
-                          Text('Phone Number',
-                              style: TextStyle(
-                                  color: context.txtPri,
-                                  fontWeight: FontWeight.w400,
-                                  fontSize: 16.sp)),
-                          SizedBox(height: 8.h),
-                          Row(children: [
-                            Container(
-                              width: 63.w,
-                              height: 56.h,
-                              decoration: BoxDecoration(
-                                color: context.isDark
-                                    ? const Color(0x800F172A)
-                                    : Colors.white,
-                                borderRadius:
-                                    BorderRadius.circular(12.r),
-                                border: Border.all(color: context.border),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text('+234',
-                                  style: TextStyle(
-                                      color: context.txtSec,
-                                      fontSize: 16.sp)),
-                            ),
-                            SizedBox(width: 8.w),
-                            Expanded(
-                              child: GaInput(
-                                controller: _phoneCtrl,
-                                hintText: '801 234 5678',
-                                keyboardType: TextInputType.phone,
-                              ),
-                            ),
-                          ]),
-                          SizedBox(height: 16.h),
-
                           // Password
                           GaInput(
                             controller: _passCtrl,
                             labelText: 'Password',
-                            hintText: '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
+                            hintText:
+                                '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
                             obscureText: _obscure,
                             prefixIcon: SvgPicture.asset(
                               'assets/icons/field_password.svg',
@@ -371,54 +253,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                           // T&C checkbox
                           Row(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               GestureDetector(
-                                onTap: () => setState(
-                                    () => _agreed =
-                                        !_agreed),
+                                onTap: () => setState(() => _agreed = !_agreed),
                                 child: Container(
                                   width: 24.w,
                                   height: 24.w,
-                                  decoration:
-                                      BoxDecoration(
+                                  decoration: BoxDecoration(
                                     color: _agreed
                                         ? kOrange
-                                        : (context.isDark ? kBgDeep : Colors.white),
-                                    borderRadius:
-                                        BorderRadius
-                                            .circular(
-                                                4.r),
+                                        : (context.isDark
+                                            ? kBgDeep
+                                            : Colors.white),
+                                    borderRadius: BorderRadius.circular(4.r),
                                     border: Border.all(
-                                        color: _agreed
-                                            ? kOrange
-                                            : context.border),
+                                        color:
+                                            _agreed ? kOrange : context.border),
                                   ),
                                   child: _agreed
-                                      ? const Icon(
-                                          Icons
-                                              .check_rounded,
-                                          color: Colors
-                                              .white,
-                                          size: 16)
+                                      ? const Icon(Icons.check_rounded,
+                                          color: Colors.white, size: 16)
                                       : null,
                                 ),
                               ),
                               SizedBox(width: 12.w),
                               Expanded(
                                 child: Padding(
-                                  padding:
-                                      EdgeInsets.only(
-                                          top: 4.h),
+                                  padding: EdgeInsets.only(top: 4.h),
                                   child: Text(
                                     'By creating an account, you agree to our Terms of Service and Privacy Policy.',
                                     style: TextStyle(
                                         color: context.txtSec,
                                         fontSize: 12.sp,
-                                        fontWeight:
-                                            FontWeight
-                                                .w500),
+                                        fontWeight: FontWeight.w500),
                                   ),
                                 ),
                               ),
@@ -443,12 +311,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           Center(
                             child: GaButton.text(
                               label: 'Already have an account? Login',
-                              onPressed: () =>
-                                  Navigator.pushReplacement(
+                              onPressed: () => Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
-                                    builder: (_) =>
-                                        const LoginScreen()),
+                                    builder: (_) => const LoginScreen()),
                               ),
                             ),
                           ),
@@ -466,8 +332,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               top: 54.h,
               left: 8.w,
               child: GestureDetector(
-                onTap: () =>
-                    Navigator.maybePop(context),
+                onTap: () => Navigator.maybePop(context),
                 child: SvgPicture.asset(
                   'assets/icons/back_button.svg',
                   width: 48.w,

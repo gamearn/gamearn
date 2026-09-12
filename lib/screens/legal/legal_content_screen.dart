@@ -194,5 +194,5 @@ const List<_LegalSection> _privacySections = [
       'information from children.'),
   _LegalSection('9. Contact Us',
       'If you have questions about these policies, please contact us at '
-      'support@gamearn.gg.'),
+      'gamearnapp@gmail.com.'),
 ];

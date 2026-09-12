@@ -42,8 +42,10 @@ import '../config/api_config.dart';
 
 abstract class GameEventHandler {
   // Matchmaking
-  void onMatchFound(String roomId, Map<String, dynamic> opponent, int prizePool);
-  void onMatchStarted(Map<String, dynamic> gameState, int entryFee, int prizePool);
+  void onMatchFound(
+      String roomId, Map<String, dynamic> opponent, int prizePool);
+  void onMatchStarted(
+      Map<String, dynamic> gameState, int entryFee, int prizePool);
   void onMatchAborted(String reason);
 
   // Gameplay
@@ -91,7 +93,21 @@ class GamearnSocketService {
       handler.onError('Not authenticated. Please sign in.');
       return;
     }
-    final token = await user.getIdToken(true); // force refresh
+    String? token;
+    try {
+      token = await user.getIdToken(true); // force refresh
+    } on FirebaseAuthException catch (error) {
+      debugPrint('[Socket] Firebase token refresh failed: ${error.code}');
+      handler.onError(error.code == 'network-request-failed'
+          ? 'No internet connection. Check your network and try again.'
+          : 'Your session could not be verified. Please sign in again.');
+      return;
+    } catch (error) {
+      debugPrint('[Socket] Token refresh failed: $error');
+      handler
+          .onError('No internet connection. Check your network and try again.');
+      return;
+    }
     debugPrint('[Socket] connecting as ${user.uid}');
 
     _socket = IO.io(
@@ -130,7 +146,8 @@ class GamearnSocketService {
 
     s.onConnectError((err) {
       debugPrint('[Socket] connect error: $err');
-      _handler?.onError('Connection failed: $err');
+      _handler?.onError(
+          'Game service is temporarily unavailable. Please try again.');
     });
 
     s.onReconnect((_) async {
@@ -265,7 +282,8 @@ class GamearnSocketService {
   //  Ayo:      {action:'sow', pit}
   //  Draughts: {action:'move', from:{row,col}, to:{row,col}, captures?:[]}
 
-  void makeMove(Map<String, dynamic> move, {Function(Map<String, dynamic>)? onAck}) {
+  void makeMove(Map<String, dynamic> move,
+      {Function(Map<String, dynamic>)? onAck}) {
     if (!_connected) return;
     debugPrint('[Socket] emit make_move: $move');
     _socket!.emitWithAck('make_move', {'move': move}, ack: (response) {
@@ -298,10 +316,10 @@ class GamearnSocketService {
   void rollDice() => makeMove({'action': 'roll_dice'});
 
   void movePiece(int pieceId, int diceValue) => makeMove({
-    'action': 'move_piece',
-    'pieceId': pieceId,
-    'diceValue': diceValue,
-  });
+        'action': 'move_piece',
+        'pieceId': pieceId,
+        'diceValue': diceValue,
+      });
 
   // ── Ayo convenience method ────────────────────────────────────
 
@@ -381,8 +399,8 @@ class MatchmakingService {
   /// [options] are the game-specific MP options that must match the opponent's
   /// (server segments the queue by these, so they can never mismatch).
   static Future<Map<String, dynamic>?> joinQueue({
-    required String gameType,  // 'whot' | 'ludo' | 'ayo' | 'draughts'
-    required int entryFee,     // in kobo e.g. 50000 = ₦500
+    required String gameType, // 'whot' | 'ludo' | 'ayo' | 'draughts'
+    required int entryFee, // in kobo e.g. 50000 = ₦500
     bool rated = true,
     int playerCount = 2,
     Map<String, dynamic>? options,
@@ -392,24 +410,28 @@ class MatchmakingService {
       if (user == null) return null;
       final token = await user.getIdToken();
 
-      final res = await http.post(
-        Uri.parse('$_base/join'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'gameType':    gameType,
-          'entryFee':    entryFee,
-          'rated':       rated,
-          'playerCount': playerCount,
-          'options':     options ?? {},
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final res = await http
+          .post(
+            Uri.parse('$_base/join'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'gameType': gameType,
+              'entryFee': entryFee,
+              'rated': rated,
+              'playerCount': playerCount,
+              'options': options ?? {},
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       debugPrint('[Matchmaking] joinQueue: ${res.statusCode} $body');
-      return body['success'] == true ? body['data'] as Map<String, dynamic>? : null;
+      return body['success'] == true
+          ? body['data'] as Map<String, dynamic>?
+          : null;
     } catch (e) {
       debugPrint('[Matchmaking] joinQueue error: $e');
       return null;
@@ -423,14 +445,16 @@ class MatchmakingService {
       if (user == null) return;
       final token = await user.getIdToken();
 
-      await http.post(
-        Uri.parse('$_base/leave'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'gameType': gameType}),
-      ).timeout(const Duration(seconds: 8));
+      await http
+          .post(
+            Uri.parse('$_base/leave'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'gameType': gameType}),
+          )
+          .timeout(const Duration(seconds: 8));
     } catch (e) {
       debugPrint('[Matchmaking] leaveQueue error: $e');
     }
@@ -443,8 +467,8 @@ class MatchmakingService {
       if (user == null) return null;
       final token = await user.getIdToken();
 
-      final uri = Uri.parse('$_base/status')
-          .replace(queryParameters: gameType != null ? {'gameType': gameType} : null);
+      final uri = Uri.parse('$_base/status').replace(
+          queryParameters: gameType != null ? {'gameType': gameType} : null);
 
       final res = await http.get(uri, headers: {
         'Authorization': 'Bearer $token',
@@ -452,7 +476,9 @@ class MatchmakingService {
       }).timeout(const Duration(seconds: 10));
 
       final body = jsonDecode(res.body) as Map<String, dynamic>;
-      return body['success'] == true ? body['data'] as Map<String, dynamic>? : null;
+      return body['success'] == true
+          ? body['data'] as Map<String, dynamic>?
+          : null;
     } catch (e) {
       debugPrint('[Matchmaking] getStatus error: $e');
       return null;
@@ -470,15 +496,14 @@ class MatchmakingService {
 
 class EntryFees {
   static const Map<String, Map<String, int>> tiers = {
-    'whot':     {'beginner': 10000, 'intermediate': 50000, 'expert': 200000},
-    'ludo':     {'beginner': 10000, 'intermediate': 50000, 'expert': 200000},
-    'ayo':      {'beginner': 5000,  'intermediate': 25000, 'expert': 100000},
+    'whot': {'beginner': 10000, 'intermediate': 50000, 'expert': 200000},
+    'ludo': {'beginner': 10000, 'intermediate': 50000, 'expert': 200000},
+    'ayo': {'beginner': 5000, 'intermediate': 25000, 'expert': 100000},
     'draughts': {'beginner': 10000, 'intermediate': 50000, 'expert': 200000},
   };
 
   static int get(String gameType, String tier) =>
       tiers[gameType]?[tier] ?? 10000;
 
-  static String naira(int kobo) =>
-      '₦${(kobo / 100).toStringAsFixed(0)}';
+  static String naira(int kobo) => '₦${(kobo / 100).toStringAsFixed(0)}';
 }

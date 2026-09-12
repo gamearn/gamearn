@@ -40,11 +40,12 @@ class SocialAuthService {
     } on AuthException {
       rethrow;
     } on FirebaseAuthException catch (e) {
-      debugPrint('[Auth] Google FirebaseAuthException: ${e.code} — ${e.message}');
+      debugPrint(
+          '[Auth] Google FirebaseAuthException: ${e.code} — ${e.message}');
       throw AuthException(_googleError(e));
     } catch (e) {
       debugPrint('[Auth] Google sign-in unexpected error: $e');
-      throw AuthException('Google sign-in failed: $e');
+      throw AuthException('Google sign-in failed. Please try again.');
     }
   }
 
@@ -54,9 +55,12 @@ class SocialAuthService {
       final result = await FacebookAuth.instance.login(
         permissions: ['email', 'public_profile'],
       );
+      debugPrint(
+          '[Auth] Facebook result: ${result.status}; ${result.message ?? ''}');
 
       if (result.status == LoginStatus.cancelled) {
-        throw AuthException('Facebook sign-in cancelled.');
+        throw AuthException(
+            'Facebook could not return to Gamearn. Please try again.');
       }
       if (result.status != LoginStatus.success) {
         throw AuthException('Facebook sign-in failed: ${result.message}');
@@ -79,6 +83,12 @@ class SocialAuthService {
   // ── Apple ─────────────────────────────────────────────────────────────────────
   Future<UserCredential> signInWithApple() async {
     try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        final provider = AppleAuthProvider()
+          ..addScope('email')
+          ..addScope('name');
+        return await _auth.signInWithProvider(provider);
+      }
       // Generate nonce for security
       final rawNonce = _generateNonce();
       final nonce = _sha256ofString(rawNonce);
@@ -138,7 +148,8 @@ class SocialAuthService {
     } on AuthException {
       rethrow;
     } on FirebaseAuthException catch (e) {
-      debugPrint('[Auth] Google re-auth FirebaseAuthException: ${e.code} — ${e.message}');
+      debugPrint(
+          '[Auth] Google re-auth FirebaseAuthException: ${e.code} — ${e.message}');
       throw AuthException(_googleError(e));
     } catch (e) {
       debugPrint('[Auth] Google re-auth unexpected error: $e');
@@ -168,12 +179,22 @@ class SocialAuthService {
     } on AuthException {
       rethrow;
     } catch (e) {
-      throw AuthException('Facebook re-authentication failed. Please try again.');
+      throw AuthException(
+          'Facebook re-authentication failed. Please try again.');
     }
   }
 
   Future<void> reauthenticateWithApple() async {
     try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        final current = _auth.currentUser;
+        if (current == null) throw AuthException('Not signed in.');
+        final provider = AppleAuthProvider()
+          ..addScope('email')
+          ..addScope('name');
+        await current.reauthenticateWithProvider(provider);
+        return;
+      }
       final rawNonce = _generateNonce();
       final nonce = _sha256ofString(rawNonce);
 
@@ -224,7 +245,7 @@ class SocialAuthService {
       case 'operation-not-allowed':
         return 'Google sign-in is not enabled in the Firebase console.';
       default:
-        return 'Google sign-in failed: ${e.code} (${e.message}).';
+        return 'Google sign-in failed. Please try again.';
     }
   }
 

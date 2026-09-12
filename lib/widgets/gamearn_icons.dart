@@ -33,7 +33,9 @@ class _HomePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
     // Scale from SVG viewBox 20..46 x 20..38 → 24x24
     final sx = size.width / 26;
     final sy = size.height / 18;
@@ -138,7 +140,9 @@ class _GamePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
     final sx = size.width / 20;
     final sy = size.height / 16;
     canvas.save();
@@ -178,9 +182,11 @@ class _GamePainter extends CustomPainter {
 
     // Right buttons (circle + diamond)
     final rDot1 = Path();
-    rDot1.addOval(Rect.fromCenter(center: const Offset(42, 29), width: 2, height: 2));
+    rDot1.addOval(
+        Rect.fromCenter(center: const Offset(42, 29), width: 2, height: 2));
     final rDot2 = Path();
-    rDot2.addOval(Rect.fromCenter(center: const Offset(40, 26), width: 2, height: 2));
+    rDot2.addOval(
+        Rect.fromCenter(center: const Offset(40, 26), width: 2, height: 2));
     canvas.drawPath(rDot1, paint);
     canvas.drawPath(rDot2, paint);
 
@@ -231,7 +237,9 @@ class _ProfilePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
     final sx = size.width / 16;
     final sy = size.height / 16;
     canvas.save();
@@ -303,7 +311,9 @@ class _WalletPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
     final sx = size.width / 20;
     final sy = size.height / 18;
     canvas.save();
@@ -398,7 +408,12 @@ class GamearnBottomNav extends StatelessWidget {
 
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final labels = [l10n.navHome, l10n.navGames, l10n.navWallet, l10n.navProfile];
+    final labels = [
+      l10n.navHome,
+      l10n.navGames,
+      l10n.navWallet,
+      l10n.navProfile
+    ];
     return Container(
       height: 72,
       decoration: BoxDecoration(
@@ -411,7 +426,13 @@ class GamearnBottomNav extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _NavItem(
-            icon: HomeNavIcon(isActive: currentIndex == 0),
+            icon: Icon(
+              currentIndex == 0 ? Icons.home_rounded : Icons.home_outlined,
+              color: currentIndex == 0
+                  ? kOrange
+                  : (context.isDark ? Colors.white : kLightSub),
+              size: 25,
+            ),
             label: labels[0],
             isActive: currentIndex == 0,
             onTap: () => onTap(0),

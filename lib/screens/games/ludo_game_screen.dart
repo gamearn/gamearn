@@ -11,41 +11,56 @@ import '../../services/sound_service.dart';
 import '../../services/socket_service.dart';
 import '../../config/api_config.dart';
 
-const Color _kRed    = Color(0xFFE53935);
-const Color _kBlue   = Color(0xFF1E88E5);
-const Color _kGreen  = Color(0xFF43A047);
-const Color _kYellow = Color(0xFFFDD835);
-const Color _kSafe   = Color(0xFF22D1EE);
-const Color _kBoard  = Color(0xFF0D1120);
-const Color _kCell   = Color(0xFF141827);
+const Color _kRed = Color(0xFFFF2038);
+const Color _kBlue = Color(0xFF078CFF);
+const Color _kGreen = Color(0xFF16DB45);
+const Color _kYellow = Color(0xFFFFD216);
+const Color _kSafe = Color(0xFFFFD31A);
+const Color _kBoard = Color(0xFF071326);
+const Color _kCell = Color(0xFFF4F0EC);
 
 const List<Color> _kColors = [_kRed, _kYellow, _kGreen, _kBlue];
-const List<String> _kNames  = ['Red', 'Yellow', 'Green', 'Blue'];
+const List<String> _kNames = ['Red', 'Yellow', 'Green', 'Blue'];
 
 const List<int> _kStart = [0, 13, 26, 39];
 const Set<int> _kSafe52 = {0, 8, 13, 21, 26, 34, 39, 47};
 
 class _Piece {
-  int  pos;
+  int pos;
   bool inBase;
   bool home;
-  int  colorIdx;
-  _Piece() : pos = -1, inBase = true, home = false, colorIdx = 0;
-  _Piece.copy(_Piece o) : pos = o.pos, inBase = o.inBase, home = o.home, colorIdx = o.colorIdx;
+  int colorIdx;
+  _Piece()
+      : pos = -1,
+        inBase = true,
+        home = false,
+        colorIdx = 0;
+  _Piece.copy(_Piece o)
+      : pos = o.pos,
+        inBase = o.inBase,
+        home = o.home,
+        colorIdx = o.colorIdx;
 }
 
 _Piece _pieceFromServer(Map<String, dynamic> s) {
   final p = _Piece();
-  final pos      = s['position'] as int;
-  final inHS     = s['inHomeStretch'] as bool? ?? false;
-  final hp       = s['homePosition'] as int? ?? 0;
-  final done     = s['completed'] as bool? ?? false;
-  final cIdx     = s['colorIdx'] as int? ?? 0;
+  final pos = s['position'] as int;
+  final inHS = s['inHomeStretch'] as bool? ?? false;
+  final hp = s['homePosition'] as int? ?? 0;
+  final done = s['completed'] as bool? ?? false;
+  final cIdx = s['colorIdx'] as int? ?? 0;
   p.colorIdx = cIdx;
-  if (done) { p.home = true; p.pos = 58; }
-  else if (pos == -1) { p.inBase = true; p.pos = -1; }
-  else if (inHS) { p.pos = 52 + hp - 1; }
-  else { p.pos = pos; }
+  if (done) {
+    p.home = true;
+    p.pos = 58;
+  } else if (pos == -1) {
+    p.inBase = true;
+    p.pos = -1;
+  } else if (inHS) {
+    p.pos = 52 + hp - 1;
+  } else {
+    p.pos = pos;
+  }
   return p;
 }
 
@@ -67,12 +82,16 @@ class _PracticeLudoService {
     };
   }
 
-  Future<Map<String, dynamic>> startGame({int playerRating = 1200, int diceCount = 1}) async {
-    final res = await http.post(
-      Uri.parse('$_base/start'),
-      headers: await _authHeaders(),
-      body: jsonEncode({'playerRating': playerRating, 'diceCount': diceCount}),
-    ).timeout(const Duration(seconds: 10));
+  Future<Map<String, dynamic>> startGame(
+      {int playerRating = 1200, int diceCount = 1}) async {
+    final res = await http
+        .post(
+          Uri.parse('$_base/start'),
+          headers: await _authHeaders(),
+          body: jsonEncode(
+              {'playerRating': playerRating, 'diceCount': diceCount}),
+        )
+        .timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) throw Exception('Failed to start practice game');
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>;
@@ -86,11 +105,13 @@ class _PracticeLudoService {
   }
 
   Future<Map<String, dynamic>> rollDice() async {
-    final res = await http.post(
-      Uri.parse('$_base/roll'),
-      headers: await _authHeaders(),
-      body: jsonEncode({'sessionId': sessionId}),
-    ).timeout(const Duration(seconds: 10));
+    final res = await http
+        .post(
+          Uri.parse('$_base/roll'),
+          headers: await _authHeaders(),
+          body: jsonEncode({'sessionId': sessionId}),
+        )
+        .timeout(const Duration(seconds: 10));
     if (res.statusCode == 404) throw Exception('Session expired');
     if (res.statusCode != 200) {
       final err = jsonDecode(res.body);
@@ -102,11 +123,13 @@ class _PracticeLudoService {
   Future<Map<String, dynamic>> movePiece(int pieceId, {int? diceValue}) async {
     final body = <String, dynamic>{'sessionId': sessionId, 'pieceId': pieceId};
     if (diceValue != null) body['diceValue'] = diceValue;
-    final res = await http.post(
-      Uri.parse('$_base/move'),
-      headers: await _authHeaders(),
-      body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 15));
+    final res = await http
+        .post(
+          Uri.parse('$_base/move'),
+          headers: await _authHeaders(),
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 15));
     if (res.statusCode == 404) throw Exception('Session expired');
     if (res.statusCode != 200) {
       final err = jsonDecode(res.body);
@@ -118,9 +141,11 @@ class _PracticeLudoService {
   Future<void> endSession() async {
     if (sessionId == null) return;
     try {
-      await http.delete(
-        Uri.parse('$_base/${Uri.encodeComponent(sessionId!)}'),
-      ).timeout(const Duration(seconds: 5));
+      await http
+          .delete(
+            Uri.parse('$_base/${Uri.encodeComponent(sessionId!)}'),
+          )
+          .timeout(const Duration(seconds: 5));
     } catch (_) {}
     sessionId = null;
   }
@@ -146,35 +171,35 @@ class LudoGameScreen extends StatefulWidget {
   });
   bool get isMultiplayer =>
       roomId != null && roomId!.isNotEmpty && roomId != 'practice_bot';
-  @override State<LudoGameScreen> createState() => _LudoGameScreenState();
+  @override
+  State<LudoGameScreen> createState() => _LudoGameScreenState();
 }
 
 class _LudoGameScreenState extends State<LudoGameScreen>
     with TickerProviderStateMixin
     implements GameEventHandler {
-
   final _PracticeLudoService _svc = _PracticeLudoService();
   late List<List<_Piece>> _pieces;
-  int  _current    = 0;
-  int  _dice       = 0;
+  int _current = 0;
+  int _dice = 0;
   List<int> _diceValues = [];
-  bool _waiting    = true;
-  bool _gameOver   = false;
-  int  _winner     = -1;
-  int  _playerCount = 2;
-  int  _humanIndex  = 0;
-  int  _diceCount   = 1;
-  int  _tokenCount  = 4;
-  bool _dualHome    = false;
+  bool _waiting = true;
+  bool _gameOver = false;
+  int _winner = -1;
+  int _playerCount = 2;
+  int _humanIndex = 0;
+  int _diceCount = 1;
+  int _tokenCount = 4;
+  bool _dualHome = false;
 
   // ── Multiplayer ────────────────────────────────────────────────
-  bool _isMp         = false;
+  bool _isMp = false;
   late String _roomId;
-  String _opponentName = 'Computer';
+  String _opponentName = 'Gamearn Bot';
   Map<int, String> _playerNames = {}; // per-seat names (2-4 player rooms)
-  int _prizePool     = 0;
+  int _prizePool = 0;
   bool _opponentGone = false;
-  bool _scattering   = false;
+  bool _scattering = false;
   bool _gameOverShown = false;
   GamearnSocketService? _socket;
   final Random _srng = Random();
@@ -182,8 +207,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
   bool get _isHuman => _current == _humanIndex;
 
-  bool _botBusy    = false;
-  bool _rolling    = false;
+  bool _botBusy = false;
+  bool _rolling = false;
   List<int> _legal = [];
   List<Map<String, dynamic>> _legalMoves = [];
   int? _selected;
@@ -191,16 +216,16 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   List<Map<String, dynamic>> _pendingBotActions = [];
 
   late AnimationController _pulseCtrl;
-  late Animation<double>   _pulse;
+  late Animation<double> _pulse;
   late AnimationController _diceScatterCtrl;
 
   @override
   void initState() {
     super.initState();
-    _isMp         = widget.isMultiplayer;
-    _roomId       = widget.roomId ?? '';
+    _isMp = widget.isMultiplayer;
+    _roomId = widget.roomId ?? '';
     _opponentName = widget.opponentName ?? 'Opponent';
-    _prizePool    = widget.prizePool;
+    _prizePool = widget.prizePool;
     _reset();
     _pulseCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 700))
@@ -260,19 +285,20 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   }
 
   @override
-  void onMatchFound(String roomId, Map<String, dynamic> opponent, int prizePool) {
+  void onMatchFound(
+      String roomId, Map<String, dynamic> opponent, int prizePool) {
     if (!mounted) return;
     _roomId = roomId.isNotEmpty ? roomId : _roomId;
-    _opponentName =
-        (opponent['displayName'] as String?)?.isNotEmpty == true
-            ? opponent['displayName'] as String
-            : _opponentName;
+    _opponentName = (opponent['displayName'] as String?)?.isNotEmpty == true
+        ? opponent['displayName'] as String
+        : _opponentName;
     _prizePool = prizePool;
     setState(() {});
   }
 
   @override
-  void onMatchStarted(Map<String, dynamic> gameState, int entryFee, int prizePool) {
+  void onMatchStarted(
+      Map<String, dynamic> gameState, int entryFee, int prizePool) {
     if (!mounted) return;
     _prizePool = prizePool;
     _applyServerGameState(gameState);
@@ -388,8 +414,12 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       final side = i.isEven;
       final top = (i ~/ 2).isEven;
       return Offset(
-        side ? 0.16 + _srng.nextDouble() * 0.22 : 0.62 + _srng.nextDouble() * 0.22,
-        top ? 0.18 + _srng.nextDouble() * 0.22 : 0.60 + _srng.nextDouble() * 0.22,
+        side
+            ? 0.16 + _srng.nextDouble() * 0.22
+            : 0.62 + _srng.nextDouble() * 0.22,
+        top
+            ? 0.18 + _srng.nextDouble() * 0.22
+            : 0.60 + _srng.nextDouble() * 0.22,
       );
     });
   }
@@ -404,7 +434,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     // Capture per-seat names for 3-4 player rooms
     _playerNames = {
       for (int i = 0; i < players.length; i++)
-        i: ((players[i] as Map)['displayName'] as String?)?.trim().isNotEmpty == true
+        i: ((players[i] as Map)['displayName'] as String?)?.trim().isNotEmpty ==
+                true
             ? (players[i] as Map)['displayName'] as String
             : 'Player ${i + 1}',
     };
@@ -439,25 +470,25 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   }
 
   void _reset() {
-    _pieces      = [];
-    _current     = 0;
-    _dice        = 0;
-    _diceValues  = [];
-    _waiting     = true;
-    _gameOver    = false;
-    _winner      = -1;
-    _legal       = [];
-    _legalMoves  = [];
-    _selected    = null;
-    _botBusy     = false;
+    _pieces = [];
+    _current = 0;
+    _dice = 0;
+    _diceValues = [];
+    _waiting = true;
+    _gameOver = false;
+    _winner = -1;
+    _legal = [];
+    _legalMoves = [];
+    _selected = null;
+    _botBusy = false;
     _pendingBotActions = [];
     _playerCount = 2;
-    _humanIndex  = 0;
-    _diceCount   = 1;
-    _tokenCount  = 4;
-    _dualHome    = false;
+    _humanIndex = 0;
+    _diceCount = 1;
+    _tokenCount = 4;
+    _dualHome = false;
     _opponentGone = false;
-    _scattering   = false;
+    _scattering = false;
     _gameOverShown = false;
   }
 
@@ -474,8 +505,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       final cIdx = _dualHome
           ? null
           : (_colorToIdx[colorName] ?? (player['index'] as int? ?? pl));
-      _pieces[pl] = serverPieces
-          .map((s) {
+      _pieces[pl] = serverPieces.map((s) {
         final p = _pieceFromServer(s as Map<String, dynamic>);
         if (cIdx != null) p.colorIdx = cIdx;
         return p;
@@ -500,9 +530,10 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           : 4;
       _updatePiecesFromPlayers(players);
       _current = data['currentPlayerIndex'] as int? ?? 0;
-      if (mounted) setState(() {
-        _waiting = true;
-      });
+      if (mounted)
+        setState(() {
+          _waiting = true;
+        });
     } catch (e) {
       if (mounted) showAppError(context, e);
     }
@@ -524,8 +555,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       _diceValues = (data['diceValues'] as List?)?.cast<int>() ?? [];
       _dice = _diceValues.isNotEmpty ? _diceValues[0] : 0;
       _legal = (data['legalPieceIds'] as List?)?.cast<int>() ?? [];
-      _legalMoves = (data['legalMoves'] as List?)
-          ?.cast<Map<String, dynamic>>() ?? [];
+      _legalMoves =
+          (data['legalMoves'] as List?)?.cast<Map<String, dynamic>>() ?? [];
       _waiting = false;
       _selected = null;
       setState(() {});
@@ -535,9 +566,11 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     _gameOver = data['gameOver'] as bool? ?? false;
     if (_gameOver) {
       final winnerUid = data['winner'] as String?;
-      _winner = (winnerUid != null && !_svc.humanPlayerIndices
-          .any((hi) => players != null && hi < players.length &&
-              (players[hi] as Map)['uid'] == winnerUid))
+      _winner = (winnerUid != null &&
+              !_svc.humanPlayerIndices.any((hi) =>
+                  players != null &&
+                  hi < players.length &&
+                  (players[hi] as Map)['uid'] == winnerUid))
           ? _current
           : _humanIndex;
       _legal = [];
@@ -627,18 +660,18 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       final diceValues = (data['diceValues'] as List?)?.cast<int>() ??
           [data['diceValue'] as int];
       final legal = (data['legalPieceIds'] as List).cast<int>();
-      final legalMoves = (data['legalMoves'] as List?)
-          ?.cast<Map<String, dynamic>>() ?? [];
+      final legalMoves =
+          (data['legalMoves'] as List?)?.cast<Map<String, dynamic>>() ?? [];
       final mustPass = data['mustPass'] as bool? ?? false;
       final diceCount = data['diceCount'] as int? ?? 1;
 
       setState(() {
-        _dice       = diceValues.isNotEmpty ? diceValues[0] : 0;
+        _dice = diceValues.isNotEmpty ? diceValues[0] : 0;
         _diceValues = diceValues;
-        _diceCount  = diceCount;
-        _waiting    = mustPass;
-        _rolling    = false;
-        _legal      = legal;
+        _diceCount = diceCount;
+        _waiting = mustPass;
+        _rolling = false;
+        _legal = legal;
         _legalMoves = legalMoves;
       });
 
@@ -650,7 +683,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() => _rolling = false);
-      showAppError(context, e);
+      showAppError(context, e, onRetry: _humanRoll);
     }
   }
 
@@ -661,12 +694,15 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
       _updateStateFromMove(data);
 
-      if (_gameOver) { _showGameOver(); return; }
+      if (_gameOver) {
+        _showGameOver();
+        return;
+      }
 
       if (data['moreMoves'] == true) return;
 
-      final botActions = (data['botActions'] as List?)
-          ?.cast<Map<String, dynamic>>() ?? [];
+      final botActions =
+          (data['botActions'] as List?)?.cast<Map<String, dynamic>>() ?? [];
       _pendingBotActions = botActions;
       await _animateBotActions();
 
@@ -714,17 +750,27 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
       _updateStateFromMove(data);
 
-      if (_gameOver) { _showGameOver(); return; }
+      if (_gameOver) {
+        _showGameOver();
+        return;
+      }
 
       if (data['moreMoves'] == true) return;
 
       if (data['extraTurn'] == true) {
-        setState(() { _waiting = true; _legal = []; _legalMoves = []; _dice = 0; _diceValues = []; _selected = null; });
+        setState(() {
+          _waiting = true;
+          _legal = [];
+          _legalMoves = [];
+          _dice = 0;
+          _diceValues = [];
+          _selected = null;
+        });
         return;
       }
 
-      final botActions = (data['botActions'] as List?)
-          ?.cast<Map<String, dynamic>>() ?? [];
+      final botActions =
+          (data['botActions'] as List?)?.cast<Map<String, dynamic>>() ?? [];
       _pendingBotActions = botActions;
       _selected = null;
       await _animateBotActions();
@@ -734,7 +780,9 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() { _selected = null; });
+      setState(() {
+        _selected = null;
+      });
       showAppError(context, e);
     }
   }
@@ -769,19 +817,23 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     final humanWon = _winner == _humanIndex;
     final winnerName = _isMp
         ? (humanWon ? 'You' : _nameFor(_winner))
-        : (_winner >= 0 && _winner < _kNames.length ? _kNames[_winner % 4] : 'Opponent');
+        : (_winner >= 0 && _winner < _kNames.length
+            ? _kNames[_winner % 4]
+            : 'Opponent');
     final subtitle = _isMp
         ? (_prizePool > 0
             ? '${humanWon ? 'You won' : '$winnerName won'}\nPrize: \u20A6${(_prizePool / 100).toStringAsFixed(0)}'
             : '$winnerName wins!')
         : '$winnerName house wins!';
-    SoundService.instance.play(humanWon ? SoundType.gameWin : SoundType.gameLose);
+    SoundService.instance
+        .play(humanWon ? SoundType.gameWin : SoundType.gameLose);
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         backgroundColor: kBgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         title: Text(
           humanWon ? '\u{1F389} You Win!' : '\u{1F61E} You Lost',
           style: const TextStyle(color: kTextPri, fontWeight: FontWeight.w800),
@@ -805,7 +857,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               }
             },
             child: Text(_isMp ? 'Rematch' : 'Play Again',
-                style: const TextStyle(color: kCyan, fontWeight: FontWeight.w700)),
+                style:
+                    const TextStyle(color: kCyan, fontWeight: FontWeight.w700)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -817,18 +870,18 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   }
 
   String get _statusText {
-    if (_gameOver)   return 'Game Over';
+    if (_gameOver) return 'Game Over';
     if (_opponentGone) return 'Opponent disconnected \u2014 waiting\u2026';
     if (_isMp) {
       if (!_isHuman) return '${_nameFor(_current)} is rolling\u2026';
       if (_rolling || _scattering) return 'Rolling\u2026';
-      if (_waiting)    return 'Tap the \u{1F3B2} to roll';
+      if (_waiting) return 'Tap the \u{1F3B2} to roll';
       if (_legal.isEmpty) return 'Roll the dice first';
       return 'Tap a glowing piece to move';
     }
-    if (_botBusy)    return 'Computer is thinking\u2026';
-    if (!_isHuman)   return 'Computer\'s turn';
-    if (_waiting)    return 'Tap \u{1F3B2} to roll';
+    if (_botBusy) return 'Gamearn Bot is thinking\u2026';
+    if (!_isHuman) return 'Gamearn Bot\'s turn';
+    if (_waiting) return 'Tap \u{1F3B2} to roll';
     if (_legal.isEmpty) return 'Roll the dice first';
     return 'Tap a glowing piece to move';
   }
@@ -842,7 +895,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     if (i == _humanIndex) return 'You';
     final n = _playerNames[i];
     if (n != null && n.isNotEmpty) return _shortName(n);
-    if (_opponentName.isNotEmpty && _opponentName != 'Computer') {
+    if (_opponentName.isNotEmpty && _opponentName != 'Gamearn Bot') {
       return _shortName(_opponentName);
     }
     return 'Player ${i + 1}';
@@ -862,7 +915,9 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         ),
         title: Text('L\u00fad\u00f2',
             style: TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18.sp)),
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 18.sp)),
         centerTitle: true,
         actions: [
           if (!_isMp)
@@ -879,7 +934,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               padding: EdgeInsets.only(right: 12.w),
               child: Center(
                 child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
                   decoration: BoxDecoration(
                     color: kOrange.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(20.r),
@@ -900,14 +956,22 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           children: [
             ...List.generate(_playerCount, (i) {
               final isHuman = i == _humanIndex;
-              final playerPieceList = i < _pieces.length ? _pieces[i] : <_Piece>[];
-              final uniqueColors = playerPieceList.map((p) => p.colorIdx).toSet().toList()..sort();
+              final playerPieceList =
+                  i < _pieces.length ? _pieces[i] : <_Piece>[];
+              final uniqueColors = playerPieceList
+                  .map((p) => p.colorIdx)
+                  .toSet()
+                  .toList()
+                ..sort();
               final colors = uniqueColors.map((ci) => _kColors[ci]).toList();
-              final homes = uniqueColors.map((ci) => playerPieceList.where((p) => p.colorIdx == ci && p.home).length).toList();
+              final homes = uniqueColors
+                  .map((ci) => playerPieceList
+                      .where((p) => p.colorIdx == ci && p.home)
+                      .length)
+                  .toList();
               final perColorTotal = _tokenCount > 4 ? 4 : _tokenCount;
-              final label = isHuman
-                  ? 'You'
-                  : (_isMp ? _nameFor(i) : 'Computer');
+              final label =
+                  isHuman ? 'You' : (_isMp ? _nameFor(i) : 'Gamearn Bot');
               return _Strip(
                 label: label,
                 colors: colors,
@@ -998,7 +1062,7 @@ class _BoardPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final s    = size.width;
+    final s = size.width;
     final cell = s / 15;
     _drawBoard(canvas, s, cell);
     _drawPieces(canvas, s, cell);
@@ -1007,11 +1071,26 @@ class _BoardPainter extends CustomPainter {
   void _drawBoard(Canvas canvas, double s, double cell) {
     final p = Paint();
 
-    p.color = _kBoard;
+    p.shader = const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFF172544), Color(0xFF050A16), Color(0xFF102C59)],
+    ).createShader(Rect.fromLTWH(0, 0, s, s));
     canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, s, s), const Radius.circular(14)),
+      RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, s, s), const Radius.circular(14)),
       p,
     );
+    p.shader = null;
+    p.style = PaintingStyle.stroke;
+    p.strokeWidth = max(2, cell * 0.12);
+    p.color = const Color(0xFF168BFF);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+          Rect.fromLTWH(1, 1, s - 2, s - 2), const Radius.circular(14)),
+      p,
+    );
+    p.style = PaintingStyle.fill;
 
     final corners = [
       Offset(0, 0),
@@ -1022,31 +1101,32 @@ class _BoardPainter extends CustomPainter {
     final cColors = [_kRed, _kGreen, _kYellow, _kBlue];
 
     for (int i = 0; i < 4; i++) {
-      final o  = corners[i];
+      final o = corners[i];
       final bg = cColors[i];
 
-      p.color = bg.withOpacity(0.15);
+      p.color = bg.withOpacity(0.92);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromLTWH(o.dx, o.dy, 6 * cell, 6 * cell),
-            const Radius.circular(10)),
+            Rect.fromLTWH(o.dx + cell * 0.12, o.dy + cell * 0.12, 5.76 * cell,
+                5.76 * cell),
+            Radius.circular(cell * 0.7)),
         p,
       );
 
-      p.color = bg.withOpacity(0.30);
+      p.color = const Color(0xFF071326).withOpacity(0.86);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
             Rect.fromLTWH(o.dx + cell, o.dy + cell, 4 * cell, 4 * cell),
-            const Radius.circular(8)),
+            Radius.circular(cell * 0.65)),
         p,
       );
 
       final slots = _baseSlots(cell, i);
       for (final sl in slots) {
-        p.color = bg.withOpacity(0.55);
+        p.color = bg;
         canvas.drawCircle(sl, cell * 0.38, p);
-        p.color = Colors.white.withOpacity(0.12);
-        p.style  = PaintingStyle.stroke;
+        p.color = Colors.white.withOpacity(0.52);
+        p.style = PaintingStyle.stroke;
         p.strokeWidth = 1.5;
         canvas.drawCircle(sl, cell * 0.38, p);
         p.style = PaintingStyle.fill;
@@ -1058,14 +1138,16 @@ class _BoardPainter extends CustomPainter {
       final (row, col) = track[i];
       final rect = Rect.fromLTWH(col * cell, row * cell, cell, cell);
       final safe = _kSafe52.contains(i);
-      p.color = safe ? _kSafe.withOpacity(0.18) : _kCell;
+      p.color = safe ? _kSafe.withOpacity(0.88) : _kCell;
       canvas.drawRect(rect, p);
-      p.color = Colors.white.withOpacity(0.04);
-      p.style = PaintingStyle.stroke; p.strokeWidth = 0.5;
+      p.color = const Color(0xFF9EA4AF).withOpacity(0.65);
+      p.style = PaintingStyle.stroke;
+      p.strokeWidth = 0.5;
       canvas.drawRect(rect, p);
       p.style = PaintingStyle.fill;
-      if (safe) _drawStar(canvas, Offset(col * cell + cell / 2, row * cell + cell / 2),
-          cell * 0.25, _kSafe.withOpacity(0.45));
+      if (safe)
+        _drawStar(canvas, Offset(col * cell + cell / 2, row * cell + cell / 2),
+            cell * 0.25, Colors.white);
     }
 
     _drawStretches(canvas, cell);
@@ -1075,32 +1157,32 @@ class _BoardPainter extends CustomPainter {
   void _drawStretches(Canvas canvas, double cell) {
     final p = Paint();
     for (int c = 1; c <= 5; c++) {
-      p.color = _kRed.withOpacity(0.35);
+      p.color = _kRed.withOpacity(0.92);
       canvas.drawRect(Rect.fromLTWH(c * cell, 7 * cell, cell, cell), p);
     }
     for (int c = 9; c <= 13; c++) {
-      p.color = _kGreen.withOpacity(0.35);
+      p.color = _kGreen.withOpacity(0.92);
       canvas.drawRect(Rect.fromLTWH(c * cell, 7 * cell, cell, cell), p);
     }
     for (int r = 9; r <= 13; r++) {
-      p.color = _kYellow.withOpacity(0.35);
+      p.color = _kYellow.withOpacity(0.92);
       canvas.drawRect(Rect.fromLTWH(7 * cell, r * cell, cell, cell), p);
     }
     for (int r = 1; r <= 5; r++) {
-      p.color = _kBlue.withOpacity(0.35);
+      p.color = _kBlue.withOpacity(0.92);
       canvas.drawRect(Rect.fromLTWH(7 * cell, r * cell, cell, cell), p);
     }
   }
 
   void _drawCentre(Canvas canvas, double cell) {
     final cx = 7.5 * cell, cy = 7.5 * cell;
-    final r  = 2.5 * cell;
+    final r = 2.5 * cell;
     final triColors = [_kBlue, _kGreen, _kYellow, _kRed];
-    final angles    = [pi / 2, pi, 3 * pi / 2, 0.0];
+    final angles = [pi / 2, pi, 3 * pi / 2, 0.0];
 
     for (int i = 0; i < 4; i++) {
-      final paint = Paint()..color = triColors[i].withOpacity(0.5);
-      final path  = Path()..moveTo(cx, cy);
+      final paint = Paint()..color = triColors[i];
+      final path = Path()..moveTo(cx, cy);
       final a = angles[i];
       path.lineTo(cx + r * cos(a - pi / 4), cy - r * sin(a - pi / 4));
       path.lineTo(cx + r * cos(a + pi / 4), cy - r * sin(a + pi / 4));
@@ -1110,7 +1192,8 @@ class _BoardPainter extends CustomPainter {
     final cp = Paint()..color = _kBoard;
     canvas.drawCircle(Offset(cx, cy), cell * 0.78, cp);
     cp.color = _kSafe.withOpacity(0.55);
-    cp.style = PaintingStyle.stroke; cp.strokeWidth = 2;
+    cp.style = PaintingStyle.stroke;
+    cp.strokeWidth = 2;
     canvas.drawCircle(Offset(cx, cy), cell * 0.78, cp);
     _drawText(canvas, '\u2605', Offset(cx, cy), _kSafe, cell * 0.65);
   }
@@ -1138,13 +1221,13 @@ class _BoardPainter extends CustomPainter {
         }
 
         final movable = pl == current && legal.contains(i);
-        final sel     = pl == current && selected == i;
-        final scale   = (movable && !sel) ? pulse : 1.0;
-        final radius  = cell * 0.36 * scale;
+        final sel = pl == current && selected == i;
+        final scale = (movable && !sel) ? pulse : 1.0;
+        final radius = cell * 0.36 * scale;
 
         if (movable) {
           final gp = Paint()
-            ..color     = _kColors[ci].withOpacity(0.3)
+            ..color = _kColors[ci].withOpacity(0.3)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
           canvas.drawCircle(center, radius + 5, gp);
         }
@@ -1154,13 +1237,15 @@ class _BoardPainter extends CustomPainter {
         fp.color = Colors.white.withOpacity(0.22);
         canvas.drawCircle(
             Offset(center.dx - radius * 0.18, center.dy - radius * 0.18),
-            radius * 0.38, fp);
+            radius * 0.38,
+            fp);
         fp.color = sel ? Colors.white : Colors.black45;
         fp.style = PaintingStyle.stroke;
         fp.strokeWidth = sel ? 2.5 : 1.2;
         canvas.drawCircle(center, radius, fp);
         fp.style = PaintingStyle.fill;
-        _drawText(canvas, '${i + 1}', center, Colors.white, cell * 0.26, bold: true);
+        _drawText(canvas, '${i + 1}', center, Colors.white, cell * 0.26,
+            bold: true);
       }
     }
   }
@@ -1207,11 +1292,16 @@ class _BoardPainter extends CustomPainter {
 
   Offset _stretchPos(int pl, int step, double cell) {
     switch (pl) {
-      case 0: return Offset((1 + step) * cell + cell / 2, 7 * cell + cell / 2);
-      case 1: return Offset(7 * cell + cell / 2, (9 + step) * cell + cell / 2);
-      case 2: return Offset((9 + step) * cell + cell / 2, 7 * cell + cell / 2);
-      case 3: return Offset(7 * cell + cell / 2, (1 + step) * cell + cell / 2);
-      default: return Offset(7.5 * cell, 7.5 * cell);
+      case 0:
+        return Offset((1 + step) * cell + cell / 2, 7 * cell + cell / 2);
+      case 1:
+        return Offset(7 * cell + cell / 2, (9 + step) * cell + cell / 2);
+      case 2:
+        return Offset((9 + step) * cell + cell / 2, 7 * cell + cell / 2);
+      case 3:
+        return Offset(7 * cell + cell / 2, (1 + step) * cell + cell / 2);
+      default:
+        return Offset(7.5 * cell, 7.5 * cell);
     }
   }
 
@@ -1219,10 +1309,13 @@ class _BoardPainter extends CustomPainter {
     final p = Paint()..color = color;
     final path = Path();
     for (int i = 0; i < 10; i++) {
-      final a  = (i * pi / 5) - pi / 2;
+      final a = (i * pi / 5) - pi / 2;
       final rd = i.isEven ? r : r * 0.45;
       final pt = Offset(c.dx + rd * cos(a), c.dy + rd * sin(a));
-      if (i == 0) path.moveTo(pt.dx, pt.dy); else path.lineTo(pt.dx, pt.dy);
+      if (i == 0)
+        path.moveTo(pt.dx, pt.dy);
+      else
+        path.lineTo(pt.dx, pt.dy);
     }
     path.close();
     canvas.drawPath(path, p);
@@ -1255,9 +1348,14 @@ class _TapLayer extends StatelessWidget {
   final void Function(int) onTap;
 
   const _TapLayer({
-    required this.boardSize, required this.pieces, required this.tokenCount,
-    required this.current, required this.legal, required this.isHuman,
-    required this.waiting, required this.onTap,
+    required this.boardSize,
+    required this.pieces,
+    required this.tokenCount,
+    required this.current,
+    required this.legal,
+    required this.isHuman,
+    required this.waiting,
+    required this.onTap,
   });
 
   @override
@@ -1265,8 +1363,12 @@ class _TapLayer extends StatelessWidget {
     if (!isHuman || waiting || legal.isEmpty) return const SizedBox.expand();
     final cell = boardSize / 15;
     final painter = _BoardPainter(
-      pieces: pieces, tokenCount: tokenCount, current: current,
-      legal: legal, selected: null, pulse: 1.0,
+      pieces: pieces,
+      tokenCount: tokenCount,
+      current: current,
+      legal: legal,
+      selected: null,
+      pulse: 1.0,
     );
     final track = painter._track();
     return Stack(
@@ -1285,7 +1387,8 @@ class _TapLayer extends StatelessWidget {
         }
         const ts = 48.0;
         return Positioned(
-          left: c.dx - ts / 2, top: c.dy - ts / 2,
+          left: c.dx - ts / 2,
+          top: c.dy - ts / 2,
           child: GestureDetector(
             onTap: () => onTap(idx),
             child: Container(width: ts, height: ts, color: Colors.transparent),
@@ -1304,8 +1407,11 @@ class _Strip extends StatelessWidget {
   final int total;
 
   const _Strip({
-    required this.label, required this.colors, required this.active,
-    required this.homes, required this.total,
+    required this.label,
+    required this.colors,
+    required this.active,
+    required this.homes,
+    required this.total,
   });
 
   @override
@@ -1327,7 +1433,8 @@ class _Strip extends StatelessWidget {
         children: [
           Row(children: [
             Container(
-              width: 8.w, height: 8.h,
+              width: 8.w,
+              height: 8.h,
               decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: active ? kCyan : Colors.white24),
@@ -1346,13 +1453,15 @@ class _Strip extends StatelessWidget {
                 padding: EdgeInsets.only(left: 12.w),
                 child: Row(children: [
                   Container(
-                      width: 10.w, height: 10.h,
+                      width: 10.w,
+                      height: 10.h,
                       decoration: BoxDecoration(
                           shape: BoxShape.circle, color: colors[i])),
                   SizedBox(width: 4.w),
                   Text('$hc/$total',
                       style: TextStyle(
-                          color: colors[i], fontSize: 12.sp,
+                          color: colors[i],
+                          fontSize: 12.sp,
                           fontWeight: FontWeight.w600)),
                 ]),
               );
@@ -1393,7 +1502,8 @@ class _BottomBar extends StatelessWidget {
               status,
               style: TextStyle(
                 color: canRoll ? kCyan : (isHuman ? kOrange : kTextSec),
-                fontSize: 13.sp, fontWeight: FontWeight.w600,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -1459,7 +1569,7 @@ class _CenterDice extends StatelessWidget {
     final box = boardSize * 0.12;
     final norm = _normPos();
     final left = norm.dx * boardSize - box / 2;
-    final top  = norm.dy * boardSize - box / 2;
+    final top = norm.dy * boardSize - box / 2;
     final angle = scattering ? t * 10 * pi : 0.0;
     final scale = scattering
         ? (1.0 + 0.28 * sin(t * 6 * pi))
@@ -1486,22 +1596,24 @@ class _CenterDice extends StatelessWidget {
           width: w,
           height: w,
           decoration: BoxDecoration(
-            color: enabled ? kOrange : (dice > 0 || scattering ? kOrange : kBgDeep),
+            color: enabled
+                ? kOrange
+                : (dice > 0 || scattering ? kOrange : kBgDeep),
             borderRadius: BorderRadius.circular(w * 0.22),
-            border: Border.all(
-                color: enabled ? kOrange : kBorder, width: 2),
+            border: Border.all(color: enabled ? kOrange : kBorder, width: 2),
             boxShadow: enabled
-                ? [BoxShadow(
-                    color: kOrange.withOpacity(0.5),
-                    blurRadius: 16, spreadRadius: 2)]
+                ? [
+                    BoxShadow(
+                        color: kOrange.withOpacity(0.5),
+                        blurRadius: 16,
+                        spreadRadius: 2)
+                  ]
                 : [],
           ),
           child: Center(
             child: dice == 0 && !scattering
-                ? Icon(Icons.casino_rounded,
-                    color: Colors.white, size: w * 0.5)
-                : Text(face,
-                    style: TextStyle(fontSize: w * 0.5, height: 1)),
+                ? Icon(Icons.casino_rounded, color: Colors.white, size: w * 0.5)
+                : Text(face, style: TextStyle(fontSize: w * 0.5, height: 1)),
           ),
         );
 

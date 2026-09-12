@@ -56,8 +56,8 @@ class _WalletScreenState extends State<WalletScreen> {
 
             final units  = wallet['units']    ?? 0;
             final usd    = wallet['usdEquiv'] ?? 0.0;
-            final streak = wallet['streakDays'] ?? 90;
-            final level  = wallet['level']    ?? 42;
+            final streak = wallet['streakDays'] ?? 0;
+            final level  = wallet['level']    ?? 1;
 
             return CustomScrollView(
               slivers: [

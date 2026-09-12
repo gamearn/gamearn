@@ -13,19 +13,19 @@ import '../../services/sound_service.dart';
 import '../../services/socket_service.dart';
 
 // ── Palette (matches Gamearn design tokens) ───────────────────────────────────
-const _bg       = Color(0xFF0B0E1A);
-const _navy     = Color(0xFF0D1B4B);
-const _card     = Color(0xFF0F172A);
-const _surface  = Color(0xFF1E293B);
-const _cyan     = Color(0xFF22D1EE);
-const _orange   = Color(0xFFFF5E00);
-const _green    = Color(0xFF22C55E);
-const _txtPri   = Color(0xFFF1F5F9);
-const _txtSub   = Color(0xFF94A3B8);
-const _border   = Color(0xFF334155);
+const _bg = Color(0xFF0B0E1A);
+const _navy = Color(0xFF0D1B4B);
+const _card = Color(0xFF0F172A);
+const _surface = Color(0xFF1E293B);
+const _cyan = Color(0xFF22D1EE);
+const _orange = Color(0xFFFF5E00);
+const _green = Color(0xFF22C55E);
+const _txtPri = Color(0xFFF1F5F9);
+const _txtSub = Color(0xFF94A3B8);
+const _border = Color(0xFF334155);
 
 // ── Board constants (display only — server validates) ─────────────────────────
-const _kHoles     = 12;
+const _kHoles = 12;
 const _kHolesEach = 6;
 
 // ── Practice API service ──────────────────────────────────────────────────────
@@ -46,11 +46,13 @@ class _PracticeAyoService {
   }
 
   Future<Map<String, dynamic>> startGame({int playerRating = 1200}) async {
-    final res = await http.post(
-      Uri.parse('$_base/start'),
-      headers: await _authHeaders(),
-      body: jsonEncode({'playerRating': playerRating}),
-    ).timeout(const Duration(seconds: 10));
+    final res = await http
+        .post(
+          Uri.parse('$_base/start'),
+          headers: await _authHeaders(),
+          body: jsonEncode({'playerRating': playerRating}),
+        )
+        .timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) throw Exception('Failed to start practice game');
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>;
@@ -59,11 +61,13 @@ class _PracticeAyoService {
   }
 
   Future<Map<String, dynamic>> movePiece(int pitIndex) async {
-    final res = await http.post(
-      Uri.parse('$_base/move'),
-      headers: await _authHeaders(),
-      body: jsonEncode({'sessionId': sessionId, 'pitIndex': pitIndex}),
-    ).timeout(const Duration(seconds: 15));
+    final res = await http
+        .post(
+          Uri.parse('$_base/move'),
+          headers: await _authHeaders(),
+          body: jsonEncode({'sessionId': sessionId, 'pitIndex': pitIndex}),
+        )
+        .timeout(const Duration(seconds: 15));
     if (res.statusCode == 404) throw Exception('Session expired');
     if (res.statusCode != 200) {
       final err = jsonDecode(res.body);
@@ -73,10 +77,12 @@ class _PracticeAyoService {
   }
 
   Future<Map<String, dynamic>> getState() async {
-    final res = await http.get(
-      Uri.parse('$_base/state/${Uri.encodeComponent(sessionId!)}'),
-      headers: await _authHeaders(),
-    ).timeout(const Duration(seconds: 10));
+    final res = await http
+        .get(
+          Uri.parse('$_base/state/${Uri.encodeComponent(sessionId!)}'),
+          headers: await _authHeaders(),
+        )
+        .timeout(const Duration(seconds: 10));
     if (res.statusCode == 404) throw Exception('Session expired');
     if (res.statusCode != 200) throw Exception('Failed to get state');
     return jsonDecode(res.body)['data'] as Map<String, dynamic>;
@@ -85,9 +91,11 @@ class _PracticeAyoService {
   Future<void> deleteSession() async {
     if (sessionId == null) return;
     try {
-      await http.delete(
-        Uri.parse('$_base/${Uri.encodeComponent(sessionId!)}'),
-      ).timeout(const Duration(seconds: 5));
+      await http
+          .delete(
+            Uri.parse('$_base/${Uri.encodeComponent(sessionId!)}'),
+          )
+          .timeout(const Duration(seconds: 5));
     } catch (_) {}
   }
 }
@@ -111,13 +119,13 @@ class AyoGameScreen extends StatefulWidget {
     super.key,
     required this.roomId,
     required this.playerId,
-    this.playerName    = 'You',
-    this.playerAvatar  = '',
-    this.opponentName  = 'Gamearn Bot',
+    this.playerName = 'You',
+    this.playerAvatar = '',
+    this.opponentName = 'Gamearn Bot',
     this.opponentAvatar = '',
     this.tournamentTitle = 'AYÒ TOURNAMENT',
-    this.prizePool     = '₦70,000',
-    this.playerRating  = 1200,
+    this.prizePool = '₦70,000',
+    this.playerRating = 1200,
     this.onBack,
   });
 
@@ -128,41 +136,40 @@ class AyoGameScreen extends StatefulWidget {
 class _AyoGameScreenState extends State<AyoGameScreen>
     with TickerProviderStateMixin
     implements GameEventHandler {
-
   // ── Animations ────────────────────────────────────────────────────────────
   late AnimationController _glowCtrl;
-  late Animation<double>   _glowAnim;
+  late Animation<double> _glowAnim;
 
   // ── Game state (from server) ──────────────────────────────────────────────
-  List<int>  _board          = List.filled(_kHoles, 0);
-  List<int>  _stores         = [0, 0];
-  int        _currentPlayerIndex = 0;
-  bool       _isTerminal     = false;
+  List<int> _board = List.filled(_kHoles, 0);
+  List<int> _stores = [0, 0];
+  int _currentPlayerIndex = 0;
+  bool _isTerminal = false;
 
-  int        _selectedHole   = -1;
-  bool       _botBusy        = false;
-  bool       _isLoading      = true;
-  bool       _loadFailed     = false;
-  String     _statusMsg      = 'Loading…';
+  int _selectedHole = -1;
+  bool _botBusy = false;
+  bool _isLoading = true;
+  bool _loadFailed = false;
+  String _statusMsg = 'Loading…';
 
   // Turn timeout (auto-move so an idle player never stalls the game)
-  Timer?     _turnTimer;
-  int        _turnTimerSec   = 20;
+  Timer? _turnTimer;
+  int _turnTimerSec = 20;
 
   // Last move highlight
-  int        _lastPit        = -1;
-  int        _lastLandPit    = -1;
-  Timer?     _highlightTimer;
+  int _lastPit = -1;
+  int _lastLandPit = -1;
+  Timer? _highlightTimer;
 
   // Service
   final _PracticeAyoService _svc = _PracticeAyoService();
 
   // Multiplayer (socket)
-  bool  _isMp         = false;
-  String _roomId      = '';
-  int   _humanIndex   = 0;
-  bool  _opponentGone = false;
-  bool  _gameOverShown = false;
+  bool _isMp = false;
+  String _roomId = '';
+  int _humanIndex = 0;
+  bool _opponentGone = false;
+  bool _gameOverShown = false;
   GamearnSocketService? _socket;
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -170,17 +177,17 @@ class _AyoGameScreenState extends State<AyoGameScreen>
   void initState() {
     super.initState();
     _glowCtrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 900))
+        vsync: this, duration: const Duration(milliseconds: 900))
       ..repeat(reverse: true);
-    _glowAnim = Tween(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _glowCtrl, curve: Curves.easeInOut));
+    _glowAnim = Tween(begin: 0.6, end: 1.0)
+        .animate(CurvedAnimation(parent: _glowCtrl, curve: Curves.easeInOut));
     _isMp = widget.roomId.isNotEmpty && widget.roomId != 'practice_bot';
     if (_isMp) {
-      _roomId     = widget.roomId;
+      _roomId = widget.roomId;
       _humanIndex = 0;
-      _isLoading  = false;
-      _statusMsg  = 'Waiting for opponent…';
-      _socket     = GamearnSocketService();
+      _isLoading = false;
+      _statusMsg = 'Waiting for opponent…';
+      _socket = GamearnSocketService();
       _socket!.connect(this);
     } else {
       _startGame();
@@ -202,7 +209,10 @@ class _AyoGameScreenState extends State<AyoGameScreen>
 
   // ── Start game ────────────────────────────────────────────────────────────
   Future<void> _startGame() async {
-    setState(() { _isLoading = true; _loadFailed = false; });
+    setState(() {
+      _isLoading = true;
+      _loadFailed = false;
+    });
     _turnTimer?.cancel();
 
     try {
@@ -213,19 +223,23 @@ class _AyoGameScreenState extends State<AyoGameScreen>
       final board = List<int>.from(data['board'] as List);
 
       setState(() {
-        _board             = board;
-        _stores            = List<int>.from(data['stores'] as List);
+        _board = board;
+        _stores = List<int>.from(data['stores'] as List);
         _currentPlayerIndex = data['currentPlayerIndex'] as int;
-        _selectedHole       = -1;
-        _lastPit            = -1;
-        _lastLandPit        = -1;
-        _isTerminal         = false;
-        _isLoading          = false;
-        _statusMsg          = 'Your turn — pick a pit';
+        _selectedHole = -1;
+        _lastPit = -1;
+        _lastLandPit = -1;
+        _isTerminal = false;
+        _isLoading = false;
+        _statusMsg = 'Your turn — pick a pit';
       });
       _startTurnTimer();
     } catch (e) {
-      if (mounted) setState(() { _isLoading = false; _loadFailed = true; });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+          _loadFailed = true;
+        });
     }
   }
 
@@ -269,14 +283,15 @@ class _AyoGameScreenState extends State<AyoGameScreen>
       final lastMove = data['lastMove'] as Map<String, dynamic>?;
       final captureTotal = (lastMove?['captureTotal'] as num?)?.toInt() ?? 0;
       final isCapture = captureTotal > 0;
-      SoundService.instance.play(isCapture ? SoundType.capture : SoundType.pieceMove);
+      SoundService.instance
+          .play(isCapture ? SoundType.capture : SoundType.pieceMove);
 
       setState(() {
-        _board             = board;
-        _stores            = List<int>.from(data['stores'] as List);
+        _board = board;
+        _stores = List<int>.from(data['stores'] as List);
         _currentPlayerIndex = data['currentPlayerIndex'] as int;
-        _lastPit            = hole;
-        _lastLandPit        = (lastMove?['lastPit'] as num?)?.toInt() ?? -1;
+        _lastPit = hole;
+        _lastLandPit = (lastMove?['lastPit'] as num?)?.toInt() ?? -1;
       });
 
       _highlightLastLand();
@@ -298,7 +313,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
 
       if (!mounted) return;
       setState(() {
-        _botBusy   = false;
+        _botBusy = false;
         _statusMsg = 'Your turn — pick a pit';
       });
       _startTurnTimer();
@@ -306,7 +321,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
       if (!mounted) return;
       showAppError(context, e);
       setState(() {
-        _botBusy   = false;
+        _botBusy = false;
         _statusMsg = 'Your turn — pick a pit';
       });
       _startTurnTimer();
@@ -319,17 +334,18 @@ class _AyoGameScreenState extends State<AyoGameScreen>
       if (!mounted || _isTerminal) break;
       final a = action as Map<String, dynamic>;
 
-      final pitIdx   = (a['pitIndex'] as num).toInt();
-      final lastPit  = (a['lastPit'] as num).toInt();
+      final pitIdx = (a['pitIndex'] as num).toInt();
+      final lastPit = (a['lastPit'] as num).toInt();
       final capTotal = (a['captureTotal'] as num).toInt();
-      final isCap    = capTotal > 0;
+      final isCap = capTotal > 0;
 
       setState(() {
-        _lastPit     = pitIdx;
+        _lastPit = pitIdx;
         _lastLandPit = lastPit;
-        _statusMsg   = '${widget.opponentName} is thinking…';
+        _statusMsg = '${widget.opponentName} is thinking…';
       });
-      SoundService.instance.play(isCap ? SoundType.capture : SoundType.pieceMove);
+      SoundService.instance
+          .play(isCap ? SoundType.capture : SoundType.pieceMove);
 
       await Future.delayed(const Duration(milliseconds: 500));
 
@@ -342,7 +358,11 @@ class _AyoGameScreenState extends State<AyoGameScreen>
   void _highlightLastLand() {
     _highlightTimer?.cancel();
     _highlightTimer = Timer(const Duration(milliseconds: 800), () {
-      if (mounted) setState(() { _lastPit = -1; _lastLandPit = -1; });
+      if (mounted)
+        setState(() {
+          _lastPit = -1;
+          _lastLandPit = -1;
+        });
     });
   }
 
@@ -351,7 +371,10 @@ class _AyoGameScreenState extends State<AyoGameScreen>
     if (!mounted || _gameOverShown) return;
     _gameOverShown = true;
     _turnTimer?.cancel();
-    setState(() { _isTerminal = true; _botBusy = false; });
+    setState(() {
+      _isTerminal = true;
+      _botBusy = false;
+    });
 
     // Server decides the winner (its finalScores include leftover board
     // seeds); fall back to store comparison only if no winner is given.
@@ -366,16 +389,17 @@ class _AyoGameScreenState extends State<AyoGameScreen>
         ? _stores[1 - _humanIndex]
         : (finalScores?['player1'] as num?)?.toInt() ?? _stores[1];
 
-    SoundService.instance.play(isWinner ? SoundType.gameWin : SoundType.gameLose);
+    SoundService.instance
+        .play(isWinner ? SoundType.gameWin : SoundType.gameLose);
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => _GameOverDialog(
-        isWinner:    isWinner,
-        humanScore:  humanScore,
-        botScore:    botScore,
-        prizePool:   widget.prizePool,
+        isWinner: isWinner,
+        humanScore: humanScore,
+        botScore: botScore,
+        prizePool: widget.prizePool,
         opponentName: widget.opponentName,
         onClose: widget.onBack ?? () => Navigator.maybePop(context),
         onRematch: () {
@@ -402,7 +426,7 @@ class _AyoGameScreenState extends State<AyoGameScreen>
 
   String _mpStatus() {
     if (_opponentGone) return 'Opponent disconnected — waiting…';
-    if (_isTerminal)   return 'Game Over';
+    if (_isTerminal) return 'Game Over';
     return _isMyTurn
         ? 'Your turn — pick a pit'
         : '${widget.opponentName} is thinking…';
@@ -415,26 +439,29 @@ class _AyoGameScreenState extends State<AyoGameScreen>
     var hi = 0;
     if (myUid.isNotEmpty) {
       for (int i = 0; i < players.length; i++) {
-        if ((players[i] as Map)['uid'] == myUid) { hi = i; break; }
+        if ((players[i] as Map)['uid'] == myUid) {
+          hi = i;
+          break;
+        }
       }
     }
-    final board  = List<int>.from(gs['board'] as List? ?? const []);
+    final board = List<int>.from(gs['board'] as List? ?? const []);
     final stores = List<int>.from(gs['stores'] as List? ?? [0, 0]);
     final current = gs['currentPlayerIndex'] as int? ?? 0;
 
     setState(() {
-      _board              = board;
-      _stores             = stores;
+      _board = board;
+      _stores = stores;
       _currentPlayerIndex = current;
-      _humanIndex         = hi;
-      _selectedHole       = -1;
-      _lastPit            = -1;
-      _lastLandPit        = -1;
-      _isTerminal         = false;
-      _isLoading          = false;
-      _loadFailed         = false;
-      _botBusy            = !_isMyTurn;
-      _statusMsg          = _mpStatus();
+      _humanIndex = hi;
+      _selectedHole = -1;
+      _lastPit = -1;
+      _lastLandPit = -1;
+      _isTerminal = false;
+      _isLoading = false;
+      _loadFailed = false;
+      _botBusy = !_isMyTurn;
+      _statusMsg = _mpStatus();
     });
   }
 
@@ -444,14 +471,16 @@ class _AyoGameScreenState extends State<AyoGameScreen>
   }
 
   @override
-  void onMatchFound(String roomId, Map<String, dynamic> opponent, int prizePool) {
+  void onMatchFound(
+      String roomId, Map<String, dynamic> opponent, int prizePool) {
     if (!mounted) return;
     _roomId = roomId.isNotEmpty ? roomId : _roomId;
     setState(() {});
   }
 
   @override
-  void onMatchStarted(Map<String, dynamic> gameState, int entryFee, int prizePool) {
+  void onMatchStarted(
+      Map<String, dynamic> gameState, int entryFee, int prizePool) {
     _applyServerState(gameState);
   }
 
@@ -501,7 +530,8 @@ class _AyoGameScreenState extends State<AyoGameScreen>
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         backgroundColor: _card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         title: const Text('Rematch',
             style: TextStyle(color: _txtPri, fontWeight: FontWeight.w800)),
         content: Text('${widget.opponentName} wants a rematch',
@@ -527,13 +557,13 @@ class _AyoGameScreenState extends State<AyoGameScreen>
   @override
   void onRematchAccepted(String newRoomId) {
     if (!mounted || !_isMp) return;
-    _roomId       = newRoomId;
+    _roomId = newRoomId;
     _gameOverShown = false;
-    _isTerminal   = false;
+    _isTerminal = false;
     _opponentGone = false;
     setState(() {
-      _board     = List.filled(_kHoles, 0);
-      _stores    = [0, 0];
+      _board = List.filled(_kHoles, 0);
+      _stores = [0, 0];
       _statusMsg = 'Waiting for opponent…';
     });
     _socket?.joinRoom(newRoomId, onAck: (_) {});
@@ -627,177 +657,196 @@ class _AyoGameScreenState extends State<AyoGameScreen>
       backgroundColor: context.bg,
       body: Stack(children: [
         _body(),
-        if (_isLoading)  _loadingOverlay(),
+        if (_isLoading) _loadingOverlay(),
         if (_loadFailed) _errorOverlay(),
       ]),
     );
   }
 
   Widget _body() => SafeArea(
-    child: Column(children: [
-
-      // ── HEADER ────────────────────────────────────────────────────────────
-      Padding(
-        padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
-        child: Row(children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Icon(Icons.close_rounded,
-                color: const Color(0xFFF1F5F9), size: 20.w),
+        child: Column(children: [
+          // ── HEADER ────────────────────────────────────────────────────────────
+          Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
+            child: Row(children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Icon(Icons.close_rounded,
+                    color: const Color(0xFFF1F5F9), size: 20.w),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(widget.tournamentTitle,
+                        style: TextStyle(
+                            color: _orange,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8)),
+                    Text('Prize Pool: ${widget.prizePool}',
+                        style: TextStyle(
+                            color: _cyan,
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+            ]),
           ),
-          SizedBox(width: 12.w),
+
+          SizedBox(height: 12.h),
+
+          // ── MAIN TABLE ────────────────────────────────────────────────────────
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.tournamentTitle,
-                    style: TextStyle(
-                        color: _orange, fontSize: 16.sp,
-                        fontWeight: FontWeight.w900, letterSpacing: 0.8)),
-                Text('Prize Pool: ${widget.prizePool}',
-                    style: TextStyle(
-                        color: _cyan, fontSize: 11.sp, fontWeight: FontWeight.w500)),
-              ],
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _card,
+                  borderRadius: BorderRadius.circular(16.r),
+                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                ),
+                child: Column(children: [
+                  SizedBox(height: 16.h),
+
+                  // Bot player info
+                  _playerRow(
+                    name: widget.opponentName,
+                    avatar: widget.opponentAvatar,
+                    score: _stores[1 - _humanIndex],
+                    isBot: true,
+                    active: !_isMyTurn && !_isTerminal,
+                    thinking: _botBusy,
+                  ),
+
+                  SizedBox(height: 12.h),
+
+                  // Ayo board
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12.w),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final side =
+                              constraints.maxWidth < constraints.maxHeight
+                                  ? constraints.maxWidth
+                                  : constraints.maxHeight;
+                          return Center(
+                            child: SizedBox.square(
+                              dimension: side,
+                              child: _AyoBoardWidget(
+                                board: _board,
+                                topHoles: _oppPits.reversed.toList(),
+                                bottomHoles: _myPits,
+                                isMyTurn: _isMyTurn,
+                                selectedHole: _selectedHole,
+                                lastPit: _lastPit,
+                                lastLandPit: _lastLandPit,
+                                botBusy: _botBusy,
+                                onHoleTap: _onHoleTap,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: 12.h),
+
+                  // Status message
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Container(
+                      key: ValueKey(_statusMsg),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                      decoration: BoxDecoration(
+                        color: _surface,
+                        borderRadius: BorderRadius.circular(20.r),
+                        border: Border.all(
+                          color: _isMyTurn && !_botBusy
+                              ? _cyan.withOpacity(0.4)
+                              : _border,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_botBusy)
+                            SizedBox(
+                              width: 12.w,
+                              height: 12.h,
+                              child: CircularProgressIndicator(
+                                  color: _cyan, strokeWidth: 2),
+                            ),
+                          if (_botBusy) SizedBox(width: 8.w),
+                          Text(_statusMsg,
+                              style: TextStyle(
+                                  color: _txtPri,
+                                  fontSize: 13.sp,
+                                  fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: 12.h),
+
+                  // Confirm button (only when human has selected a hole)
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: _selectedHole >= 0
+                        ? GestureDetector(
+                            key: const ValueKey('confirm'),
+                            onTap: _executeHumanMove,
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 4),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 32.w, vertical: 12.h),
+                              decoration: BoxDecoration(
+                                color: _cyan,
+                                borderRadius: BorderRadius.circular(24.r),
+                                boxShadow: [
+                                  BoxShadow(
+                                      color: _cyan.withOpacity(0.4),
+                                      blurRadius: 12)
+                                ],
+                              ),
+                              child: Text(
+                                'Sow from pit ${_selectedHole + 1}  '
+                                '(${_board[_myPits[_selectedHole]]} seeds)',
+                                style: TextStyle(
+                                    color: _bg,
+                                    fontSize: 13.sp,
+                                    fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          )
+                        : SizedBox(key: const ValueKey('empty'), height: 0),
+                  ),
+
+                  SizedBox(height: 12.h),
+
+                  // Human player info
+                  _playerRow(
+                    name: widget.playerName,
+                    avatar: widget.playerAvatar,
+                    score: _stores[_humanIndex],
+                    isBot: false,
+                    active: _isMyTurn && !_isTerminal,
+                    thinking: false,
+                  ),
+
+                  SizedBox(height: 16.h),
+                ]),
+              ),
             ),
           ),
         ]),
-      ),
-
-      SizedBox(height: 12.h),
-
-      // ── MAIN TABLE ────────────────────────────────────────────────────────
-      Expanded(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
-          child: Container(
-            decoration: BoxDecoration(
-              color: _card,
-              borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(color: Colors.white.withOpacity(0.06)),
-            ),
-            child: Column(children: [
-              SizedBox(height: 16.h),
-
-              // Bot player info
-              _playerRow(
-                name:   widget.opponentName,
-                avatar: widget.opponentAvatar,
-                score:  _stores[1 - _humanIndex],
-                isBot:  true,
-                active: !_isMyTurn && !_isTerminal,
-                thinking: _botBusy,
-              ),
-
-              SizedBox(height: 12.h),
-
-              // Ayo board
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w),
-                  child: _AyoBoardWidget(
-                    board:        _board,
-                    topHoles:     _oppPits.reversed.toList(),
-                    bottomHoles:  _myPits,
-                    isMyTurn:     _isMyTurn,
-                    selectedHole: _selectedHole,
-                    lastPit:      _lastPit,
-                    lastLandPit:  _lastLandPit,
-                    botBusy:      _botBusy,
-                    onHoleTap:    _onHoleTap,
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 12.h),
-
-              // Status message
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: Container(
-                  key: ValueKey(_statusMsg),
-                  padding: EdgeInsets.symmetric(
-                      horizontal: 16.w, vertical: 8.h),
-                  decoration: BoxDecoration(
-                    color: _surface,
-                    borderRadius: BorderRadius.circular(20.r),
-                    border: Border.all(
-                      color: _isMyTurn && !_botBusy
-                          ? _cyan.withOpacity(0.4)
-                          : _border,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_botBusy)
-                        SizedBox(
-                          width: 12.w, height: 12.h,
-                          child: CircularProgressIndicator(
-                              color: _cyan, strokeWidth: 2),
-                        ),
-                      if (_botBusy) SizedBox(width: 8.w),
-                      Text(_statusMsg,
-                          style: TextStyle(
-                              color: _txtPri, fontSize: 13.sp,
-                              fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 12.h),
-
-              // Confirm button (only when human has selected a hole)
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: _selectedHole >= 0
-                    ? GestureDetector(
-                        key: const ValueKey('confirm'),
-                        onTap: _executeHumanMove,
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 4),
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 32.w, vertical: 12.h),
-                          decoration: BoxDecoration(
-                            color: _cyan,
-                            borderRadius: BorderRadius.circular(24.r),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: _cyan.withOpacity(0.4),
-                                  blurRadius: 12)
-                            ],
-                          ),
-                          child: Text(
-                            'Sow from pit ${_selectedHole + 1}  '
-                            '(${_board[_myPits[_selectedHole]]} seeds)',
-                            style: TextStyle(
-                                color: _bg, fontSize: 13.sp,
-                                fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                      )
-                    : SizedBox(key: const ValueKey('empty'), height: 0),
-              ),
-
-              SizedBox(height: 12.h),
-
-              // Human player info
-              _playerRow(
-                name:   widget.playerName,
-                avatar: widget.playerAvatar,
-                score:  _stores[_humanIndex],
-                isBot:  false,
-                active: _isMyTurn && !_isTerminal,
-                thinking: false,
-              ),
-
-              SizedBox(height: 16.h),
-            ]),
-          ),
-        ),
-      ),
-    ]),
-  );
+      );
 
   Widget _playerRow({
     required String name,
@@ -806,124 +855,134 @@ class _AyoGameScreenState extends State<AyoGameScreen>
     required bool isBot,
     required bool active,
     bool thinking = false,
-  }) => Padding(
-    padding: EdgeInsets.symmetric(horizontal: 16.w),
-    child: Row(
-      children: [
-        // Avatar
-        AnimatedBuilder(
-          animation: _glowAnim,
-          builder: (_, __) => Container(
-            width: 44.w, height: 44.h,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10.r),
-              border: Border.all(
-                color: active
-                    ? _cyan.withOpacity(_glowAnim.value)
-                    : _border,
-                width: active ? 2.5 : 1.5,
+  }) =>
+      Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16.w),
+        child: Row(
+          children: [
+            // Avatar
+            AnimatedBuilder(
+              animation: _glowAnim,
+              builder: (_, __) => Container(
+                width: 44.w,
+                height: 44.h,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10.r),
+                  border: Border.all(
+                    color:
+                        active ? _cyan.withOpacity(_glowAnim.value) : _border,
+                    width: active ? 2.5 : 1.5,
+                  ),
+                  color: _surface,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(9.r),
+                  child: avatar.isNotEmpty
+                      ? Image.network(avatar,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _avatarInitial(name))
+                      : _avatarInitial(name),
+                ),
               ),
-              color: _surface,
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(9.r),
-              child: avatar.isNotEmpty
-                  ? Image.network(avatar, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _avatarInitial(name))
-                  : _avatarInitial(name),
+            SizedBox(width: 10.w),
+            // Name + turn indicator
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name,
+                      style: TextStyle(
+                          color: _txtPri,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w700)),
+                  if (thinking)
+                    Text('thinking…',
+                        style: TextStyle(color: _cyan, fontSize: 11.sp))
+                  else if (active)
+                    Text('Your turn',
+                        style: TextStyle(color: _cyan, fontSize: 11.sp)),
+                ],
+              ),
             ),
-          ),
-        ),
-        SizedBox(width: 10.w),
-        // Name + turn indicator
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name,
-                  style: TextStyle(
-                      color: _txtPri, fontSize: 13.sp,
-                      fontWeight: FontWeight.w700)),
-              if (thinking)
-                Text('thinking…',
-                    style: TextStyle(color: _cyan, fontSize: 11.sp))
-              else if (active)
-                Text('Your turn',
-                    style: TextStyle(color: _cyan, fontSize: 11.sp)),
-            ],
-          ),
-        ),
-        // Score badge
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
-          decoration: BoxDecoration(
-            color: _surface,
-            borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(
-              color: _border,
+            // Score badge
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
+              decoration: BoxDecoration(
+                color: _surface,
+                borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(
+                  color: _border,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.grain_rounded, color: _cyan, size: 14.w),
+                  SizedBox(width: 6.w),
+                  Text('$score',
+                      style: TextStyle(
+                          color: _txtPri,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w900)),
+                ],
+              ),
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.grain_rounded,
-                  color: _cyan, size: 14.w),
-              SizedBox(width: 6.w),
-              Text('$score',
-                  style: TextStyle(
-                      color: _txtPri,
-                      fontSize: 16.sp, fontWeight: FontWeight.w900)),
-            ],
-          ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 
   Widget _avatarInitial(String name) => Center(
-    child: Text(
-      name.isNotEmpty ? name[0].toUpperCase() : '?',
-      style: TextStyle(
-          color: _cyan, fontSize: 18.sp, fontWeight: FontWeight.w900),
-    ),
-  );
+        child: Text(
+          name.isNotEmpty ? name[0].toUpperCase() : '?',
+          style: TextStyle(
+              color: _cyan, fontSize: 18.sp, fontWeight: FontWeight.w900),
+        ),
+      );
 
   Widget _loadingOverlay() => Container(
-    color: Colors.black87,
-    child: Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const CircularProgressIndicator(color: _cyan, strokeWidth: 3),
-        SizedBox(height: 16.h),
-        Text('Setting up the board…',
-            style: TextStyle(color: _cyan, fontSize: 16.sp,
-                fontWeight: FontWeight.w700)),
-      ]),
-    ),
-  );
+        color: Colors.black87,
+        child: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const CircularProgressIndicator(color: _cyan, strokeWidth: 3),
+            SizedBox(height: 16.h),
+            Text('Setting up the board…',
+                style: TextStyle(
+                    color: _cyan,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700)),
+          ]),
+        ),
+      );
 
   Widget _errorOverlay() => Container(
-    color: Colors.black87,
-    child: Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.wifi_off_rounded, color: _orange, size: 48.w),
-        SizedBox(height: 12.h),
-        Text('Could not reach game server',
-            style: TextStyle(color: Colors.white, fontSize: 15.sp)),
-        SizedBox(height: 20.h),
-        GestureDetector(
-          onTap: _startGame,
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 14.h),
-            decoration: BoxDecoration(
-                color: _orange, borderRadius: BorderRadius.circular(12.r)),
-            child: Text('Retry',
-                style: TextStyle(color: Colors.white,
-                    fontSize: 15.sp, fontWeight: FontWeight.w800)),
-          ),
+        color: Colors.black87,
+        child: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.wifi_off_rounded, color: _orange, size: 48.w),
+            SizedBox(height: 12.h),
+            Text('No internet connection',
+                style: TextStyle(color: Colors.white, fontSize: 15.sp)),
+            SizedBox(height: 6.h),
+            Text('Check your network and try again.',
+                style: TextStyle(color: Colors.white70, fontSize: 13.sp)),
+            SizedBox(height: 20.h),
+            GestureDetector(
+              onTap: _startGame,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 14.h),
+                decoration: BoxDecoration(
+                    color: _orange, borderRadius: BorderRadius.circular(12.r)),
+                child: Text('Retry',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w800)),
+              ),
+            ),
+          ]),
         ),
-      ]),
-    ),
-  );
+      );
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -959,68 +1018,135 @@ class _AyoBoardWidget extends StatelessWidget {
       final h = constraints.maxHeight;
       final holeSize = ((w - 24) / 6).clamp(30.0, 56.0);
       return Container(
-        width: w, height: h,
+        width: w,
+        height: h,
         decoration: BoxDecoration(
-          color: const Color(0xFF78350F),
-          borderRadius: BorderRadius.circular(13.0.r),
-          border: Border.all(color: const Color(0xFF4B1B00), width: 1.1),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF6A2F18), Color(0xFF2A0F09), Color(0xFF140B0B)],
+          ),
+          borderRadius: BorderRadius.circular(22.r),
+          border: Border.all(color: const Color(0xFFD8892D), width: 2.2),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.5),
-              blurRadius: 16, offset: const Offset(0, 6)),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            // ── OPPONENT ROW (displayed right to left) ────────────────
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12.w),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(6, (i) {
-                  final holeIdx = topHoles[i];
-                  return _HoleWidget(
-                    seeds:      board[holeIdx],
-                    isSelected: false,
-                    isLastSown: lastPit == holeIdx,
-                    isLastLand: lastLandPit == holeIdx,
-                    isPlayable: false,
-                    label:      '${6 - i}',
-                    size:       holeSize,
-                    onTap:      () {},
-                  );
-                }),
-              ),
-            ),
-
-            // ── SEPARATOR MARGIN ─────────────────────────────────────────
-            SizedBox(height: 12.h),
-
-            // ── HUMAN ROW (left to right) ─────────────────────────────
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12.w),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(6, (i) {
-                  final holeIdx = bottomHoles[i];
-                  final isPlayable =
-                      isMyTurn && !botBusy && board[holeIdx] > 0;
-                  return _HoleWidget(
-                    seeds:      board[holeIdx],
-                    isSelected: selectedHole == i,
-                    isLastSown: lastPit == holeIdx,
-                    isLastLand: lastLandPit == holeIdx,
-                    isPlayable: isPlayable,
-                    label:      '${i + 1}',
-                    size:       holeSize,
-                    onTap:      () => onHoleTap(i),
-                  );
-                }),
-              ),
+                color: Colors.black.withOpacity(0.5),
+                blurRadius: 20,
+                offset: const Offset(0, 8)),
+            BoxShadow(
+              color: const Color(0xFFD8892D).withOpacity(0.18),
+              blurRadius: 12,
             ),
           ],
         ),
+        child: Stack(children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _AyoWoodGrainPainter()),
+            ),
+          ),
+          Align(
+            alignment: Alignment.center,
+            child: IgnorePointer(
+              child: Container(
+                width: w * 0.28,
+                height: w * 0.28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const RadialGradient(colors: [
+                    Color(0xFF71311B),
+                    Color(0xFF210B07),
+                    Color(0xFF08090D),
+                  ]),
+                  border: Border.all(color: const Color(0xFFD8892D), width: 2),
+                  boxShadow: const [
+                    BoxShadow(
+                        color: Colors.black87,
+                        blurRadius: 12,
+                        offset: Offset(0, 6)),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Text('AYỌ',
+                    style: TextStyle(
+                        color: const Color(0xFFFFB347),
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2)),
+              ),
+            ),
+          ),
+          Align(
+            alignment: const Alignment(0, -0.92),
+            child: IgnorePointer(
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 3.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF090B10),
+                  borderRadius: BorderRadius.circular(14.r),
+                  border: Border.all(color: const Color(0xFFD8892D)),
+                ),
+                child: Text('♛  AYỌ',
+                    style: TextStyle(
+                        color: const Color(0xFFFFB347),
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.4)),
+              ),
+            ),
+          ),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // ── OPPONENT ROW (displayed right to left) ────────────────
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12.w),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: List.generate(6, (i) {
+                    final holeIdx = topHoles[i];
+                    return _HoleWidget(
+                      seeds: board[holeIdx],
+                      isSelected: false,
+                      isLastSown: lastPit == holeIdx,
+                      isLastLand: lastLandPit == holeIdx,
+                      isPlayable: false,
+                      label: '${6 - i}',
+                      size: holeSize,
+                      onTap: () {},
+                    );
+                  }),
+                ),
+              ),
+
+              // ── SEPARATOR MARGIN ─────────────────────────────────────────
+              SizedBox(height: 12.h),
+
+              // ── HUMAN ROW (left to right) ─────────────────────────────
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12.w),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: List.generate(6, (i) {
+                    final holeIdx = bottomHoles[i];
+                    final isPlayable =
+                        isMyTurn && !botBusy && board[holeIdx] > 0;
+                    return _HoleWidget(
+                      seeds: board[holeIdx],
+                      isSelected: selectedHole == i,
+                      isLastSown: lastPit == holeIdx,
+                      isLastLand: lastLandPit == holeIdx,
+                      isPlayable: isPlayable,
+                      label: '${i + 1}',
+                      size: holeSize,
+                      onTap: () => onHoleTap(i),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          ),
+        ]),
       );
     });
   }
@@ -1051,48 +1177,114 @@ class _HoleWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Color borderCol = const Color(0xFF1E293B);
-    if (isSelected)   borderCol = _cyan;
-    if (isLastLand)   borderCol = _green;
-    if (isLastSown)   borderCol = _orange;
+    if (isSelected) borderCol = _cyan;
+    if (isLastLand) borderCol = _green;
+    if (isLastSown) borderCol = _orange;
 
     return GestureDetector(
       onTap: isPlayable ? onTap : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: size, height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: isSelected
-              ? _cyan.withOpacity(0.15)
-              : const Color(0xFF0B0E1A),
-          border: Border.all(color: borderCol, width: isSelected ? 2.5 : 2.2),
-          boxShadow: isSelected
-              ? [BoxShadow(color: _cyan.withOpacity(0.4), blurRadius: 10)]
-              : isPlayable
-                  ? [BoxShadow(
-                      color: _orange.withOpacity(0.25), blurRadius: 8)]
-                  : null,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              center: const Alignment(-0.25, -0.3),
+              colors: isSelected
+                  ? const [Color(0xFF264D55), Color(0xFF090D12)]
+                  : const [
+                      Color(0xFF6E2F1C),
+                      Color(0xFF260C08),
+                      Color(0xFF08090D)
+                    ],
+              stops: const [0, 0.62, 1],
+            ),
+            border: Border.all(
+              color: borderCol == const Color(0xFF1E293B)
+                  ? const Color(0xFFC56B32)
+                  : borderCol,
+              width: isSelected ? 2.5 : 2,
+            ),
+            boxShadow: [
+              const BoxShadow(
+                  color: Colors.black87, blurRadius: 8, offset: Offset(0, 4)),
+              if (isSelected || isPlayable)
+                BoxShadow(
+                  color: (isSelected ? _cyan : _orange).withOpacity(0.35),
+                  blurRadius: 10,
+                ),
+            ],
+          ),
+          child: Center(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _SeedDots(count: seeds),
+                if (seeds > 8)
+                  Positioned(
+                    right: 4,
+                    bottom: 3,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF080A0F).withOpacity(0.88),
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(color: const Color(0xFFD4A853)),
+                      ),
+                      child: Text('$seeds',
+                          style: TextStyle(
+                              color: const Color(0xFFD4A853),
+                              fontSize: 8.sp,
+                              fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            seeds <= 8
-                ? _SeedDots(count: seeds)
-                : Text('$seeds',
-                    style: TextStyle(
-                        color: const Color(0xFFD4A853),
-                        fontSize: 14.sp, fontWeight: FontWeight.w900)),
-            Text(label,
-                style: TextStyle(
-                    color: isPlayable
-                        ? _txtSub
-                        : const Color(0xFF4A2A10),
-                    fontSize: 8.sp)),
-          ],
+        SizedBox(height: 3.h),
+        Container(
+          width: size * 0.58,
+          height: 17.h,
+          decoration: BoxDecoration(
+            color: const Color(0xFF080A0F),
+            borderRadius: BorderRadius.circular(9.r),
+            border: Border.all(color: const Color(0xFFD8892D), width: 1),
+          ),
+          alignment: Alignment.center,
+          child: Text(label,
+              style: TextStyle(
+                  color: const Color(0xFFFFD58D),
+                  fontSize: 9.sp,
+                  fontWeight: FontWeight.w800)),
         ),
-      ),
+      ]),
     );
   }
+}
+
+class _AyoWoodGrainPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFFFB45E).withOpacity(0.055)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (var i = 0; i < 9; i++) {
+      final y = size.height * (i + 1) / 10;
+      final path = Path()..moveTo(0, y);
+      for (double x = 0; x <= size.width; x += 18) {
+        path.lineTo(x, y + 2.5 * sin((x / size.width * pi * 4) + i));
+      }
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ── SEED DOTS ─────────────────────────────────────────────────────────────────
@@ -1106,7 +1298,8 @@ class _SeedDots extends StatelessWidget {
       return SizedBox(height: 20.h);
     }
     return SizedBox(
-      width: 28, height: 20,
+      width: 28,
+      height: 20,
       child: CustomPaint(painter: _SeedDotsPainter(count: count)),
     );
   }
@@ -1166,84 +1359,95 @@ class _GameOverDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Dialog(
-    backgroundColor: Colors.transparent,
-    child: Container(
-      padding: EdgeInsets.all(28.r),
-      decoration: BoxDecoration(
-        color: _navy,
-        borderRadius: BorderRadius.circular(28.r),
-        border: Border.all(
-          color: isWinner
-              ? _cyan.withOpacity(0.5)
-              : _orange.withOpacity(0.4)),
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(isWinner ? 'You Win!' : 'You Lost',
-            style: TextStyle(
-                color: _txtPri, fontSize: 26.sp, fontWeight: FontWeight.w900)),
-        SizedBox(height: 12.h),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _ScoreBadge(label: 'You', score: humanScore,
-                color: isWinner ? _green : _orange),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: Text('vs',
-                  style: TextStyle(color: _txtSub, fontSize: 14.sp)),
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.all(28.r),
+          decoration: BoxDecoration(
+            color: _navy,
+            borderRadius: BorderRadius.circular(28.r),
+            border: Border.all(
+                color: isWinner
+                    ? _cyan.withOpacity(0.5)
+                    : _orange.withOpacity(0.4)),
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(isWinner ? 'You Win!' : 'You Lost',
+                style: TextStyle(
+                    color: _txtPri,
+                    fontSize: 26.sp,
+                    fontWeight: FontWeight.w900)),
+            SizedBox(height: 12.h),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _ScoreBadge(
+                    label: 'You',
+                    score: humanScore,
+                    color: isWinner ? _green : _orange),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  child: Text('vs',
+                      style: TextStyle(color: _txtSub, fontSize: 14.sp)),
+                ),
+                _ScoreBadge(
+                    label: 'Bot',
+                    score: botScore,
+                    color: !isWinner ? _green : _orange),
+              ],
             ),
-            _ScoreBadge(label: 'Bot', score: botScore,
-                color: !isWinner ? _green : _orange),
-          ],
+            SizedBox(height: 8.h),
+            if (isWinner)
+              Text('Prize: $prizePool',
+                  style: TextStyle(
+                      color: _orange,
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w700)),
+            SizedBox(height: 24.h),
+            Row(children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: onRematch,
+                  child: Container(
+                    height: 48.h,
+                    decoration: BoxDecoration(
+                      color: _surface,
+                      borderRadius: BorderRadius.circular(14.r),
+                      border: Border.all(color: _border),
+                    ),
+                    child: Center(
+                      child: Text('Rematch',
+                          style: TextStyle(
+                              color: _txtPri,
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: GestureDetector(
+                  onTap: onClose,
+                  child: Container(
+                    height: 48.h,
+                    decoration: BoxDecoration(
+                      color: _orange,
+                      borderRadius: BorderRadius.circular(14.r),
+                    ),
+                    child: Center(
+                      child: Text('Back to Lobby',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+          ]),
         ),
-        SizedBox(height: 8.h),
-        if (isWinner)
-          Text('Prize: $prizePool',
-              style: TextStyle(
-                  color: _orange, fontSize: 18.sp,
-                  fontWeight: FontWeight.w700)),
-        SizedBox(height: 24.h),
-        Row(children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: onRematch,
-              child: Container(
-                height: 48.h,
-                decoration: BoxDecoration(
-                  color: _surface,
-                  borderRadius: BorderRadius.circular(14.r),
-                  border: Border.all(color: _border),
-                ),
-                child: Center(
-                  child: Text('Rematch',
-                      style: TextStyle(color: _txtPri, fontSize: 14.sp,
-                          fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: GestureDetector(
-              onTap: onClose,
-              child: Container(
-                height: 48.h,
-                decoration: BoxDecoration(
-                  color: _orange,
-                  borderRadius: BorderRadius.circular(14.r),
-                ),
-                child: Center(
-                  child: Text('Back to Lobby',
-                      style: TextStyle(color: Colors.white, fontSize: 14.sp,
-                          fontWeight: FontWeight.w800)),
-                ),
-              ),
-            ),
-          ),
-        ]),
-      ]),
-    ),
-  );
+      );
 }
 
 class _ScoreBadge extends StatelessWidget {
@@ -1255,12 +1459,11 @@ class _ScoreBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-    children: [
-      Text('$score',
-          style: TextStyle(
-              color: color, fontSize: 32.sp, fontWeight: FontWeight.w900)),
-      Text(label,
-          style: TextStyle(color: _txtSub, fontSize: 12.sp)),
-    ],
-  );
+        children: [
+          Text('$score',
+              style: TextStyle(
+                  color: color, fontSize: 32.sp, fontWeight: FontWeight.w900)),
+          Text(label, style: TextStyle(color: _txtSub, fontSize: 12.sp)),
+        ],
+      );
 }

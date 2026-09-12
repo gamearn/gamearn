@@ -106,6 +106,10 @@ flutter:
     - assets/games/ludo.png
     - assets/games/ayo.jpg
     - assets/games/draughts.jpg
+    - assets/games/whot_icon.jpg
+    - assets/games/ludo_icon.jpg
+    - assets/games/ayo_icon.jpg
+    - assets/games/draughts_icon.jpg
     # Audio — replace .mp3 files with real assets
     - assets/audio/sfx/
     # Auth backgrounds

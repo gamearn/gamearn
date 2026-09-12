@@ -17,6 +17,22 @@
     ],
     "rewrites": [
       {
+        "source": "/privacy",
+        "destination": "/privacy.html"
+      },
+      {
+        "source": "/terms",
+        "destination": "/terms.html"
+      },
+      {
+        "source": "/data-deletion",
+        "destination": "/data-deletion.html"
+      },
+      {
+        "source": "/legal",
+        "destination": "/legal.html"
+      },
+      {
         "source": "/verify",
         "destination": "/index.html"
       }
