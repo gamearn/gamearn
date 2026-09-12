@@ -729,13 +729,17 @@ class _AyoGameScreenState extends State<AyoGameScreen>
                       padding: EdgeInsets.symmetric(horizontal: 12.w),
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          final side =
-                              constraints.maxWidth < constraints.maxHeight
-                                  ? constraints.maxWidth
-                                  : constraints.maxHeight;
+                          // The supplied artwork is authored at 1409 x 1116.
+                          // Preserve that landscape ratio uniformly at every
+                          // screen size instead of forcing the board square.
+                          const ratio = 1409 / 1116;
+                          final width = min(constraints.maxWidth,
+                              constraints.maxHeight * ratio);
+                          final height = width / ratio;
                           return Center(
-                            child: SizedBox.square(
-                              dimension: side,
+                            child: SizedBox(
+                              width: width,
+                              height: height,
                               child: _AyoBoardWidget(
                                 board: _board,
                                 topHoles: _oppPits.reversed.toList(),
@@ -1016,7 +1020,7 @@ class _AyoBoardWidget extends StatelessWidget {
     return LayoutBuilder(builder: (ctx, constraints) {
       final w = constraints.maxWidth;
       final h = constraints.maxHeight;
-      final holeSize = ((w - 24) / 6).clamp(30.0, 56.0);
+      final holeSize = (w * 0.112).clamp(30.0, 62.0);
       return Container(
         width: w,
         height: h,
@@ -1024,10 +1028,10 @@ class _AyoBoardWidget extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF6A2F18), Color(0xFF2A0F09), Color(0xFF140B0B)],
+            colors: [Color(0xFFF4B36A), Color(0xFF713418), Color(0xFF4A1D0B)],
           ),
-          borderRadius: BorderRadius.circular(22.r),
-          border: Border.all(color: const Color(0xFFD8892D), width: 2.2),
+          borderRadius: BorderRadius.circular(w * 0.10),
+          border: Border.all(color: const Color(0xFF240C03), width: w * 0.006),
           boxShadow: [
             BoxShadow(
                 color: Colors.black.withOpacity(0.5),
@@ -1049,14 +1053,14 @@ class _AyoBoardWidget extends StatelessWidget {
             alignment: Alignment.center,
             child: IgnorePointer(
               child: Container(
-                width: w * 0.28,
-                height: w * 0.28,
+                width: w * 0.255,
+                height: w * 0.255,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: const RadialGradient(colors: [
-                    Color(0xFF71311B),
-                    Color(0xFF210B07),
-                    Color(0xFF08090D),
+                    Color(0xFFA04F1F),
+                    Color(0xFF522005),
+                    Color(0xFF2D1003),
                   ]),
                   border: Border.all(color: const Color(0xFFD8892D), width: 2),
                   boxShadow: const [
@@ -1077,7 +1081,7 @@ class _AyoBoardWidget extends StatelessWidget {
             ),
           ),
           Align(
-            alignment: const Alignment(0, -0.92),
+            alignment: const Alignment(0, -0.94),
             child: IgnorePointer(
               child: Container(
                 padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 3.h),
@@ -1086,7 +1090,7 @@ class _AyoBoardWidget extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14.r),
                   border: Border.all(color: const Color(0xFFD8892D)),
                 ),
-                child: Text('♛  AYỌ',
+                child: Text('AYỌ',
                     style: TextStyle(
                         color: const Color(0xFFFFB347),
                         fontSize: 11.sp,
@@ -1120,7 +1124,7 @@ class _AyoBoardWidget extends StatelessWidget {
               ),
 
               // ── SEPARATOR MARGIN ─────────────────────────────────────────
-              SizedBox(height: 12.h),
+              SizedBox(height: h * 0.20),
 
               // ── HUMAN ROW (left to right) ─────────────────────────────
               Padding(

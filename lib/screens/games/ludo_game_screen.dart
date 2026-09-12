@@ -903,8 +903,30 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
   @override
   Widget build(BuildContext context) {
+    Widget playerStrip(int i) {
+      final isHuman = i == _humanIndex;
+      final playerPieceList = i < _pieces.length ? _pieces[i] : <_Piece>[];
+      final uniqueColors = playerPieceList.map((p) => p.colorIdx).toSet().toList()
+        ..sort();
+      final colors = uniqueColors.map((ci) => _kColors[ci]).toList();
+      final homes = uniqueColors
+          .map((ci) => playerPieceList
+              .where((p) => p.colorIdx == ci && p.home)
+              .length)
+          .toList();
+      final perColorTotal = _tokenCount > 4 ? 4 : _tokenCount;
+      final label = isHuman ? 'You' : (_isMp ? _nameFor(i) : 'Gamearn Bot');
+      return _Strip(
+        label: label,
+        colors: colors,
+        active: _current == i && !_gameOver,
+        homes: homes,
+        total: perColorTotal,
+      );
+    }
+
     return Scaffold(
-      backgroundColor: context.bg,
+      backgroundColor: const Color(0xFF10177B),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -913,11 +935,24 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           child: Icon(Icons.close_rounded,
               color: const Color(0xFFF1F5F9), size: 20.w),
         ),
-        title: Text('L\u00fad\u00f2',
-            style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 18.sp)),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(4, (i) {
+            const letters = ['L', 'U', 'D', 'O'];
+            const colors = [_kRed, _kYellow, _kGreen, _kBlue];
+            return Transform.rotate(
+              angle: (i - 1.5) * 0.055,
+              child: Text(letters[i],
+                  style: TextStyle(
+                      color: colors[i],
+                      fontWeight: FontWeight.w900,
+                      fontSize: 25.sp,
+                      shadows: const [
+                        Shadow(color: Color(0xFF00113E), blurRadius: 4)
+                      ])),
+            );
+          }),
+        ),
         centerTitle: true,
         actions: [
           if (!_isMp)
@@ -951,35 +986,18 @@ class _LudoGameScreenState extends State<LudoGameScreen>
             ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            colors: [Color(0xFF06429C), Color(0xFF18227F), Color(0xFF3022B8)],
+            stops: [0, 0.62, 1],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
           children: [
-            ...List.generate(_playerCount, (i) {
-              final isHuman = i == _humanIndex;
-              final playerPieceList =
-                  i < _pieces.length ? _pieces[i] : <_Piece>[];
-              final uniqueColors = playerPieceList
-                  .map((p) => p.colorIdx)
-                  .toSet()
-                  .toList()
-                ..sort();
-              final colors = uniqueColors.map((ci) => _kColors[ci]).toList();
-              final homes = uniqueColors
-                  .map((ci) => playerPieceList
-                      .where((p) => p.colorIdx == ci && p.home)
-                      .length)
-                  .toList();
-              final perColorTotal = _tokenCount > 4 ? 4 : _tokenCount;
-              final label =
-                  isHuman ? 'You' : (_isMp ? _nameFor(i) : 'Gamearn Bot');
-              return _Strip(
-                label: label,
-                colors: colors,
-                active: _current == i && !_gameOver,
-                homes: homes,
-                total: perColorTotal,
-              );
-            }),
+            ...List.generate(_playerCount, (i) =>
+                i == _humanIndex ? const SizedBox.shrink() : playerStrip(i)),
             Expanded(
               child: LayoutBuilder(builder: (_, c) {
                 final bs = min(c.maxWidth, c.maxHeight);
@@ -1030,6 +1048,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 );
               }),
             ),
+            if (_humanIndex >= 0 && _humanIndex < _playerCount)
+              playerStrip(_humanIndex),
             _BottomBar(
               status: _statusText,
               isHuman: _isHuman,
@@ -1038,6 +1058,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
             ),
             SizedBox(height: 8.h),
           ],
+          ),
         ),
       ),
     );

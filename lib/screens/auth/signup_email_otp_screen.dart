@@ -91,6 +91,18 @@ class _SignupEmailOtpScreenState extends State<SignupEmailOtpScreen> {
     }
   }
 
+  Future<void> _useAnotherAccount() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      await FirebaseAuth.instance.signOut();
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final pin = PinTheme(
@@ -143,6 +155,12 @@ class _SignupEmailOtpScreenState extends State<SignupEmailOtpScreen> {
               child: Text(_seconds == 0
                   ? 'Resend code'
                   : 'Resend in $_seconds seconds'),
+            ),
+            SizedBox(height: 6.h),
+            TextButton.icon(
+              onPressed: _loading ? null : _useAnotherAccount,
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Use another account'),
             ),
           ]),
         ),
