@@ -26,10 +26,14 @@ class _LoadingScreenState extends State<LoadingScreen>
   @override
   void initState() {
     super.initState();
+    // Auth can wait on Firebase, Firestore and MFA. Do not loop from 100%
+    // back to 0% or claim completion while those asynchronous checks run.
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(seconds: 2))
-      ..repeat();
-    _progress = Tween<double>(begin: 0, end: 1).animate(_ctrl);
+        vsync: this, duration: const Duration(seconds: 4))
+      ..forward();
+    _progress = Tween<double>(begin: 0.08, end: 0.92).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic),
+    );
   }
 
   @override
@@ -82,17 +86,11 @@ class _LoadingScreenState extends State<LoadingScreen>
                                 color: context.txtPri,
                                 fontSize: 12.sp,
                                 fontWeight: FontWeight.w600)),
-                        AnimatedBuilder(
-                          animation: _progress,
-                          builder: (_, __) {
-                            return Text(
-                                '${(_progress.value * 100).round()}%',
-                                style: TextStyle(
-                                    color: kOrange,
-                                    fontSize: 12.sp,
-                                    fontWeight: FontWeight.w500));
-                          },
-                        ),
+                        Text('Please wait',
+                            style: TextStyle(
+                                color: kOrange,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w500)),
                       ],
                     ),
                     SizedBox(height: 6.h),

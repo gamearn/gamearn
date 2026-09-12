@@ -945,7 +945,20 @@ class _WhotGameScreenState extends State<WhotGameScreen>
   }
 
   Widget _portrait(BuildContext context) => SafeArea(
-        child: LayoutBuilder(
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment(0, -0.18),
+              radius: 1.08,
+              colors: [
+                Color(0xFF0344C0),
+                Color(0xFF10177B),
+                Color(0xFF210066),
+              ],
+              stops: [0, 0.65, 1],
+            ),
+          ),
+          child: LayoutBuilder(
           builder: (context, constraints) {
             // The supplied React Native artwork is authored on a 1024 x 1536
             // canvas. A fitted reference canvas keeps every control in the
@@ -1209,6 +1222,7 @@ class _WhotGameScreenState extends State<WhotGameScreen>
               ),
             );
           },
+          ),
         ),
       );
 
@@ -2004,18 +2018,23 @@ class _FanHand extends StatelessWidget {
 
     const cardW = 62.0, cardH = 88.0;
     // How many cards are fanned out & visible at once (objective: ~5-6)
-    final visible = min(n, 6);
+    // Every card belongs to the fan. Large hands overflow horizontally and
+    // remain reachable through the scroll view instead of being hidden.
+    final visible = n;
     // Cards behind the fan (hidden, reachable by scrolling)
     final stacked = n - visible;
 
     // Angular spread per fan window
-    final spread = 100.0 * min(1.0, visible / 6.0);
+    final spread = min(52.0, 12.0 + visible * 6.0);
     final step = visible > 1 ? spread / (visible - 1) : 0.0;
-    const r = 180.0;
+    const r = 58.0;
 
     // Horizontal overlap so the fan reads as one curved cluster (~44% overlap)
-    final overlap = cardW * 0.56;
-    final windowWidth = overlap * (visible - 1) + cardW;
+    final overlap = cardW * (visible > 9 ? 0.45 : 0.56);
+    final windowWidth = overlap * (visible - 1) + cardW + 80.0;
+    final viewportWidth = MediaQuery.sizeOf(context).width * 0.80;
+    final contentWidth = max(windowWidth, viewportWidth);
+    final fanInset = (contentWidth - windowWidth) / 2;
 
     return SizedBox(
       height: 170,
@@ -2023,7 +2042,7 @@ class _FanHand extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: 20.w),
         child: SizedBox(
-          width: windowWidth,
+          width: contentWidth,
           child: Stack(
             alignment: Alignment.bottomCenter,
             children: List.generate(n, (i) {
@@ -2036,8 +2055,9 @@ class _FanHand extends StatelessWidget {
               if (isInFan) {
                 deg = -spread / 2 + fanIdx * step;
                 final rad = deg * pi / 180;
-                dx = r * sin(rad) + fanIdx * overlap - (windowWidth / 2);
-                dy = -r * (1 - cos(rad)) * 0.18;
+                dx = 40.0 + r * sin(rad) + fanIdx * overlap + cardW / 2 -
+                    (windowWidth / 2);
+                dy = -r * (1 - cos(rad));
               } else {
                 // Stacked behind — offset left of the fan
                 dx =
@@ -2049,7 +2069,7 @@ class _FanHand extends StatelessWidget {
               final ok = !myTurn || playable.isEmpty || playable.contains(i);
 
               return Positioned(
-                left: windowWidth / 2 + dx - cardW / 2,
+                left: fanInset + windowWidth / 2 + dx - cardW / 2,
                 bottom: (sel ? 22 : 0) + dy.abs(),
                 child: Transform.rotate(
                   angle: isInFan ? rad(deg) * 0.8 : 0.0,
