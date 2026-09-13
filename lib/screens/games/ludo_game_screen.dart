@@ -25,6 +25,19 @@ const List<String> _kNames = ['Red', 'Yellow', 'Green', 'Blue'];
 const List<int> _kStart = [0, 13, 26, 39];
 const Set<int> _kSafe52 = {0, 8, 13, 21, 26, 34, 39, 47};
 
+int? _jsonInt(dynamic value) => value is num ? value.toInt() : int.tryParse('$value');
+
+List<int> _jsonIntList(dynamic value) => value is List
+    ? value.map(_jsonInt).whereType<int>().toList(growable: false)
+    : const <int>[];
+
+List<Map<String, dynamic>> _jsonMapList(dynamic value) => value is List
+    ? value
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList(growable: false)
+    : const <Map<String, dynamic>>[];
+
 class _Piece {
   int pos;
   bool inBase;
@@ -44,11 +57,11 @@ class _Piece {
 
 _Piece _pieceFromServer(Map<String, dynamic> s) {
   final p = _Piece();
-  final pos = s['position'] as int;
+  final pos = _jsonInt(s['position']) ?? -1;
   final inHS = s['inHomeStretch'] as bool? ?? false;
-  final hp = s['homePosition'] as int? ?? 0;
+  final hp = _jsonInt(s['homePosition']) ?? 0;
   final done = s['completed'] as bool? ?? false;
-  final cIdx = s['colorIdx'] as int? ?? 0;
+  final cIdx = _jsonInt(s['colorIdx']) ?? 0;
   p.colorIdx = cIdx;
   if (done) {
     p.home = true;
@@ -72,6 +85,17 @@ class _PracticeLudoService {
   int diceCount = 1;
   bool dualHome = false;
 
+  String _errorMessage(http.Response response, String fallback) {
+    try {
+      final body = jsonDecode(response.body);
+      if (body is Map && body['error'] is Map) {
+        final message = (body['error'] as Map)['message'];
+        if (message is String && message.trim().isNotEmpty) return message;
+      }
+    } catch (_) {}
+    return fallback;
+  }
+
   Future<Map<String, String>> _authHeaders() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return {'Content-Type': 'application/json'};
@@ -92,14 +116,16 @@ class _PracticeLudoService {
               {'playerRating': playerRating, 'diceCount': diceCount}),
         )
         .timeout(const Duration(seconds: 10));
-    if (res.statusCode != 200) throw Exception('Failed to start practice game');
+    if (res.statusCode != 200) {
+      throw Exception(_errorMessage(res, 'Unable to start the Ludo game'));
+    }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>;
     sessionId = data['sessionId'] as String;
     final players = data['players'] as List;
     playerCount = players.length;
-    humanPlayerIndices = (data['humanPlayerIndices'] as List).cast<int>();
-    diceCount = data['diceCount'] as int? ?? 1;
+    humanPlayerIndices = _jsonIntList(data['humanPlayerIndices']);
+    diceCount = _jsonInt(data['diceCount']) ?? 1;
     dualHome = data['dualHome'] as bool? ?? false;
     return data;
   }
@@ -114,8 +140,7 @@ class _PracticeLudoService {
         .timeout(const Duration(seconds: 10));
     if (res.statusCode == 404) throw Exception('Session expired');
     if (res.statusCode != 200) {
-      final err = jsonDecode(res.body);
-      throw Exception(err['error']?['message'] ?? 'Roll failed');
+      throw Exception(_errorMessage(res, 'Unable to roll the dice'));
     }
     return jsonDecode(res.body)['data'] as Map<String, dynamic>;
   }
@@ -132,8 +157,7 @@ class _PracticeLudoService {
         .timeout(const Duration(seconds: 15));
     if (res.statusCode == 404) throw Exception('Session expired');
     if (res.statusCode != 200) {
-      final err = jsonDecode(res.body);
-      throw Exception(err['error']?['message'] ?? 'Move failed');
+      throw Exception(_errorMessage(res, 'Unable to move that piece'));
     }
     return jsonDecode(res.body)['data'] as Map<String, dynamic>;
   }
@@ -450,19 +474,18 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       }
     }
 
-    final idx = gs['currentPlayerIndex'] as int?;
+    final idx = _jsonInt(gs['currentPlayerIndex']);
     if (idx != null && idx >= 0 && idx < _playerCount) _current = idx;
 
     final isMyTurn = _current == _humanIndex;
-    final dv = (gs['diceValues'] as List?)?.cast<int>() ?? [];
-    final legal = (gs['legalPieceIds'] as List?)?.cast<int>() ?? [];
+    final dv = _jsonIntList(gs['diceValues']);
+    final legal = _jsonIntList(gs['legalPieceIds']);
 
     setState(() {
       _diceValues = dv;
-      _dice = dv.isNotEmpty ? dv.first : (gs['diceValue'] as int? ?? 0);
+      _dice = dv.isNotEmpty ? dv.first : (_jsonInt(gs['diceValue']) ?? 0);
       _legal = legal;
-      _legalMoves =
-          (gs['legalMoves'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      _legalMoves = _jsonMapList(gs['legalMoves']);
       _selected = null;
       _rolling = false;
       _waiting = dv.isEmpty || !isMyTurn;
@@ -506,7 +529,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           ? null
           : (_colorToIdx[colorName] ?? (player['index'] as int? ?? pl));
       _pieces[pl] = serverPieces.map((s) {
-        final p = _pieceFromServer(s as Map<String, dynamic>);
+        final p = _pieceFromServer(Map<String, dynamic>.from(s as Map));
         if (cIdx != null) p.colorIdx = cIdx;
         return p;
       }).toList();
@@ -529,7 +552,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           ? ((players[0] as Map)['pieces'] as List?)?.length ?? 4
           : 4;
       _updatePiecesFromPlayers(players);
-      _current = data['currentPlayerIndex'] as int? ?? 0;
+      _current = _jsonInt(data['currentPlayerIndex']) ?? 0;
       if (mounted)
         setState(() {
           _waiting = true;
@@ -549,14 +572,13 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           : 0;
     }
 
-    _current = data['currentPlayerIndex'] as int? ?? _current;
+    _current = _jsonInt(data['currentPlayerIndex']) ?? _current;
 
     if (data['moreMoves'] == true) {
-      _diceValues = (data['diceValues'] as List?)?.cast<int>() ?? [];
+      _diceValues = _jsonIntList(data['diceValues']);
       _dice = _diceValues.isNotEmpty ? _diceValues[0] : 0;
-      _legal = (data['legalPieceIds'] as List?)?.cast<int>() ?? [];
-      _legalMoves =
-          (data['legalMoves'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      _legal = _jsonIntList(data['legalPieceIds']);
+      _legalMoves = _jsonMapList(data['legalMoves']);
       _waiting = false;
       _selected = null;
       setState(() {});
@@ -588,7 +610,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     final capture = action['capture'] as Map<String, dynamic>?;
     final isWin = action['isWin'] as bool? ?? false;
 
-    _dice = action['diceValue'] as int? ?? 0;
+    _dice = _jsonInt(action['diceValue']) ?? 0;
 
     if (capture != null) {
       SoundService.instance.play(SoundType.capture);
@@ -599,7 +621,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
     if (isWin) {
       _gameOver = true;
-      _winner = action['playerIndex'] as int? ?? _current;
+      _winner = _jsonInt(action['playerIndex']) ?? _current;
       _legal = [];
       _dice = 0;
       SoundService.instance.play(SoundType.gameLose);
@@ -647,7 +669,11 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       return;
     }
 
-    if (_svc.sessionId == null) return;
+    if (_svc.sessionId == null) {
+      setState(() => _rolling = false);
+      await _startPractice();
+      return;
+    }
     setState(() {});
     _playScatter();
 
@@ -657,13 +683,16 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
       if (!mounted) return;
 
-      final diceValues = (data['diceValues'] as List?)?.cast<int>() ??
-          [data['diceValue'] as int];
-      final legal = (data['legalPieceIds'] as List).cast<int>();
-      final legalMoves =
-          (data['legalMoves'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      var diceValues = _jsonIntList(data['diceValues']);
+      final singleDice = _jsonInt(data['diceValue']);
+      if (diceValues.isEmpty && singleDice != null) diceValues = [singleDice];
+      if (diceValues.isEmpty) {
+        throw const FormatException('The game server returned no dice result');
+      }
+      final legal = _jsonIntList(data['legalPieceIds']);
+      final legalMoves = _jsonMapList(data['legalMoves']);
       final mustPass = data['mustPass'] as bool? ?? false;
-      final diceCount = data['diceCount'] as int? ?? 1;
+      final diceCount = _jsonInt(data['diceCount']) ?? 1;
 
       setState(() {
         _dice = diceValues.isNotEmpty ? diceValues[0] : 0;
@@ -701,8 +730,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
       if (data['moreMoves'] == true) return;
 
-      final botActions =
-          (data['botActions'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final botActions = _jsonMapList(data['botActions']);
       _pendingBotActions = botActions;
       await _animateBotActions();
 
@@ -717,9 +745,10 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   void _checkPreRolled(Map<String, dynamic> data) {
     final diceRolled = data['diceRolled'] as bool? ?? false;
     if (diceRolled) {
-      final diceValues = (data['diceValues'] as List?)?.cast<int>() ??
-          (data['diceValue'] != null ? [data['diceValue'] as int] : []);
-      final legal = (data['legalPieceIds'] as List?)?.cast<int>() ?? [];
+      var diceValues = _jsonIntList(data['diceValues']);
+      final singleDice = _jsonInt(data['diceValue']);
+      if (diceValues.isEmpty && singleDice != null) diceValues = [singleDice];
+      final legal = _jsonIntList(data['legalPieceIds']);
       setState(() {
         _diceValues = diceValues;
         _dice = diceValues.isNotEmpty ? diceValues[0] : 0;
@@ -769,8 +798,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         return;
       }
 
-      final botActions =
-          (data['botActions'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final botActions = _jsonMapList(data['botActions']);
       _pendingBotActions = botActions;
       _selected = null;
       await _animateBotActions();
@@ -792,7 +820,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     if (_legalMoves.isEmpty) return null;
     final matches = _legalMoves
         .where((m) => m['pieceId'] == pieceId)
-        .map((m) => m['diceValue'] as int)
+        .map((m) => _jsonInt(m['diceValue']))
+        .whereType<int>()
         .toSet()
         .toList();
     if (matches.isEmpty) return null;
