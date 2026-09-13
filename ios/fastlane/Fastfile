@@ -52,6 +52,10 @@ platform :ios do
       output_directory: "build/ios/ipa",
       output_name: "Gamearn",
       export_team_id: team_id,
+      # The project deliberately keeps signing identity out of source control.
+      # Supply the Apple team explicitly for the archive build; export_team_id
+      # alone only applies during IPA export and does not sign Runner.xcarchive.
+      xcargs: "DEVELOPMENT_TEAM=#{team_id}",
       skip_archive: false,
       clean: true,
       derived_data_path: "build/ios/DerivedData",
