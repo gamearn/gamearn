@@ -125,6 +125,25 @@ class ApiService {
     await user.getIdToken(true);
   }
 
+  static Future<Map<String, dynamic>> createTournament({
+    required String name,
+    required String gameType,
+    required String duration,
+    required String tournamentType,
+    required int maxPlayers,
+    required int topWinners,
+  }) async {
+    final data = await post('/tournaments', {
+      'name': name,
+      'gameType': gameType,
+      'duration': duration,
+      'tournamentType': tournamentType,
+      'maxPlayers': maxPlayers,
+      'topWinners': topWinners,
+    });
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
   /// Register the signed-in user in the backend.
   /// Sends the Firebase ID token in the body (route has no Bearer auth).
   /// Throws [ApiException] with code `CONFLICT` if the user already exists.

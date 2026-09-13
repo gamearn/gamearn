@@ -169,9 +169,9 @@ class _GameInfoScreenState extends State<GameInfoScreen> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      color: context.card,
       padding: EdgeInsets.fromLTRB(24.w, 12.h, 24.w, 12.h),
       decoration: BoxDecoration(
+        color: context.card,
         border: Border(bottom: BorderSide(color: context.border, width: 1)),
       ),
       child: Row(children: [

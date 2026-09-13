@@ -128,7 +128,9 @@ class _AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+      // userChanges also emits after reload(), so completing email OTP can
+      // immediately leave the verification gate without restarting the app.
+      stream: FirebaseAuth.instance.userChanges(),
       builder: (ctx, authSnap) {
         if (authSnap.connectionState == ConnectionState.waiting) {
           return const LoadingScreen();

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
+import '../../services/api_service.dart';
+import '../../utils/error_utils.dart';
 
 // ════════════════════════════════════════════════════════════════
 //  CREATE TOURNAMENT SCREEN — Pixel-perfect Figma match
@@ -79,22 +79,14 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
     HapticFeedback.mediumImpact();
     setState(() => _saving = true);
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-      await FirebaseFirestore.instance.collection('tournaments').add({
-        'title':          name,
-        'gameType':       _selectedGame,
-        'duration':       _durations[_durationIdx]['key'],
-        'tournamentType': _typeIdx == 0 ? 'win' : 'plays',
-        'maxPlayers':     int.tryParse(_maxPlayersCtrl.text) ?? 32,
-        'topWinners':     int.tryParse(_winnersCtrl.text) ?? 3,
-        'entryCost':      500,
-        'creationFee':    200,
-        'prizePool':      '0',
-        'status':         'pending',
-        'players':        [uid],
-        'createdBy':      uid,
-        'createdAt':      FieldValue.serverTimestamp(),
-      });
+      await ApiService.createTournament(
+        name: name,
+        gameType: _selectedGame!,
+        duration: _durations[_durationIdx]['key']!,
+        tournamentType: _typeIdx == 0 ? 'win' : 'plays',
+        maxPlayers: int.tryParse(_maxPlayersCtrl.text) ?? 32,
+        topWinners: int.tryParse(_winnersCtrl.text) ?? 3,
+      );
       if (mounted) {
         HapticFeedback.heavyImpact();
         Navigator.pop(context);
@@ -105,6 +97,8 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
           ),
         );
       }
+    } catch (error) {
+      if (mounted) showAppError(context, error);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

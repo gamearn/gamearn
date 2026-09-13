@@ -570,7 +570,11 @@ class _GamesGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (_, constraints) {
-      final columns = constraints.maxWidth >= 320 ? 4 : 2;
+      // These supplied artworks are square, detailed cover images. Four
+      // columns crushed them on normal phones and made their embedded labels
+      // unreadable. Keep the intended 2x2 layout; wider form factors can use
+      // four columns without distorting the artwork.
+      final columns = constraints.maxWidth >= 700 ? 4 : 2;
       return GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -578,7 +582,7 @@ class _GamesGrid extends StatelessWidget {
           crossAxisCount: columns,
           crossAxisSpacing: 8.w,
           mainAxisSpacing: 8.w,
-          childAspectRatio: columns == 4 ? 0.72 : 0.9,
+          childAspectRatio: 1,
         ),
         itemCount: games.length,
         itemBuilder: (_, i) => _GameTile(data: games[i], uid: uid),
@@ -594,13 +598,9 @@ class _GameTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final title = data['title'] as String? ?? 'Game';
     final assetKey = (data['assetKey'] as String? ?? '').toLowerCase();
     final count = data['playCount'] as int? ?? 0;
     final asset = _assetFor(assetKey);
-    final playLabel =
-        count >= 1000 ? '${(count / 1000).toStringAsFixed(1)}k' : '$count';
 
     String gameKey = 'whot';
     Widget gameScreen = WhotGameScreen(
@@ -644,7 +644,12 @@ class _GameTile extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12.r),
           child: Stack(fit: StackFit.expand, children: [
-            if (asset != null) Image.asset(asset, fit: BoxFit.cover),
+            if (asset != null)
+              Image.asset(
+                asset,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+              ),
             // Figma: #22D1EE@10 overlay
             Container(
               color: kCyan.withOpacity(0.1),
@@ -663,28 +668,6 @@ class _GameTile extends StatelessWidget {
                   ],
                   stops: [0.0, 0.5, 0.5, 1.0],
                 ),
-              ),
-            ),
-            Positioned(
-              left: 8.w,
-              right: 8.w,
-              bottom: 8.h,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(title,
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w800),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  Text(
-                    l10n.homePlayingCount(playLabel),
-                    style: TextStyle(color: kCyan, fontSize: 10.sp),
-                  ),
-                ],
               ),
             ),
           ]),
