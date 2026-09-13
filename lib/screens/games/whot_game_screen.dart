@@ -1,3 +1,6 @@
+// Legacy conversion helpers are retained while multiplayer parity is completed.
+// ignore_for_file: unused_element, unused_field, unused_element_parameter
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -959,269 +962,272 @@ class _WhotGameScreenState extends State<WhotGameScreen>
             ),
           ),
           child: LayoutBuilder(
-          builder: (context, constraints) {
-            // The supplied React Native artwork is authored on a 1024 x 1536
-            // canvas. A fitted reference canvas keeps every control in the
-            // same relative place on compact and tall phones.
-            final scale = min(constraints.maxWidth / 1024,
-                constraints.maxHeight / 1536);
-            final canvasWidth = 1024 * scale;
-            final canvasHeight = 1536 * scale;
-            double x(num value) => value * scale;
-            double y(num value) => value * scale;
+            builder: (context, constraints) {
+              // The supplied React Native artwork is authored on a 1024 x 1536
+              // canvas. A fitted reference canvas keeps every control in the
+              // same relative place on compact and tall phones.
+              final scale = min(
+                  constraints.maxWidth / 1024, constraints.maxHeight / 1536);
+              final canvasWidth = 1024 * scale;
+              final canvasHeight = 1536 * scale;
+              double x(num value) => value * scale;
+              double y(num value) => value * scale;
 
-            return Center(
-              child: SizedBox(
-                width: canvasWidth,
-                height: canvasHeight,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: const BoxDecoration(
-                          gradient: RadialGradient(
-                            center: Alignment(0, -0.18),
-                            radius: 1.08,
-                            colors: [
-                              Color(0xFF0344C0),
-                              Color(0xFF10177B),
-                              Color(0xFF210066),
-                            ],
-                            stops: [0, 0.65, 1],
-                          ),
-                        ),
-                      ),
-                    ),
-                    for (final left in const [-470.0, -200.0, 650.0, 940.0])
-                      Positioned(
-                        left: x(left),
-                        top: 0,
-                        child: Transform.rotate(
-                          angle: -0.67,
-                          child: Container(
-                            width: x(90),
-                            height: canvasHeight * 1.35,
-                            color: const Color(0xFF7400EB).withOpacity(0.14),
-                          ),
-                        ),
-                      ),
-
-                    // Header controls and WHOT title.
-                    Positioned(
-                      left: x(24),
-                      top: y(24),
-                      child: _ReferenceCircleButton(
-                        size: x(83),
-                        icon: Icons.arrow_back_ios_new_rounded,
-                        onTap: widget.onBack ?? () => Navigator.pop(context),
-                      ),
-                    ),
-                    Positioned(
-                      left: x(280),
-                      top: y(36),
-                      width: x(464),
-                      child: Column(
-                        children: [
-                          Text(
-                            'WHOT',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: x(76),
-                              height: 0.95,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -2,
-                              shadows: const [
-                                Shadow(color: Color(0xFF427BFF), blurRadius: 4),
-                                Shadow(color: Color(0xFF3D03A1), blurRadius: 12),
+              return Center(
+                child: SizedBox(
+                  width: canvasWidth,
+                  height: canvasHeight,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            gradient: RadialGradient(
+                              center: Alignment(0, -0.18),
+                              radius: 1.08,
+                              colors: [
+                                Color(0xFF0344C0),
+                                Color(0xFF10177B),
+                                Color(0xFF210066),
                               ],
+                              stops: [0, 0.65, 1],
                             ),
                           ),
-                          Text(
-                            'PLAY • STRATEGIZE • WIN',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: x(18),
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: x(1.5),
+                        ),
+                      ),
+                      for (final left in const [-470.0, -200.0, 650.0, 940.0])
+                        Positioned(
+                          left: x(left),
+                          top: 0,
+                          child: Transform.rotate(
+                            angle: -0.67,
+                            child: Container(
+                              width: x(90),
+                              height: canvasHeight * 1.35,
+                              color: const Color(0xFF7400EB).withOpacity(0.14),
                             ),
                           ),
-                        ],
+                        ),
+
+                      // Header controls and WHOT title.
+                      Positioned(
+                        left: x(24),
+                        top: y(24),
+                        child: _ReferenceCircleButton(
+                          size: x(83),
+                          icon: Icons.arrow_back_ios_new_rounded,
+                          onTap: widget.onBack ?? () => Navigator.pop(context),
+                        ),
                       ),
-                    ),
-                    Positioned(
-                      right: x(28),
-                      top: y(28),
-                      child: _TimerBadge(
-                        sec: _timerSec,
-                        myTurn: _isMyTurn && !_botBusy,
-                      ),
-                    ),
-                    Positioned(
-                      left: x(150),
-                      top: y(170),
-                      width: x(724),
-                      child: Column(
-                        children: [
-                          Text(widget.tournamentTitle,
+                      Positioned(
+                        left: x(280),
+                        top: y(36),
+                        width: x(464),
+                        child: Column(
+                          children: [
+                            Text(
+                              'WHOT',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: _orange,
-                                  fontSize: x(24),
-                                  fontWeight: FontWeight.w900)),
-                          Text('Prize Pool: ${widget.prizePool}',
+                                color: Colors.white,
+                                fontSize: x(76),
+                                height: 0.95,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -2,
+                                shadows: const [
+                                  Shadow(
+                                      color: Color(0xFF427BFF), blurRadius: 4),
+                                  Shadow(
+                                      color: Color(0xFF3D03A1), blurRadius: 12),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              'PLAY • STRATEGIZE • WIN',
                               style: TextStyle(
-                                  color: _cyan,
-                                  fontSize: x(18),
-                                  fontWeight: FontWeight.w700)),
-                        ],
-                      ),
-                    ),
-
-                    // Real opponent state in the reference's upper panel.
-                    Positioned(
-                      left: x(326),
-                      top: y(248),
-                      width: x(372),
-                      child: _referencePlayerPanel(
-                        context,
-                        name: widget.opponentName,
-                        avatar: widget.opponentAvatar,
-                        count: _oppCount,
-                        active: !_isMyTurn && !_botBusy,
-                        busy: _botBusy,
-                        scale: scale,
-                      ),
-                    ),
-
-                    // Blue oval table, draw pile and discard pile.
-                    Positioned(
-                      left: x(116),
-                      top: y(405),
-                      width: x(792),
-                      height: y(610),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const RadialGradient(
-                            colors: [Color(0xFF194DE3), Color(0xFF052CA5)],
-                          ),
-                          border: Border.all(
-                              color: const Color(0xFF8019FF), width: x(6)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF6F1FFF).withOpacity(0.45),
-                              blurRadius: x(24),
+                                color: Colors.white,
+                                fontSize: x(18),
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: x(1.5),
+                              ),
                             ),
                           ],
                         ),
-                        child: Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              GestureDetector(
-                                onTap: (_isMyTurn && !_botBusy)
-                                    ? _drawCard
-                                    : null,
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    for (int i = 4; i >= 1; i--)
-                                      Positioned(
-                                        left: x(i * 4),
-                                        top: y(-(i * 4)),
-                                        child: _CardW(
-                                            card: WhotCard.faceDown(),
-                                            w: x(126),
-                                            h: y(190)),
-                                      ),
-                                    _CardW(
-                                        card: WhotCard.faceDown(),
-                                        w: x(126),
-                                        h: y(190)),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(width: x(86)),
-                              Container(
-                                padding: EdgeInsets.all(x(8)),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(x(16)),
-                                  boxShadow: [
-                                    BoxShadow(
-                                        color: _cyan.withOpacity(0.45),
-                                        blurRadius: x(18)),
-                                  ],
-                                ),
-                                child: _CardW(
-                                    card: _topCard, w: x(142), h: y(202)),
+                      ),
+                      Positioned(
+                        right: x(28),
+                        top: y(28),
+                        child: _TimerBadge(
+                          sec: _timerSec,
+                          myTurn: _isMyTurn && !_botBusy,
+                        ),
+                      ),
+                      Positioned(
+                        left: x(150),
+                        top: y(170),
+                        width: x(724),
+                        child: Column(
+                          children: [
+                            Text(widget.tournamentTitle,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    color: _orange,
+                                    fontSize: x(24),
+                                    fontWeight: FontWeight.w900)),
+                            Text('Prize Pool: ${widget.prizePool}',
+                                style: TextStyle(
+                                    color: _cyan,
+                                    fontSize: x(18),
+                                    fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      ),
+
+                      // Real opponent state in the reference's upper panel.
+                      Positioned(
+                        left: x(326),
+                        top: y(248),
+                        width: x(372),
+                        child: _referencePlayerPanel(
+                          context,
+                          name: widget.opponentName,
+                          avatar: widget.opponentAvatar,
+                          count: _oppCount,
+                          active: !_isMyTurn && !_botBusy,
+                          busy: _botBusy,
+                          scale: scale,
+                        ),
+                      ),
+
+                      // Blue oval table, draw pile and discard pile.
+                      Positioned(
+                        left: x(116),
+                        top: y(405),
+                        width: x(792),
+                        height: y(610),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const RadialGradient(
+                              colors: [Color(0xFF194DE3), Color(0xFF052CA5)],
+                            ),
+                            border: Border.all(
+                                color: const Color(0xFF8019FF), width: x(6)),
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    const Color(0xFF6F1FFF).withOpacity(0.45),
+                                blurRadius: x(24),
                               ),
                             ],
                           ),
+                          child: Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                GestureDetector(
+                                  onTap: (_isMyTurn && !_botBusy)
+                                      ? _drawCard
+                                      : null,
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      for (int i = 4; i >= 1; i--)
+                                        Positioned(
+                                          left: x(i * 4),
+                                          top: y(-(i * 4)),
+                                          child: _CardW(
+                                              card: WhotCard.faceDown(),
+                                              w: x(126),
+                                              h: y(190)),
+                                        ),
+                                      _CardW(
+                                          card: WhotCard.faceDown(),
+                                          w: x(126),
+                                          h: y(190)),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(width: x(86)),
+                                Container(
+                                  padding: EdgeInsets.all(x(8)),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(x(16)),
+                                    boxShadow: [
+                                      BoxShadow(
+                                          color: _cyan.withOpacity(0.45),
+                                          blurRadius: x(18)),
+                                    ],
+                                  ),
+                                  child: _CardW(
+                                      card: _topCard, w: x(142), h: y(202)),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      left: x(260),
-                      top: y(890),
-                      width: x(504),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: x(18), vertical: y(10)),
-                        decoration: BoxDecoration(
-                          color: const Color(0xCC080027),
-                          borderRadius: BorderRadius.circular(x(26)),
-                          border: Border.all(color: const Color(0xFF7435FF)),
-                        ),
-                        child: Text(
-                          _isMyTurn
-                              ? 'Your turn${_botBusy ? '' : ' — choose a card'}'
-                              : '${widget.opponentName} is playing…',
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: x(22),
-                              fontWeight: FontWeight.w800),
+                      Positioned(
+                        left: x(260),
+                        top: y(890),
+                        width: x(504),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: x(18), vertical: y(10)),
+                          decoration: BoxDecoration(
+                            color: const Color(0xCC080027),
+                            borderRadius: BorderRadius.circular(x(26)),
+                            border: Border.all(color: const Color(0xFF7435FF)),
+                          ),
+                          child: Text(
+                            _isMyTurn
+                                ? 'Your turn${_botBusy ? '' : ' — choose a card'}'
+                                : '${widget.opponentName} is playing…',
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: x(22),
+                                fontWeight: FontWeight.w800),
+                          ),
                         ),
                       ),
-                    ),
 
-                    // The real hand remains scroll/fan capable for >6 cards.
-                    Positioned(
-                      left: x(65),
-                      top: y(995),
-                      width: x(894),
-                      height: y(270),
-                      child: _FanHand(
-                        cards: _hand,
-                        selected: _selectedIdx,
-                        myTurn: _isMyTurn && !_botBusy,
-                        playable: _playableIndices(),
-                        onTap: (i) {
-                          if (!_isMyTurn || _botBusy) return;
-                          if (!_playableIndices().contains(i)) {
-                            _toast('That card cannot be played now.');
-                            return;
-                          }
-                          setState(
-                              () => _selectedIdx = _selectedIdx == i ? -1 : i);
-                        },
+                      // The real hand remains scroll/fan capable for >6 cards.
+                      Positioned(
+                        left: x(65),
+                        top: y(995),
+                        width: x(894),
+                        height: y(270),
+                        child: _FanHand(
+                          cards: _hand,
+                          selected: _selectedIdx,
+                          myTurn: _isMyTurn && !_botBusy,
+                          playable: _playableIndices(),
+                          onTap: (i) {
+                            if (!_isMyTurn || _botBusy) return;
+                            if (!_playableIndices().contains(i)) {
+                              _toast('That card cannot be played now.');
+                              return;
+                            }
+                            setState(() =>
+                                _selectedIdx = _selectedIdx == i ? -1 : i);
+                          },
+                        ),
                       ),
-                    ),
-                    Positioned(
-                      left: x(35),
-                      right: x(35),
-                      bottom: y(46),
-                      child: _referenceActionBar(scale),
-                    ),
-                  ],
+                      Positioned(
+                        left: x(35),
+                        right: x(35),
+                        bottom: y(46),
+                        child: _referenceActionBar(scale),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
           ),
         ),
       );
@@ -1270,7 +1276,10 @@ class _WhotGameScreenState extends State<WhotGameScreen>
                           color: Colors.white,
                           fontSize: 24 * scale,
                           fontWeight: FontWeight.w800)),
-                  Text(busy ? 'Playing…' : (active ? 'Your opponent' : 'Waiting'),
+                  Text(
+                      busy
+                          ? 'Playing…'
+                          : (active ? 'Your opponent' : 'Waiting'),
                       style: TextStyle(
                           color: _cyan,
                           fontSize: 17 * scale,
@@ -2055,7 +2064,10 @@ class _FanHand extends StatelessWidget {
               if (isInFan) {
                 deg = -spread / 2 + fanIdx * step;
                 final rad = deg * pi / 180;
-                dx = 40.0 + r * sin(rad) + fanIdx * overlap + cardW / 2 -
+                dx = 40.0 +
+                    r * sin(rad) +
+                    fanIdx * overlap +
+                    cardW / 2 -
                     (windowWidth / 2);
                 dy = -r * (1 - cos(rad));
               } else {

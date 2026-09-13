@@ -30,6 +30,8 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+/android/build/
+/build_downloads/
 
 # Symbolication related
 app.*.symbols
@@ -79,4 +81,14 @@ figma_file_tree.json
 parse.py
 parse_figma.py
 tool/figma_colors.ps1
-tool/figma_export.ps1
+tool/figma_export.ps1
+
+# Local board-porting sources and visual QA captures
+/board_reference_inspect/
+/lib/design_sandbox/
+/*_phone.png
+/phone_*.png
+/runtime_error_*.png
+
+# Local packaged source snapshots
+/lib.zip

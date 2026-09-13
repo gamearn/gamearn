@@ -4,6 +4,39 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 
+/// Decodes the backend's stable success/error envelope independently of the
+/// transport, which keeps malformed server responses testable and predictable.
+dynamic decodeApiResponse(int statusCode, String responseBody) {
+  try {
+    final decoded = jsonDecode(responseBody);
+    final json =
+        decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
+
+    if (statusCode >= 200 && statusCode < 300 && json['success'] == true) {
+      return json['data'];
+    }
+
+    final error = json['error'];
+    throw ApiException(
+      code: error is Map && error['code'] is String
+          ? error['code'] as String
+          : 'API_ERROR',
+      message: error is Map && error['message'] is String
+          ? error['message'] as String
+          : 'Request failed ($statusCode)',
+      statusCode: statusCode,
+    );
+  } on ApiException {
+    rethrow;
+  } on FormatException {
+    throw ApiException(
+      code: 'INVALID_RESPONSE',
+      message: 'The server returned an invalid response.',
+      statusCode: statusCode,
+    );
+  }
+}
+
 /// Lightweight REST client for the Node.js backend.
 ///
 /// Pattern matches MatchmakingService in socket_service.dart:
@@ -68,23 +101,7 @@ class ApiService {
             .timeout(const Duration(seconds: 20)),
       };
 
-      final decoded = jsonDecode(res.body);
-      final json =
-          decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
-
-      if (res.statusCode >= 200 &&
-          res.statusCode < 300 &&
-          json['success'] == true) {
-        return json['data'];
-      }
-
-      final err = json['error'];
-      final message = err is Map ? err['message'] : null;
-      throw ApiException(
-        code: (err is Map ? err['code'] : null) as String? ?? 'API_ERROR',
-        message: message as String? ?? 'Request failed (${res.statusCode})',
-        statusCode: res.statusCode,
-      );
+      return decodeApiResponse(res.statusCode, res.body);
     } on ApiException {
       rethrow;
     } catch (e) {

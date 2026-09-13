@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme.dart';
 import 'tournament_details_screen.dart';
-import 'tournament_entry_screen.dart';
 import 'create_tournament_screen.dart';
 import 'tournament_pending_screen.dart';
 import 'tournament_results_screen.dart';
@@ -32,11 +31,11 @@ class _TourScreenState extends State<TourScreen> {
   static const _tabs = ['All', 'Live', 'Upcoming', 'Completed'];
 
   String? get _statusFilter => switch (_tab) {
-    1 => 'live',
-    2 => 'upcoming',
-    3 => 'completed',
-    _ => null,
-  };
+        1 => 'live',
+        2 => 'upcoming',
+        3 => 'completed',
+        _ => null,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +43,6 @@ class _TourScreenState extends State<TourScreen> {
       backgroundColor: context.bg,
       body: SafeArea(
         child: Column(children: [
-
           // ── HEADER ───────────────────────────────────────────────
           Padding(
             padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0.h),
@@ -52,19 +50,21 @@ class _TourScreenState extends State<TourScreen> {
               Text('Tournaments',
                   style: TextStyle(
                       color: context.txtPri,
-                      fontSize: 20.sp, fontWeight: FontWeight.w900)),
+                      fontSize: 20.sp,
+                      fontWeight: FontWeight.w900)),
               const Spacer(),
               // Create btn — 40×40 rx=8 #FF5E00
               GestureDetector(
                 onTap: () => _showCreateSheet(context),
                 child: Container(
-                  width: 40.w, height: 40.h,
+                  width: 40.w,
+                  height: 40.h,
                   decoration: BoxDecoration(
                     color: kOrange,
                     borderRadius: BorderRadius.circular(8.r),
                   ),
-                  child: Icon(Icons.add_rounded,
-                      color: Colors.white, size: 22.w),
+                  child:
+                      Icon(Icons.add_rounded, color: Colors.white, size: 22.w),
                 ),
               ),
             ]),
@@ -140,12 +140,10 @@ class _TourScreenState extends State<TourScreen> {
                   padding: EdgeInsets.symmetric(horizontal: 16.w),
                   itemCount: docs.length,
                   itemBuilder: (_, i) {
-                    final data =
-                        docs[i].data() as Map<String, dynamic>;
+                    final data = docs[i].data() as Map<String, dynamic>;
                     data['id'] = docs[i].id;
                     final tStatus = data['status'] as String? ?? 'upcoming';
-                    final tId     = docs[i].id;
-                    final tTitle  = data['title'] as String? ?? 'Tournament';
+                    final tId = docs[i].id;
                     return _TourCard(
                       data: data,
                       onTap: () {
@@ -157,8 +155,8 @@ class _TourScreenState extends State<TourScreen> {
                         } else {
                           dest = TournamentDetailsScreen(tournamentId: tId);
                         }
-                        Navigator.push(context,
-                            MaterialPageRoute(builder: (_) => dest));
+                        Navigator.push(
+                            context, MaterialPageRoute(builder: (_) => dest));
                       },
                     );
                   },
@@ -172,34 +170,33 @@ class _TourScreenState extends State<TourScreen> {
   }
 
   Widget _emptyState() => Center(
-    child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Text('🏆', style: TextStyle(fontSize: 52.sp)),
-      SizedBox(height: 12.h),
-      Text(
-        _tab == 0
-            ? 'No tournaments yet'
-            : 'No ${_tabs[_tab].toLowerCase()} tournaments',
-        style: TextStyle(color: context.txtSec, fontSize: 15.sp),
-      ),
-      if (_tab == 0) ...[
-        SizedBox(height: 20.h),
-        GestureDetector(
-          onTap: () => _showCreateSheet(context),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-                horizontal: 28.w, vertical: 12.h),
-            decoration: BoxDecoration(
-              color: kOrange,
-              borderRadius: BorderRadius.circular(10.r),
-            ),
-            child: const Text('Create Tournament',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w800)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('🏆', style: TextStyle(fontSize: 52.sp)),
+          SizedBox(height: 12.h),
+          Text(
+            _tab == 0
+                ? 'No tournaments yet'
+                : 'No ${_tabs[_tab].toLowerCase()} tournaments',
+            style: TextStyle(color: context.txtSec, fontSize: 15.sp),
           ),
-        ),
-      ],
-    ]),
-  );
+          if (_tab == 0) ...[
+            SizedBox(height: 20.h),
+            GestureDetector(
+              onTap: () => _showCreateSheet(context),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 28.w, vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: kOrange,
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: const Text('Create Tournament',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w800)),
+              ),
+            ),
+          ],
+        ]),
+      );
 
   void _showCreateSheet(BuildContext context) {
     Navigator.push(
@@ -220,21 +217,21 @@ class _TourCard extends StatelessWidget {
   const _TourCard({required this.data, required this.onTap});
 
   static const _assets = {
-    'whot':     'assets/games/whot.jpg',
-    'ludo':     'assets/games/ludo.png',
-    'ayo':      'assets/games/ayo.jpg',
+    'whot': 'assets/games/whot.jpg',
+    'ludo': 'assets/games/ludo.png',
+    'ayo': 'assets/games/ayo.jpg',
     'draughts': 'assets/games/draughts.jpg',
   };
 
   @override
   Widget build(BuildContext context) {
-    final title      = data['title']       as String? ?? 'Tournament';
-    final prize      = data['prizePool']   as String? ?? '0';
-    final players    = (data['players']    as List?)?.length ?? 0;
-    final maxP       = data['maxPlayers']  as int?    ?? 32;
-    final status     = data['status']      as String? ?? 'upcoming';
-    final gameKey    = (data['gameType']   as String? ?? 'whot').toLowerCase();
-    final asset      = _assets.entries
+    final title = data['title'] as String? ?? 'Tournament';
+    final prize = data['prizePool'] as String? ?? '0';
+    final players = (data['players'] as List?)?.length ?? 0;
+    final maxP = data['maxPlayers'] as int? ?? 32;
+    final status = data['status'] as String? ?? 'upcoming';
+    final gameKey = (data['gameType'] as String? ?? 'whot').toLowerCase();
+    final asset = _assets.entries
         .firstWhere((e) => gameKey.contains(e.key),
             orElse: () => _assets.entries.first)
         .value;
@@ -275,20 +272,17 @@ class _TourCard extends StatelessWidget {
                   Row(children: [
                     // Status chip — Figma: 68×22 rx=11 #22D1EE live / #313F55 upcoming
                     Container(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 10.w, vertical: 4.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                       decoration: BoxDecoration(
-                        color: isLive
-                            ? kCyan
-                            : const Color(0xFF313F55),
+                        color: isLive ? kCyan : const Color(0xFF313F55),
                         borderRadius: BorderRadius.circular(11.r),
                       ),
                       child: Text(
                         isLive ? '● Live' : status.toUpperCase(),
                         style: TextStyle(
-                            color: isLive
-                                ? const Color(0xFF0B0E1A)
-                                : Colors.white,
+                            color:
+                                isLive ? const Color(0xFF0B0E1A) : Colors.white,
                             fontSize: 10.sp,
                             fontWeight: FontWeight.w800),
                       ),
@@ -296,8 +290,8 @@ class _TourCard extends StatelessWidget {
                     const Spacer(),
                     // Prize badge — Figma: 105×30 rx=15 #313F55
                     Container(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 12.w, vertical: 6.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
                       decoration: BoxDecoration(
                         color: const Color(0xFF313F55),
                         borderRadius: BorderRadius.circular(15.r),
@@ -314,7 +308,8 @@ class _TourCard extends StatelessWidget {
                   Text(title,
                       style: TextStyle(
                           color: Colors.white,
-                          fontSize: 15.sp, fontWeight: FontWeight.w800),
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w800),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   SizedBox(height: 6.h),
@@ -322,20 +317,21 @@ class _TourCard extends StatelessWidget {
                   Row(children: [
                     // Player avatars stacked — Figma: 30×30 rx=15 overlapping
                     SizedBox(
-                      width: 70.w, height: 24.h,
+                      width: 70.w,
+                      height: 24.h,
                       child: Stack(
                         children: List.generate(
                           (players).clamp(0, 3),
                           (i) => Positioned(
                             left: i * 16.0,
                             child: Container(
-                              width: 24.w, height: 24.h,
+                              width: 24.w,
+                              height: 24.h,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: context.card,
                                 border: Border.all(
-                                    color: const Color(0xFF0B0E1A),
-                                    width: 1.5),
+                                    color: const Color(0xFF0B0E1A), width: 1.5),
                               ),
                               child: Center(
                                   child: Text('👤',
@@ -347,16 +343,15 @@ class _TourCard extends StatelessWidget {
                     ),
                     // "+N" badge — Figma: 30×32 rx=16 #313F55
                     Container(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 8.w, vertical: 4.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                       decoration: BoxDecoration(
                         color: const Color(0xFF313F55),
                         borderRadius: BorderRadius.circular(16.r),
                       ),
                       child: Text('$players/$maxP players',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10.sp)),
+                          style:
+                              TextStyle(color: Colors.white, fontSize: 10.sp)),
                     ),
                   ]),
                 ],
@@ -378,22 +373,21 @@ class _TourCard extends StatelessWidget {
 class _CreateTournamentSheet extends StatefulWidget {
   const _CreateTournamentSheet();
   @override
-  State<_CreateTournamentSheet> createState() =>
-      _CreateTournamentSheetState();
+  State<_CreateTournamentSheet> createState() => _CreateTournamentSheetState();
 }
 
 class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
-  final _titleCtrl  = TextEditingController();
-  final _prizeCtrl  = TextEditingController();
-  int  _gameIdx     = 0;
-  int  _prizeMode   = 0; // 0=coins 1=naira
-  int  _maxPlayers  = 8;
-  bool _saving      = false;
+  final _titleCtrl = TextEditingController();
+  final _prizeCtrl = TextEditingController();
+  int _gameIdx = 0;
+  int _prizeMode = 0; // 0=coins 1=naira
+  int _maxPlayers = 8;
+  bool _saving = false;
 
   static const _games = [
-    {'key': 'whot',     'label': 'WHOT',     'emoji': '🃏'},
-    {'key': 'ludo',     'label': 'Lúdò',     'emoji': '🎲'},
-    {'key': 'ayo',      'label': 'Ayò',      'emoji': '🪨'},
+    {'key': 'whot', 'label': 'WHOT', 'emoji': '🃏'},
+    {'key': 'ludo', 'label': 'Lúdò', 'emoji': '🎲'},
+    {'key': 'ayo', 'label': 'Ayò', 'emoji': '🪨'},
     {'key': 'draughts', 'label': 'Draughts', 'emoji': '🔴'},
   ];
 
@@ -401,7 +395,9 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
 
   @override
   void dispose() {
-    _titleCtrl.dispose(); _prizeCtrl.dispose(); super.dispose();
+    _titleCtrl.dispose();
+    _prizeCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _create() async {
@@ -410,14 +406,14 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
       await FirebaseFirestore.instance.collection('tournaments').add({
-        'title':      _titleCtrl.text.trim(),
-        'prizePool':  _prizeCtrl.text.trim(),
-        'gameType':   _games[_gameIdx]['key'],
+        'title': _titleCtrl.text.trim(),
+        'prizePool': _prizeCtrl.text.trim(),
+        'gameType': _games[_gameIdx]['key'],
         'maxPlayers': _maxPlayers,
-        'players':    [uid],
-        'status':     'upcoming',
-        'createdBy':  uid,
-        'createdAt':  FieldValue.serverTimestamp(),
+        'players': [uid],
+        'status': 'upcoming',
+        'createdBy': uid,
+        'createdAt': FieldValue.serverTimestamp(),
       });
       if (mounted) Navigator.pop(context);
     } finally {
@@ -443,7 +439,8 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
             SizedBox(height: 12.h),
             Center(
               child: Container(
-                width: 40.w, height: 4.h,
+                width: 40.w,
+                height: 4.h,
                 decoration: BoxDecoration(
                     color: Colors.white24,
                     borderRadius: BorderRadius.circular(2.r)),
@@ -453,12 +450,12 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
             Text('Create Tournament',
                 style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18.sp, fontWeight: FontWeight.w900)),
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w900)),
             SizedBox(height: 20.h),
 
             // Title field — Figma: 341×59 rx=12 #1E293B
-            _field(_titleCtrl, 'Tournament Name',
-                Icons.emoji_events_outlined),
+            _field(_titleCtrl, 'Tournament Name', Icons.emoji_events_outlined),
             SizedBox(height: 10.h),
 
             // Prize field
@@ -470,7 +467,8 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
             Text('Select Game',
                 style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14.sp, fontWeight: FontWeight.w700)),
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w700)),
             SizedBox(height: 10.h),
             Row(
               children: List.generate(_games.length, (i) {
@@ -488,9 +486,7 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
                         color: const Color(0xFF16223F),
                         borderRadius: BorderRadius.circular(12.r),
                         border: Border.all(
-                          color: active
-                              ? kCyan
-                              : Colors.transparent,
+                          color: active ? kCyan : Colors.transparent,
                           width: 2,
                         ),
                       ),
@@ -520,16 +516,17 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
             Text('Prize Type',
                 style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14.sp, fontWeight: FontWeight.w700)),
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w700)),
             SizedBox(height: 10.h),
             Container(
               height: 82.h,
               padding: EdgeInsets.all(4.r),
               decoration: BoxDecoration(
-                        color: context.card,
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      child: Row(children: [
+                color: context.card,
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: Row(children: [
                 Expanded(child: _prizeToggle(0, '🪙 Coins')),
                 SizedBox(width: 4.w),
                 Expanded(child: _prizeToggle(1, '₦ Naira')),
@@ -542,7 +539,8 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
             Text('Max Players',
                 style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14.sp, fontWeight: FontWeight.w700)),
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w700)),
             SizedBox(height: 10.h),
             Row(
               children: _sizes.map((s) {
@@ -553,15 +551,13 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 160),
                       height: 48.h,
-                      margin: EdgeInsets.only(
-                          right: s != _sizes.last ? 8.w : 0),
+                      margin:
+                          EdgeInsets.only(right: s != _sizes.last ? 8.w : 0),
                       decoration: BoxDecoration(
                         color: active ? kCyan : context.card,
                         borderRadius: BorderRadius.circular(10.r),
-                        border: Border.all(
-                            color: active
-                                ? kCyan
-                                : context.border),
+                        border:
+                            Border.all(color: active ? kCyan : context.border),
                       ),
                       child: Center(
                         child: Text('$s',
@@ -645,7 +641,8 @@ class _CreateTournamentSheetState extends State<_CreateTournamentSheet> {
           child: Row(children: [
             Icon(icon, color: kCyan, size: 18.w),
             SizedBox(width: 12.w),
-            Expanded(child: TextField(
+            Expanded(
+                child: TextField(
               controller: ctrl,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(

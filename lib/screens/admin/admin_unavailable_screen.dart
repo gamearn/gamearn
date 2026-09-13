@@ -3,32 +3,35 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../theme.dart';
 
-/// Withdrawal approval must operate on server-authoritative requests.
-///
-/// This state prevents administrators from mistaking local sample entries or
-/// local-only approval buttons for real financial operations.
-class WithdrawalManagementScreen extends StatelessWidget {
-  const WithdrawalManagementScreen({super.key});
+/// Honest placeholder for admin features that do not yet have an authenticated
+/// server data source. It deliberately renders no sample operational data.
+class AdminUnavailableScreen extends StatelessWidget {
+  final String title;
+  final String message;
+  final IconData icon;
+
+  const AdminUnavailableScreen({
+    super.key,
+    required this.title,
+    required this.message,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.bg,
-      appBar: AppBar(
-        title: const Text('Withdrawal Management'),
-        backgroundColor: context.bg,
-      ),
+      appBar: AppBar(title: Text(title), backgroundColor: context.bg),
       body: Center(
         child: Padding(
           padding: EdgeInsets.all(24.r),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.account_balance_outlined,
-                  size: 48.r, color: context.txtSec),
+              Icon(icon, size: 48.r, color: context.txtSec),
               SizedBox(height: 16.h),
               Text(
-                'Withdrawal management is not available yet.',
+                '$title is not available yet.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: context.txtPri,
@@ -38,7 +41,7 @@ class WithdrawalManagementScreen extends StatelessWidget {
               ),
               SizedBox(height: 8.h),
               Text(
-                'Use the secured backend workflow after the admin withdrawal API is connected.',
+                message,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: context.txtSec, fontSize: 13.sp),
               ),

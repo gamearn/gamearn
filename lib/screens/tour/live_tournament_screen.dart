@@ -1,3 +1,5 @@
+// ignore_for_file: unused_field, unused_element_parameter
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -45,23 +47,15 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
   late Timer _timer;
   int _elapsedSeconds = 0;
 
-  // Mock socket state — replace with socket_io_client
-  final String _myStatus = 'waiting'; // waiting | playing | eliminated | champion
-  final int _currentRound = 1;
-  final int _totalRounds = 5;
+  // The server is authoritative for this state. These neutral values are used
+  // until the tournament Socket.IO contract is connected.
+  final String _myStatus =
+      'waiting'; // waiting | playing | eliminated | champion
+  final int _currentRound = 0;
+  final int _totalRounds = 0;
 
-  // Mock bracket (Round of 32 → QF → SF → F)
-  final List<List<_MatchModel>> _bracket = _buildMockBracket();
-
-  // Mock chat
-  final List<_ChatMessage> _messages = [
-    const _ChatMessage(author: 'Amaka', text: 'Good luck everyone! 🎮', time: '19:58'),
-    const _ChatMessage(
-        author: 'Emeka', text: 'Whot no be beans 😅', time: '19:59'),
-    const _ChatMessage(
-        author: 'Fatima', text: 'Greatman has been winning all week lol',
-        time: '20:00'),
-  ];
+  final List<List<_MatchModel>> _bracket = [];
+  final List<_ChatMessage> _messages = [];
 
   @override
   void initState() {
@@ -104,23 +98,9 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
     final text = _chatCtrl.text.trim();
     if (text.isEmpty) return;
     HapticFeedback.selectionClick();
-    setState(() {
-      _messages.add(_ChatMessage(
-          author: 'You',
-          text: text,
-          time:
-              '${TimeOfDay.now().hour.toString().padLeft(2, '0')}:${TimeOfDay.now().minute.toString().padLeft(2, '0')}',
-          isMe: true));
-    });
-    _chatCtrl.clear();
-    // TODO: socket.emit('chat_message', {'text': text, 'tournamentId': widget.tournamentId});
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_chatScroll.hasClients) {
-        _chatScroll.animateTo(_chatScroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut);
-      }
-    });
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Tournament chat is not available yet.'),
+    ));
   }
 
   @override
@@ -145,8 +125,8 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
               unselectedLabelColor: Colors.white38,
               indicatorColor: _cyan,
               indicatorSize: TabBarIndicatorSize.label,
-              labelStyle: TextStyle(
-                  fontWeight: FontWeight.w700, fontSize: 13.sp),
+              labelStyle:
+                  TextStyle(fontWeight: FontWeight.w700, fontSize: 13.sp),
               tabs: const [
                 Tab(text: 'Bracket'),
                 Tab(text: 'Matches'),
@@ -181,8 +161,7 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
       backgroundColor: context.bg,
       elevation: 0,
       leading: IconButton(
-        icon: Icon(Icons.close_rounded,
-            color: context.txtPri, size: 20.w),
+        icon: Icon(Icons.close_rounded, color: context.txtPri, size: 20.w),
         onPressed: () => _confirmLeave(),
       ),
       title: Column(
@@ -229,7 +208,8 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
         title: Text('Leave Tournament?',
-            style: TextStyle(color: context.txtPri, fontWeight: FontWeight.w700)),
+            style:
+                TextStyle(color: context.txtPri, fontWeight: FontWeight.w700)),
         content: Text(
           'Leaving during a live tournament may result in disqualification.',
           style: TextStyle(color: context.txtSec, fontSize: 13.sp),
@@ -244,8 +224,8 @@ class _LiveTournamentScreenState extends State<LiveTournamentScreen>
               Navigator.pop(ctx);
               Navigator.pop(context);
             },
-            child: const Text('Leave',
-                style: TextStyle(color: Colors.redAccent)),
+            child:
+                const Text('Leave', style: TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
@@ -294,20 +274,16 @@ class _MyStatusBar extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
       decoration: BoxDecoration(
         color: color.withOpacity(0.08),
-        border: Border(
-            bottom: BorderSide(color: color.withOpacity(0.25))),
+        border: Border(bottom: BorderSide(color: color.withOpacity(0.25))),
       ),
       child: Row(
         children: [
           Text(label,
               style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13.sp)),
+                  color: color, fontWeight: FontWeight.w600, fontSize: 13.sp)),
           const Spacer(),
           Text('R$round/$totalRounds',
-              style: TextStyle(
-                  color: Colors.white38, fontSize: 12.sp)),
+              style: TextStyle(color: Colors.white38, fontSize: 12.sp)),
         ],
       ),
     );
@@ -370,9 +346,8 @@ class _BracketMatchCard extends StatelessWidget {
         color: context.card,
         borderRadius: BorderRadius.circular(10.r),
         border: Border.all(
-          color: match.isLive
-              ? _orange.withOpacity(0.6)
-              : const Color(0xFF1E2438),
+          color:
+              match.isLive ? _orange.withOpacity(0.6) : const Color(0xFF1E2438),
         ),
       ),
       child: Column(
@@ -394,7 +369,8 @@ class _BracketMatchCard extends StatelessWidget {
               padding: EdgeInsets.symmetric(vertical: 4.h),
               decoration: const BoxDecoration(
                 color: Color(0x22FF5E00),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(10)),
+                borderRadius:
+                    BorderRadius.vertical(bottom: Radius.circular(10)),
               ),
               child: Text('LIVE',
                   textAlign: TextAlign.center,
@@ -439,8 +415,7 @@ class _BracketPlayer extends StatelessWidget {
                     : name.isEmpty
                         ? Colors.white24
                         : Colors.white70,
-                fontWeight:
-                    isWinner ? FontWeight.w700 : FontWeight.w400,
+                fontWeight: isWinner ? FontWeight.w700 : FontWeight.w400,
                 fontSize: 12.sp,
               ),
             ),
@@ -448,9 +423,7 @@ class _BracketPlayer extends StatelessWidget {
           if (score != null)
             Text('$score',
                 style: TextStyle(
-                    color: isWinner
-                        ? const Color(0xFF22D1EE)
-                        : Colors.white38,
+                    color: isWinner ? const Color(0xFF22D1EE) : Colors.white38,
                     fontWeight: FontWeight.w700,
                     fontSize: 13.sp)),
         ],
@@ -558,8 +531,11 @@ class _MatchStatusChip extends StatelessWidget {
         : isDone
             ? Colors.greenAccent
             : Colors.white24;
-    final String label =
-        isLive ? 'LIVE' : isDone ? 'DONE' : 'SOON';
+    final String label = isLive
+        ? 'LIVE'
+        : isDone
+            ? 'DONE'
+            : 'SOON';
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
@@ -604,8 +580,7 @@ class _ChatTab extends StatelessWidget {
             controller: scrollController,
             padding: EdgeInsets.all(16.r),
             itemCount: messages.length,
-            itemBuilder: (ctx, i) =>
-                _ChatBubble(message: messages[i]),
+            itemBuilder: (ctx, i) => _ChatBubble(message: messages[i]),
           ),
         ),
         _ChatInput(controller: controller, onSend: onSend),
@@ -621,13 +596,12 @@ class _ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Align(
-      alignment:
-          message.isMe ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: message.isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: EdgeInsets.only(bottom: 8.h),
         padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-        constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.72),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
         decoration: BoxDecoration(
           color: message.isMe
               ? const Color(0xFF22D1EE).withOpacity(0.15)
@@ -635,12 +609,10 @@ class _ChatBubble extends StatelessWidget {
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(12.r),
             topRight: Radius.circular(12.r),
-            bottomLeft: message.isMe
-                ? Radius.circular(12.r)
-                : Radius.circular(2.r),
-            bottomRight: message.isMe
-                ? Radius.circular(2.r)
-                : Radius.circular(12.r),
+            bottomLeft:
+                message.isMe ? Radius.circular(12.r) : Radius.circular(2.r),
+            bottomRight:
+                message.isMe ? Radius.circular(2.r) : Radius.circular(12.r),
           ),
           border: Border.all(
             color: message.isMe
@@ -649,9 +621,8 @@ class _ChatBubble extends StatelessWidget {
           ),
         ),
         child: Column(
-          crossAxisAlignment: message.isMe
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
+          crossAxisAlignment:
+              message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             if (!message.isMe)
               Text(message.author,
@@ -696,8 +667,8 @@ class _ChatInput extends StatelessWidget {
                 hintStyle: TextStyle(color: Colors.white38),
                 filled: true,
                 fillColor: context.card,
-                contentPadding: EdgeInsets.symmetric(
-                    horizontal: 14.w, vertical: 10.h),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20.r),
                   borderSide: const BorderSide(color: Color(0xFF1E2438)),
@@ -724,8 +695,7 @@ class _ChatInput extends StatelessWidget {
                 color: Color(0xFF22D1EE),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.send_rounded,
-                  color: Colors.black, size: 18.w),
+              child: Icon(Icons.send_rounded, color: Colors.black, size: 18.w),
             ),
           ),
         ],
@@ -770,51 +740,4 @@ class _ChatMessage {
     required this.time,
     this.isMe = false,
   });
-}
-
-// ---------------------------------------------------------------------------
-// Mock bracket data
-// ---------------------------------------------------------------------------
-
-List<List<_MatchModel>> _buildMockBracket() {
-  return [
-    // Round 1 (sample first 4 of 16)
-    [
-      const _MatchModel(
-          player1: 'Greatman',
-          player2: 'Emeka',
-          score1: 3,
-          score2: 1,
-          winnerId: 1,
-          isDone: true),
-      const _MatchModel(
-          player1: 'Amaka',
-          player2: 'Tunde',
-          score1: 2,
-          score2: 3,
-          winnerId: 2,
-          isDone: true),
-      const _MatchModel(
-          player1: 'Fatima',
-          player2: 'Ngozi',
-          isLive: true,
-          score1: 1,
-          score2: 1),
-      const _MatchModel(player1: 'Babatunde', player2: 'Kelechi'),
-    ],
-    // Quarter Finals
-    [
-      const _MatchModel(
-          player1: 'Greatman', player2: 'Tunde', isLive: true),
-      const _MatchModel(player1: '', player2: ''),
-    ],
-    // Semi Finals
-    [
-      const _MatchModel(player1: '', player2: ''),
-    ],
-    // Final
-    [
-      const _MatchModel(player1: '', player2: ''),
-    ],
-  ];
 }

@@ -43,8 +43,7 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
     super.dispose();
   }
 
-  double get _coins =>
-      double.tryParse(_amountCtrl.text.trim()) ?? 0;
+  double get _coins => double.tryParse(_amountCtrl.text.trim()) ?? 0;
 
   void _sell() {
     final coins = _coins;
@@ -70,19 +69,21 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 56.w, height: 56.w,
+              width: 56.w,
+              height: 56.w,
               decoration: BoxDecoration(
                 color: kGreen.withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.check_circle_outline,
-                  color: kGreen, size: 32.w),
+              child:
+                  Icon(Icons.check_circle_outline, color: kGreen, size: 32.w),
             ),
             SizedBox(height: 16.h),
             Text('Sell Order Placed!',
                 style: TextStyle(
                     color: context.txtPri,
-                    fontSize: 18.sp, fontWeight: FontWeight.w800)),
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w800)),
             SizedBox(height: 8.h),
             Text(
               '${_fmt(coins.toInt())} coins will be sold for ₦${ngn.round()} via ${_methods[_method]['name']}',
@@ -114,7 +115,8 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
                 child: Text('Done',
                     style: TextStyle(
                         color: context.txtPri,
-                        fontWeight: FontWeight.w800, fontSize: 14.sp)),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14.sp)),
               ),
             ),
           ],
@@ -149,7 +151,8 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
             padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
             decoration: BoxDecoration(
               color: context.bg,
-              border: Border(bottom: BorderSide(color: context.border, width: 1)),
+              border:
+                  Border(bottom: BorderSide(color: context.border, width: 1)),
             ),
             child: Row(children: [
               GestureDetector(
@@ -172,11 +175,13 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
           Expanded(
             child: StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('wallets').doc(uid).snapshots(),
+                  .collection('wallets')
+                  .doc(uid)
+                  .snapshots(),
               builder: (_, snap) {
                 final w = (snap.data?.data() as Map?) ?? {};
-                final units = w['units'] ?? 25400;
-                final usdBal = (w['usdEquiv'] ?? 254.0).toDouble();
+                final units = w['units'] ?? 0;
+                final usdBal = (w['usdEquiv'] as num?)?.toDouble() ?? 0;
                 return ListView(
                   padding: EdgeInsets.symmetric(horizontal: 24.w),
                   children: [
@@ -221,9 +226,8 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
                             fontWeight: FontWeight.w700)),
                     SizedBox(height: 16.h),
                     Text('Enter amount of coins',
-                        style: TextStyle(
-                            color: context.txtSec,
-                            fontSize: 14.sp)),
+                        style:
+                            TextStyle(color: context.txtSec, fontSize: 14.sp)),
                     SizedBox(height: 8.h),
                     Container(
                       height: 64.h,
@@ -232,21 +236,19 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
                       decoration: BoxDecoration(
                         color: context.card,
                         borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(
-                            color: context.border, width: 1.w),
+                        border: Border.all(color: context.border, width: 1.w),
                       ),
                       child: TextField(
                         controller: _amountCtrl,
                         keyboardType: TextInputType.number,
                         onChanged: (_) => setState(() {}),
-                        style: TextStyle(
-                            color: context.txtPri, fontSize: 18.sp),
+                        style:
+                            TextStyle(color: context.txtPri, fontSize: 18.sp),
                         decoration: InputDecoration(
                           border: InputBorder.none,
                           hintText: 'e.g. 5,000',
-                          hintStyle: TextStyle(
-                              color: context.txtSec,
-                              fontSize: 16.sp),
+                          hintStyle:
+                              TextStyle(color: context.txtSec, fontSize: 16.sp),
                           suffixIcon: Padding(
                             padding: EdgeInsets.only(right: 4.w),
                             child: Icon(Icons.monetization_on_rounded,
@@ -257,9 +259,8 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
                     ),
                     SizedBox(height: 20.h),
                     Text('You will receive',
-                        style: TextStyle(
-                            color: context.txtSec,
-                            fontSize: 14.sp)),
+                        style:
+                            TextStyle(color: context.txtSec, fontSize: 14.sp)),
                     SizedBox(height: 8.h),
                     // Result box — 342×64 #22D1EE@5 stroke @30
                     Container(
@@ -287,11 +288,9 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
                       ]),
                     ),
                     SizedBox(height: 8.h),
-                    Text(
-                        'Exchange Rate: 100 Coins = ₦900',
-                        style: TextStyle(
-                            color: context.txtSec,
-                            fontSize: 10.sp)),
+                    Text('Exchange Rate: 100 Coins = ₦900',
+                        style:
+                            TextStyle(color: context.txtSec, fontSize: 10.sp)),
 
                     SizedBox(height: 32.h),
 
@@ -313,18 +312,17 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
                       child: Container(
                         height: 60.h,
                         decoration: BoxDecoration(
-                          color: _isLoading
-                              ? kOrange.withOpacity(0.5)
-                              : kOrange,
+                          color:
+                              _isLoading ? kOrange.withOpacity(0.5) : kOrange,
                           borderRadius: BorderRadius.circular(12.r),
                         ),
                         child: Center(
                           child: _isLoading
                               ? SizedBox(
-                                  width: 22.w, height: 22.w,
+                                  width: 22.w,
+                                  height: 22.w,
                                   child: const CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2.5))
+                                      color: Colors.white, strokeWidth: 2.5))
                               : Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -335,8 +333,7 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
                                         style: TextStyle(
                                             color: Colors.white,
                                             fontSize: 18.sp,
-                                            fontWeight:
-                                                FontWeight.w700)),
+                                            fontWeight: FontWeight.w700)),
                                   ],
                                 ),
                         ),
@@ -346,9 +343,7 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
                     Text(
                       'By clicking convert, you agree to Gamearn\'s Terms\nof Exchange.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                          color: context.txtSec,
-                          fontSize: 12.sp),
+                      style: TextStyle(color: context.txtSec, fontSize: 12.sp),
                     ),
 
                     SizedBox(height: 32.h),
@@ -385,7 +380,8 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
         children: [
           Row(children: [
             Container(
-              width: 12.w, height: 12.w,
+              width: 12.w,
+              height: 12.w,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: kCyan.withOpacity(0.3),
@@ -424,14 +420,10 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
         height: 82.h,
         padding: EdgeInsets.symmetric(horizontal: 16.w),
         decoration: BoxDecoration(
-          color: selected
-              ? kCyan.withOpacity(0.05)
-              : context.card,
+          color: selected ? kCyan.withOpacity(0.05) : context.card,
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
-            color: selected
-                ? kCyan
-                : context.border,
+            color: selected ? kCyan : context.border,
             width: 1.w,
           ),
         ),
@@ -448,27 +440,23 @@ class _SellCoinsScreenState extends State<SellCoinsScreen> {
                         fontWeight: FontWeight.w600)),
                 SizedBox(height: 4.h),
                 Text(m['sub'] as String,
-                    style: TextStyle(
-                        color: context.txtSec,
-                        fontSize: 12.sp)),
+                    style: TextStyle(color: context.txtSec, fontSize: 12.sp)),
               ],
             ),
           ),
           Container(
-            width: 24.w, height: 24.w,
+            width: 24.w,
+            height: 24.w,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: selected ? kCyan : Colors.transparent,
               border: Border.all(
-                color: selected
-                    ? kCyan
-                    : context.border,
+                color: selected ? kCyan : context.border,
                 width: 2.w,
               ),
             ),
             child: selected
-                ? Icon(Icons.check_rounded,
-                    color: context.txtPri, size: 15.w)
+                ? Icon(Icons.check_rounded, color: context.txtPri, size: 15.w)
                 : null,
           ),
         ]),

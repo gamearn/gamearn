@@ -54,10 +54,10 @@ class _WalletScreenState extends State<WalletScreen> {
                 ? walSnap.data!.data() as Map<String, dynamic>
                 : <String, dynamic>{};
 
-            final units  = wallet['units']    ?? 0;
-            final usd    = wallet['usdEquiv'] ?? 0.0;
+            final units = wallet['units'] ?? 0;
+            final usd = wallet['usdEquiv'] ?? 0.0;
             final streak = wallet['streakDays'] ?? 0;
-            final level  = wallet['level']    ?? 1;
+            final level = wallet['level'] ?? 1;
 
             return CustomScrollView(
               slivers: [
@@ -91,25 +91,31 @@ class _WalletScreenState extends State<WalletScreen> {
                         children: [
                           // Decorative Glow — Figma: 256×256 #22D1EE@20
                           Container(
-                            width: 256.w, height: 256.w,
+                            width: 256.w,
+                            height: 256.w,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: kCyan.withOpacity(0.2),
-                              boxShadow: [BoxShadow(
-                                  color: kCyan.withOpacity(0.2),
-                                  blurRadius: 70.r, spreadRadius: 14.r)],
+                              boxShadow: [
+                                BoxShadow(
+                                    color: kCyan.withOpacity(0.2),
+                                    blurRadius: 70.r,
+                                    spreadRadius: 14.r)
+                              ],
                             ),
                           ),
                           Column(children: [
                             // Avatar 128 + LEVEL pill — Figma Frame 71
                             SizedBox(
-                              width: 128.w, height: 128.w,
+                              width: 128.w,
+                              height: 128.w,
                               child: Stack(
                                 alignment: Alignment.bottomCenter,
                                 children: [
                                   // Gradient ring — Figma: gradient #00A7C2→#22D1EE
                                   Container(
-                                    width: 128.w, height: 128.w,
+                                    width: 128.w,
+                                    height: 128.w,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       gradient: const LinearGradient(
@@ -123,15 +129,16 @@ class _WalletScreenState extends State<WalletScreen> {
                                     ),
                                     child: Center(
                                       child: Container(
-                                        width: 120.w, height: 120.w,
+                                        width: 120.w,
+                                        height: 120.w,
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
                                           color: context.card,
                                         ),
                                         child: Center(
                                           child: Text('🏆',
-                                              style: TextStyle(
-                                                  fontSize: 52.sp)),
+                                              style:
+                                                  TextStyle(fontSize: 52.sp)),
                                         ),
                                       ),
                                     ),
@@ -144,7 +151,8 @@ class _WalletScreenState extends State<WalletScreen> {
                                           horizontal: 10.w, vertical: 6.h),
                                       decoration: BoxDecoration(
                                         color: kCyan,
-                                        borderRadius: BorderRadius.circular(9999.r),
+                                        borderRadius:
+                                            BorderRadius.circular(9999.r),
                                         border: Border.all(
                                             color: const Color(0xFF0B0E1A),
                                             width: 2.w),
@@ -164,8 +172,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             // Balance — Figma: fs32 + /Units fs20 #22D1EE
                             RichText(
                               text: TextSpan(
-                                text:
-                                    '${NumberFormat('#,##0').format(units)} ',
+                                text: '${NumberFormat('#,##0').format(units)} ',
                                 style: TextStyle(
                                     color: context.txtPri,
                                     fontSize: 32.sp,
@@ -182,7 +189,9 @@ class _WalletScreenState extends State<WalletScreen> {
                               ),
                             ),
                             SizedBox(height: 4.h),
-                            Text(l10n.walletNairaEquivalent('₦${(usd * 900).round()}'),
+                            Text(
+                                l10n.walletNairaEquivalent(
+                                    '₦${(usd * 900).round()}'),
                                 style: TextStyle(
                                     color: context.txtSec,
                                     fontSize: 16.sp,
@@ -201,8 +210,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                       color: kCyan.withOpacity(0.3),
                                       width: 1.w),
                                 ),
-                                child: Text(
-                                    l10n.walletStreakActive(streak),
+                                child: Text(l10n.walletStreakActive(streak),
                                     style: TextStyle(
                                         color: kCyan,
                                         fontSize: 12.sp,
@@ -219,8 +227,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                       color: kCyan.withOpacity(0.3),
                                       width: 1.w),
                                 ),
-                                child: Text(
-                                    l10n.walletStreakActive(streak),
+                                child: Text(l10n.walletStreakActive(streak),
                                     style: TextStyle(
                                         color: kCyan,
                                         fontSize: 12.sp,
@@ -241,16 +248,23 @@ class _WalletScreenState extends State<WalletScreen> {
                       // Plain text tabs — Figma: no pill backgrounds
                       Row(children: [
                         _TabPill(
-                            label: l10n.walletOverview, selected: true,
+                            label: l10n.walletOverview,
+                            selected: true,
                             onTap: () {}),
                         SizedBox(width: 0.w),
-                        _TabPill(label: l10n.walletBuy, selected: false,
+                        _TabPill(
+                            label: l10n.walletBuy,
+                            selected: false,
                             onTap: _pushBuy),
                         SizedBox(width: 0.w),
-                        _TabPill(label: l10n.walletSell, selected: false,
+                        _TabPill(
+                            label: l10n.walletSell,
+                            selected: false,
                             onTap: _pushSell),
                         SizedBox(width: 0.w),
-                        _TabPill(label: l10n.walletWithdraw, selected: false,
+                        _TabPill(
+                            label: l10n.walletWithdraw,
+                            selected: false,
                             onTap: _pushWithdraw),
                       ]),
                       SizedBox(height: 16.h),
@@ -375,8 +389,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               SizedBox(height: 12.h),
                               Text(l10n.walletNoTransactions,
                                   style: TextStyle(
-                                      color: context.txtSec,
-                                      fontSize: 14.sp)),
+                                      color: context.txtSec, fontSize: 14.sp)),
                               SizedBox(height: 4.h),
                               Text(l10n.walletNoTransactionsSub,
                                   style: TextStyle(
@@ -389,11 +402,9 @@ class _WalletScreenState extends State<WalletScreen> {
                     return SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (_, i) {
-                          final d = docs[i].data()
-                              as Map<String, dynamic>;
-                          final desc = (d['description'] ?? '')
-                              .toString()
-                              .toLowerCase();
+                          final d = docs[i].data() as Map<String, dynamic>;
+                          final desc =
+                              (d['description'] ?? '').toString().toLowerCase();
                           final credit = d['type'] == 'credit';
                           final isStreak = desc.contains('streak');
                           final Color ov;
@@ -408,14 +419,16 @@ class _WalletScreenState extends State<WalletScreen> {
                             ov = kCyan;
                             ic = Icons.shopping_bag_outlined;
                           }
-                          return _TxRow(mock: {
+                          return _TxRow(transaction: {
                             'ov': ov,
                             'icon': ic,
                             'title': d['description'] ?? '',
                             'date': _fmtDate(d['createdAt']),
                             'amount': isStreak
                                 ? '+₦${d['usdAmount'] ?? 0}'
-                                : l10n.walletUnitsAmount('${credit ? '+' : '-'}', '${d['units'] ?? 0}'),
+                                : l10n.walletUnitsAmount(
+                                    '${credit ? '+' : '-'}',
+                                    '${d['units'] ?? 0}'),
                             'usd': isStreak
                                 ? ''
                                 : '${credit ? '+' : '-'}₦${d['usdAmount'] ?? 0}',
@@ -437,12 +450,12 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  void _pushBuy() => Navigator.push(context,
-      MaterialPageRoute(builder: (_) => const BuyCoinsScreen()));
-  void _pushSell() => Navigator.push(context,
-      MaterialPageRoute(builder: (_) => const SellCoinsScreen()));
-  void _pushWithdraw() => Navigator.push(context,
-      MaterialPageRoute(builder: (_) => const WithdrawScreen()));
+  void _pushBuy() => Navigator.push(
+      context, MaterialPageRoute(builder: (_) => const BuyCoinsScreen()));
+  void _pushSell() => Navigator.push(
+      context, MaterialPageRoute(builder: (_) => const SellCoinsScreen()));
+  void _pushWithdraw() => Navigator.push(
+      context, MaterialPageRoute(builder: (_) => const WithdrawScreen()));
 
   String _fmtDate(dynamic ts) {
     if (ts == null) return '';
@@ -484,13 +497,13 @@ class _TabPill extends StatelessWidget {
 
 // ── TX ROW — Figma: 342×80 #22D1EE@5, overlay 48×48 r16 ─────────
 class _TxRow extends StatelessWidget {
-  final Map<String, dynamic> mock;
-  const _TxRow({required this.mock});
+  final Map<String, dynamic> transaction;
+  const _TxRow({required this.transaction});
 
   @override
   Widget build(BuildContext context) {
-    final ov     = mock['ov'] as Color;
-    final credit = mock['credit'] as bool;
+    final ov = transaction['ov'] as Color;
+    final credit = transaction['credit'] as bool;
 
     return Container(
       margin: EdgeInsets.fromLTRB(24.w, 0, 24.w, 12.h),
@@ -502,27 +515,27 @@ class _TxRow extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 48.w, height: 48.w,
+            width: 48.w,
+            height: 48.w,
             decoration: BoxDecoration(
               color: ov.withOpacity(0.2),
               borderRadius: BorderRadius.circular(16.r),
             ),
-            child: Icon(mock['icon'] as IconData, color: ov, size: 22.w),
+            child: Icon(transaction['icon'] as IconData, color: ov, size: 22.w),
           ),
           SizedBox(width: 16.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(mock['title'] as String,
+                Text(transaction['title'] as String,
                     style: TextStyle(
                         color: context.txtPri,
                         fontWeight: FontWeight.w600,
                         fontSize: 12.sp)),
                 SizedBox(height: 5.h),
-                Text(mock['date'] as String,
-                    style: TextStyle(
-                        color: context.txtSec, fontSize: 10.sp)),
+                Text(transaction['date'] as String,
+                    style: TextStyle(color: context.txtSec, fontSize: 10.sp)),
               ],
             ),
           ),
@@ -530,15 +543,14 @@ class _TxRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(mock['amount'] as String,
+              Text(transaction['amount'] as String,
                   style: TextStyle(
                       color: credit ? kGreen : context.txtPri,
                       fontWeight: FontWeight.w700,
                       fontSize: 12.sp)),
-              if ((mock['usd'] as String).isNotEmpty)
-                Text(mock['usd'] as String,
-                    style: TextStyle(
-                        color: context.txtSec, fontSize: 10.sp)),
+              if ((transaction['usd'] as String).isNotEmpty)
+                Text(transaction['usd'] as String,
+                    style: TextStyle(color: context.txtSec, fontSize: 10.sp)),
             ],
           ),
         ],

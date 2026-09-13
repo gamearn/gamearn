@@ -16,6 +16,7 @@ import 'l10n/app_localizations.dart';
 import 'services/firestore_cache.dart';
 import 'services/api_service.dart';
 import 'services/ads_service.dart';
+import 'utils/auth_route_policy.dart';
 import 'screens/auth/landing_screen.dart';
 import 'screens/auth/signup_email_otp_screen.dart';
 import 'screens/auth/mfa_enrollment_screen.dart';
@@ -136,39 +137,47 @@ class _AuthGate extends StatelessWidget {
           return const LoadingScreen();
         }
         final user = authSnap.data;
-        if (user == null) return const LandingScreen();
-
-        // Email/password users must verify their email before proceeding.
-        // The backend also enforces this server-side on /auth/register.
         final isPasswordUser =
-            user.providerData.any((p) => p.providerId == 'password');
-        final email = user.email;
-        if (isPasswordUser &&
-            !user.emailVerified &&
-            email != null &&
-            email.isNotEmpty) {
+            user?.providerData.any((p) => p.providerId == 'password') ?? false;
+        final email = user?.email;
+        final destination = authDestinationBeforeProfile(
+          hasUser: user != null,
+          isPasswordUser: isPasswordUser,
+          emailVerified: user?.emailVerified ?? false,
+          hasEmail: email?.isNotEmpty == true,
+        );
+        if (destination == AuthDestination.signedOut) {
+          return const LandingScreen();
+        }
+        if (destination == AuthDestination.verifyEmail) {
           return SignupEmailOtpScreen(
-            email: email,
-            name: user.displayName ?? '',
+            email: email!,
+            name: user?.displayName ?? '',
             allowImmediateResend: true,
           );
         }
 
+        // The policy above guarantees a user for the profile-loading branch.
+        final authenticatedUser = user!;
         return StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
               .collection('users')
-              .doc(user.uid)
+              .doc(authenticatedUser.uid)
               .snapshots(),
           builder: (ctx, userSnap) {
             if (userSnap.connectionState == ConnectionState.waiting) {
               return const LoadingScreen();
             }
             final exists = userSnap.data?.exists ?? false;
-            if (!exists) return const ProfileSetupScreen();
-
-            final data = userSnap.data!.data() as Map<String, dynamic>;
-            final isAdmin = data['isAdmin'] == true;
-            if (isAdmin) {
+            final data = userSnap.data?.data() as Map<String, dynamic>?;
+            final profileDestination = authDestinationFromProfile(
+              profileExists: exists,
+              isAdmin: data?['isAdmin'] == true,
+            );
+            if (profileDestination == AuthDestination.profileSetup) {
+              return const ProfileSetupScreen();
+            }
+            if (profileDestination == AuthDestination.admin) {
               return const AdminShell();
             }
             return const _MfaGate(child: Shell());

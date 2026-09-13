@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element
+
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -1223,48 +1225,48 @@ class _DraughtsBoardWidget extends StatelessWidget {
             ),
             itemCount: _kCells,
             itemBuilder: (ctx, idx) {
-            final row = idx ~/ _kBoardSize;
-            final col = idx % _kBoardSize;
-            final isDark = (row + col) % 2 == 1;
-            final cell = board[idx];
-            final isSel = selectedSq == idx;
-            final isMove = legalMoves.contains(idx);
-            final isCap = captureMoves.contains(idx);
-            final isLast = lastFrom == idx || lastTo == idx;
+              final row = idx ~/ _kBoardSize;
+              final col = idx % _kBoardSize;
+              final isDark = (row + col) % 2 == 1;
+              final cell = board[idx];
+              final isSel = selectedSq == idx;
+              final isMove = legalMoves.contains(idx);
+              final isCap = captureMoves.contains(idx);
+              final isLast = lastFrom == idx || lastTo == idx;
 
-            Color sqColor = isDark ? _darkSquare : _lightSquare;
-            if (isSel) sqColor = _darkSquare.withRed(80);
-            if (isLast)
-              sqColor =
-                  isDark ? const Color(0xFF3D2B1F) : const Color(0xFFE8C87A);
+              Color sqColor = isDark ? _darkSquare : _lightSquare;
+              if (isSel) sqColor = _darkSquare.withRed(80);
+              if (isLast)
+                sqColor =
+                    isDark ? const Color(0xFF3D2B1F) : const Color(0xFFE8C87A);
 
               return GestureDetector(
-              onTap: isDark ? () => onTap(idx) : null,
-              child: Container(
-                color: sqColor,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    if (isMove && cell == _kEmpty && isDark)
-                      Container(
-                        width: 10.w,
-                        height: 10.h,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isCap
-                              ? _captureHint.withOpacity(0.7)
-                              : _moveHint.withOpacity(0.6),
+                onTap: isDark ? () => onTap(idx) : null,
+                child: Container(
+                  color: sqColor,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (isMove && cell == _kEmpty && isDark)
+                        Container(
+                          width: 10.w,
+                          height: 10.h,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isCap
+                                ? _captureHint.withOpacity(0.7)
+                                : _moveHint.withOpacity(0.6),
+                          ),
                         ),
-                      ),
-                    if (cell != _kEmpty)
-                      _PieceWidget(
-                        cell: cell,
-                        selected: isSel,
-                        isMove: isMove && cell != _kEmpty,
-                      ),
-                  ],
+                      if (cell != _kEmpty)
+                        _PieceWidget(
+                          cell: cell,
+                          selected: isSel,
+                          isMove: isMove && cell != _kEmpty,
+                        ),
+                    ],
+                  ),
                 ),
-              ),
               );
             },
           ),

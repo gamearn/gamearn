@@ -33,14 +33,10 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
   static const _usdToNgn = 900.0;
 
   final List<Map<String, dynamic>> _packs = [
-    {'name': 'Starter Pack', 'coins': 500, 'usd': 4.99,
-     'best': true},
-    {'name': 'Pro Pack', 'coins': 1500, 'usd': 12.99,
-     'best': false},
-    {'name': 'Elite Pack', 'coins': 2500, 'usd': 19.99,
-     'best': false},
-    {'name': 'Champion Pack', 'coins': 5000, 'usd': 39.99,
-     'best': false},
+    {'name': 'Starter Pack', 'coins': 500, 'usd': 4.99, 'best': true},
+    {'name': 'Pro Pack', 'coins': 1500, 'usd': 12.99, 'best': false},
+    {'name': 'Elite Pack', 'coins': 2500, 'usd': 19.99, 'best': false},
+    {'name': 'Champion Pack', 'coins': 5000, 'usd': 39.99, 'best': false},
   ];
 
   final List<String> _methods = [
@@ -103,8 +99,7 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                  'Top-up of ${pack['coins']} coins successful!'),
+              content: Text('Top-up of ${pack['coins']} coins successful!'),
               backgroundColor: kGreen,
             ),
           );
@@ -114,8 +109,7 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
         if (state == 'failed') {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Payment failed. Please try again.')),
+            const SnackBar(content: Text('Payment failed. Please try again.')),
           );
           return;
         }
@@ -124,8 +118,7 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text(
-                'Payment still pending. Check your wallet shortly.')),
+            content: Text('Payment still pending. Check your wallet shortly.')),
       );
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -156,7 +149,8 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
             padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
             decoration: BoxDecoration(
               color: context.bg,
-              border: Border(bottom: BorderSide(color: context.border, width: 1)),
+              border:
+                  Border(bottom: BorderSide(color: context.border, width: 1)),
             ),
             child: Row(children: [
               GestureDetector(
@@ -185,13 +179,16 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
                 // ── BALANCE CARD — 342×115 #22D1EE@10 r12 ──────────
                 StreamBuilder<DocumentSnapshot>(
                   stream: FirebaseFirestore.instance
-                      .collection('wallets').doc(uid).snapshots(),
+                      .collection('wallets')
+                      .doc(uid)
+                      .snapshots(),
                   builder: (_, snap) {
                     final w = (snap.data?.data() as Map?) ?? {};
-                    final units = w['units'] ?? 24500;
-                    final usd = (w['usdEquiv'] ?? 245.0).toDouble();
+                    final units = w['units'] ?? 0;
+                    final usd = (w['usdEquiv'] as num?)?.toDouble() ?? 0;
                     return Container(
-                      padding: EdgeInsets.all(20.r),                      decoration: BoxDecoration(
+                      padding: EdgeInsets.all(20.r),
+                      decoration: BoxDecoration(
                         color: kCyan.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12.r),
                         border: Border.all(
@@ -199,7 +196,8 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
                       ),
                       child: Row(children: [
                         Container(
-                          width: 80.w, height: 80.w,
+                          width: 80.w,
+                          height: 80.w,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: kCyan.withOpacity(0.1),
@@ -231,8 +229,7 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
                                         style: TextStyle(
                                             color: kCyan,
                                             fontSize: 18.sp,
-                                            fontWeight:
-                                                FontWeight.w700)),
+                                            fontWeight: FontWeight.w700)),
                                   ],
                                 ),
                               ),
@@ -271,8 +268,7 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate:
-                      SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     childAspectRatio: 0.62,
                     crossAxisSpacing: 16.w,
@@ -306,15 +302,14 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
                   child: Container(
                     height: 60.h,
                     decoration: BoxDecoration(
-                      color: _isLoading
-                          ? kOrange.withOpacity(0.5)
-                          : kOrange,
+                      color: _isLoading ? kOrange.withOpacity(0.5) : kOrange,
                       borderRadius: BorderRadius.circular(12.r),
                     ),
                     child: Center(
                       child: _isLoading
                           ? SizedBox(
-                              width: 22.w, height: 22.w,
+                              width: 22.w,
+                              height: 22.w,
                               child: const CircularProgressIndicator(
                                   color: Colors.white, strokeWidth: 2.5))
                           : Row(
@@ -336,9 +331,7 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
                 SizedBox(height: 10.h),
                 Center(
                   child: Text('Secured by Paystack  •  Instant credit',
-                      style: TextStyle(
-                          color: context.txtSec,
-                          fontSize: 11.sp)),
+                      style: TextStyle(color: context.txtSec, fontSize: 11.sp)),
                 ),
 
                 SizedBox(height: 32.h),
@@ -361,34 +354,36 @@ class _BuyCoinsScreenState extends State<BuyCoinsScreen> {
         decoration: BoxDecoration(
           color: kCyan.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(
-              color: kCyan.withOpacity(0.1), width: 1.w),
+          border: Border.all(color: kCyan.withOpacity(0.1), width: 1.w),
         ),
         child: Row(children: [
-          Icon(switch (label) {
-            'Apple Pay' => Icons.apple_rounded,
-            'Google Pay' => Icons.g_mobiledata_rounded,
-            _ => Icons.credit_card_rounded,
-          }, color: kCyan, size: 22.w),
+          Icon(
+              switch (label) {
+                'Apple Pay' => Icons.apple_rounded,
+                'Google Pay' => Icons.g_mobiledata_rounded,
+                _ => Icons.credit_card_rounded,
+              },
+              color: kCyan,
+              size: 22.w),
           SizedBox(width: 12.w),
           Expanded(
             child: Text(label,
                 style: TextStyle(
-                    color: context.txtPri, fontSize: 16.sp,
+                    color: context.txtPri,
+                    fontSize: 16.sp,
                     fontWeight: FontWeight.w500)),
           ),
           Container(
-            width: 22.w, height: 22.w,
+            width: 22.w,
+            height: 22.w,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: selected ? kCyan : Colors.transparent,
               border: Border.all(
-                  color: selected ? kCyan : context.border,
-                  width: 2.w),
+                  color: selected ? kCyan : context.border, width: 2.w),
             ),
             child: selected
-                ? Icon(Icons.check_rounded,
-                    color: context.txtPri, size: 14.w)
+                ? Icon(Icons.check_rounded, color: context.txtPri, size: 14.w)
                 : null,
           ),
         ]),
@@ -420,9 +415,7 @@ class _PackCard extends StatelessWidget {
           color: kCyan.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
-            color: selected
-                ? kCyan.withOpacity(0.4)
-                : kCyan.withOpacity(0.1),
+            color: selected ? kCyan.withOpacity(0.4) : kCyan.withOpacity(0.1),
             width: 1.w,
           ),
         ),
@@ -433,8 +426,7 @@ class _PackCard extends StatelessWidget {
             if (isBest)
               Container(
                 margin: EdgeInsets.fromLTRB(10.w, 10.h, 0, 0),
-                padding: EdgeInsets.symmetric(
-                    horizontal: 8.w, vertical: 4.h),
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                 decoration: BoxDecoration(
                   color: kOrange,
                   borderRadius: BorderRadius.circular(9999.r),
@@ -457,8 +449,7 @@ class _PackCard extends StatelessWidget {
               ),
               child: Center(
                 child: Icon(Icons.monetization_on_rounded,
-                    color: selected ? kCyan : kOrange,
-                    size: 40.w),
+                    color: selected ? kCyan : kOrange, size: 40.w),
               ),
             ),
 
@@ -468,11 +459,11 @@ class _PackCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                Text(pack['name'] as String,
-                    style: TextStyle(
-                        color: context.txtPri,
-                        fontSize: isBest ? 18.sp : 16.sp,
-                        fontWeight: FontWeight.w700)),
+                  Text(pack['name'] as String,
+                      style: TextStyle(
+                          color: context.txtPri,
+                          fontSize: isBest ? 18.sp : 16.sp,
+                          fontWeight: FontWeight.w700)),
                   SizedBox(height: 2.h),
                   Text('${pack['coins']} Coins',
                       style: TextStyle(

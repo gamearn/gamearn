@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element
+
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -18,13 +20,20 @@ import '../../theme.dart';
 // ════════════════════════════════════════════════════════════════
 
 // ── Figma asset URLs (7-day CDN) ─────────────────────────────────
-const _kAvatar2nd  = 'https://www.figma.com/api/mcp/asset/27f0a18e-3051-4c9e-8216-5f815e990f04';
-const _kAvatarWin  = 'https://www.figma.com/api/mcp/asset/7c133bf9-71f9-40d7-8455-1fe66df8b16a';
-const _kAvatar3rd  = 'https://www.figma.com/api/mcp/asset/b5c22d96-f837-4a48-93a8-dce323f2030f';
-const _kAvatarUser = 'https://www.figma.com/api/mcp/asset/d77c3908-e41a-4c09-be62-228bae66c10d';
-const _kAvatarP1   = 'https://www.figma.com/api/mcp/asset/b686b276-99d3-4e95-a53a-eab1806ad7ee';
-const _kAvatarP2   = 'https://www.figma.com/api/mcp/asset/3abe1b04-a1e6-455b-bdef-215acb29939f';
-const _kIconCrown  = 'https://www.figma.com/api/mcp/asset/de62c9a1-fdcd-45b2-bdc6-466a9c14be24';
+const _kAvatar2nd =
+    'https://www.figma.com/api/mcp/asset/27f0a18e-3051-4c9e-8216-5f815e990f04';
+const _kAvatarWin =
+    'https://www.figma.com/api/mcp/asset/7c133bf9-71f9-40d7-8455-1fe66df8b16a';
+const _kAvatar3rd =
+    'https://www.figma.com/api/mcp/asset/b5c22d96-f837-4a48-93a8-dce323f2030f';
+const _kAvatarUser =
+    'https://www.figma.com/api/mcp/asset/d77c3908-e41a-4c09-be62-228bae66c10d';
+const _kAvatarP1 =
+    'https://www.figma.com/api/mcp/asset/b686b276-99d3-4e95-a53a-eab1806ad7ee';
+const _kAvatarP2 =
+    'https://www.figma.com/api/mcp/asset/3abe1b04-a1e6-455b-bdef-215acb29939f';
+const _kIconCrown =
+    'https://www.figma.com/api/mcp/asset/de62c9a1-fdcd-45b2-bdc6-466a9c14be24';
 
 class TournamentResultsScreen extends StatelessWidget {
   final String tournamentId;
@@ -49,12 +58,12 @@ class TournamentResultsScreen extends StatelessWidget {
                     color: const Color(0xFF22D1EE), strokeWidth: 2.w));
           }
 
-          final data    = snap.data!.data() as Map<String, dynamic>? ?? {};
-          final title   = data['title']     as String? ?? 'Tournament';
-          final prize   = data['prizePool'] as String? ?? '0';
-          final results = (data['results'] as List?)
-              ?.cast<Map<String, dynamic>>() ??
-              const <Map<String, dynamic>>[];
+          final data = snap.data!.data() as Map<String, dynamic>? ?? {};
+          final title = data['title'] as String? ?? 'Tournament';
+          final prize = data['prizePool'] as String? ?? '0';
+          final results =
+              (data['results'] as List?)?.cast<Map<String, dynamic>>() ??
+                  const <Map<String, dynamic>>[];
 
           final totalNaira =
               int.tryParse(prize.replaceAll(',', '').replaceAll('₦', '')) ?? 0;
@@ -64,9 +73,10 @@ class TournamentResultsScreen extends StatelessWidget {
             (totalNaira * 0.2).round(),
           ];
 
-          final myIdx  = results.indexWhere((r) => r['uid'] == uid);
+          final myIdx = results.indexWhere((r) => r['uid'] == uid);
           final myRank = myIdx >= 0 ? myIdx + 1 : null;
-          final myPts  = myIdx >= 0 ? (results[myIdx]['points'] as int? ?? 0) : 0;
+          final myPts =
+              myIdx >= 0 ? (results[myIdx]['points'] as int? ?? 0) : 0;
           final myEarned =
               myIdx >= 0 && myIdx < prizes.length ? prizes[myIdx] : 0;
 
@@ -108,8 +118,8 @@ class TournamentResultsScreen extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: const Color(0xCC16223F),
                               borderRadius: BorderRadius.circular(100.r),
-                              border: Border.all(
-                                  color: const Color(0x4D2AE500)),
+                              border:
+                                  Border.all(color: const Color(0x4D2AE500)),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -188,7 +198,8 @@ class TournamentResultsScreen extends StatelessWidget {
 
                           // ── User Performance card — node 2326:1464 ────
                           if (myRank != null)
-                            _UserCard(rank: myRank, pts: myPts, earned: myEarned),
+                            _UserCard(
+                                rank: myRank, pts: myPts, earned: myEarned),
                           if (myRank != null) SizedBox(height: 16.h),
 
                           // ── Leaderboard — node 2327:1521 ─────────────
@@ -241,8 +252,8 @@ class _AppBar extends StatelessWidget {
             left: 0,
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
-              child: Icon(Icons.close_rounded,
-                  color: context.txtPri, size: 20.w),
+              child:
+                  Icon(Icons.close_rounded, color: context.txtPri, size: 20.w),
             ),
           ),
         ],
@@ -353,10 +364,13 @@ class _FirstPlace extends StatelessWidget {
                 height: 112.h,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24.r),
-                  border: Border.all(color: const Color(0xFFFFC107), width: 4.w),
+                  border:
+                      Border.all(color: const Color(0xFFFFC107), width: 4.w),
                   boxShadow: [
                     BoxShadow(
-                        color: const Color(0x99FFC107), blurRadius: 12.w, spreadRadius: 0)
+                        color: const Color(0x99FFC107),
+                        blurRadius: 12.w,
+                        spreadRadius: 0)
                   ],
                 ),
                 child: ClipRRect(
@@ -542,7 +556,8 @@ class _UserCard extends StatelessWidget {
   final int rank;
   final int pts;
   final int earned;
-  const _UserCard({required this.rank, required this.pts, required this.earned});
+  const _UserCard(
+      {required this.rank, required this.pts, required this.earned});
 
   @override
   Widget build(BuildContext context) {
@@ -555,7 +570,8 @@ class _UserCard extends StatelessWidget {
           topRight: Radius.circular(12.r),
           bottomRight: Radius.circular(12.r),
         ),
-        border: Border(left: BorderSide(color: const Color(0xFF22D1EE), width: 4.w)),
+        border: Border(
+            left: BorderSide(color: const Color(0xFF22D1EE), width: 4.w)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -647,8 +663,8 @@ class _Leaderboard extends StatelessWidget {
         SizedBox(height: 16.h),
         // Rows — gap=10
         ...results.asMap().entries.map((e) {
-          final i    = e.key;
-          final r    = e.value;
+          final i = e.key;
+          final r = e.value;
           final isMe = r['uid'] == uid;
           return Padding(
             padding: EdgeInsets.only(bottom: 10.h),
@@ -657,7 +673,9 @@ class _Leaderboard extends StatelessWidget {
               name: r['username'] as String? ?? 'Player',
               points: r['points'] as int? ?? 0,
               avatarUrl: r['avatar'] as String?,
-              initials: (r['username'] as String? ?? 'P').substring(0, 2).toUpperCase(),
+              initials: (r['username'] as String? ?? 'P')
+                  .substring(0, 2)
+                  .toUpperCase(),
               isCurrentUser: isMe,
             ),
           );
@@ -693,17 +711,19 @@ class _LeaderboardRow extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(17.r),
       decoration: BoxDecoration(
-        color: isCurrentUser ? const Color(0xFF16223F) : const Color(0x800A1128),
+        color:
+            isCurrentUser ? const Color(0xFF16223F) : const Color(0x800A1128),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: isCurrentUser
-              ? const Color(0x6622D1EE)
-              : const Color(0x00000000),
+          color:
+              isCurrentUser ? const Color(0x6622D1EE) : const Color(0x00000000),
         ),
         boxShadow: isCurrentUser
             ? [
                 BoxShadow(
-                    color: const Color(0x6622D1EE), blurRadius: 8.w, spreadRadius: 0)
+                    color: const Color(0x6622D1EE),
+                    blurRadius: 8.w,
+                    spreadRadius: 0)
               ]
             : [],
       ),
@@ -734,9 +754,8 @@ class _LeaderboardRow extends StatelessWidget {
             child: Text(
               isCurrentUser ? 'YOU ($name)' : name,
               style: TextStyle(
-                  color: isCurrentUser
-                      ? const Color(0xFF22D1EE)
-                      : context.txtSec,
+                  color:
+                      isCurrentUser ? const Color(0xFF22D1EE) : context.txtSec,
                   fontSize: 14.sp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.35,
@@ -748,13 +767,12 @@ class _LeaderboardRow extends StatelessWidget {
           // Points
           Text(_fmt(points),
               style: TextStyle(
-                  color: isCurrentUser
-                      ? const Color(0xFF22D1EE)
-                       : context.txtSec,
-                   fontSize: 16.sp,
-                   fontWeight: FontWeight.w700,
-                   letterSpacing: 0.8,
-                   height: 24 / 16)),
+                  color:
+                      isCurrentUser ? const Color(0xFF22D1EE) : context.txtSec,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  height: 24 / 16)),
         ],
       ),
     );

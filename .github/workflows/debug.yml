@@ -46,7 +46,6 @@ jobs:
 
       - name: 🔍 Analyze code
         run: flutter analyze --no-fatal-infos
-        continue-on-error: true
 
       - name: 🏗️ Build debug APK
         run: flutter build apk --debug --no-tree-shake-icons --dart-define=NODE_API_BASE=${{ secrets.NODE_API_BASE }}

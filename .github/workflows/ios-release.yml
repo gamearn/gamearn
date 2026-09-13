@@ -60,7 +60,6 @@ jobs:
 
       - name: 🔍 Analyze code
         run: flutter analyze --no-fatal-infos
-        continue-on-error: true
 
       - name: 🏗️ Generate iOS project (pods + workspace) via unsigned build
         run: flutter build ios --release --no-codesign --dart-define=NODE_API_BASE=${{ secrets.NODE_API_BASE }}

@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -33,31 +35,53 @@ import 'dart:async';
 
 // ── Shared asset URLs ─────────────────────────────────────────────
 // Ludo assets
-const _kLudoBack     = 'https://www.figma.com/api/mcp/asset/bb8b2764-8103-432e-92e4-9e1ac4466cd6';
-const _kLudoPlayers  = 'https://www.figma.com/api/mcp/asset/429eabdc-a963-4ec2-8dee-f8f1d869d82c';
-const _kLudoTokens   = 'https://www.figma.com/api/mcp/asset/b34db2cf-a0bb-4722-b016-d73f3070e024';
-const _kLudoLbIcon   = 'https://www.figma.com/api/mcp/asset/4e4904eb-9bc2-45cb-8d57-a3d09160d768';
-const _kLudoBolt     = 'https://www.figma.com/api/mcp/asset/b751ed5d-09d8-4d1f-a78b-9f77a3a723c9';
-const _kLudoLogo     = 'https://www.figma.com/api/mcp/asset/4eefd18d-13ba-4b71-baa0-8739de92c815';
+const _kLudoBack =
+    'https://www.figma.com/api/mcp/asset/bb8b2764-8103-432e-92e4-9e1ac4466cd6';
+const _kLudoPlayers =
+    'https://www.figma.com/api/mcp/asset/429eabdc-a963-4ec2-8dee-f8f1d869d82c';
+const _kLudoTokens =
+    'https://www.figma.com/api/mcp/asset/b34db2cf-a0bb-4722-b016-d73f3070e024';
+const _kLudoLbIcon =
+    'https://www.figma.com/api/mcp/asset/4e4904eb-9bc2-45cb-8d57-a3d09160d768';
+const _kLudoBolt =
+    'https://www.figma.com/api/mcp/asset/b751ed5d-09d8-4d1f-a78b-9f77a3a723c9';
+const _kLudoLogo =
+    'https://www.figma.com/api/mcp/asset/4eefd18d-13ba-4b71-baa0-8739de92c815';
 // Dráfù assets
-const _kDrafuBack    = 'https://www.figma.com/api/mcp/asset/9cc58704-bfb1-4b03-a7a4-d8b0dbad3119';
-const _kDrafuLbIcon  = 'https://www.figma.com/api/mcp/asset/a96280b5-5111-4475-94d9-8afce2805f76';
-const _kDrafuBolt    = 'https://www.figma.com/api/mcp/asset/4a5c1ed0-3db5-4bb4-a34b-4d5ef3522d74';
-const _kDrafuLogo    = 'https://www.figma.com/api/mcp/asset/592b3b8b-1c31-4842-a8db-9ea423b88945';
+const _kDrafuBack =
+    'https://www.figma.com/api/mcp/asset/9cc58704-bfb1-4b03-a7a4-d8b0dbad3119';
+const _kDrafuLbIcon =
+    'https://www.figma.com/api/mcp/asset/a96280b5-5111-4475-94d9-8afce2805f76';
+const _kDrafuBolt =
+    'https://www.figma.com/api/mcp/asset/4a5c1ed0-3db5-4bb4-a34b-4d5ef3522d74';
+const _kDrafuLogo =
+    'https://www.figma.com/api/mcp/asset/592b3b8b-1c31-4842-a8db-9ea423b88945';
 // Ayò assets
-const _kAyoBack      = 'https://www.figma.com/api/mcp/asset/d4f04b85-5df4-495a-aa7a-ab76493ea492';
-const _kAyoLbIcon    = 'https://www.figma.com/api/mcp/asset/4ca719a9-2343-4a31-88c4-655af276d6f9';
-const _kAyoBolt      = 'https://www.figma.com/api/mcp/asset/fad30569-f3b1-4128-a8e3-0323a6b1bcbe';
-const _kAyoLogo      = 'https://www.figma.com/api/mcp/asset/7bbd9e21-be04-4f63-a181-8755a224e617';
+const _kAyoBack =
+    'https://www.figma.com/api/mcp/asset/d4f04b85-5df4-495a-aa7a-ab76493ea492';
+const _kAyoLbIcon =
+    'https://www.figma.com/api/mcp/asset/4ca719a9-2343-4a31-88c4-655af276d6f9';
+const _kAyoBolt =
+    'https://www.figma.com/api/mcp/asset/fad30569-f3b1-4128-a8e3-0323a6b1bcbe';
+const _kAyoLogo =
+    'https://www.figma.com/api/mcp/asset/7bbd9e21-be04-4f63-a181-8755a224e617';
 // Whot assets
-const _kWhotBack     = 'https://www.figma.com/api/mcp/asset/9885af57-556f-4e30-ad04-743cf1aa9a49';
-const _kWhotCheck    = 'https://www.figma.com/api/mcp/asset/0d8d7288-a45f-45ce-8e97-ef8bf5d16c6c';
-const _kWhotPlayers  = 'https://www.figma.com/api/mcp/asset/baa92c9f-913b-4079-a489-584263b0aee2';
-const _kWhotCards    = 'https://www.figma.com/api/mcp/asset/65d6465f-8688-43b3-91c3-5f75241d7306';
-const _kWhotStar     = 'https://www.figma.com/api/mcp/asset/eaeed254-77c1-40da-a9ef-f3024a4f56dc';
-const _kWhotLbIcon   = 'https://www.figma.com/api/mcp/asset/445d7002-4ca7-41c6-964c-f608430a6f59';
-const _kWhotBolt     = 'https://www.figma.com/api/mcp/asset/cf4d065c-e9da-4aea-8496-3c16673c36fa';
-const _kWhotLogo     = 'https://www.figma.com/api/mcp/asset/156e6fd3-dd54-4e58-bf89-7ace90912639';
+const _kWhotBack =
+    'https://www.figma.com/api/mcp/asset/9885af57-556f-4e30-ad04-743cf1aa9a49';
+const _kWhotCheck =
+    'https://www.figma.com/api/mcp/asset/0d8d7288-a45f-45ce-8e97-ef8bf5d16c6c';
+const _kWhotPlayers =
+    'https://www.figma.com/api/mcp/asset/baa92c9f-913b-4079-a489-584263b0aee2';
+const _kWhotCards =
+    'https://www.figma.com/api/mcp/asset/65d6465f-8688-43b3-91c3-5f75241d7306';
+const _kWhotStar =
+    'https://www.figma.com/api/mcp/asset/eaeed254-77c1-40da-a9ef-f3024a4f56dc';
+const _kWhotLbIcon =
+    'https://www.figma.com/api/mcp/asset/445d7002-4ca7-41c6-964c-f608430a6f59';
+const _kWhotBolt =
+    'https://www.figma.com/api/mcp/asset/cf4d065c-e9da-4aea-8496-3c16673c36fa';
+const _kWhotLogo =
+    'https://www.figma.com/api/mcp/asset/156e6fd3-dd54-4e58-bf89-7ace90912639';
 
 // ════════════════════════════════════════════════════════════════
 //  LUDO GAME SET-UP
@@ -71,11 +95,11 @@ class LudoSetupScreen extends StatefulWidget {
 }
 
 class _LudoSetupScreenState extends State<LudoSetupScreen> {
-  bool   _vsBot   = false;
-  int _players    = 4;   // 2 or 4
-  int _tokens     = 4;   // 1-4
-  int _dice       = 1;   // 1 or 2
-  double _timer   = 2.0; // 0.5=30s 1=1m 2=2m 3=3m
+  bool _vsBot = false;
+  int _players = 4; // 2 or 4
+  int _tokens = 4; // 1-4
+  int _dice = 1; // 1 or 2
+  double _timer = 2.0; // 0.5=30s 1=1m 2=2m 3=3m
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +125,8 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
         // active: bg #22D1EE rx=6 text #0B0E1A | inactive: transparent rx=8 text white
         _SectionContainer(
           iconUrl: _kLudoPlayers,
-          iconW: 24, iconH: 12,
+          iconW: 24,
+          iconH: 12,
           title: 'Players Selection',
           child: _SegmentedPicker(
             options: const ['2', '4'],
@@ -121,7 +146,8 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
         // active: bg #FFC107 rx=8 text #0B0E1A | inactive: transparent text white 90%
         _SectionContainer(
           iconUrl: _kLudoTokens,
-          iconW: 18, iconH: 20,
+          iconW: 18,
+          iconH: 20,
           title: 'Token Count',
           child: _SegmentedPicker(
             options: const ['1', '2', '3', '4'],
@@ -139,7 +165,8 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
         // ── Dice Count ────────────────────────────────────────────
         _SectionContainer(
           iconUrl: _kLudoTokens,
-          iconW: 18, iconH: 20,
+          iconW: 18,
+          iconH: 20,
           title: 'Dice Count',
           child: _SegmentedPicker(
             options: const ['1', '2'],
@@ -168,15 +195,19 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
     if (!mounted) return;
     if (_vsBot) {
       // Bot play — skip matchmaking, go straight to game
-      Navigator.push(context, MaterialPageRoute(
-        builder: (_) => LudoGameScreen(tokenCount: _tokens, diceCount: _dice),
-      ));
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                LudoGameScreen(tokenCount: _tokens, diceCount: _dice),
+          ));
       return;
     }
     _showMatchmakingDialog('ludo', _players, {'diceCount': _dice});
   }
 
-  void _showMatchmakingDialog(String gameType, int playerCount, Map<String, dynamic> options) {
+  void _showMatchmakingDialog(
+      String gameType, int playerCount, Map<String, dynamic> options) {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     showDialog(
       context: context,
@@ -187,16 +218,19 @@ class _LudoSetupScreenState extends State<LudoSetupScreen> {
         options: options,
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => LudoGameScreen(
-              tokenCount: _tokens,
-              diceCount: _dice,
-              roomId: roomId,
-              playerId: uid,
-              opponentName: (opponent['displayName'] as String?) ?? 'Opponent',
-              prizePool: prizePool,
-            ),
-          ));
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => LudoGameScreen(
+                  tokenCount: _tokens,
+                  diceCount: _dice,
+                  roomId: roomId,
+                  playerId: uid,
+                  opponentName:
+                      (opponent['displayName'] as String?) ?? 'Opponent',
+                  prizePool: prizePool,
+                ),
+              ));
         },
       ),
     );
@@ -215,7 +249,7 @@ class DrafuSetupScreen extends StatefulWidget {
 }
 
 class _DrafuSetupScreenState extends State<DrafuSetupScreen> {
-  bool   _vsBot = false;
+  bool _vsBot = false;
   double _timer = 2.0;
 
   @override
@@ -231,7 +265,8 @@ class _DrafuSetupScreenState extends State<DrafuSetupScreen> {
       onStart: _startGame,
       topGap: 40,
       sections: [
-        _VsBotToggle(vsBot: _vsBot, onChanged: (v) => setState(() => _vsBot = v)),
+        _VsBotToggle(
+            vsBot: _vsBot, onChanged: (v) => setState(() => _vsBot = v)),
         const SizedBox(height: 24),
         _TurnTimerSection(
           value: _timer,
@@ -246,22 +281,25 @@ class _DrafuSetupScreenState extends State<DrafuSetupScreen> {
     if (!mounted) return;
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (_vsBot) {
-      Navigator.push(context, MaterialPageRoute(
-        builder: (_) => DraughtsGameScreen(
-          roomId: 'practice_bot',
-          playerId: uid,
-          opponentName: 'Gamearn Bot',
-          prizePool: 'Practice',
-          onBack: () => Navigator.pop(context),
-        ),
-      ));
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DraughtsGameScreen(
+              roomId: 'practice_bot',
+              playerId: uid,
+              opponentName: 'Gamearn Bot',
+              prizePool: 'Practice',
+              onBack: () => Navigator.pop(context),
+            ),
+          ));
       return;
     }
     _showMatchmakingDialog('draughts', 2, {});
   }
 
-  void _showMatchmakingDialog(String gameType, int playerCount, Map<String, dynamic> options) {
-    final uid  = FirebaseAuth.instance.currentUser?.uid ?? '';
+  void _showMatchmakingDialog(
+      String gameType, int playerCount, Map<String, dynamic> options) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -271,15 +309,18 @@ class _DrafuSetupScreenState extends State<DrafuSetupScreen> {
         options: options,
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => DraughtsGameScreen(
-              roomId:       roomId,
-              playerId:     uid,
-              opponentName: opponent['displayName'] as String? ?? 'Opponent',
-              prizePool:    EntryFees.naira(prizePool),
-              onBack:       () => Navigator.pop(context),
-            ),
-          ));
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DraughtsGameScreen(
+                  roomId: roomId,
+                  playerId: uid,
+                  opponentName:
+                      opponent['displayName'] as String? ?? 'Opponent',
+                  prizePool: EntryFees.naira(prizePool),
+                  onBack: () => Navigator.pop(context),
+                ),
+              ));
         },
       ),
     );
@@ -298,7 +339,7 @@ class AyoSetupScreen extends StatefulWidget {
 }
 
 class _AyoSetupScreenState extends State<AyoSetupScreen> {
-  bool   _vsBot = false;
+  bool _vsBot = false;
   double _timer = 2.0;
 
   @override
@@ -314,7 +355,8 @@ class _AyoSetupScreenState extends State<AyoSetupScreen> {
       onStart: _startGame,
       topGap: 40,
       sections: [
-        _VsBotToggle(vsBot: _vsBot, onChanged: (v) => setState(() => _vsBot = v)),
+        _VsBotToggle(
+            vsBot: _vsBot, onChanged: (v) => setState(() => _vsBot = v)),
         const SizedBox(height: 24),
         _TurnTimerSection(
           value: _timer,
@@ -329,21 +371,24 @@ class _AyoSetupScreenState extends State<AyoSetupScreen> {
     if (!mounted) return;
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (_vsBot) {
-      Navigator.push(context, MaterialPageRoute(
-        builder: (_) => AyoGameScreen(
-          roomId: 'practice_bot',
-          playerId: uid,
-          opponentName: 'Gamearn Bot',
-          prizePool: 'Practice',
-          onBack: () => Navigator.pop(context),
-        ),
-      ));
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AyoGameScreen(
+              roomId: 'practice_bot',
+              playerId: uid,
+              opponentName: 'Gamearn Bot',
+              prizePool: 'Practice',
+              onBack: () => Navigator.pop(context),
+            ),
+          ));
       return;
     }
     _showMatchmakingDialog('ayo', 2, {});
   }
 
-  void _showMatchmakingDialog(String gameType, int playerCount, Map<String, dynamic> options) {
+  void _showMatchmakingDialog(
+      String gameType, int playerCount, Map<String, dynamic> options) {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     showDialog(
       context: context,
@@ -354,15 +399,18 @@ class _AyoSetupScreenState extends State<AyoSetupScreen> {
         options: options,
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => AyoGameScreen(
-              roomId:       roomId,
-              playerId:     uid,
-              opponentName: opponent['displayName'] as String? ?? 'Opponent',
-              prizePool:    EntryFees.naira(prizePool),
-              onBack:       () => Navigator.pop(context),
-            ),
-          ));
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AyoGameScreen(
+                  roomId: roomId,
+                  playerId: uid,
+                  opponentName:
+                      opponent['displayName'] as String? ?? 'Opponent',
+                  prizePool: EntryFees.naira(prizePool),
+                  onBack: () => Navigator.pop(context),
+                ),
+              ));
         },
       ),
     );
@@ -384,21 +432,57 @@ class WhotSetupScreen extends StatefulWidget {
 }
 
 class _WhotSetupScreenState extends State<WhotSetupScreen> {
-  bool   _vsBot         = false;
-  int    _players       = 3;       // 2/3/4/5 — default 3 (active in Figma)
-  bool   _continuous    = true;    // Continuous | Finish and count
-  double _startCards    = 6.0;     // 4-8 — default 6
-  double _timer         = 2.0;
+  bool _vsBot = false;
+  int _players = 3; // 2/3/4/5 — default 3 (active in Figma)
+  bool _continuous = true; // Continuous | Finish and count
+  double _startCards = 6.0; // 4-8 — default 6
+  double _timer = 2.0;
 
   // Special cards: {label, cardNumber, color, nulled, removed}
   // node 2138:1632 — 6 cards
   final List<Map<String, dynamic>> _specials = [
-    {'label': 'Hold On',          'num': '1',  'orange': false, 'nulled': false, 'removed': false},
-    {'label': 'Pick Two',         'num': '2',  'orange': false, 'nulled': false, 'removed': false},
-    {'label': 'Pick Three',       'num': '5',  'orange': false, 'nulled': false, 'removed': false},
-    {'label': 'Suspension',       'num': '8',  'orange': false, 'nulled': false, 'removed': false},
-    {'label': 'General Market',   'num': '14', 'orange': false, 'nulled': false, 'removed': false},
-    {'label': 'Whot (Call Any)',   'num': '20', 'orange': true,  'nulled': false, 'removed': false},
+    {
+      'label': 'Hold On',
+      'num': '1',
+      'orange': false,
+      'nulled': false,
+      'removed': false
+    },
+    {
+      'label': 'Pick Two',
+      'num': '2',
+      'orange': false,
+      'nulled': false,
+      'removed': false
+    },
+    {
+      'label': 'Pick Three',
+      'num': '5',
+      'orange': false,
+      'nulled': false,
+      'removed': false
+    },
+    {
+      'label': 'Suspension',
+      'num': '8',
+      'orange': false,
+      'nulled': false,
+      'removed': false
+    },
+    {
+      'label': 'General Market',
+      'num': '14',
+      'orange': false,
+      'nulled': false,
+      'removed': false
+    },
+    {
+      'label': 'Whot (Call Any)',
+      'num': '20',
+      'orange': true,
+      'nulled': false,
+      'removed': false
+    },
   ];
 
   @override
@@ -414,7 +498,8 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
       onStart: _startGame,
       sections: [
         // ── vs Bot toggle ─────────────────────────────────────────
-        _VsBotToggle(vsBot: _vsBot, onChanged: (v) => setState(() => _vsBot = v)),
+        _VsBotToggle(
+            vsBot: _vsBot, onChanged: (v) => setState(() => _vsBot = v)),
         const SizedBox(height: 24),
 
         // ── Players Selection ─────────────────────────────────────
@@ -423,7 +508,8 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
         // active bg #22D1EE rx=6 | options: 2/3/4/5
         _SectionContainer(
           iconUrl: _kWhotPlayers,
-          iconW: 18.333, iconH: 13.333,
+          iconW: 18.333,
+          iconH: 13.333,
           title: 'Players Selection',
           titleSize: 16,
           child: _SegmentedPicker(
@@ -466,9 +552,11 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
               ),
               child: Row(
                 children: [
-                  _playOption('Continuous', _continuous, () => setState(() => _continuous = true)),
+                  _playOption('Continuous', _continuous,
+                      () => setState(() => _continuous = true)),
                   const SizedBox(width: 8),
-                  _playOption('Finish and count', !_continuous, () => setState(() => _continuous = false)),
+                  _playOption('Finish and count', !_continuous,
+                      () => setState(() => _continuous = false)),
                 ],
               ),
             ),
@@ -482,7 +570,8 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
         // slider 4-8 ticks: 4/5/6/7/8
         _SectionContainer(
           iconUrl: _kWhotCards,
-          iconW: 16.699, iconH: 15.889,
+          iconW: 16.699,
+          iconH: 15.889,
           title: 'Starting Cards',
           titleSize: 16,
           child: Column(
@@ -509,18 +598,21 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
                 value: _startCards,
                 min: 4, max: 8,
                 // w=171 at value=6 out of full 342 = 50%
-                onChanged: (v) => setState(() => _startCards = v.roundToDouble()),
+                onChanged: (v) =>
+                    setState(() => _startCards = v.roundToDouble()),
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: ['4', '5', '6', '7', '8'].map((l) =>
-                  Text(l,
-                      style: TextStyle(
-                          color: context.txtSec,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          height: 15 / 10)),
-                ).toList(),
+                children: ['4', '5', '6', '7', '8']
+                    .map(
+                      (l) => Text(l,
+                          style: TextStyle(
+                              color: context.txtSec,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              height: 15 / 10)),
+                    )
+                    .toList(),
               ),
             ],
           ),
@@ -550,7 +642,8 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
                     fit: BoxFit.contain,
                     errorWidget: (_, __, ___) => const Icon(
                         Icons.star_outline_rounded,
-                        color: Color(0xFFFF5E00), size: 16),
+                        color: Color(0xFFFF5E00),
+                        size: 16),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -590,8 +683,10 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
                     isOrange: s['orange'] as bool,
                     nulled: s['nulled'] as bool,
                     removed: s['removed'] as bool,
-                    onNullToggle: () => setState(() => _specials[i]['nulled'] = !s['nulled']),
-                    onRemoveToggle: () => setState(() => _specials[i]['removed'] = !s['removed']),
+                    onNullToggle: () =>
+                        setState(() => _specials[i]['nulled'] = !s['nulled']),
+                    onRemoveToggle: () =>
+                        setState(() => _specials[i]['removed'] = !s['removed']),
                     checkUrl: _kWhotCheck,
                   ),
                 );
@@ -617,9 +712,7 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
           alignment: Alignment.center,
           child: Text(label,
               style: TextStyle(
-                  color: active
-                      ? const Color(0xFF0B0E1A)
-                      : context.txtSec,
+                  color: active ? const Color(0xFF0B0E1A) : context.txtSec,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   height: 20 / 14)),
@@ -631,21 +724,23 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
   Future<void> _startGame() async {
     HapticFeedback.heavyImpact();
     if (!mounted) return;
-    final uid  = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final name = FirebaseAuth.instance.currentUser?.displayName ?? 'Player';
     if (_vsBot) {
-      Navigator.push(context, MaterialPageRoute(
-        builder: (_) => WhotGameScreen(
-          roomId:        'practice_bot',
-          playerId:      uid,
-          playerName:    name,
-          opponentName:  'Gamearn Bot',
-          prizePool:     'Practice',
-          playerRating:  1200,
-          startingCards:  _startCards.round(),
-          onBack:        () => Navigator.pop(context),
-        ),
-      ));
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => WhotGameScreen(
+              roomId: 'practice_bot',
+              playerId: uid,
+              playerName: name,
+              opponentName: 'Gamearn Bot',
+              prizePool: 'Practice',
+              playerRating: 1200,
+              startingCards: _startCards.round(),
+              onBack: () => Navigator.pop(context),
+            ),
+          ));
       return;
     }
     _showMatchmakingDialog(
@@ -654,14 +749,21 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
       {
         'startCards': _startCards.round(),
         'continuous': _continuous,
-        'nulled': _specials.where((s) => s['nulled'] == true).map((s) => s['num']).toList(),
-        'removed': _specials.where((s) => s['removed'] == true).map((s) => s['num']).toList(),
+        'nulled': _specials
+            .where((s) => s['nulled'] == true)
+            .map((s) => s['num'])
+            .toList(),
+        'removed': _specials
+            .where((s) => s['removed'] == true)
+            .map((s) => s['num'])
+            .toList(),
       },
     );
   }
 
-  void _showMatchmakingDialog(String gameType, int playerCount, Map<String, dynamic> options) {
-    final uid  = FirebaseAuth.instance.currentUser?.uid ?? '';
+  void _showMatchmakingDialog(
+      String gameType, int playerCount, Map<String, dynamic> options) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final name = FirebaseAuth.instance.currentUser?.displayName ?? 'Player';
     showDialog(
       context: context,
@@ -672,16 +774,19 @@ class _WhotSetupScreenState extends State<WhotSetupScreen> {
         options: options,
         onMatchFound: (roomId, opponent, prizePool) {
           Navigator.pop(context);
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => WhotGameScreen(
-              roomId:        roomId,
-              playerId:      uid,
-              playerName:    name,
-              opponentName:  opponent['displayName'] as String? ?? 'Opponent',
-              prizePool:     EntryFees.naira(prizePool),
-              onBack:        () => Navigator.pop(context),
-            ),
-          ));
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => WhotGameScreen(
+                  roomId: roomId,
+                  playerId: uid,
+                  playerName: name,
+                  opponentName:
+                      opponent['displayName'] as String? ?? 'Opponent',
+                  prizePool: EntryFees.naira(prizePool),
+                  onBack: () => Navigator.pop(context),
+                ),
+              ));
         },
       ),
     );
@@ -820,7 +925,8 @@ class _SetupBase extends StatelessWidget {
                   // node 1852:1010 — 83.18×24.777
                   Center(
                     child: SizedBox(
-                      width: 83.18, height: 24.777,
+                      width: 83.18,
+                      height: 24.777,
                       child: CachedNetworkImage(
                         imageUrl: logoUrl,
                         fit: BoxFit.contain,
@@ -872,12 +978,13 @@ class _SectionContainer extends StatelessWidget {
         Row(
           children: [
             SizedBox(
-              width: iconW, height: iconH,
+              width: iconW,
+              height: iconH,
               child: CachedNetworkImage(
                 imageUrl: iconUrl,
                 fit: BoxFit.contain,
-                errorWidget: (_, __, ___) => const Icon(
-                    Icons.settings, color: Color(0xFF22D1EE), size: 16),
+                errorWidget: (_, __, ___) => const Icon(Icons.settings,
+                    color: Color(0xFF22D1EE), size: 16),
               ),
             ),
             const SizedBox(width: 8),
@@ -944,7 +1051,8 @@ class _SegmentedPicker extends StatelessWidget {
                 height: double.infinity,
                 decoration: BoxDecoration(
                   color: active ? activeColor : Colors.transparent,
-                  borderRadius: BorderRadius.circular(active ? activeRx : containerRx),
+                  borderRadius:
+                      BorderRadius.circular(active ? activeRx : containerRx),
                 ),
                 alignment: Alignment.center,
                 child: Text(opt,
@@ -1009,7 +1117,8 @@ class _TurnTimerSection extends StatelessWidget {
         const SizedBox(height: 8),
         _SliderTrack(
           value: value,
-          min: 0.5, max: 3.0,
+          min: 0.5,
+          max: 3.0,
           onChanged: onChanged,
         ),
         // Tick labels
@@ -1017,9 +1126,9 @@ class _TurnTimerSection extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('30s', style: _tickStyle(context)),
-            Text('1m',  style: _tickStyle(context)),
-            Text('2m',  style: _tickStyle(context)),
-            Text('3m',  style: _tickStyle(context)),
+            Text('1m', style: _tickStyle(context)),
+            Text('2m', style: _tickStyle(context)),
+            Text('3m', style: _tickStyle(context)),
           ],
         ),
       ],
@@ -1074,7 +1183,9 @@ class _CyanThumbShape extends SliderComponentShape {
   Size getPreferredSize(bool isEnabled, bool isDiscrete) => const Size(24, 24);
 
   @override
-  void paint(PaintingContext context, Offset center, {
+  void paint(
+    PaintingContext context,
+    Offset center, {
     required Animation<double> activationAnimation,
     required Animation<double> enableAnimation,
     required bool isDiscrete,
@@ -1088,13 +1199,9 @@ class _CyanThumbShape extends SliderComponentShape {
   }) {
     final canvas = context.canvas;
     // Border circle #101622
-    canvas.drawCircle(
-        center, 12,
-        Paint()..color = const Color(0xFF101622));
+    canvas.drawCircle(center, 12, Paint()..color = const Color(0xFF101622));
     // Inner fill #22D1EE (border = 4px so inner r = 8)
-    canvas.drawCircle(
-        center, 8,
-        Paint()..color = const Color(0xFF22D1EE));
+    canvas.drawCircle(center, 8, Paint()..color = const Color(0xFF22D1EE));
   }
 }
 
@@ -1140,13 +1247,15 @@ class _StatsCard extends StatelessWidget {
                 Row(
                   children: [
                     SizedBox(
-                      width: 12, height: 12,
+                      width: 12,
+                      height: 12,
                       child: CachedNetworkImage(
                         imageUrl: lbIconUrl,
                         fit: BoxFit.contain,
                         errorWidget: (_, __, ___) => const Icon(
                             Icons.emoji_events_outlined,
-                            color: Color(0xFF22D1EE), size: 12),
+                            color: Color(0xFF22D1EE),
+                            size: 12),
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -1205,11 +1314,16 @@ class _StartButtonState extends State<_StartButton> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _loading ? null : () async {
-        setState(() => _loading = true);
-        try { await widget.onStart(); }
-        finally { if (mounted) setState(() => _loading = false); }
-      },
+      onTap: _loading
+          ? null
+          : () async {
+              setState(() => _loading = true);
+              try {
+                await widget.onStart();
+              } finally {
+                if (mounted) setState(() => _loading = false);
+              }
+            },
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1217,12 +1331,20 @@ class _StartButtonState extends State<_StartButton> {
           color: const Color(0xFFFF5E00),
           borderRadius: BorderRadius.circular(12),
           boxShadow: const [
-            BoxShadow(color: Color(0xFFFF5E00), blurRadius: 16, offset: Offset(0, 8), spreadRadius: -12),
+            BoxShadow(
+                color: Color(0xFFFF5E00),
+                blurRadius: 16,
+                offset: Offset(0, 8),
+                spreadRadius: -12),
           ],
         ),
         child: _loading
-            ? const Center(child: SizedBox(width: 20, height: 20,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)))
+            ? const Center(
+                child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2)))
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1234,12 +1356,15 @@ class _StartButtonState extends State<_StartButton> {
                           height: 28 / 18)),
                   const SizedBox(width: 8),
                   SizedBox(
-                    width: 11, height: 14,
+                    width: 11,
+                    height: 14,
                     child: CachedNetworkImage(
                       imageUrl: widget.boltUrl,
                       fit: BoxFit.contain,
                       errorWidget: (_, __, ___) => const Icon(
-                          Icons.bolt_rounded, color: Colors.white, size: 14),
+                          Icons.bolt_rounded,
+                          color: Colors.white,
+                          size: 14),
                     ),
                   ),
                 ],
@@ -1273,8 +1398,10 @@ class _SpecialCardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final badgeBg   = isOrange ? const Color(0x33FF5E00) : const Color(0x3322D1EE);
-    final badgeText = isOrange ? const Color(0xFFFF5E00) : const Color(0xFF22D1EE);
+    final badgeBg =
+        isOrange ? const Color(0x33FF5E00) : const Color(0x3322D1EE);
+    final badgeText =
+        isOrange ? const Color(0xFFFF5E00) : const Color(0xFF22D1EE);
 
     return Container(
       height: 58,
@@ -1288,7 +1415,8 @@ class _SpecialCardRow extends StatelessWidget {
         children: [
           // Card number badge — 32×32 rx=8
           Container(
-            width: 32, height: 32,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
                 color: badgeBg, borderRadius: BorderRadius.circular(8)),
             alignment: Alignment.center,
@@ -1315,25 +1443,28 @@ class _SpecialCardRow extends StatelessWidget {
             onTap: onNullToggle,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
-              width: 24, height: 24,
+              width: 24,
+              height: 24,
               decoration: BoxDecoration(
                 color: nulled ? const Color(0xFF22D1EE) : Colors.transparent,
                 shape: BoxShape.circle,
-                border: nulled ? null
+                border: nulled
+                    ? null
                     : Border.all(color: const Color(0x59FFFFFF), width: 2),
                 boxShadow: nulled
-                    ? const [BoxShadow(
-                        color: Color(0x8022D1EE), blurRadius: 5)]
+                    ? const [BoxShadow(color: Color(0x8022D1EE), blurRadius: 5)]
                     : [],
               ),
               alignment: Alignment.center,
               child: nulled
                   ? SizedBox(
-                      width: 10.442, height: 7.963,
+                      width: 10.442,
+                      height: 7.963,
                       child: CachedNetworkImage(
-                        imageUrl: checkUrl, fit: BoxFit.contain,
-                        errorWidget: (_, __, ___) => const Icon(
-                            Icons.check, color: Color(0xFF0B0E1A), size: 10),
+                        imageUrl: checkUrl,
+                        fit: BoxFit.contain,
+                        errorWidget: (_, __, ___) => const Icon(Icons.check,
+                            color: Color(0xFF0B0E1A), size: 10),
                       ),
                     )
                   : null,
@@ -1346,24 +1477,25 @@ class _SpecialCardRow extends StatelessWidget {
             onTap: onRemoveToggle,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
-              width: 24, height: 24,
+              width: 24,
+              height: 24,
               decoration: BoxDecoration(
                 color: removed ? const Color(0xFF22D1EE) : context.card,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                  color: removed
-                      ? const Color(0xFF22D1EE)
-                      : context.border,
+                  color: removed ? const Color(0xFF22D1EE) : context.border,
                 ),
               ),
               alignment: Alignment.center,
               child: removed
                   ? SizedBox(
-                      width: 10.442, height: 7.963,
+                      width: 10.442,
+                      height: 7.963,
                       child: CachedNetworkImage(
-                        imageUrl: checkUrl, fit: BoxFit.contain,
-                        errorWidget: (_, __, ___) => const Icon(
-                            Icons.check, color: Color(0xFF0B0E1A), size: 10),
+                        imageUrl: checkUrl,
+                        fit: BoxFit.contain,
+                        errorWidget: (_, __, ___) => const Icon(Icons.check,
+                            color: Color(0xFF0B0E1A), size: 10),
                       ),
                     )
                   : null,
@@ -1383,7 +1515,6 @@ int _timerSeconds(double v) {
   if (v <= 2.0) return 120;
   return 180;
 }
-
 
 // ════════════════════════════════════════════════════════════════
 //  VS BOT TOGGLE
@@ -1500,9 +1631,10 @@ class _VsBotToggle extends StatelessWidget {
 
 class _MatchmakingDialog extends StatefulWidget {
   final String gameType;
-  final int playerCount;        // room size (Ludo 2-4, others 2)
+  final int playerCount; // room size (Ludo 2-4, others 2)
   final Map<String, dynamic> options; // game-specific MP options -> joinQueue
-  final void Function(String roomId, Map<String, dynamic> opponent, int prizePool) onMatchFound;
+  final void Function(
+      String roomId, Map<String, dynamic> opponent, int prizePool) onMatchFound;
 
   const _MatchmakingDialog({
     required this.gameType,
@@ -1633,7 +1765,8 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
   }
 
   @override
-  void onMatchFound(String roomId, Map<String, dynamic> opponent, int prizePool) {
+  void onMatchFound(
+      String roomId, Map<String, dynamic> opponent, int prizePool) {
     if (mounted) setState(() => _status = 'Match found! Joining room...');
     _socket.joinRoom(roomId, onAck: (data) async {
       if (await AdsGate.canShowAds()) {
@@ -1645,13 +1778,16 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
     });
   }
 
-  @override void onDisconnected(String reason) {
+  @override
+  void onDisconnected(String reason) {
     if (mounted) setState(() => _status = 'Disconnected: $reason');
   }
 
   // Unused in this context — game hasn't started yet
-  @override void onMatchStarted(Map<String, dynamic> gs, int ef, int pp) {}
-  @override void onMatchAborted(String reason) {
+  @override
+  void onMatchStarted(Map<String, dynamic> gs, int ef, int pp) {}
+  @override
+  void onMatchAborted(String reason) {
     if (mounted) {
       setState(() => _status = 'Match cancelled: $reason');
       Future.delayed(const Duration(seconds: 2), () {
@@ -1659,15 +1795,25 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
       });
     }
   }
-  @override void onMoveMade(String u, Map m, Map gs, bool over) {}
-  @override void onGameOver(String? w, int p, String r) {}
-  @override void onGameStateSync(Map<String, dynamic> gs) {}
-  @override void onPlayerJoined(String u, String n) {}
-  @override void onOpponentDisconnected(int g) {}
-  @override void onOpponentReconnected() {}
-  @override void onOpponentForfeited(String? w) {}
-  @override void onRematchRequested() {}
-  @override void onRematchAccepted(String r) {}
+
+  @override
+  void onMoveMade(String u, Map m, Map gs, bool over) {}
+  @override
+  void onGameOver(String? w, int p, String r) {}
+  @override
+  void onGameStateSync(Map<String, dynamic> gs) {}
+  @override
+  void onPlayerJoined(String u, String n) {}
+  @override
+  void onOpponentDisconnected(int g) {}
+  @override
+  void onOpponentReconnected() {}
+  @override
+  void onOpponentForfeited(String? w) {}
+  @override
+  void onRematchRequested() {}
+  @override
+  void onRematchAccepted(String r) {}
 
   @override
   Widget build(BuildContext context) {
@@ -1681,7 +1827,8 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
           children: [
             // Animated cyan spinner
             const SizedBox(
-              width: 48, height: 48,
+              width: 48,
+              height: 48,
               child: CircularProgressIndicator(
                 color: Color(0xFF22D1EE),
                 strokeWidth: 3,
@@ -1702,8 +1849,7 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
 
             Text(_status,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: context.txtSec, fontSize: 13)),
+                style: TextStyle(color: context.txtSec, fontSize: 13)),
             const SizedBox(height: 4),
             Text(_elapsed_fmt,
                 style: const TextStyle(
@@ -1714,7 +1860,8 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog>
             GestureDetector(
               onTap: _cancel,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                 decoration: BoxDecoration(
                   border: Border.all(color: context.border),
                   borderRadius: BorderRadius.circular(8),

@@ -50,10 +50,18 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
   String? _selectedBankName;
 
   static const _methods = [
-    {'name': 'Bank Transfer', 'feeLabel': '2-3 Business Days • Free',
-     'fee': 0.0, 'arrival': '2-3 Business Days'},
-    {'name': 'Digital Wallet', 'feeLabel': 'Instant • Free',
-     'fee': 0.0, 'arrival': 'Instant'},
+    {
+      'name': 'Bank Transfer',
+      'feeLabel': '2-3 Business Days • Free',
+      'fee': 0.0,
+      'arrival': '2-3 Business Days'
+    },
+    {
+      'name': 'Digital Wallet',
+      'feeLabel': 'Instant • Free',
+      'fee': 0.0,
+      'arrival': 'Instant'
+    },
   ];
 
   @override
@@ -64,8 +72,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
     super.dispose();
   }
 
-  double get _amount =>
-      double.tryParse(_amountCtrl.text.trim()) ?? 0;
+  double get _amount => double.tryParse(_amountCtrl.text.trim()) ?? 0;
 
   double get _total => _amount - (_methods[_method]['fee'] as double);
 
@@ -92,8 +99,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
     final amt = _amount;
     if (amt < 1000 || amt > 450000) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Enter an amount between ₦1,000 and ₦450,000')),
+        SnackBar(content: Text('Enter an amount between ₦1,000 and ₦450,000')),
       );
       return;
     }
@@ -102,8 +108,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
             _accountCtrl.text.isEmpty ||
             _nameCtrl.text.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Complete your bank details to continue')),
+        SnackBar(content: Text('Complete your bank details to continue')),
       );
       return;
     }
@@ -141,14 +146,12 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(e.message), backgroundColor: context.orange),
+        SnackBar(content: Text(e.message), backgroundColor: context.orange),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Error: $e'), backgroundColor: context.orange),
+        SnackBar(content: Text('Error: $e'), backgroundColor: context.orange),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -200,8 +203,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
   void _showSnack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text(message), backgroundColor: context.orange),
+      SnackBar(content: Text(message), backgroundColor: context.orange),
     );
   }
 
@@ -212,8 +214,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: context.card,
         title: Text('Confirm Password',
-            style: TextStyle(
-                color: context.txtPri, fontWeight: FontWeight.w700)),
+            style:
+                TextStyle(color: context.txtPri, fontWeight: FontWeight.w700)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,8 +239,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                   borderRadius: BorderRadius.circular(12.r),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16.w, vertical: 14.h),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
               ),
               onSubmitted: (value) => Navigator.pop(ctx, value),
             ),
@@ -246,8 +248,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel')),
+              onPressed: () => Navigator.pop(ctx), child: Text('Cancel')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, ctrl.text),
               child: Text('Confirm',
@@ -271,7 +272,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
             padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 16.h),
             decoration: BoxDecoration(
               color: context.bg,
-              border: Border(bottom: BorderSide(color: context.border, width: 1)),
+              border:
+                  Border(bottom: BorderSide(color: context.border, width: 1)),
             ),
             child: Row(children: [
               GestureDetector(
@@ -324,18 +326,19 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         // Balance card — 342×146 #22D1EE@10
         StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
-              .collection('wallets').doc(uid).snapshots(),
+              .collection('wallets')
+              .doc(uid)
+              .snapshots(),
           builder: (_, snap) {
             final w = (snap.data?.data() as Map?) ?? {};
-            final usd = (w['usdEquiv'] ?? 245.0).toDouble();
+            final usd = (w['usdEquiv'] as num?)?.toDouble() ?? 0;
             final units = w['units'] ?? 0;
             return Container(
               padding: EdgeInsets.all(24.r),
               decoration: BoxDecoration(
                 color: kCyan.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12.r),
-                border: Border.all(
-                    color: kCyan.withOpacity(0.2), width: 1),
+                border: Border.all(color: kCyan.withOpacity(0.2), width: 1),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -343,16 +346,19 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                   Text('Available Cash Balance',
                       style: TextStyle(
                           color: kCyan.withOpacity(0.7),
-                          fontSize: 14.sp, fontWeight: FontWeight.w600)),
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600)),
                   SizedBox(height: 6.h),
                   Text('₦${(usd * 900).round()}',
                       style: TextStyle(
                           color: context.txtPri,
-                          fontSize: 32.sp, fontWeight: FontWeight.w700)),
+                          fontSize: 32.sp,
+                          fontWeight: FontWeight.w700)),
                   SizedBox(height: 6.h),
                   Row(children: [
                     Container(
-                      width: 12.w, height: 12.h,
+                      width: 12.w,
+                      height: 12.h,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: kCyan.withOpacity(0.3),
@@ -362,7 +368,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                     Text('${_unitsText(units)} Coins',
                         style: TextStyle(
                             color: kCyan.withOpacity(0.6),
-                            fontSize: 14.sp, fontWeight: FontWeight.w500)),
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500)),
                   ]),
                 ],
               ),
@@ -375,13 +382,13 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         Text('Withdrawal Amount',
             style: TextStyle(
                 color: context.txtPri,
-                fontSize: 18.sp, fontWeight: FontWeight.w700)),
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w700)),
         SizedBox(height: 14.h),
         Row(children: [
           Expanded(
             child: Text('Enter Amount',
-                style: TextStyle(
-                    color: context.txtSec, fontSize: 14.sp)),
+                style: TextStyle(color: context.txtSec, fontSize: 14.sp)),
           ),
           Text('Min ₦1,000 / Max ₦450,000',
               style: TextStyle(
@@ -395,39 +402,35 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           decoration: BoxDecoration(
             color: kCyan.withOpacity(0.05),
             borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(
-                color: kCyan.withOpacity(0.2), width: 1),
+            border: Border.all(color: kCyan.withOpacity(0.2), width: 1),
           ),
           child: TextField(
             controller: _amountCtrl,
-            keyboardType: TextInputType.numberWithOptions(
-                decimal: true),
+            keyboardType: TextInputType.numberWithOptions(decimal: true),
             onChanged: (_) => setState(() {}),
             style: TextStyle(color: context.txtPri, fontSize: 20.sp),
             decoration: InputDecoration(
               border: InputBorder.none,
-              prefixIcon: Icon(Icons.attach_money,
-                  color: context.txtSec, size: 22.w),
+              prefixIcon:
+                  Icon(Icons.attach_money, color: context.txtSec, size: 22.w),
               hintText: '0.00',
-              hintStyle: TextStyle(
-                  color: context.txtSec, fontSize: 20.sp),
+              hintStyle: TextStyle(color: context.txtSec, fontSize: 20.sp),
             ),
           ),
         ),
         SizedBox(height: 8.h),
         Text('Conversion rate: 100 Coins = ₦900',
-            style: TextStyle(
-                color: context.txtSec, fontSize: 12.sp)),
+            style: TextStyle(color: context.txtSec, fontSize: 12.sp)),
         SizedBox(height: 24.h),
 
         // Payout Method
         Text('Payout Method',
             style: TextStyle(
                 color: context.txtPri,
-                fontSize: 18.sp, fontWeight: FontWeight.w700)),
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w700)),
         SizedBox(height: 12.h),
-        for (var i = 0; i < _methods.length; i++)
-          _methodRow(i, _methods[i]),
+        for (var i = 0; i < _methods.length; i++) _methodRow(i, _methods[i]),
         SizedBox(height: 8.h),
 
         // Bank details — only for Bank Transfer (keeps backend working)
@@ -437,13 +440,13 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         SizedBox(height: 16.h),
         Row(children: [
           Text('Total to Withdraw',
-              style: TextStyle(
-                  color: context.txtSec, fontSize: 14.sp)),
+              style: TextStyle(color: context.txtSec, fontSize: 14.sp)),
           Spacer(),
           Text('₦${_total.round()}',
               style: TextStyle(
                   color: context.txtPri,
-                  fontSize: 20.sp, fontWeight: FontWeight.w700)),
+                  fontSize: 20.sp,
+                  fontWeight: FontWeight.w700)),
         ]),
         SizedBox(height: 16.h),
 
@@ -460,7 +463,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               child: Text('Continue to Review',
                   style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16.sp, fontWeight: FontWeight.w700)),
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w700)),
             ),
           ),
         ),
@@ -469,7 +473,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           child: Text('Secure Financial Transaction',
               style: TextStyle(
                   color: context.txtSec,
-                  fontSize: 10.sp, fontWeight: FontWeight.w600)),
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w600)),
         ),
       ],
     );
@@ -490,17 +495,14 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         Text('Review Details',
             style: TextStyle(
                 color: context.txtPri,
-                fontSize: 14.sp, fontWeight: FontWeight.w600)),
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600)),
         SizedBox(height: 16.h),
-
-        _reviewRow('Withdrawal Amount',
-            '₦${_amount.round()}', big: true),
-        _reviewRow('Service Fee',
-            '₦${(method['fee'] as double).round()}'),
+        _reviewRow('Withdrawal Amount', '₦${_amount.round()}', big: true),
+        _reviewRow('Service Fee', '₦${(method['fee'] as double).round()}'),
         _reviewRow('Estimated Arrival', method['arrival'] as String,
             accent: true),
         _reviewRow('Destination', _destinationLabel()),
-
         SizedBox(height: 20.h),
         Container(
           padding: EdgeInsets.all(14.r),
@@ -518,48 +520,45 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                 child: Text(
                   'Please ensure your account information is\ncorrect. Withdrawals to incorrect accounts may\nnot be reversible.',
                   style: TextStyle(
-                      color: context.txtSec,
-                      fontSize: 12.sp, height: 1.4),
+                      color: context.txtSec, fontSize: 12.sp, height: 1.4),
                 ),
               ),
             ],
           ),
         ),
         SizedBox(height: 24.h),
-
         GestureDetector(
           onTap: _submitting ? null : _confirm,
           child: Container(
             height: 56.h,
             decoration: BoxDecoration(
-              color: _submitting
-                  ? kOrange.withOpacity(0.5)
-                  : kOrange,
+              color: _submitting ? kOrange.withOpacity(0.5) : kOrange,
               borderRadius: BorderRadius.circular(12.r),
             ),
             child: Center(
               child: _submitting
                   ? SizedBox(
-                      width: 22.w, height: 22.h,
+                      width: 22.w,
+                      height: 22.h,
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2.5))
                   : Text('Confirm Withdrawal',
                       style: TextStyle(
                           color: Colors.white,
-                          fontSize: 16.sp, fontWeight: FontWeight.w700)),
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w700)),
             ),
           ),
         ),
         SizedBox(height: 10.h),
         GestureDetector(
-          onTap: _submitting
-              ? null
-              : () => setState(() => _step = 0),
+          onTap: _submitting ? null : () => setState(() => _step = 0),
           child: Center(
             child: Text('Cancel',
                 style: TextStyle(
                     color: context.txtSec,
-                    fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600)),
           ),
         ),
       ],
@@ -575,37 +574,35 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         Center(
           child: Text('Processing',
               style: TextStyle(
-                  color: kCyan,
-                  fontSize: 14.sp, fontWeight: FontWeight.w600)),
+                  color: kCyan, fontSize: 14.sp, fontWeight: FontWeight.w600)),
         ),
         SizedBox(height: 12.h),
         Center(
           child: Text('₦${_total.round()}',
               style: TextStyle(
                   color: Color(0xFFFFC107),
-                  fontSize: 48.sp, fontWeight: FontWeight.w700)),
+                  fontSize: 48.sp,
+                  fontWeight: FontWeight.w700)),
         ),
         SizedBox(height: 8.h),
         Center(
           child: Text('Transaction ID: #GE-99201-AX',
-              style: TextStyle(
-                  color: context.txtSec, fontSize: 14.sp)),
+              style: TextStyle(color: context.txtSec, fontSize: 14.sp)),
         ),
         SizedBox(height: 36.h),
-
         _statusRow('Estimated Arrival', method['arrival'] as String),
-        _statusRow('Destination Bank',
-            _method == 0 ? (_selectedBankName ?? 'Bank Transfer')
-                         : _methods[_method]['name'] as String),
+        _statusRow(
+            'Destination Bank',
+            _method == 0
+                ? (_selectedBankName ?? 'Bank Transfer')
+                : _methods[_method]['name'] as String),
         if (_method == 0 && _accountCtrl.text.isNotEmpty)
           Padding(
             padding: EdgeInsets.only(left: 110.w, bottom: 20.h),
             child: Text(
                 '**** ${_accountCtrl.text.trim().length >= 4 ? _accountCtrl.text.trim().substring(_accountCtrl.text.trim().length - 4) : ''}',
-                style: TextStyle(
-                    color: context.txtSec, fontSize: 14.sp)),
+                style: TextStyle(color: context.txtSec, fontSize: 14.sp)),
           ),
-
         SizedBox(height: 16.h),
         Container(
           padding: EdgeInsets.all(18.r),
@@ -620,12 +617,14 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                 Text('Verification Progress',
                     style: TextStyle(
                         color: context.txtPri,
-                        fontSize: 14.sp, fontWeight: FontWeight.w600)),
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w600)),
                 Spacer(),
                 Text('85%',
                     style: TextStyle(
                         color: kCyan,
-                        fontSize: 14.sp, fontWeight: FontWeight.w700)),
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w700)),
               ]),
               SizedBox(height: 10.h),
               ClipRRect(
@@ -640,12 +639,10 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               ),
               SizedBox(height: 10.h),
               Text('Securing your funds via GAMEARN Vault...',
-                  style: TextStyle(
-                      color: context.txtSec, fontSize: 12.sp)),
+                  style: TextStyle(color: context.txtSec, fontSize: 12.sp)),
             ],
           ),
         ),
-
         SizedBox(height: 28.h),
         GestureDetector(
           onTap: () => Navigator.maybePop(context),
@@ -653,7 +650,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
             child: Text('Back to Wallet',
                 style: TextStyle(
                     color: kCyan,
-                    fontSize: 16.sp, fontWeight: FontWeight.w700)),
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700)),
           ),
         ),
       ],
@@ -700,15 +698,14 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           color: kCyan.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
-            color: selected
-                ? kCyan.withOpacity(0.4)
-                : kCyan.withOpacity(0.1),
+            color: selected ? kCyan.withOpacity(0.4) : kCyan.withOpacity(0.1),
             width: 1,
           ),
         ),
         child: Row(children: [
           Container(
-            width: 40.w, height: 40.h,
+            width: 40.w,
+            height: 40.h,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: kCyan.withOpacity(0.1),
@@ -718,7 +715,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                 0 => Icons.account_balance_rounded,
                 _ => Icons.account_balance_wallet_rounded,
               },
-              color: kCyan, size: 20.w,
+              color: kCyan,
+              size: 20.w,
             ),
           ),
           SizedBox(width: 12.w),
@@ -730,28 +728,25 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                 Text(m['name'] as String,
                     style: TextStyle(
                         color: context.txtPri,
-                        fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w600)),
                 SizedBox(height: 2.h),
                 Text(m['feeLabel'] as String,
-                    style: TextStyle(
-                        color: context.txtSec, fontSize: 12.sp)),
+                    style: TextStyle(color: context.txtSec, fontSize: 12.sp)),
               ],
             ),
           ),
           Container(
-            width: 22.w, height: 22.h,
+            width: 22.w,
+            height: 22.h,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: selected ? kCyan : Colors.transparent,
               border: Border.all(
-                  color: selected
-                      ? kCyan
-                      : context.border,
-                  width: 2),
+                  color: selected ? kCyan : context.border, width: 2),
             ),
             child: selected
-                ? Icon(Icons.check_rounded,
-                    color: context.txtPri, size: 14.w)
+                ? Icon(Icons.check_rounded, color: context.txtPri, size: 14.w)
                 : null,
           ),
         ]),
@@ -774,14 +769,17 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           Text('Bank Details',
               style: TextStyle(
                   color: context.txtPri,
-                  fontSize: 14.sp, fontWeight: FontWeight.w700)),
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w700)),
           SizedBox(height: 12.h),
           _banksLoading
               ? SizedBox(
-                  width: 52.w, height: 28.h,
+                  width: 52.w,
+                  height: 28.h,
                   child: Center(
                     child: SizedBox(
-                      width: 18.w, height: 18.h,
+                      width: 18.w,
+                      height: 18.h,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   ))
@@ -791,16 +789,15 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                   style: TextStyle(color: context.txtPri),
                   decoration: InputDecoration(
                     hintText: 'Select bank',
-                    hintStyle: TextStyle(
-                        color: context.txtSec),
+                    hintStyle: TextStyle(color: context.txtSec),
                     filled: true,
                     fillColor: context.card,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12.r),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: 14.w, vertical: 12.h),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
                     isDense: true,
                   ),
                   items: _banks
@@ -816,11 +813,10 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                     if (code == null) return;
                     setState(() {
                       _selectedBankCode = code;
-                      _selectedBankName = _banks
-                          .firstWhere(
-                            (b) => b['code'] == code,
-                            orElse: () => const {'name': 'Unknown bank'},
-                          )['name'] as String?;
+                      _selectedBankName = _banks.firstWhere(
+                        (b) => b['code'] == code,
+                        orElse: () => const {'name': 'Unknown bank'},
+                      )['name'] as String?;
                     });
                   },
                 ),
@@ -837,8 +833,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
       {bool number = false}) {
     return TextField(
       controller: ctrl,
-      keyboardType:
-          number ? TextInputType.number : TextInputType.text,
+      keyboardType: number ? TextInputType.number : TextInputType.text,
       style: TextStyle(color: context.txtPri, fontSize: 14.sp),
       onChanged: (_) => setState(() {}),
       decoration: InputDecoration(
@@ -850,8 +845,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           borderRadius: BorderRadius.circular(12.r),
           borderSide: BorderSide.none,
         ),
-        contentPadding:
-            EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+        contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
         isDense: true,
       ),
     );
@@ -893,14 +887,14 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           SizedBox(
             width: 110.w,
             child: Text(label,
-                style: TextStyle(
-                    color: context.txtSec, fontSize: 12.sp)),
+                style: TextStyle(color: context.txtSec, fontSize: 12.sp)),
           ),
           Expanded(
             child: Text(value,
                 style: TextStyle(
                     color: context.txtPri,
-                    fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600)),
           ),
         ],
       ),

@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -10,6 +12,7 @@ import '../../utils/error_utils.dart';
 import '../../services/sound_service.dart';
 import '../../services/socket_service.dart';
 import '../../config/api_config.dart';
+import '../../utils/json_utils.dart';
 
 const Color _kRed = Color(0xFFFF2038);
 const Color _kBlue = Color(0xFF078CFF);
@@ -24,19 +27,6 @@ const List<String> _kNames = ['Red', 'Yellow', 'Green', 'Blue'];
 
 const List<int> _kStart = [0, 13, 26, 39];
 const Set<int> _kSafe52 = {0, 8, 13, 21, 26, 34, 39, 47};
-
-int? _jsonInt(dynamic value) => value is num ? value.toInt() : int.tryParse('$value');
-
-List<int> _jsonIntList(dynamic value) => value is List
-    ? value.map(_jsonInt).whereType<int>().toList(growable: false)
-    : const <int>[];
-
-List<Map<String, dynamic>> _jsonMapList(dynamic value) => value is List
-    ? value
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList(growable: false)
-    : const <Map<String, dynamic>>[];
 
 class _Piece {
   int pos;
@@ -57,11 +47,11 @@ class _Piece {
 
 _Piece _pieceFromServer(Map<String, dynamic> s) {
   final p = _Piece();
-  final pos = _jsonInt(s['position']) ?? -1;
+  final pos = jsonInt(s['position']) ?? -1;
   final inHS = s['inHomeStretch'] as bool? ?? false;
-  final hp = _jsonInt(s['homePosition']) ?? 0;
+  final hp = jsonInt(s['homePosition']) ?? 0;
   final done = s['completed'] as bool? ?? false;
-  final cIdx = _jsonInt(s['colorIdx']) ?? 0;
+  final cIdx = jsonInt(s['colorIdx']) ?? 0;
   p.colorIdx = cIdx;
   if (done) {
     p.home = true;
@@ -124,8 +114,8 @@ class _PracticeLudoService {
     sessionId = data['sessionId'] as String;
     final players = data['players'] as List;
     playerCount = players.length;
-    humanPlayerIndices = _jsonIntList(data['humanPlayerIndices']);
-    diceCount = _jsonInt(data['diceCount']) ?? 1;
+    humanPlayerIndices = jsonIntList(data['humanPlayerIndices']);
+    diceCount = jsonInt(data['diceCount']) ?? 1;
     dualHome = data['dualHome'] as bool? ?? false;
     return data;
   }
@@ -474,18 +464,18 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       }
     }
 
-    final idx = _jsonInt(gs['currentPlayerIndex']);
+    final idx = jsonInt(gs['currentPlayerIndex']);
     if (idx != null && idx >= 0 && idx < _playerCount) _current = idx;
 
     final isMyTurn = _current == _humanIndex;
-    final dv = _jsonIntList(gs['diceValues']);
-    final legal = _jsonIntList(gs['legalPieceIds']);
+    final dv = jsonIntList(gs['diceValues']);
+    final legal = jsonIntList(gs['legalPieceIds']);
 
     setState(() {
       _diceValues = dv;
-      _dice = dv.isNotEmpty ? dv.first : (_jsonInt(gs['diceValue']) ?? 0);
+      _dice = dv.isNotEmpty ? dv.first : (jsonInt(gs['diceValue']) ?? 0);
       _legal = legal;
-      _legalMoves = _jsonMapList(gs['legalMoves']);
+      _legalMoves = jsonMapList(gs['legalMoves']);
       _selected = null;
       _rolling = false;
       _waiting = dv.isEmpty || !isMyTurn;
@@ -552,7 +542,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           ? ((players[0] as Map)['pieces'] as List?)?.length ?? 4
           : 4;
       _updatePiecesFromPlayers(players);
-      _current = _jsonInt(data['currentPlayerIndex']) ?? 0;
+      _current = jsonInt(data['currentPlayerIndex']) ?? 0;
       if (mounted)
         setState(() {
           _waiting = true;
@@ -572,13 +562,13 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           : 0;
     }
 
-    _current = _jsonInt(data['currentPlayerIndex']) ?? _current;
+    _current = jsonInt(data['currentPlayerIndex']) ?? _current;
 
     if (data['moreMoves'] == true) {
-      _diceValues = _jsonIntList(data['diceValues']);
+      _diceValues = jsonIntList(data['diceValues']);
       _dice = _diceValues.isNotEmpty ? _diceValues[0] : 0;
-      _legal = _jsonIntList(data['legalPieceIds']);
-      _legalMoves = _jsonMapList(data['legalMoves']);
+      _legal = jsonIntList(data['legalPieceIds']);
+      _legalMoves = jsonMapList(data['legalMoves']);
       _waiting = false;
       _selected = null;
       setState(() {});
@@ -610,7 +600,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     final capture = action['capture'] as Map<String, dynamic>?;
     final isWin = action['isWin'] as bool? ?? false;
 
-    _dice = _jsonInt(action['diceValue']) ?? 0;
+    _dice = jsonInt(action['diceValue']) ?? 0;
 
     if (capture != null) {
       SoundService.instance.play(SoundType.capture);
@@ -621,7 +611,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
     if (isWin) {
       _gameOver = true;
-      _winner = _jsonInt(action['playerIndex']) ?? _current;
+      _winner = jsonInt(action['playerIndex']) ?? _current;
       _legal = [];
       _dice = 0;
       SoundService.instance.play(SoundType.gameLose);
@@ -683,16 +673,16 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
       if (!mounted) return;
 
-      var diceValues = _jsonIntList(data['diceValues']);
-      final singleDice = _jsonInt(data['diceValue']);
+      var diceValues = jsonIntList(data['diceValues']);
+      final singleDice = jsonInt(data['diceValue']);
       if (diceValues.isEmpty && singleDice != null) diceValues = [singleDice];
       if (diceValues.isEmpty) {
         throw const FormatException('The game server returned no dice result');
       }
-      final legal = _jsonIntList(data['legalPieceIds']);
-      final legalMoves = _jsonMapList(data['legalMoves']);
+      final legal = jsonIntList(data['legalPieceIds']);
+      final legalMoves = jsonMapList(data['legalMoves']);
       final mustPass = data['mustPass'] as bool? ?? false;
-      final diceCount = _jsonInt(data['diceCount']) ?? 1;
+      final diceCount = jsonInt(data['diceCount']) ?? 1;
 
       setState(() {
         _dice = diceValues.isNotEmpty ? diceValues[0] : 0;
@@ -730,7 +720,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
       if (data['moreMoves'] == true) return;
 
-      final botActions = _jsonMapList(data['botActions']);
+      final botActions = jsonMapList(data['botActions']);
       _pendingBotActions = botActions;
       await _animateBotActions();
 
@@ -745,10 +735,10 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   void _checkPreRolled(Map<String, dynamic> data) {
     final diceRolled = data['diceRolled'] as bool? ?? false;
     if (diceRolled) {
-      var diceValues = _jsonIntList(data['diceValues']);
-      final singleDice = _jsonInt(data['diceValue']);
+      var diceValues = jsonIntList(data['diceValues']);
+      final singleDice = jsonInt(data['diceValue']);
       if (diceValues.isEmpty && singleDice != null) diceValues = [singleDice];
-      final legal = _jsonIntList(data['legalPieceIds']);
+      final legal = jsonIntList(data['legalPieceIds']);
       setState(() {
         _diceValues = diceValues;
         _dice = diceValues.isNotEmpty ? diceValues[0] : 0;
@@ -798,7 +788,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         return;
       }
 
-      final botActions = _jsonMapList(data['botActions']);
+      final botActions = jsonMapList(data['botActions']);
       _pendingBotActions = botActions;
       _selected = null;
       await _animateBotActions();
@@ -820,7 +810,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     if (_legalMoves.isEmpty) return null;
     final matches = _legalMoves
         .where((m) => m['pieceId'] == pieceId)
-        .map((m) => _jsonInt(m['diceValue']))
+        .map((m) => jsonInt(m['diceValue']))
         .whereType<int>()
         .toSet()
         .toList();
@@ -935,13 +925,12 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     Widget playerStrip(int i) {
       final isHuman = i == _humanIndex;
       final playerPieceList = i < _pieces.length ? _pieces[i] : <_Piece>[];
-      final uniqueColors = playerPieceList.map((p) => p.colorIdx).toSet().toList()
-        ..sort();
+      final uniqueColors =
+          playerPieceList.map((p) => p.colorIdx).toSet().toList()..sort();
       final colors = uniqueColors.map((ci) => _kColors[ci]).toList();
       final homes = uniqueColors
-          .map((ci) => playerPieceList
-              .where((p) => p.colorIdx == ci && p.home)
-              .length)
+          .map((ci) =>
+              playerPieceList.where((p) => p.colorIdx == ci && p.home).length)
           .toList();
       final perColorTotal = _tokenCount > 4 ? 4 : _tokenCount;
       final label = isHuman ? 'You' : (_isMp ? _nameFor(i) : 'Gamearn Bot');
@@ -1024,69 +1013,72 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         ),
         child: SafeArea(
           child: Column(
-          children: [
-            ...List.generate(_playerCount, (i) =>
-                i == _humanIndex ? const SizedBox.shrink() : playerStrip(i)),
-            Expanded(
-              child: LayoutBuilder(builder: (_, c) {
-                final bs = min(c.maxWidth, c.maxHeight);
-                return Center(
-                  child: AnimatedBuilder(
-                    animation: Listenable.merge([_pulse, _diceScatterCtrl]),
-                    builder: (_, __) => SizedBox(
-                      width: bs,
-                      height: bs,
-                      child: Stack(children: [
-                        CustomPaint(
-                          size: Size(bs, bs),
-                          painter: _BoardPainter(
+            children: [
+              ...List.generate(
+                  _playerCount,
+                  (i) => i == _humanIndex
+                      ? const SizedBox.shrink()
+                      : playerStrip(i)),
+              Expanded(
+                child: LayoutBuilder(builder: (_, c) {
+                  final bs = min(c.maxWidth, c.maxHeight);
+                  return Center(
+                    child: AnimatedBuilder(
+                      animation: Listenable.merge([_pulse, _diceScatterCtrl]),
+                      builder: (_, __) => SizedBox(
+                        width: bs,
+                        height: bs,
+                        child: Stack(children: [
+                          CustomPaint(
+                            size: Size(bs, bs),
+                            painter: _BoardPainter(
+                              pieces: _pieces,
+                              tokenCount: _tokenCount,
+                              current: _current,
+                              legal: _legal,
+                              selected: _selected,
+                              pulse: _pulse.value,
+                            ),
+                          ),
+                          _TapLayer(
+                            boardSize: bs,
                             pieces: _pieces,
                             tokenCount: _tokenCount,
                             current: _current,
                             legal: _legal,
-                            selected: _selected,
-                            pulse: _pulse.value,
+                            isHuman: _isHuman,
+                            waiting: _waiting,
+                            onTap: _onPieceTap,
                           ),
-                        ),
-                        _TapLayer(
-                          boardSize: bs,
-                          pieces: _pieces,
-                          tokenCount: _tokenCount,
-                          current: _current,
-                          legal: _legal,
-                          isHuman: _isHuman,
-                          waiting: _waiting,
-                          onTap: _onPieceTap,
-                        ),
-                        _CenterDice(
-                          boardSize: bs,
-                          dice: _dice,
-                          diceValues: _diceValues,
-                          diceCount: _diceCount,
-                          waiting: _waiting,
-                          canRoll: _isHuman && !_gameOver,
-                          scattering: _scattering,
-                          t: _diceScatterCtrl.value,
-                          points: _scatterPoints,
-                          pulse: _pulse.value,
-                          onRoll: _humanRoll,
-                        ),
-                      ]),
+                          _CenterDice(
+                            boardSize: bs,
+                            dice: _dice,
+                            diceValues: _diceValues,
+                            diceCount: _diceCount,
+                            waiting: _waiting,
+                            canRoll: _isHuman && !_gameOver,
+                            scattering: _scattering,
+                            t: _diceScatterCtrl.value,
+                            points: _scatterPoints,
+                            pulse: _pulse.value,
+                            onRoll: _humanRoll,
+                          ),
+                        ]),
+                      ),
                     ),
-                  ),
-                );
-              }),
-            ),
-            if (_humanIndex >= 0 && _humanIndex < _playerCount)
-              playerStrip(_humanIndex),
-            _BottomBar(
-              status: _statusText,
-              isHuman: _isHuman,
-              waiting: _waiting,
-              gameOver: _gameOver,
-            ),
-            SizedBox(height: 8.h),
-          ],
+                  );
+                }),
+              ),
+              if (_humanIndex >= 0 && _humanIndex < _playerCount)
+                playerStrip(_humanIndex),
+              _BottomBar(
+                status: _statusText,
+                isHuman: _isHuman,
+                waiting: _waiting,
+                gameOver: _gameOver,
+              ),
+              SizedBox(height: 8.h),
+            ],
           ),
         ),
       ),
