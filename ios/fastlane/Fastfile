@@ -35,6 +35,20 @@ platform :ios do
         in_house: false,
       ),
     )
+
+    # Apply the Match distribution identity only to the application target.
+    # Passing a provisioning profile through global xcodebuild arguments also
+    # applies it to CocoaPods, which are framework targets and cannot be signed
+    # with an application provisioning profile.
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "Runner.xcodeproj",
+      team_id: team_id,
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore com.gamearn",
+      build_configurations: ["Release"],
+      targets: ["Runner"],
+    )
   end
 
   desc "Build & export an App Store IPA (signed via match)"
@@ -55,12 +69,7 @@ platform :ios do
       # The project deliberately keeps signing identity out of source control.
       # Supply the Apple team explicitly for the archive build; export_team_id
       # alone only applies during IPA export and does not sign Runner.xcarchive.
-      xcargs: [
-        "DEVELOPMENT_TEAM=#{team_id}",
-        "CODE_SIGN_STYLE=Manual",
-        "CODE_SIGN_IDENTITY='Apple Distribution'",
-        "PROVISIONING_PROFILE_SPECIFIER='match AppStore com.gamearn'",
-      ].join(" "),
+      xcargs: "DEVELOPMENT_TEAM=#{team_id}",
       export_options: {
         signingStyle: "manual",
         teamID: team_id,
