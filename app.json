@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Gamearn",
+    "slug": "gamearn",
+    "version": "2.0.25",
+    "orientation": "portrait",
+    "icon": "./assets/logos/logo_dark.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/logos/logo_dark.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0E1A"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gamearn.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logos/logo_icon.png",
+        "backgroundColor": "#0A0E1A"
+      },
+      "package": "com.gamearn.app"
+    },
+    "web": {
+      "favicon": "./assets/logos/logo_icon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font",
+      "expo-web-browser"
+    ]
+  }
+}
