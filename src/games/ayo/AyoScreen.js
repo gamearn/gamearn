@@ -75,7 +75,7 @@ function parseTimerSec(timerStr) {
   return 120;
 }
 
-export function AyoScreen({ timer = '2m', onWin, onBack }) {
+export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove }) {
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
   const [gameState, setGameState] = useState(createAyoInitialState);
   const [selected, setSelected] = useState(null);
@@ -138,6 +138,7 @@ export function AyoScreen({ timer = '2m', onWin, onBack }) {
       return;
     }
 
+    onHumanMove?.(index);
     setSelected(index);
     setGameState((prev) => sowAyoSeeds(prev, index));
   }

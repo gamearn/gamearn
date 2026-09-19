@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,16 +15,33 @@ import { GoogleIcon, AppleIcon, FacebookIcon } from '../../components/SocialIcon
 import { useAuth } from '../../context/AuthContext';
 
 export default function LandingScreen({ navigation }) {
-  const { signIn } = useAuth();
+  const { signUpWithGoogle, backendReady, user } = useAuth();
   const [agreed, setAgreed] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  const handleGuestLogin = async () => {
-    try {
-      await signIn('guest@gamearn.com', 'guest123');
-      navigation.replace('MainTabs');
-    } catch (e) {
-      navigation.replace('MainTabs');
+  useEffect(() => {
+    if (user) {
+      navigation.replace(backendReady ? 'MainTabs' : 'ProfileSetup');
     }
+  }, [user, backendReady, navigation]);
+
+  const handleGoogle = async () => {
+    if (!agreed) {
+      Alert.alert('Terms & Conditions', 'Please agree to the Terms and Conditions first.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await signUpWithGoogle();
+      setTimeout(() => setLoading(false), 300);
+    } catch (e) {
+      setLoading(false);
+      Alert.alert('Google Sign-In', e.message || 'Please try again.');
+    }
+  };
+
+  const handleComingSoon = (provider) => {
+    Alert.alert(`${provider} Sign-In`, `${provider} sign-in is coming soon. Use email or Google for now.`);
   };
 
   return (
@@ -140,8 +157,10 @@ export default function LandingScreen({ navigation }) {
             <View style={{ flex: 1 }}>
               <GAButton
                 title="Google"
-                onPress={handleGuestLogin}
+                onPress={handleGoogle}
                 variant="social"
+                loading={loading}
+                disabled={loading}
                 icon={<GoogleIcon size={18} />}
               />
             </View>
@@ -149,7 +168,7 @@ export default function LandingScreen({ navigation }) {
             <View style={{ flex: 1 }}>
               <GAButton
                 title="Apple"
-                onPress={handleGuestLogin}
+                onPress={() => handleComingSoon('Apple')}
                 variant="social"
                 icon={<AppleIcon size={18} color="#FFFFFF" />}
               />
@@ -158,7 +177,7 @@ export default function LandingScreen({ navigation }) {
 
           <GAButton
             title="Facebook"
-            onPress={handleGuestLogin}
+            onPress={() => handleComingSoon('Facebook')}
             variant="social"
             icon={<FacebookIcon size={18} />}
             style={{ marginTop: 10 }}

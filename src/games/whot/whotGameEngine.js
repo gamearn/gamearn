@@ -1,8 +1,9 @@
-const SHAPE_COLORS = {
+export const SHAPE_COLORS = {
   cross: '#f9002c',
   square: '#00bb50',
   circle: '#9400df',
   triangle: '#292533',
+  star: '#ff5e00',
   whot: '#ffcc00',
 };
 

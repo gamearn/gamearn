@@ -71,6 +71,8 @@ export default function RegisterScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* Top Logo */}
         <View style={styles.logoSection}>
@@ -225,10 +227,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 50,
-    paddingBottom: 30,
+    paddingBottom: 40,
     alignItems: 'center',
-    flexGrow: 1,
-    justifyContent: 'space-between',
   },
   logoSection: {
     alignItems: 'center',

@@ -13,7 +13,7 @@ import { CrownIcon } from '../../components/SocialIcons';
 import { useAuth } from '../../context/AuthContext';
 
 export default function SplashScreen({ navigation }) {
-  const { user } = useAuth();
+  const { user, backendReady, loading } = useAuth();
   const [progress, setProgress] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
@@ -48,10 +48,14 @@ export default function SplashScreen({ navigation }) {
   }, [progress]);
 
   const handleProceed = () => {
-    if (user) {
-      navigation.replace('MainTabs');
-    } else {
+    if (loading) return;
+    if (!user) {
       navigation.replace('Landing');
+    } else if (!backendReady) {
+      // Signed in to Firebase but no backend profile yet → complete onboarding.
+      navigation.replace('ProfileSetup');
+    } else {
+      navigation.replace('MainTabs');
     }
   };
 

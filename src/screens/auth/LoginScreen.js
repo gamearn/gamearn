@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { Mail, Lock } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
@@ -16,11 +17,21 @@ import { GoogleIcon, AppleIcon } from '../../components/SocialIcons';
 import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen({ navigation }) {
-  const { signIn } = useAuth();
+  const { signIn, signUpWithGoogle, backendReady, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const didNavigate = React.useRef(false);
+
+  useEffect(() => {
+    const routeHome = () => {
+      if (didNavigate.current || !user) return;
+      didNavigate.current = true;
+      navigation.replace(backendReady ? 'MainTabs' : 'ProfileSetup');
+    };
+    routeHome();
+  }, [user, backendReady, navigation]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -31,7 +42,7 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       await signIn(email.trim(), password);
-      navigation.replace('MainTabs');
+      // signIn loads the backend profile; navigate from the effect above.
     } catch (e) {
       setError(e.message || 'Login failed. Check your credentials.');
     } finally {
@@ -39,16 +50,22 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  const handleSocialLogin = async () => {
+  const handleGoogle = async () => {
+    setError('');
     setLoading(true);
     try {
-      await signIn('guest@gamearn.com', 'guest123');
-      navigation.replace('MainTabs');
+      await signUpWithGoogle();
+      // Profile is loaded by AuthContext once Google returns; navigate on
+      // user/backendReady change. If the Google flow was cancelled, reset.
+      setTimeout(() => setLoading(false), 300);
     } catch (e) {
-      navigation.replace('MainTabs');
-    } finally {
+      setError(e.message || 'Google sign-in failed. Please try again.');
       setLoading(false);
     }
+  };
+
+  const handleApple = () => {
+    Alert.alert('Apple Sign-In', 'Apple sign-in is coming soon. Use Google or email for now.');
   };
 
   return (
@@ -67,6 +84,8 @@ export default function LoginScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* Top Logo */}
         <View style={styles.logoSection}>
@@ -139,8 +158,10 @@ export default function LoginScreen({ navigation }) {
             <View style={{ flex: 1 }}>
               <GAButton
                 title="Google"
-                onPress={handleSocialLogin}
+                onPress={handleGoogle}
+                loading={loading}
                 variant="social"
+                disabled={loading}
                 icon={<GoogleIcon size={18} />}
               />
             </View>
@@ -148,7 +169,7 @@ export default function LoginScreen({ navigation }) {
             <View style={{ flex: 1 }}>
               <GAButton
                 title="Apple"
-                onPress={handleSocialLogin}
+                onPress={handleApple}
                 variant="social"
                 icon={<AppleIcon size={18} color="#FFFFFF" />}
               />
@@ -211,10 +232,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 60,
-    paddingBottom: 30,
+    paddingBottom: 40,
     alignItems: 'center',
-    flexGrow: 1,
-    justifyContent: 'space-between',
   },
   logoSection: {
     alignItems: 'center',

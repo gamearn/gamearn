@@ -1,100 +1,145 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   StatusBar,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Plus, Trophy, Coins, Users, Zap, Shield, ChevronRight } from 'lucide-react-native';
+import { Plus, Trophy, Coins, Users, ChevronRight } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { tournaments } from '../../services/api';
+import { ApiError } from '../../services/apiClient';
+import { naira } from '../../config/appConfig';
 
-const TOURNAMENTS = [
-  {
-    id: 't1',
-    title: 'Neon Dráfù Season 4',
-    game: 'Dráfù',
-    type: 'NUMBER-OF-PLAYS',
-    entryFee: '50 GC',
-    players: '18 / 32',
-    status: 'PENDING ENTRY',
-    statusColor: '#F59E0B',
-    avatars: [
-      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100',
-      'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100',
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-    ],
-    moreCount: '+12',
-  },
-  {
-    id: 't2',
-    title: 'Lúùdò Legends: Void Hunt',
-    game: 'Lúùdò',
-    type: 'WIN-BASED',
-    entryFee: '50 GC',
-    players: '4 / 16',
-    status: 'PENDING ENTRY',
-    statusColor: '#F59E0B',
-    avatars: [
-      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100',
-      'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
-    ],
-    moreCount: '+2',
-  },
-  {
-    id: 't3',
-    title: 'Ayò Ọ̀pọ́n Grandmaster Cup',
-    game: 'Ayò Ọ̀pọ́n',
-    type: 'WIN-BASED',
-    entryFee: '100 GC',
-    players: '32 / 32',
-    status: 'LIVE NOW',
-    statusColor: '#00E5FF',
-    avatars: [
-      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100',
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-    ],
-    moreCount: '+30',
-  },
-  {
-    id: 't4',
-    title: 'Dráfù Grandmaster Championship',
-    game: 'Dráfù',
-    type: 'WIN-BASED',
-    entryFee: '₦500.00',
-    players: '150 / 150',
-    status: 'COMPLETED',
-    statusColor: '#10B981',
-    avatars: [
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
-      'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100',
-    ],
-    moreCount: '+148',
-  },
-];
+const STATUS_META = {
+  registration_open: { label: 'REGISTRATION OPEN', color: '#00E5FF' },
+  scheduled: { label: 'PENDING ENTRY', color: '#F59E0B' },
+  pending: { label: 'PENDING ENTRY', color: '#F59E0B' },
+  in_progress: { label: 'LIVE NOW', color: '#00E5FF' },
+  completed: { label: 'COMPLETED', color: '#10B981' },
+  cancelled: { label: 'CANCELLED', color: '#EF4444' },
+};
+
+const GAME_LABELS = { whot: 'Wọ́t', ludo: 'Lúùdò', ayo: 'Ayò Ọ̀pọ́n', draughts: 'Dráfù' };
 
 export default function TourScreen({ navigation }) {
   const { userProfile } = useAuth();
   const { theme, isDark } = useTheme();
-  const userName = userProfile?.name || 'Adebayo';
+  const userName = userProfile?.name || userProfile?.username || 'Adebayo';
+
+  const [upcoming, setUpcoming] = useState([]);
+  const [mine, setMine] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    try {
+      const [list, myTours] = await Promise.all([tournaments.list(), tournaments.my()]);
+      setUpcoming(list || []);
+      setMine(myTours || []);
+      setError('');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not load tournaments.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    load();
+  };
+
+  const openTournament = (item) => {
+    const status = item.status;
+    if (status === 'in_progress') {
+      navigation.navigate('LiveTournament', { tourId: item.id, title: item.name });
+    } else if (status === 'completed') {
+      navigation.navigate('TournamentResults', { tourId: item.id, title: item.name });
+    } else {
+      navigation.navigate('TournamentDetails', { tourId: item.id, title: item.name });
+    }
+  };
+
+  const renderCard = (item, rightLabel) => {
+    const meta = STATUS_META[item.status] || { label: 'PENDING ENTRY', color: '#F59E0B' };
+    const slot = `${item.currentParticipants} / ${item.maxParticipants}`;
+    const game = GAME_LABELS[item.gameType] || item.gameType || 'Game';
+    const isCompleted = item.status === 'completed';
+    const isCancelled = item.status === 'cancelled';
+    const prize = isCompleted || item.prizePool > 0 ? item.prizePool : null;
+
+    return (
+      <View key={item.id} style={styles.tourCard}>
+        <LinearGradient
+          colors={isDark ? ['rgba(15, 30, 55, 0.75)', 'rgba(10, 20, 40, 0.75)'] : ['#FFFFFF', '#F8FAFC']}
+          style={[styles.tourCardGradient, { borderColor: theme.cardBorderSubtle }]}
+        >
+          <View style={styles.tourCardHeader}>
+            <View style={styles.statusRow}>
+              <View style={[styles.dot, { backgroundColor: meta.color }]} />
+              <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
+            </View>
+
+            <View style={[styles.gcBadge, { backgroundColor: isDark ? 'rgba(0, 229, 255, 0.1)' : 'rgba(0, 180, 216, 0.1)' }]}>
+              <Coins size={14} color={theme.primary} style={{ marginRight: 4 }} />
+              <Text style={[styles.gcBadgeText, { color: theme.primary }]}>{item.entryFee > 0 ? naira(item.entryFee) : 'FREE'}</Text>
+            </View>
+          </View>
+
+          <Text style={[styles.tourCardTitle, { color: theme.textPrimary }]}>{item.name}</Text>
+          <Text style={[styles.tourCardType, { color: theme.textSecondary }]}>
+            {game.toUpperCase()} · WIN-BASED
+          </Text>
+
+          {prize !== null && (
+            <Text style={styles.prizeLine}>Prize pool: {naira(prize)}</Text>
+          )}
+          {isCancelled && <Text style={styles.cancelLine}>This tournament was cancelled.</Text>}
+
+          <View style={styles.tourCardFooter}>
+            <View>
+              <View style={styles.participantsRow}>
+                <Users size={14} color={theme.primary} style={{ marginRight: 6 }} />
+                <Text style={styles.joinedCountText}>{slot} PLAYERS</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity activeOpacity={0.8} onPress={() => openTournament(item)} style={styles.viewDetailsBtn}>
+              <Text style={styles.viewDetailsText}>{rightLabel || 'VIEW DETAILS'}</Text>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.screenRoot, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
       <LinearGradient colors={theme.gradientBg} style={StyleSheet.absoluteFillObject} />
 
-      {/* Screen Title */}
       <View style={styles.topHeader}>
-        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Tournament Details</Text>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Tournaments</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Host Your Own Banner */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00E5FF" />}
+      >
         <TouchableOpacity
           activeOpacity={0.88}
           onPress={() => navigation.navigate('CreateTournament')}
@@ -114,96 +159,54 @@ export default function TourScreen({ navigation }) {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* User Profile Bar */}
-        <View style={styles.userBarCard}>
-          <LinearGradient
-            colors={isDark ? ['rgba(15, 45, 70, 0.8)', 'rgba(8, 28, 48, 0.8)'] : ['#FFFFFF', '#F1F5F9']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.userBarGradient, { borderColor: theme.cardBorderSubtle }]}
-          >
-            <View style={styles.userInfoLeft}>
-              <View style={styles.userAvatarRing}>
-                <Image
-                  source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100' }}
-                  style={styles.userAvatarImg}
-                />
-              </View>
-              <Text style={[styles.userNameText, { color: theme.textPrimary }]}>{userName}</Text>
+        {loading ? (
+          <View style={styles.centerBox}>
+            <ActivityIndicator size="large" color="#00E5FF" />
+            <Text style={styles.centerText}>Loading tournaments…</Text>
+          </View>
+        ) : error !== '' ? (
+          <View style={styles.centerBox}>
+            <Text style={[styles.centerText, { color: theme.textPrimary }]}>{error}</Text>
+            <TouchableOpacity onPress={load} style={styles.retryBtn}>
+              <Text style={styles.retryText}>TRY AGAIN</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <View style={styles.sectionLabelRow}>
+              <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>OPEN & UPCOMING</Text>
+              {upcoming.length > 0 && (
+                <Text style={styles.sectionCount}>{upcoming.length} FOUND</Text>
+              )}
             </View>
 
-            <View style={styles.userStatsRight}>
-              <Text style={[styles.xpText, { color: theme.primary }]}>78,450 XP</Text>
-              <Text style={[styles.winsText, { color: theme.textSecondary }]}>50 Wins</Text>
+            <View style={styles.tourList}>
+              {upcoming.length === 0 ? (
+                <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                  No tournaments open right now — check back soon or host your own above.
+                </Text>
+              ) : (
+                upcoming.map((item) => renderCard(item))
+              )}
             </View>
-          </LinearGradient>
-        </View>
 
-        {/* Tournament List */}
-        <View style={styles.tourList}>
-          {TOURNAMENTS.map((item) => (
-            <View key={item.id} style={styles.tourCard}>
-              <LinearGradient
-                colors={isDark ? ['rgba(15, 30, 55, 0.75)', 'rgba(10, 20, 40, 0.75)'] : ['#FFFFFF', '#F8FAFC']}
-                style={[styles.tourCardGradient, { borderColor: theme.cardBorderSubtle }]}
-              >
-                {/* Header Badge Row */}
-                <View style={styles.tourCardHeader}>
-                  <View style={styles.statusRow}>
-                    <View style={[styles.dot, { backgroundColor: item.statusColor }]} />
-                    <Text style={[styles.statusText, { color: item.statusColor }]}>{item.status}</Text>
-                  </View>
-
-                  <View style={[styles.gcBadge, { backgroundColor: isDark ? 'rgba(0, 229, 255, 0.1)' : 'rgba(0, 180, 216, 0.1)' }]}>
-                    <Coins size={14} color={theme.primary} style={{ marginRight: 4 }} />
-                    <Text style={[styles.gcBadgeText, { color: theme.primary }]}>{item.entryFee}</Text>
-                  </View>
-                </View>
-
-                {/* Tournament Info */}
-                <Text style={[styles.tourCardTitle, { color: theme.textPrimary }]}>{item.title}</Text>
-                <Text style={[styles.tourCardType, { color: theme.textSecondary }]}>{item.type}</Text>
-
-                {/* Footer: Avatars + View Details Button */}
-                <View style={styles.tourCardFooter}>
-                  <View>
-                    <View style={styles.avatarStack}>
-                      {item.avatars.map((url, idx) => (
-                        <Image
-                          key={idx}
-                          source={{ uri: url }}
-                          style={[styles.stackAvatar, { marginLeft: idx === 0 ? 0 : -10 }]}
-                        />
-                      ))}
-                      <View style={[styles.stackAvatar, styles.moreAvatarBox, { marginLeft: -10 }]}>
-                        <Text style={styles.moreAvatarText}>{item.moreCount}</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.joinedCountText}>{item.players} PLAYERS JOINED</Text>
-                  </View>
-
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      if (item.status === 'LIVE NOW') {
-                        navigation.navigate('LiveTournament', { tourId: item.id, title: item.title });
-                      } else if (item.status === 'PENDING ENTRY') {
-                        navigation.navigate('TournamentPending', { tourId: item.id, title: item.title, entryFee: item.entryFee });
-                      } else if (item.status === 'COMPLETED') {
-                        navigation.navigate('TournamentResults', { tourId: item.id, title: item.title });
-                      } else {
-                        navigation.navigate('TournamentDetails', { tourId: item.id, title: item.title });
-                      }
-                    }}
-                    style={styles.viewDetailsBtn}
-                  >
-                    <Text style={styles.viewDetailsText}>VIEW DETAILS</Text>
-                  </TouchableOpacity>
-                </View>
-              </LinearGradient>
+            <View style={styles.sectionLabelRow}>
+              <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>MY TOURNAMENTS</Text>
             </View>
-          ))}
-        </View>
+
+            <View style={styles.tourList}>
+              {mine.length === 0 ? (
+                <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                  You haven't joined any tournaments yet.
+                </Text>
+              ) : (
+                mine.map((item) =>
+                  renderCard(item, item.status === 'completed' ? 'SEE RESULTS' : 'OPEN'),
+                )
+              )}
+            </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -266,56 +269,54 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  userBarCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 229, 255, 0.2)',
-    overflow: 'hidden',
-    marginBottom: 20,
-  },
-  userBarGradient: {
+  sectionLabelRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  userInfoLeft: {
-    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 12,
+    marginTop: 8,
   },
-  userAvatarRing: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#00E5FF',
-    overflow: 'hidden',
-    marginRight: 12,
-  },
-  userAvatarImg: {
-    width: '100%',
-    height: '100%',
-  },
-  userNameText: {
-    color: '#FFFFFF',
+  sectionLabel: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
   },
-  userStatsRight: {
-    alignItems: 'flex-end',
-  },
-  xpText: {
+  sectionCount: {
     color: '#00E5FF',
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
-  winsText: {
+  centerBox: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+  centerText: {
     color: '#94A3B8',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#00E5FF',
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+  },
+  retryText: {
+    color: '#00E5FF',
+    fontWeight: '800',
     fontSize: 12,
+    letterSpacing: 1,
+  },
+  emptyText: {
+    fontSize: 13,
+    lineHeight: 19,
   },
   tourList: {
     gap: 16,
+    marginBottom: 8,
   },
   tourCard: {
     borderRadius: 18,
@@ -325,6 +326,7 @@ const styles = StyleSheet.create({
   },
   tourCardGradient: {
     padding: 18,
+    borderWidth: 1,
   },
   tourCardHeader: {
     flexDirection: 'row',
@@ -373,34 +375,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  prizeLine: {
+    color: '#F59E0B',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 10,
+  },
+  cancelLine: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 10,
   },
   tourCardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  avatarStack: {
+  participantsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
-  },
-  stackAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#091026',
-  },
-  moreAvatarBox: {
-    backgroundColor: '#1E293B',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moreAvatarText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
   },
   joinedCountText: {
     color: '#94A3B8',

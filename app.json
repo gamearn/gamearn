@@ -2,37 +2,56 @@
   "expo": {
     "name": "Gamearn",
     "slug": "gamearn",
+    "owner": "gamearn",
     "version": "2.0.25",
+    "scheme": "gamearn",
     "orientation": "portrait",
     "icon": "./assets/logos/logo_dark.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "image": "./assets/logos/logo_dark.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0A0E1A"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gamearn.app"
+      "bundleIdentifier": "com.gamearn.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Gamearn uses the camera to update your profile photo.",
+        "NSPhotoLibraryUsageDescription": "Gamearn accesses your photo library so you can set a profile photo.",
+        "NSAppleMusicUsageDescription": "Gamearn uses Apple Sign-In to let you log in with your Apple ID."
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logos/logo_icon.png",
+        "foregroundImage": "./assets/logos/logo_dark.png",
         "backgroundColor": "#0A0E1A"
       },
-      "package": "com.gamearn.app"
+      "package": "com.gamearn.app",
+      "versionCode": 25
     },
     "web": {
-      "favicon": "./assets/logos/logo_icon.png",
+      "favicon": "./assets/logos/logo_dark.png",
       "bundler": "metro"
     },
     "plugins": [
       "expo-asset",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-status-bar",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Gamearn accesses your photo library so you can set a profile photo.",
+          "cameraPermission": "Gamearn uses the camera to update your profile photo."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logos/logo_dark.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0A0E1A"
+        }
+      ]
     ]
   }
 }

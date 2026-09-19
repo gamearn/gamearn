@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,47 +6,63 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 import { PlusCircle, Banknote, Trophy, ShoppingCart, Flame, ChevronRight } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { wallet } from '../../services/api';
+
+const CREDIT_TYPES = new Set(['deposit', 'prize', 'refund', 'tournament_prize']);
+
+function formatTxDate(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
+      ' · ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+}
 
 export default function WalletScreen({ navigation }) {
-  const { userProfile } = useAuth();
+  const { userProfile, refreshWallet } = useAuth();
   const { theme, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState('Overview');
+  const [transactions, setTransactions] = useState([]);
+  const [txLoading, setTxLoading] = useState(true);
 
-  const coins = userProfile?.coins ?? 24500;
+  const coins = userProfile?.coins ?? 0;
   const usdValue = (coins * 0.01).toFixed(2);
 
-  const TRANSACTIONS = [
-    {
-      id: 't1',
-      title: 'Valorant Pro-League Win',
-      date: 'Oct 24, 2023 · 14:20',
-      amountUnits: '+500 Units',
-      amountUsd: '+$5.00',
-      type: 'win',
-    },
-    {
-      id: 't2',
-      title: 'Battle Pass Purchase',
-      date: 'Oct 22, 2023 · 09:12',
-      amountUnits: '-1,200 Units',
-      amountUsd: '-$12.00',
-      type: 'purchase',
-    },
-    {
-      id: 't3',
-      title: 'Daily Streak Bonus',
-      date: 'Oct 20, 2023 · 08:00',
-      amountUnits: '+250 Units',
-      amountUsd: '+$2.50',
-      type: 'win',
-    },
-  ];
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        setTxLoading(true);
+        try {
+          const res = await wallet.transactions({ limit: 20 });
+          if (active && res.pagination) setTransactions(res.transactions || []);
+        } catch {
+          if (active) setTransactions([]);
+        } finally {
+          if (active) setTxLoading(false);
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  useEffect(() => {
+    refreshWallet().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <View style={[styles.screenRoot, { backgroundColor: theme.bg }]}>
@@ -181,42 +197,58 @@ export default function WalletScreen({ navigation }) {
         </View>
 
         <View style={styles.txList}>
-          {TRANSACTIONS.map((tx) => (
-            <View key={tx.id} style={[styles.txCardItem, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
-              <View
-                style={[
-                  styles.txIconBox,
-                  {
-                    backgroundColor:
-                      tx.type === 'win' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 229, 255, 0.15)',
-                  },
-                ]}
-              >
-                {tx.type === 'win' ? (
-                  <Trophy size={18} color="#10B981" />
-                ) : (
-                  <ShoppingCart size={18} color={theme.primary} />
-                )}
-              </View>
+          {txLoading ? (
+            <ActivityIndicator color={theme.primary} style={{ paddingVertical: 20 }} />
+          ) : transactions.length === 0 ? (
+            <Text style={[styles.txItemTitle, { color: theme.textSecondary, textAlign: 'center', paddingVertical: 20 }]}>
+              No transactions yet. Top up or play a game to get started.
+            </Text>
+          ) : (
+            transactions.map((tx) => {
+              const isCredit = CREDIT_TYPES.has(tx.type);
+              const amountN = Number(tx.amount) || 0;
+              return (
+                <View key={tx.id} style={[styles.txCardItem, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
+                  <View
+                    style={[
+                      styles.txIconBox,
+                      {
+                        backgroundColor:
+                          isCredit ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 229, 255, 0.15)',
+                      },
+                    ]}
+                  >
+                    {isCredit ? (
+                      <Trophy size={18} color="#10B981" />
+                    ) : (
+                      <ShoppingCart size={18} color={theme.primary} />
+                    )}
+                  </View>
 
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.txItemTitle, { color: theme.textPrimary }]}>{tx.title}</Text>
-                <Text style={[styles.txItemDate, { color: theme.textSecondary }]}>{tx.date}</Text>
-              </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.txItemTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                      {tx.description || tx.type.replace('_', ' ')}
+                    </Text>
+                    <Text style={[styles.txItemDate, { color: theme.textSecondary }]}>{formatTxDate(tx.createdAt)}</Text>
+                  </View>
 
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text
-                  style={[
-                    styles.txItemUnits,
-                    { color: tx.type === 'win' ? '#10B981' : theme.textPrimary },
-                  ]}
-                >
-                  {tx.amountUnits}
-                </Text>
-                <Text style={[styles.txItemUsd, { color: theme.textSecondary }]}>{tx.amountUsd}</Text>
-              </View>
-            </View>
-          ))}
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text
+                      style={[
+                        styles.txItemUnits,
+                        { color: isCredit ? '#10B981' : theme.textPrimary },
+                      ]}
+                    >
+                      {`${isCredit ? '+' : '-'}₦${amountN.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`}
+                    </Text>
+                    <Text style={[styles.txItemUsd, { color: theme.textSecondary }]}>
+                      {isCredit ? '+' : '-'}{Number(tx.amountKobo || 0).toLocaleString()} coins
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
         </View>
       </ScrollView>
     </View>

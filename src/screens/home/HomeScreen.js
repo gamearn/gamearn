@@ -149,7 +149,7 @@ export default function HomeScreen({ navigation }) {
   const launchGame = (game) => {
     if (!navigation) return;
     navigation.navigate('GameSection', {
-      gameId: game.id === 'draft' ? 'ludo' : game.id,
+      gameId: game.id,
       gameName: game.name,
       targetScreen: game.targetScreen,
     });
@@ -181,14 +181,8 @@ export default function HomeScreen({ navigation }) {
       setFormError('Enter ₦100–₦1,000,000, using no more than two decimal places.');
       return;
     }
-    if (depositLock.current) return;
-    depositLock.current = true;
-    dispatch({ type: 'TOP_UP', amount: parsed, id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, date: new Date().toISOString() });
-    if (updateProfileData && userProfile) {
-      updateProfileData({ coins: (userProfile.coins || 1000) + Math.floor(parsed / 100) });
-    }
     setSheet(null);
-    Alert.alert('Demo balance updated', `${money(parsed)} added locally. No payment was taken.`);
+    navigation?.navigate('BuyCoins');
   };
 
   function Header() {

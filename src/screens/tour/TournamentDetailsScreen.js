@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,78 +8,222 @@ import {
   Image,
   Alert,
   StatusBar,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, G } from 'react-native-svg';
-import {
-  ArrowLeft,
-  Zap,
-  CheckCircle2,
-  Swords,
-  Trophy,
-} from 'lucide-react-native';
+import { ArrowLeft, Zap, CheckCircle2, Swords, Trophy, Users } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
+import { tournaments } from '../../services/api';
+import { ApiError } from '../../services/apiClient';
+import { naira, koboToN } from '../../config/appConfig';
+
+const GAME_IMAGES = {
+  whot: require('../../../assets/games/whot_3d.jpg'),
+  ludo: require('../../../assets/games/ludo_3d.jpg'),
+  ayo: require('../../../assets/games/ayo_3d.jpg'),
+  draughts: require('../../../assets/games/draughts_3d.jpg'),
+};
+
+const STATUS_META = {
+  registration_open: { label: 'REGISTRATION OPEN', color: '#00E5FF' },
+  scheduled: { label: 'PENDING ENTRY', color: '#F59E0B' },
+  pending: { label: 'PENDING ENTRY', color: '#F59E0B' },
+  in_progress: { label: 'LIVE NOW', color: '#00E5FF' },
+  completed: { label: 'COMPLETED', color: '#10B981' },
+  cancelled: { label: 'CANCELLED', color: '#EF4444' },
+};
+
+function useCountdown(targetIso) {
+  const calc = () => {
+    if (!targetIso) return 0;
+    const diff = new Date(targetIso).getTime() - Date.now();
+    return diff > 0 ? Math.floor(diff / 1000) : 0;
+  };
+  const [seconds, setSeconds] = useState(calc);
+  useEffect(() => {
+    const timer = setInterval(() => setSeconds(calc()), 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetIso]);
+  return seconds;
+}
 
 export default function TournamentDetailsScreen({ route, navigation }) {
-  const { userProfile, updateProfileData } = useAuth();
-  const tourTitle = route.params?.title || 'Draft Grandmaster Championship';
-  const entryFee = route.params?.entryFee || 500;
+  const { userProfile, refreshWallet } = useAuth();
+  const tourId = route.params?.tourId;
+  const fallbackTitle = route.params?.title || 'Dráfù Grandmaster Championship';
 
-  const [joined, setJoined] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(23 * 3600 + 45 * 60 + 12);
+  const [tour, setTour] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [joining, setJoining] = useState(false);
+
+  const myUid = userProfile?.uid;
+  const stillLoading = !tour;
+
+  const deadline =
+    tour?.registrationClosesAt ||
+    (tour?.status === 'scheduled' || tour?.status === 'pending' ? tour?.scheduledStart : null);
+  const countdown = useCountdown(deadline);
+
+  const load = useCallback(async () => {
+    if (!tourId) {
+      setLoading(false);
+      setError('This tournament is awaiting approval. It will appear in the lobby once it opens.');
+      return;
+    }
+    try {
+      const data = await tournaments.get(tourId);
+      setTour(data);
+      setError('');
+    } catch (err) {
+      const msg = err instanceof ApiError && (err.code === 'NOT_FOUND' || err.code === 'API_ERROR')
+        ? 'This tournament is awaiting approval. It will appear in the lobby once it opens.'
+        : err.message || 'Could not load the tournament.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [tourId]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    load();
+  }, [load]);
 
-  const hours = Math.floor(secondsLeft / 3600);
-  const minutes = Math.floor((secondsLeft % 3600) / 60);
-  const seconds = secondsLeft % 60;
+  if (loading || stillLoading && tour === null) {
+    return (
+      <View style={styles.screenRoot}>
+        <StatusBar barStyle="light-content" backgroundColor="#070C1B" />
+        <LinearGradient colors={['#091026', '#060919', '#040612']} style={StyleSheet.absoluteFillObject} />
+        <View style={styles.centerBox}>
+          <ActivityIndicator size="large" color="#00E5FF" />
+          <Text style={styles.centerText}>Loading tournament…</Text>
+        </View>
+      </View>
+    );
+  }
 
-  const handleJoinTournament = () => {
-    if (joined) {
-      navigation.navigate('DraughtsGame');
-      return;
-    }
+  if (error !== '') {
+    return (
+      <View style={styles.screenRoot}>
+        <StatusBar barStyle="light-content" backgroundColor="#070C1B" />
+        <LinearGradient colors={['#091026', '#060919', '#040612']} style={StyleSheet.absoluteFillObject} />
+        <View style={styles.topHeader}>
+          <TouchableOpacity
+            onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs'))}
+            style={styles.backCircleBtn}
+          >
+            <ArrowLeft size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Tournament</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.centerBox}>
+          <Text style={[styles.centerText, { color: '#CBD5E1' }]}>{error}</Text>
+          <TouchableOpacity onPress={load} style={styles.retryBtn}>
+            <Text style={styles.retryText}>REFRESH</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
-    const currentCoins = userProfile?.coins ?? 1000;
-    if (currentCoins < entryFee) {
-      Alert.alert('Insufficient Coins', `You need ${entryFee} Coins to enter this tournament.`);
-      return;
-    }
+  const status = tour.status;
+  const meta = STATUS_META[status] || { label: 'PENDING ENTRY', color: '#F59E0B' };
+  const entryFee = tour.entryFee || 0;
+  const requiredKobo = Math.round(entryFee * 100);
+  const balanceKobo = userProfile?.coins ?? 0;
+  const joined = (tour.participants || []).some((p) => p.uid === myUid);
+  const fill = Math.min(1, (tour.currentParticipants || 0) / (tour.maxParticipants || 1));
+  const banner = GAME_IMAGES[tour.gameType] || GAME_IMAGES.draughts;
 
-    if (updateProfileData && userProfile) {
-      updateProfileData({ coins: currentCoins - entryFee });
-    }
+  const hours = Math.floor(countdown / 3600);
+  const minutes = Math.floor((countdown % 3600) / 60);
+  const seconds = countdown % 60;
 
-    setJoined(true);
-    Alert.alert('Tournament Registration Confirmed 🏆', 'You have successfully joined the Draft Grandmaster Championship.', [
-      {
-        text: 'Enter Game Lobby',
-        onPress: () => navigation.navigate('DraughtsGame'),
-      },
-      { text: 'OK' },
-    ]);
-  };
-
-  // Circular Chart calculations
   const size = 200;
   const strokeWidth = 14;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const percentage = 0.75; // 75% filled
-  const strokeDashoffset = circumference - circumference * percentage;
+  const strokeDashoffset = circumference - circumference * fill;
+
+  const handleJoinTournament = async () => {
+    if (!tourId) {
+      Alert.alert('Tournament pending', 'This tournament is awaiting approval from Gamearn.');
+      return;
+    }
+    if (joining) return;
+
+    if (entryFee > 0 && balanceKobo < requiredKobo) {
+      Alert.alert(
+        'Insufficient Balance',
+        `Entry costs ${naira(entryFee)} but your balance is ${naira(koboToN(balanceKobo))}.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Buy Coins', onPress: () => navigation.navigate('BuyCoins') },
+        ],
+      );
+      return;
+    }
+
+    setJoining(true);
+    try {
+      const res = await tournaments.register(tourId);
+      await refreshWallet();
+      setJoining(false);
+      if (status === 'in_progress') {
+        navigation.replace('LiveTournament', { tourId, title: tour.name });
+        return;
+      }
+      Alert.alert('Registration Confirmed 🏆', `You're in "${tour.name}". The entry fee of ${naira(entryFee)} was paid from your wallet.`, [
+        {
+          text: 'View Pending',
+          onPress: () =>
+            navigation.navigate('TournamentPending', {
+              tourId,
+              title: tour.name,
+              entryFee: naira(entryFee),
+              startAt: tour.scheduledStart,
+            }),
+        },
+        { text: 'OK' },
+      ]);
+    } catch (err) {
+      setJoining(false);
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : 'Could not complete registration. Please try again.';
+      Alert.alert('Registration failed', msg);
+    }
+  };
+
+  const actionLabel = (() => {
+    if (status === 'cancelled') return 'Tournament Cancelled';
+    if (status === 'completed') return 'View Results';
+    if (status === 'in_progress') return 'View Live Bracket';
+    if (joined) return `Registered · Check-ins open soon`;
+    return entryFee > 0 ? `Join Tournament (${naira(entryFee)})` : 'Join Free Tournament';
+  })();
+
+  const onActionPress = () => {
+    if (status === 'completed') {
+      navigation.navigate('TournamentResults', { tourId, title: tour.name });
+      return;
+    }
+    if (status === 'in_progress') {
+      navigation.navigate('LiveTournament', { tourId, title: tour.name });
+      return;
+    }
+    handleJoinTournament();
+  };
 
   return (
     <View style={styles.screenRoot}>
       <StatusBar barStyle="light-content" backgroundColor="#070C1B" />
       <LinearGradient colors={['#091026', '#060919', '#040612']} style={StyleSheet.absoluteFillObject} />
 
-      {/* Top Header */}
       <View style={styles.topHeader}>
         <TouchableOpacity
           onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs'))}
@@ -87,83 +231,93 @@ export default function TournamentDetailsScreen({ route, navigation }) {
         >
           <ArrowLeft size={20} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Tournament Created</Text>
+        <Text style={styles.headerTitle}>Tournament Details</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Main Tournament Hero Card */}
         <View style={styles.heroCard}>
-          {/* Banner Image */}
-          <Image
-            source={require('../../../assets/games/draughts_3d.jpg')}
-            style={styles.bannerImage}
-            resizeMode="cover"
-          />
-
-          {/* Text Content */}
+          <Image source={banner} style={styles.bannerImage} resizeMode="cover" />
           <View style={styles.heroBody}>
             <View style={styles.badgeRow}>
-              <Text style={styles.pendingBadge}>● PENDING...</Text>
+              <View style={[styles.statusPill, { borderColor: meta.color }]}>
+                <Text style={[styles.statusPillText, { color: meta.color }]}>{meta.label}</Text>
+              </View>
               <View style={styles.officialBadge}>
                 <CheckCircle2 size={12} color="#00E5FF" />
                 <Text style={styles.officialText}>Official</Text>
               </View>
             </View>
 
-            <Text style={styles.tournamentTitle}>{tourTitle}</Text>
+            <Text style={styles.tournamentTitle}>{tour.name}</Text>
             <Text style={styles.tournamentSub}>
-              Join the elite circle of Nigerian Draft masters.
+              {tour.gameType ? `${(tour.gameType || 'game').toUpperCase()} · WIN-BASED TOURNAMENT` : ''}
             </Text>
           </View>
         </View>
 
-        {/* Countdown Timer Grid */}
-        <View style={styles.timerGrid}>
-          <View style={styles.timerBox}>
-            <Text style={styles.timerNum}>{String(hours).padStart(2, '0')}</Text>
-            <Text style={styles.timerLabel}>HOURS</Text>
+        {deadline && tour.status !== 'in_progress' && tour.status !== 'completed' && tour.status !== 'cancelled' ? (
+          <View style={styles.timerGrid}>
+            <View style={styles.timerBox}>
+              <Text style={styles.timerNum}>{String(hours).padStart(2, '0')}</Text>
+              <Text style={styles.timerLabel}>HOURS</Text>
+            </View>
+            <View style={styles.timerBox}>
+              <Text style={styles.timerNum}>{String(minutes).padStart(2, '0')}</Text>
+              <Text style={styles.timerLabel}>MINUTES</Text>
+            </View>
+            <View style={styles.timerBox}>
+              <Text style={styles.timerNum}>{String(seconds).padStart(2, '0')}</Text>
+              <Text style={styles.timerLabel}>SECONDS</Text>
+            </View>
           </View>
-          <View style={styles.timerBox}>
-            <Text style={styles.timerNum}>{String(minutes).padStart(2, '0')}</Text>
-            <Text style={styles.timerLabel}>MINUTES</Text>
-          </View>
-          <View style={styles.timerBox}>
-            <Text style={styles.timerNum}>{String(seconds).padStart(2, '0')}</Text>
-            <Text style={styles.timerLabel}>SECONDS</Text>
-          </View>
-        </View>
+        ) : null}
 
-        {/* Activation Progress Card */}
         <View style={styles.activationCard}>
           <View style={styles.activationHeader}>
             <View style={styles.inlineRow}>
               <Zap size={18} color="#00E5FF" style={{ marginRight: 6 }} />
-              <Text style={styles.activationTitle}>Activation Progress</Text>
+              <Text style={styles.activationTitle}>Participation</Text>
             </View>
-            <Text style={styles.activationValue}>140 / 200 Units</Text>
+            <Text style={styles.activationValue}>
+              {tour.currentParticipants} / {tour.maxParticipants} Players
+            </Text>
           </View>
 
-          {/* Progress Bar */}
           <View style={styles.activationTrack}>
             <LinearGradient
               colors={['#00E5FF', '#0284C7']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={[styles.activationFill, { width: '70%' }]}
+              style={[styles.activationFill, { width: `${Math.round(fill * 100)}%` }]}
             />
           </View>
 
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>ENTRY FEE</Text>
+              <Text style={[styles.statValue, { color: '#F59E0B' }]}>
+                {entryFee > 0 ? naira(entryFee) : 'FREE'}
+              </Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>PRIZE POOL</Text>
+              <Text style={[styles.statValue, { color: '#00E5FF' }]}>{naira(tour.prizePool || 0)}</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>MATCHES</Text>
+              <Text style={[styles.statValue, { color: '#10B981' }]}>{(tour.bracket || []).length}</Text>
+            </View>
+          </View>
+
           <Text style={styles.activationFootnote}>
-            The tournament will unlock automatically once the pool is filled.
+            Tournament auto-starts once players are ready. You'll be notified before each round.
           </Text>
         </View>
 
-        {/* Circular Progress Ring */}
         <View style={styles.circleChartContainer}>
           <Svg width={size} height={size}>
             <G rotation="-90" origin={`${size / 2}, ${size / 2}`}>
-              {/* Background Track Circle */}
               <Circle
                 cx={size / 2}
                 cy={size / 2}
@@ -172,7 +326,6 @@ export default function TournamentDetailsScreen({ route, navigation }) {
                 strokeWidth={strokeWidth}
                 fill="transparent"
               />
-              {/* Active Cyan Fill Circle */}
               <Circle
                 cx={size / 2}
                 cy={size / 2}
@@ -187,24 +340,27 @@ export default function TournamentDetailsScreen({ route, navigation }) {
             </G>
           </Svg>
 
-          {/* Center Text inside Circle */}
           <View style={styles.circleCenterTextWrap}>
-            <Text style={styles.circleBigNum}>150</Text>
+            <Text style={styles.circleBigNum}>{tour.currentParticipants}</Text>
             <Text style={styles.circleSubLabel}>PLAYERS JOINED</Text>
-            <Text style={styles.circleFilledTag}>75% FILLED</Text>
+            <Text style={styles.circleFilledTag}>{Math.round(fill * 100)}% FILLED</Text>
           </View>
         </View>
 
-        {/* Action Button */}
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={handleJoinTournament}
-          style={styles.primaryOrangeBtn}
+          onPress={onActionPress}
+          disabled={status === 'cancelled'}
+          style={[styles.primaryOrangeBtn, (status === 'cancelled' || joining) && { backgroundColor: '#64748B' }]}
         >
-          <Swords size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.primaryOrangeBtnText}>
-            {joined ? 'Enter Match Lobby' : `Join Championship (${entryFee} Coins)`}
-          </Text>
+          {joining ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Swords size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.primaryOrangeBtnText}>{actionLabel}</Text>
+            </>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -237,6 +393,33 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
   },
+  centerBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    paddingHorizontal: 30,
+  },
+  centerText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryBtn: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#00E5FF',
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+  },
+  retryText: {
+    color: '#00E5FF',
+    fontWeight: '800',
+    fontSize: 12,
+    letterSpacing: 1,
+  },
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
@@ -262,9 +445,14 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 10,
   },
-  pendingBadge: {
-    color: '#F59E0B',
-    fontSize: 11,
+  statusPill: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  statusPillText: {
+    fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
@@ -290,8 +478,9 @@ const styles = StyleSheet.create({
   },
   tournamentSub: {
     color: '#94A3B8',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   timerGrid: {
     flexDirection: 'row',
@@ -353,11 +542,31 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   activationFill: {
     height: '100%',
     borderRadius: 4,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statLabel: {
+    color: '#94A3B8',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 15,
+    fontWeight: '900',
   },
   activationFootnote: {
     color: '#94A3B8',

@@ -85,6 +85,9 @@ const LEADERBOARD_SAMPLES = [
   { rank: '04', name: 'GhostProtocol', wins: 51, xp: '4,280 XP', emoji: '👨🏼‍💻', bg: '#64748B' },
 ];
 
+const GAME_TARGETS = { ludo: 'LudoGame', ayo: 'AyoGame', whot: 'WhotGame', draft: 'DraughtsGame' };
+const SETUP_TARGETS = { ludo: 'LudoSetup', ayo: 'GameSetup', whot: 'WhotSetup', draft: 'GameSetup' };
+
 export default function GameSectionScreen({ route, navigation }) {
   const { userProfile } = useAuth();
   const gameKey = route.params?.gameId || 'ludo';
@@ -93,16 +96,12 @@ export default function GameSectionScreen({ route, navigation }) {
   const [period, setPeriod] = useState('Daily');
 
   const handlePlayNow = () => {
-    if (game.targetScreen === 'GameSetup') {
-      navigation.navigate('GameSetup', {
-        gameName: game.heroTitle,
-        targetScreen: game.id === 'draft' ? 'DraughtsGame' : 'AyoGame',
-        rank: game.rank || '2,625',
-        entryFee: '$70.00',
-      });
-    } else {
-      navigation.navigate(game.targetScreen, { stake: 250 });
-    }
+    navigation.navigate('GameLobby', {
+      gameId: gameKey,
+      gameName: game.heroTitle,
+      targetScreen: GAME_TARGETS[gameKey],
+      setupTarget: SETUP_TARGETS[gameKey],
+    });
   };
 
   return (

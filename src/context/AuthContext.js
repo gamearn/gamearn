@@ -1,79 +1,251 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+// Auth state: Firebase is the identity authority; the Node backend is the
+// profile/wallet source of truth. Exposes the same API the screens used with
+// mock auth (user, userProfile, loading, signIn, signUp, signOut,
+// updateProfileData) plus backend-specific helpers.
+
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import Constants from 'expo-constants';
+import * as Google from 'expo-auth-session/providers/google';
+import { GOOGLE_CLIENT_IDS } from '../config/appConfig';
+
+// Expo Go (StoreClient) runs a browser-based OAuth flow, so Google must go
+// through the https://auth.expo.io proxy with the WEB client ID (the android
+// client would otherwise trigger the "installed apps" policy block).
+const IS_EXPO_GO = Constants.executionEnvironment === 'storeClient';
+const GOOGLE_USE_PROXY = IS_EXPO_GO;
 import {
-  getSavedUser,
-  saveSavedUser,
-  clearSavedUser,
-  loginWithEmail,
-  registerWithEmail,
-  updateProfileLocal,
-} from '../services/mockAuth';
+  onUserChanged,
+  loginEmailPassword,
+  registerEmailPassword,
+  signInWithGoogleIdToken,
+  signOutFirebase,
+  friendlyAuthError,
+  getCurrentUser,
+  reloadCurrentUser,
+} from '../services/firebase';
+import { auth as authApi, wallet } from '../services/api';
+import { ApiError } from '../services/apiClient';
 
 const AuthContext = createContext();
+
+function profileFromMe(me) {
+  return {
+    ...me,
+    // Convenience fields consumed by existing screens.
+    username: me.displayName || me.email?.split('@')[0] || '',
+    displayName: me.displayName || '',
+    phone: me.phoneNumber || '',
+    walletBalance: me.wallet?.balance ?? 0,
+    coins: me.wallet?.balance ?? 0,
+    isPremium: !!me.premium?.isPremium,
+  };
+}
+
+async function isAdminUser() {
+  const { getCurrentUser } = await import('../services/firebase');
+  const user = getCurrentUser();
+  if (!user) return false;
+  try {
+    const { claims } = await user.getIdTokenResult();
+    return claims?.admin === true;
+  } catch {
+    return false;
+  }
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [backendReady, setBackendReady] = useState(false);
 
-  useEffect(() => {
-    async function loadUserSession() {
-      try {
-        const savedUser = await getSavedUser();
-        if (savedUser) {
-          setUser(savedUser);
-          setUserProfile(savedUser);
-        }
-      } catch (err) {
-        console.warn('Auth loading error:', err);
-      } finally {
-        setLoading(false);
+  const [googleRequest, googleResponse, googlePrompt] = Google.useIdTokenAuthRequest(
+    IS_EXPO_GO
+      ? { clientId: GOOGLE_CLIENT_IDS.webClientId }
+      : {
+          webClientId: GOOGLE_CLIENT_IDS.webClientId,
+          androidClientId: GOOGLE_CLIENT_IDS.androidClientId,
+          iosClientId: GOOGLE_CLIENT_IDS.iosClientId,
+        },
+    { useProxy: GOOGLE_USE_PROXY },
+  );
+
+  // Onboarding details collected by RegisterScreen until the email is verified.
+  const pendingProfile = React.useRef({ displayName: null, phoneNumber: null });
+
+  const getPendingProfile = () => pendingProfile.current;
+
+  const loadBackendProfile = useCallback(async (fbUser) => {
+    try {
+      // login updates last_login and returns profile + wallet; me() is the
+      // richer endpoint. login first so the backend tracks the session.
+      await authApi.login({});
+      const me = await authApi.me();
+      const isAdmin = await isAdminUser();
+      setUserProfile(profileFromMe({ ...me, isAdmin }));
+      setBackendReady(true);
+      return me;
+    } catch (err) {
+      if (err instanceof ApiError && err.statusCode === 404) {
+        // Registered in Firebase but not in the backend yet → onboarding.
+        setUserProfile(null);
+        setBackendReady(false);
+        return null;
       }
+      if (err instanceof ApiError && err.statusCode === 401) {
+        // Login rejected / banned. Keep Firebase session but no profile.
+        setUserProfile(null);
+        setBackendReady(false);
+        return null;
+      }
+      console.warn('[Auth] profile load failed', err?.code, err?.message);
+      setUserProfile(null);
+      setBackendReady(false);
+      return null;
     }
-    loadUserSession();
   }, []);
 
+  useEffect(() => {
+    const unsub = onUserChanged(async (fbUser) => {
+      if (fbUser) {
+        setUser(fbUser);
+        await loadBackendProfile(fbUser);
+      } else {
+        setUser(null);
+        setUserProfile(null);
+        setBackendReady(false);
+      }
+      setLoading(false);
+    });
+    return unsub;
+  }, [loadBackendProfile]);
+
+  useEffect(() => {
+    if (googleResponse?.type === 'success' && googleResponse.params?.id_token) {
+      (async () => {
+        try {
+          const fbUser = await signInWithGoogleIdToken(googleResponse.params.id_token);
+          setUser(fbUser);
+          await loadBackendProfile(fbUser);
+        } catch (err) {
+          console.warn('[Auth] Google sign-in failed', err?.code || err?.message);
+        }
+      })();
+    }
+  }, [googleResponse, loadBackendProfile]);
+
   const signIn = async (email, password) => {
-    const loggedUser = await loginWithEmail(email, password);
-    setUser(loggedUser);
-    setUserProfile(loggedUser);
-    return loggedUser;
+    const fbUser = await loginEmailPassword(email, password);
+    setUser(fbUser);
+    await loadBackendProfile(fbUser);
+    return fbUser;
   };
 
-  const signUp = async (email, password, username) => {
-    const newUser = await registerWithEmail(email, password, username);
-    setUser(newUser);
-    setUserProfile(newUser);
-    return newUser;
+  const signUp = async (email, password, displayName = null, phoneNumber = null) => {
+    try {
+      const fbUser = await registerEmailPassword(email, password);
+      setUser(fbUser);
+      if (displayName || phoneNumber) {
+        // Stash onboarding details for backendRegister() once email is verified.
+        pendingProfile.current = {
+          displayName,
+          phoneNumber,
+        };
+      }
+      return fbUser;
+    } catch (err) {
+      throw new Error(friendlyAuthError(err));
+    }
   };
+
+  const sendEmailOtp = async (email) => {
+    const res = await authApi.requestSignupEmailOtp(email);
+    return res;
+  };
+
+  const verifyEmailOtp = async (email, code) => {
+    await authApi.verifySignupEmailOtp(email, code);
+    await reloadCurrentUser();
+    const fbUser = getCurrentUser();
+    setUser(fbUser);
+    return fbUser;
+  };
+
+  const signUpWithGoogle = async () => {
+    if (!googleRequest) {
+      throw new Error('Google sign-in is not ready.');
+    }
+    await googlePrompt();
+  };
+
+  const backendRegister = async ({ phoneNumber, displayName, referralCode }) => {
+    await authApi.register({ phoneNumber, displayName, referralCode });
+    const me = await authApi.me();
+    const isAdmin = await isAdminUser();
+    setUserProfile(profileFromMe({ ...me, isAdmin }));
+    setBackendReady(true);
+    return me;
+  };
+
+  const refreshProfile = useCallback(async () => {
+    const me = await loadBackendProfile(user);
+    return me;
+  }, [user, loadBackendProfile]);
 
   const updateProfileData = async (updates) => {
-    const updated = await updateProfileLocal(updates);
-    setUser(updated);
-    setUserProfile(updated);
-    return updated;
+    let next = { ...(userProfile || {}), ...updates };
+    const displayName = updates.displayName || updates.username;
+    if (displayName) {
+      try {
+        await authApi.updateProfile({ displayName });
+      } catch (err) {
+        console.warn('[Auth] profile patch failed', err?.message);
+      }
+    }
+    setUserProfile(profileFromMe(next));
+    return next;
   };
 
   const signOut = async () => {
-    await clearSavedUser();
+    await signOutFirebase();
     setUser(null);
     setUserProfile(null);
+    setBackendReady(false);
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        userProfile,
-        loading,
-        signIn,
-        signUp,
-        updateProfileData,
-        signOut,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const refreshWallet = useCallback(async () => {
+    const w = await wallet.get();
+    setUserProfile((prev) => ({
+      ...(prev || {}),
+      walletBalance: w.balance,
+      coins: w.balance,
+    }));
+    return w;
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      user,
+      userProfile,
+      loading,
+      backendReady,
+      signIn,
+      signUp,
+      signUpWithGoogle,
+      backendRegister,
+      getPendingProfile,
+      sendEmailOtp,
+      verifyEmailOtp,
+      signOut,
+      updateProfileData,
+      refreshProfile,
+      refreshWallet,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, userProfile, loading, backendReady],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => useContext(AuthContext);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,20 +7,110 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Crown, Trophy, Award } from 'lucide-react-native';
+import { ArrowLeft, Crown } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { tournaments } from '../../services/api';
+import { naira, koboToN } from '../../config/appConfig';
 
-export default function TournamentResultsScreen({ navigation }) {
+export default function TournamentResultsScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
+  const { userProfile } = useAuth();
+  const myUid = userProfile?.uid;
+  const tourId = route.params?.tourId;
 
-  const LEADERBOARD = [
-    { rank: '42', name: 'YOU (JIDEPAY)', points: '2,840', isUser: true },
-    { rank: '43', name: 'AYO_TECH', points: '2,815', isUser: false },
-    { rank: '44', name: 'CYBER_SAMURAI', points: '2,790', isUser: false },
-    { rank: '45', name: 'SHADOW_NINJA', points: '2,750', isUser: false },
+  const [tour, setTour] = useState(null);
+  const [loading, setLoading] = useState(!!tourId);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    if (!tourId) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const data = await tournaments.get(tourId);
+      setTour(data);
+      setError('');
+    } catch (err) {
+      setError(err?.message || 'Could not load the results.');
+    } finally {
+      setLoading(false);
+    }
+  }, [tourId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const participants = tour?.participants || [];
+  const winner = participants.find((p) => p.uid === tour?.winner);
+  const winnerName = winner?.display_name || '—';
+  const prizePool = naira(tour?.prizePool || 0);
+
+  const podium = [
+    participants.find((p) => p.final_position === 2),
+    participants.find((p) => p.final_position === 1),
+    participants.find((p) => p.final_position === 3),
   ];
+  const podiumRank = [2, 1, 3];
+  const podiumBadge = ['#94A3B8', '#F59E0B', '#D97706'];
+
+  const myEntry = participants.find((p) => p.uid === myUid);
+  const myRank = myEntry
+    ? myEntry.final_position != null
+      ? `#${myEntry.final_position}`
+      : myEntry.eliminated_at_round != null
+      ? `Eliminated R${myEntry.eliminated_at_round}`
+      : '#—'
+    : '#—';
+  const myReward =
+    myEntry && myEntry.prize_kobo != null ? naira(koboToN(myEntry.prize_kobo)) : '—';
+
+  const leaderboard = participants
+    .filter((p) => p.final_position != null)
+    .sort((a, b) => a.final_position - b.final_position);
+
+  if (loading) {
+    return (
+      <View style={[styles.screenRoot, { backgroundColor: theme.bg }]}>
+        <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
+        <LinearGradient colors={theme.gradientBg} style={StyleSheet.absoluteFillObject} />
+        <View style={styles.centerBox}>
+          <ActivityIndicator size="large" color="#00E5FF" />
+          <Text style={[styles.centerText, { color: theme.textSecondary }]}>Loading results...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error !== '' && !tour) {
+    return (
+      <View style={[styles.screenRoot, { backgroundColor: theme.bg }]}>
+        <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
+        <LinearGradient colors={theme.gradientBg} style={StyleSheet.absoluteFillObject} />
+        <View style={styles.topHeader}>
+          <TouchableOpacity
+            onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs'))}
+            style={[styles.backCircleBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' }]}
+          >
+            <ArrowLeft size={20} color={theme.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Tournament Results</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.centerBox}>
+          <Text style={[styles.centerText, { color: theme.textSecondary }]}>{error}</Text>
+          <TouchableOpacity onPress={load} style={styles.retryBtn}>
+            <Text style={styles.retryText}>RETRY</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.screenRoot, { backgroundColor: theme.bg }]}>
@@ -50,72 +140,50 @@ export default function TournamentResultsScreen({ navigation }) {
 
         {/* Tournament Title & Prize Pool */}
         <View style={styles.titleSection}>
-          <Text style={[styles.tourTitle, { color: theme.textPrimary }]}>Dráfù Grandmaster Championship</Text>
+          <Text style={[styles.tourTitle, { color: theme.textPrimary }]}>{tour?.name || 'Tournament'}</Text>
           <Text style={styles.prizePoolLabel}>TOTAL PRIZE POOL</Text>
-          <Text style={styles.prizePoolVal}>₦2,500,000.00</Text>
+          <Text style={styles.prizePoolVal}>{prizePool}</Text>
+          <Text style={styles.winnerLine}>CHAMPION: {winnerName}</Text>
         </View>
 
         {/* Podium Top 3 Winners */}
         <View style={styles.podiumContainer}>
-          {/* Rank 2 (Left) */}
-          <View style={styles.podiumItemSide}>
-            <View style={styles.sideAvatarWrap}>
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100' }}
-                style={styles.podiumAvatar}
-              />
-              <View style={[styles.rankBadgeNum, { backgroundColor: '#94A3B8' }]}>
-                <Text style={styles.rankNumText}>2</Text>
+          {podium.map((entry, idx) => {
+            const rank = podiumRank[idx];
+            const isCenter = rank === 1;
+            const name = entry?.display_name || '—';
+            const reward = naira(koboToN(entry?.prize_kobo ?? 0));
+            return (
+              <View key={rank} style={isCenter ? styles.podiumItemCenter : styles.podiumItemSide}>
+                {isCenter ? <Crown size={28} color="#F59E0B" fill="#F59E0B" style={{ marginBottom: 4 }} /> : null}
+                <View style={isCenter ? styles.centerAvatarWrap : styles.sideAvatarWrap}>
+                  <Image
+                    source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100' }}
+                    style={isCenter ? styles.centerPodiumAvatar : styles.podiumAvatar}
+                  />
+                  <View style={[styles.rankBadgeNum, { backgroundColor: podiumBadge[idx] }]}>
+                    <Text style={styles.rankNumText}>{rank}</Text>
+                  </View>
+                </View>
+                <Text style={isCenter ? styles.centerWinnerName : [styles.winnerNameText, { color: theme.textPrimary }]}>{name}</Text>
+                <Text style={isCenter ? styles.centerWinnerReward : styles.winnerRewardText}>{reward}</Text>
               </View>
-            </View>
-            <Text style={[styles.winnerNameText, { color: theme.textPrimary }]}>OLUWASEUN</Text>
-            <Text style={styles.winnerRewardText}>₦350,000</Text>
-          </View>
-
-          {/* Rank 1 (Center Elevated with Crown) */}
-          <View style={styles.podiumItemCenter}>
-            <Crown size={28} color="#F59E0B" fill="#F59E0B" style={{ marginBottom: 4 }} />
-            <View style={styles.centerAvatarWrap}>
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200' }}
-                style={styles.centerPodiumAvatar}
-              />
-              <View style={[styles.rankBadgeNum, { backgroundColor: '#F59E0B' }]}>
-                <Text style={styles.rankNumText}>1</Text>
-              </View>
-            </View>
-            <Text style={styles.centerWinnerName}>KING_BURNA</Text>
-            <Text style={styles.centerWinnerReward}>₦750,000</Text>
-          </View>
-
-          {/* Rank 3 (Right) */}
-          <View style={styles.podiumItemSide}>
-            <View style={styles.sideAvatarWrap}>
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100' }}
-                style={styles.podiumAvatar}
-              />
-              <View style={[styles.rankBadgeNum, { backgroundColor: '#D97706' }]}>
-                <Text style={styles.rankNumText}>3</Text>
-              </View>
-            </View>
-            <Text style={[styles.winnerNameText, { color: theme.textPrimary }]}>CHIDEX</Text>
-            <Text style={styles.winnerRewardText}>₦150,000</Text>
-          </View>
+            );
+          })}
         </View>
 
         {/* User Final Rank & Rewards Card */}
         <View style={[styles.performanceCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
           <View style={styles.perfStatCol}>
             <Text style={styles.perfLabel}>YOUR FINAL RANK</Text>
-            <Text style={[styles.perfRankVal, { color: theme.textPrimary }]}>#42</Text>
+            <Text style={[styles.perfRankVal, { color: theme.textPrimary }]}>{myRank}</Text>
           </View>
 
           <View style={styles.perfDivider} />
 
           <View style={styles.perfStatColRight}>
             <Text style={styles.perfLabel}>EARNED REWARDS</Text>
-            <Text style={styles.perfRewardVal}>₦4,500.00</Text>
+            <Text style={styles.perfRewardVal}>{myReward}</Text>
           </View>
         </View>
 
@@ -123,29 +191,33 @@ export default function TournamentResultsScreen({ navigation }) {
         <View style={styles.lbSection}>
           <View style={styles.lbHeaderRow}>
             <Text style={styles.lbSectionTitle}>LEADERBOARD</Text>
-            <Text style={styles.lbPointsLabel}>POINTS</Text>
+            <Text style={styles.lbPointsLabel}>PRIZE</Text>
           </View>
 
           <View style={styles.lbList}>
-            {LEADERBOARD.map((item) => (
-              <View
-                key={item.rank}
-                style={[
-                  styles.lbRowCard,
-                  { backgroundColor: item.isUser ? 'rgba(0, 229, 255, 0.12)' : theme.cardBg, borderColor: item.isUser ? '#00E5FF' : theme.cardBorderSubtle },
-                ]}
-              >
-                <Text style={[styles.lbRankNum, { color: item.isUser ? '#00E5FF' : theme.textSecondary }]}>{item.rank}</Text>
-                <View style={styles.lbAvatarCircle}>
-                  <Image
-                    source={{ uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100' }}
-                    style={styles.lbAvatarImg}
-                  />
-                </View>
-                <Text style={[styles.lbNameText, { color: item.isUser ? '#00E5FF' : theme.textPrimary }]}>{item.name}</Text>
-                <Text style={[styles.lbPointsVal, { color: item.isUser ? '#00E5FF' : theme.textPrimary }]}>{item.points}</Text>
-              </View>
-            ))}
+            {leaderboard.length === 0 ? (
+              <Text style={[styles.centerText, { color: theme.textSecondary, textAlign: 'center', paddingVertical: 12 }]}>
+                No final rankings yet.
+              </Text>
+            ) : (
+              leaderboard.map((item) => {
+                const isUser = item.uid === myUid;
+                const prize = item.prize_kobo != null ? naira(koboToN(item.prize_kobo)) : '—';
+                return (
+                  <View
+                    key={item.uid}
+                    style={[
+                      styles.lbRowCard,
+                      { backgroundColor: isUser ? 'rgba(0, 229, 255, 0.12)' : theme.cardBg, borderColor: isUser ? '#00E5FF' : theme.cardBorderSubtle },
+                    ]}
+                  >
+                    <Text style={[styles.lbRankNum, { color: isUser ? '#00E5FF' : theme.textSecondary }]}>{item.final_position}</Text>
+                    <Text style={[styles.lbNameText, { color: isUser ? '#00E5FF' : theme.textPrimary }]}>{item.display_name || 'Player'}</Text>
+                    <Text style={[styles.lbPointsVal, { color: isUser ? '#00E5FF' : theme.textPrimary }]}>{prize}</Text>
+                  </View>
+                );
+              })
+            )}
           </View>
         </View>
       </ScrollView>
@@ -175,6 +247,31 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
+  },
+  centerBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    paddingHorizontal: 30,
+  },
+  centerText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  retryBtn: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#00E5FF',
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+  },
+  retryText: {
+    color: '#00E5FF',
+    fontWeight: '800',
+    fontSize: 12,
+    letterSpacing: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -228,6 +325,13 @@ const styles = StyleSheet.create({
     color: '#F59E0B',
     fontSize: 26,
     fontWeight: '900',
+  },
+  winnerLine: {
+    color: '#00E5FF',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginTop: 6,
   },
   podiumContainer: {
     flexDirection: 'row',
@@ -373,17 +477,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     width: 30,
-  },
-  lbAvatarCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    overflow: 'hidden',
-    marginRight: 12,
-  },
-  lbAvatarImg: {
-    width: '100%',
-    height: '100%',
   },
   lbNameText: {
     flex: 1,

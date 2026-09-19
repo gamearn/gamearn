@@ -11,6 +11,21 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Trophy, BarChart2, ChevronDown } from 'lucide-react-native';
+import { tournaments } from '../../services/api';
+
+const GAME_TYPE_BY_LABEL = {
+  'Dráfù (Draft)': 'draughts',
+  'Lúùdò': 'ludo',
+  'Ayò Ọ̀pọ́n': 'ayo',
+  'Wọ́t': 'whot',
+};
+
+const DURATION_KEY_BY_LABEL = {
+  '24 HOURS': '24h',
+  '7 DAYS': '7d',
+  '2 WEEKS': '2w',
+  '1 MONTH': '1m',
+};
 
 export default function CreateTournamentScreen({ navigation }) {
   const [tourName, setTourName] = useState('');
@@ -30,21 +45,54 @@ export default function CreateTournamentScreen({ navigation }) {
     { label: '1', sub: 'MONTH' },
   ];
 
-  const handleCreate = () => {
-    if (!tourName.trim()) {
+  const handleCreate = async () => {
+    const name = tourName.trim();
+    if (name.length < 2) {
       Alert.alert('Tournament Name Required', 'Please enter a name for your tournament.');
       return;
     }
+    if (!selectedGame) {
+      Alert.alert('Select a Game', 'Choose which game this tournament is for.');
+      return;
+    }
+    const maxP = parseInt(maxPlayers, 10);
+    const topW = parseInt(numWinners, 10);
+    if (isNaN(maxP) || maxP < 2 || maxP > 256) {
+      Alert.alert('Check Players', 'Maximum players must be between 2 and 256.');
+      return;
+    }
+    if (isNaN(topW) || topW < 1 || topW > maxP) {
+      Alert.alert('Check Winners', `Top winners must be between 1 and ${maxP}.`);
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await tournaments.create({
+        name,
+        gameType: GAME_TYPE_BY_LABEL[selectedGame],
+        duration: DURATION_KEY_BY_LABEL[duration],
+        tournamentType: tourType === 'Win Tournament' ? 'win' : 'plays',
+        maxPlayers: maxP,
+        topWinners: topW,
+      });
       setLoading(false);
-      Alert.alert('Tournament Published! 🏆', `"${tourName}" is now active in the tournament lobby.`, [
+      Alert.alert('Tournament Submitted! 🏆', `"${name}" is pending approval. Once approved it appears in the tournament lobby.`, [
         {
-          text: 'View Tournament',
-          onPress: () => navigation.navigate('TournamentDetails', { title: tourName }),
+          text: 'View Pending',
+          onPress: () =>
+            navigation.navigate('TournamentPending', {
+              title: name,
+              entryFee: '₦500',
+              duration: duration.split(' ')[0],
+            }),
         },
+        { text: 'OK' },
       ]);
-    }, 1000);
+    } catch (err) {
+      setLoading(false);
+      Alert.alert('Could not create tournament', err?.message || 'Please try again.');
+    }
   };
 
   return (

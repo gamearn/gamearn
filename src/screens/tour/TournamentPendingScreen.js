@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,30 +7,76 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Clock, Users, Trophy } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { tournaments } from '../../services/api';
+import { naira } from '../../config/appConfig';
 
 export default function TournamentPendingScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
+  const tourId = route.params?.tourId;
 
   const tourTitle = route.params?.title || 'Dráfù Grandmaster Championship';
   const entryFee = route.params?.entryFee || '₦500.00';
   const durationDays = route.params?.duration || '14 DAYS';
+  const startAt = route.params?.startAt;
 
-  const [secondsLeft, setSecondsLeft] = useState(12 * 3600 + 48 * 60 + 12);
+  const [tour, setTour] = useState(null);
+  const [loading, setLoading] = useState(!!tourId);
+  const [error, setError] = useState('');
+
+  const target = tour?.scheduledStart || startAt || null;
+  const fallbackSeconds = 12 * 3600;
+
+  const [secondsLeft, setSecondsLeft] = useState(() => {
+    if (!target) return fallbackSeconds;
+    const diff = Math.floor((new Date(target).getTime() - Date.now()) / 1000);
+    return diff > 0 ? diff : 0;
+  });
+
+  const load = useCallback(async () => {
+    if (!tourId) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const data = await tournaments.get(tourId);
+      setTour(data);
+      setError('');
+    } catch (err) {
+      setError(err?.message || 'Could not load the tournament.');
+    } finally {
+      setLoading(false);
+    }
+  }, [tourId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0));
+      setSecondsLeft((prev) => {
+        if (!target) return prev > 0 ? prev - 1 : 0;
+        const diff = Math.floor((new Date(target).getTime() - Date.now()) / 1000);
+        return diff > 0 ? diff : 0;
+      });
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [target]);
 
   const hours = Math.floor(secondsLeft / 3600);
   const minutes = Math.floor((secondsLeft % 3600) / 60);
   const seconds = secondsLeft % 60;
+
+  const displayTitle = tour?.name || tourTitle;
+  const feeValue = tour ? (tour.entryFee > 0 ? naira(tour.entryFee) : 'FREE') : entryFee;
+  const participantsTag = tour
+    ? `PARTICIPANTS: ${tour.currentParticipants ?? 0} / ${tour.maxParticipants ?? 0} JOINED`
+    : 'PARTICIPANTS: AWAITING PLAYERS';
 
   return (
     <View style={[styles.screenRoot, { backgroundColor: theme.bg }]}>
@@ -70,7 +116,7 @@ export default function TournamentPendingScreen({ route, navigation }) {
           />
 
           <View style={styles.heroCardContent}>
-            <Text style={styles.heroCardTitle}>{tourTitle}</Text>
+            <Text style={styles.heroCardTitle}>{displayTitle}</Text>
 
             <View style={styles.heroTagsRow}>
               <View style={styles.tagBlue}>
@@ -78,11 +124,27 @@ export default function TournamentPendingScreen({ route, navigation }) {
               </View>
             </View>
 
-            <View style={styles.tagDarkRow}>
-              <Text style={styles.tagDarkText}>PARTICIPANTS: 47 / 150 JOINED</Text>
-            </View>
+            {loading && !tour ? (
+              <View style={styles.tagDarkRow}>
+                <ActivityIndicator size="small" color="#00E5FF" />
+                <Text style={styles.tagDarkText}>LOADING... </Text>
+              </View>
+            ) : (
+              <View style={styles.tagDarkRow}>
+                <Text style={styles.tagDarkText}>{participantsTag}</Text>
+              </View>
+            )}
           </View>
         </View>
+
+        {error !== '' ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity onPress={load} style={styles.retryBtn}>
+              <Text style={styles.retryText}>RETRY</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* Duration Card */}
         <View style={styles.sectionBlock}>
@@ -96,7 +158,7 @@ export default function TournamentPendingScreen({ route, navigation }) {
         {/* Entry Fee Card */}
         <View style={[styles.infoBox, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
           <Text style={styles.infoBoxLabel}>ENTRY FEE</Text>
-          <Text style={styles.entryFeeVal}>{entryFee}</Text>
+          <Text style={styles.entryFeeVal}>{feeValue}</Text>
         </View>
 
         {/* Countdown Starts In Card */}
@@ -214,6 +276,9 @@ const styles = StyleSheet.create({
   },
   tagDarkRow: {
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: 'rgba(15, 25, 45, 0.75)',
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -223,6 +288,35 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     fontSize: 10,
     fontWeight: '800',
+  },
+  errorBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  errorText: {
+    color: '#FCA5A5',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  retryBtn: {
+    borderWidth: 1,
+    borderColor: '#00E5FF',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  retryText: {
+    color: '#00E5FF',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
   sectionBlock: {
     marginBottom: 18,

@@ -1,20 +1,43 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, Text } from 'react-native';
 import { AyoScreen } from '../../games/ayo/AyoScreen';
 import { useAuth } from '../../context/AuthContext';
+import { useOnlineMatch } from '../../games/useOnlineMatch';
+
+const STATUS_TEXT = {
+  idle: '',
+  joining: 'Joining room…',
+  waiting: 'Waiting for opponent…',
+  playing: 'Live match',
+  game_over: 'Match over',
+  aborted: 'Match cancelled',
+  error: 'Connection error',
+};
 
 export default function AyoGameScreen({ route, navigation }) {
-  const { userProfile, updateProfileData } = useAuth();
-  const stake = route.params?.stake || 250;
-  const timer = route.params?.timer || '2m';
+  const { userProfile } = useAuth();
+  const params = route.params || {};
+  const isMultiplayer = params.mode === 'multiplayer' && !!params.roomId;
+  const isPractice = params.mode === 'practice';
+  const timer = params.timer || '2m';
 
-  const handleWin = (bonusCoins) => {
-    if (updateProfileData && userProfile) {
-      const currentCoins = userProfile.coins || 1000;
-      updateProfileData({
-        coins: currentCoins + Math.floor(stake * 1.9),
-        wins: (userProfile.wins || 0) + 1,
-      });
+  const m = useOnlineMatch({
+    roomId: isMultiplayer ? params.roomId : null,
+    gameType: 'ayo',
+    onExit: () => navigation.goBack(),
+  });
+
+  const [winBanner, setWinBanner] = useState(false);
+
+  const handleHumanMove = (pitIndex) => {
+    if (isMultiplayer && typeof pitIndex === 'number') {
+      m.sendMove({ pitIndex });
+    }
+  };
+
+  const handleWin = () => {
+    if (!isMultiplayer) {
+      setWinBanner(true);
     }
   };
 
@@ -28,7 +51,30 @@ export default function AyoGameScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <AyoScreen timer={timer} onWin={handleWin} onBack={handleBack} />
+      {isPractice ? (
+        <View style={styles.practiceBanner}>
+          <Text style={styles.practiceBannerText}>Practice for Ayò rolls out with Whot first</Text>
+        </View>
+      ) : null}
+      {isMultiplayer ? (
+        <View style={styles.liveBar}>
+          <Text style={styles.liveTitle}>Ayò Ọ̀pọ́n — Live</Text>
+          <Text style={styles.liveOpp}>{m.opponent?.displayName || 'Live opponent'}</Text>
+          <Text style={styles.liveStatus}>{STATUS_TEXT[m.status] || m.status}</Text>
+          {m.banner ? <Text style={styles.liveBanner}>{m.banner}</Text> : null}
+        </View>
+      ) : null}
+      {winBanner && !isMultiplayer ? (
+        <View style={styles.winBanner}>
+          <Text style={styles.winBannerText}>You win!</Text>
+        </View>
+      ) : null}
+      <AyoScreen
+        timer={timer}
+        onWin={handleWin}
+        onBack={handleBack}
+        onHumanMove={handleHumanMove}
+      />
     </View>
   );
 }
@@ -37,5 +83,73 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#03271d',
+  },
+  practiceBanner: {
+    alignSelf: 'center',
+    marginTop: 6,
+    marginHorizontal: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+  },
+  practiceBannerText: {
+    color: '#F59E0B',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  liveBar: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+    marginHorizontal: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#00E5FF',
+    backgroundColor: '#10075d',
+  },
+  liveTitle: {
+    color: '#00E5FF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  liveOpp: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  liveStatus: {
+    color: '#7DD3FC',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  liveBanner: {
+    color: '#FDE047',
+    fontSize: 11,
+    fontWeight: '700',
+    width: '100%',
+  },
+  winBanner: {
+    alignSelf: 'center',
+    marginTop: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#10B981',
+    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+  },
+  winBannerText: {
+    color: '#6EE7B7',
+    fontSize: 13,
+    fontWeight: '900',
   },
 });
