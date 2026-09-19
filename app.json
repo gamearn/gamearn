@@ -3,8 +3,13 @@
     "name": "Gamearn",
     "slug": "gamearn",
     "owner": "gamearn",
-    "version": "2.0.25",
-    "scheme": "gamearn",
+    "version": "2.0.26",
+    "scheme": [
+      "gamearn",
+      "fb1762055368454928",
+      "com.googleusercontent.apps.600025492198-2g641acpvmhl1bm0m3f535kcodvhmt8k",
+      "com.gamearn"
+    ],
     "orientation": "portrait",
     "icon": "./assets/logos/logo_dark.png",
     "userInterfaceStyle": "dark",
@@ -16,9 +21,10 @@
       "bundleIdentifier": "com.gamearn",
       "infoPlist": {
         "NSCameraUsageDescription": "Gamearn uses the camera to update your profile photo.",
-        "NSPhotoLibraryUsageDescription": "Gamearn accesses your photo library so you can set a profile photo.",
-        "NSAppleMusicUsageDescription": "Gamearn uses Apple Sign-In to let you log in with your Apple ID."
-      }
+        "NSPhotoLibraryUsageDescription": "Gamearn accesses your photo library so you can set a profile photo."
+      },
+      "usesAppleSignIn": true,
+      "buildNumber": "26"
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +32,8 @@
         "backgroundColor": "#0A0E1A"
       },
       "package": "com.gamearn",
-      "versionCode": 25
+      "versionCode": 26,
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "./assets/logos/logo_dark.png",

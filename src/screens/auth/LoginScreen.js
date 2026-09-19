@@ -13,11 +13,13 @@ import {
 import { Mail, Lock } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
 import GAInput from '../../components/GAInput';
-import { GoogleIcon, AppleIcon } from '../../components/SocialIcons';
+import SocialSignInButtons from '../../components/SocialSignInButtons';
+import { useIsFocused } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen({ navigation }) {
-  const { signIn, signUpWithGoogle, backendReady, user } = useAuth();
+  const { signIn, backendReady, user, loading: authLoading, authError } = useAuth();
+  const focused = useIsFocused();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,12 +28,12 @@ export default function LoginScreen({ navigation }) {
 
   useEffect(() => {
     const routeHome = () => {
-      if (didNavigate.current || !user) return;
+      if (didNavigate.current || !focused || authLoading || !user) return;
       didNavigate.current = true;
-      navigation.replace(backendReady ? 'MainTabs' : 'ProfileSetup');
+      navigation.replace(!user.emailVerified && user.providerData?.some(p => p.providerId === 'password') ? 'EmailVerification' : backendReady ? 'MainTabs' : 'ProfileSetup', { email: user.email });
     };
     routeHome();
-  }, [user, backendReady, navigation]);
+  }, [user, backendReady, authLoading, focused, navigation]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -50,24 +52,6 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  const handleGoogle = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      await signUpWithGoogle();
-      // Profile is loaded by AuthContext once Google returns; navigate on
-      // user/backendReady change. If the Google flow was cancelled, reset.
-      setTimeout(() => setLoading(false), 300);
-    } catch (e) {
-      setError(e.message || 'Google sign-in failed. Please try again.');
-      setLoading(false);
-    }
-  };
-
-  const handleApple = () => {
-    Alert.alert('Apple Sign-In', 'Apple sign-in is coming soon. Use Google or email for now.');
-  };
-
   return (
     <KeyboardAvoidingView
       style={styles.flexContainer}
@@ -79,13 +63,13 @@ export default function LoginScreen({ navigation }) {
         style={styles.fixedBackground}
         resizeMode="cover"
       />
-      <View style={styles.fixedDarkOverlay} />
+      <View pointerEvents="none" style={styles.fixedDarkOverlay} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+        keyboardDismissMode="none"
       >
         {/* Top Logo */}
         <View style={styles.logoSection}>
@@ -107,7 +91,7 @@ export default function LoginScreen({ navigation }) {
 
         {/* Form */}
         <View style={styles.formContainer}>
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error || authError ? <Text style={styles.errorText}>{error || authError}</Text> : null}
 
           <GAInput
             label="Email Address"
@@ -153,28 +137,7 @@ export default function LoginScreen({ navigation }) {
             <View style={styles.dividerLine} />
           </View>
 
-          {/* Social Buttons */}
-          <View style={styles.socialRow}>
-            <View style={{ flex: 1 }}>
-              <GAButton
-                title="Google"
-                onPress={handleGoogle}
-                loading={loading}
-                variant="social"
-                disabled={loading}
-                icon={<GoogleIcon size={18} />}
-              />
-            </View>
-            <View style={{ width: 12 }} />
-            <View style={{ flex: 1 }}>
-              <GAButton
-                title="Apple"
-                onPress={handleApple}
-                variant="social"
-                icon={<AppleIcon size={18} color="#FFFFFF" />}
-              />
-            </View>
-          </View>
+          <SocialSignInButtons />
 
           {/* Footer Sign Up Link */}
           <View style={styles.footerRow}>

@@ -1,0 +1,62 @@
+require 'json'
+require 'xcodeproj'
+
+default_platform(:ios)
+
+platform :ios do
+  desc 'Build an App Store signed IPA without uploading or publishing it'
+  lane :release do
+    root = File.expand_path('..', __dir__)
+    config = JSON.parse(File.read(File.join(root, 'app.json')))['expo']
+    bundle_id = config.fetch('ios').fetch('bundleIdentifier')
+    team_id = ENV.fetch('TEAM_ID')
+    setup_ci
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch('APP_STORE_CONNECT_API_KEY_KEY_ID'),
+      issuer_id: ENV.fetch('APP_STORE_CONNECT_API_KEY_ISSUER_ID'),
+      key_content: ENV.fetch('APP_STORE_CONNECT_API_KEY_BASE64'),
+      is_key_content_base64: true,
+      in_house: false
+    )
+    refresh = ENV['REFRESH_PROFILES'] == 'true'
+    match(
+      type: 'appstore',
+      app_identifier: bundle_id,
+      team_id: team_id,
+      git_url: ENV.fetch('MATCH_REPO'),
+      git_basic_authorization: ENV.fetch('MATCH_GIT_BASIC_AUTHORIZATION'),
+      api_key: api_key,
+      readonly: !refresh,
+      force: refresh
+    )
+    mapping = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
+    profile = mapping.fetch(bundle_id)
+    project_path = Dir[File.join(root, 'ios', '*.xcodeproj')].fetch(0)
+    workspace = Dir[File.join(root, 'ios', '*.xcworkspace')].fetch(0)
+    project = Xcodeproj::Project.open(project_path)
+    app_targets = project.targets.select { |target| target.product_type == 'com.apple.product-type.application' }
+    UI.user_error!('Expected one generated iOS application target') unless app_targets.length == 1
+    target = app_targets.first
+    # Scope profiles to the app, never to Pods via global xcargs.
+    target.build_configurations.each do |configuration|
+      next unless configuration.name == 'Release'
+      configuration.build_settings['CODE_SIGN_STYLE'] = 'Manual'
+      configuration.build_settings['DEVELOPMENT_TEAM'] = team_id
+      configuration.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
+      configuration.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = profile
+    end
+    project.save
+    build_app(
+      workspace: workspace,
+      scheme: target.name,
+      configuration: 'Release',
+      clean: true,
+      export_method: 'app-store',
+      export_team_id: team_id,
+      export_options: { provisioningProfiles: { bundle_id => profile }, signingStyle: 'manual' },
+      output_directory: File.join(root, 'build', 'ios'),
+      output_name: "gamearn-#{ENV.fetch('BUILD_NUMBER')}.ipa",
+      buildlog_path: File.join(root, 'build', 'logs')
+    )
+  end
+end

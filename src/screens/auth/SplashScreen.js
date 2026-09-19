@@ -45,12 +45,14 @@ export default function SplashScreen({ navigation }) {
       }, 300);
       return () => clearTimeout(timeout);
     }
-  }, [progress]);
+  }, [progress, loading, user, backendReady]);
 
   const handleProceed = () => {
     if (loading) return;
     if (!user) {
       navigation.replace('Landing');
+    } else if (!user.emailVerified && user.providerData?.some(p => p.providerId === 'password')) {
+      navigation.replace('EmailVerification', { email: user.email });
     } else if (!backendReady) {
       // Signed in to Firebase but no backend profile yet → complete onboarding.
       navigation.replace('ProfileSetup');

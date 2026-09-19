@@ -99,6 +99,10 @@ export const friendlyAuthError = (err) => {
       return 'Password must be at least 6 characters.';
     case 'auth/network-request-failed':
       return 'No internet connection. Check your network and try again.';
+    case 'auth/account-exists-with-different-credential':
+      return 'This email already uses a different sign-in method. Sign in with your original method.';
+    case 'auth/operation-not-allowed':
+      return 'This sign-in provider is not enabled for Gamearn yet.';
     case 'auth/too-many-requests':
       return 'Too many attempts. Please try again later.';
     default:

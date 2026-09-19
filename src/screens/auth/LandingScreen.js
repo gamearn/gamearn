@@ -11,38 +11,20 @@ import {
 } from 'react-native';
 import { Gamepad2, Trophy, Gift, Users, Check } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
-import { GoogleIcon, AppleIcon, FacebookIcon } from '../../components/SocialIcons';
+import SocialSignInButtons from '../../components/SocialSignInButtons';
+import { useIsFocused } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 
 export default function LandingScreen({ navigation }) {
-  const { signUpWithGoogle, backendReady, user } = useAuth();
+  const { backendReady, user, loading: authLoading } = useAuth();
+  const focused = useIsFocused();
   const [agreed, setAgreed] = useState(true);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      navigation.replace(backendReady ? 'MainTabs' : 'ProfileSetup');
+    if (user && focused && !authLoading) {
+      navigation.replace(!user.emailVerified && user.providerData?.some(p => p.providerId === 'password') ? 'EmailVerification' : backendReady ? 'MainTabs' : 'ProfileSetup', { email: user.email });
     }
-  }, [user, backendReady, navigation]);
-
-  const handleGoogle = async () => {
-    if (!agreed) {
-      Alert.alert('Terms & Conditions', 'Please agree to the Terms and Conditions first.');
-      return;
-    }
-    setLoading(true);
-    try {
-      await signUpWithGoogle();
-      setTimeout(() => setLoading(false), 300);
-    } catch (e) {
-      setLoading(false);
-      Alert.alert('Google Sign-In', e.message || 'Please try again.');
-    }
-  };
-
-  const handleComingSoon = (provider) => {
-    Alert.alert(`${provider} Sign-In`, `${provider} sign-in is coming soon. Use email or Google for now.`);
-  };
+  }, [user, backendReady, authLoading, focused, navigation]);
 
   return (
     <View style={styles.flexContainer}>
@@ -153,35 +135,7 @@ export default function LandingScreen({ navigation }) {
           </View>
 
           {/* Social Buttons */}
-          <View style={styles.socialRow}>
-            <View style={{ flex: 1 }}>
-              <GAButton
-                title="Google"
-                onPress={handleGoogle}
-                variant="social"
-                loading={loading}
-                disabled={loading}
-                icon={<GoogleIcon size={18} />}
-              />
-            </View>
-            <View style={{ width: 12 }} />
-            <View style={{ flex: 1 }}>
-              <GAButton
-                title="Apple"
-                onPress={() => handleComingSoon('Apple')}
-                variant="social"
-                icon={<AppleIcon size={18} color="#FFFFFF" />}
-              />
-            </View>
-          </View>
-
-          <GAButton
-            title="Facebook"
-            onPress={() => handleComingSoon('Facebook')}
-            variant="social"
-            icon={<FacebookIcon size={18} />}
-            style={{ marginTop: 10 }}
-          />
+          <SocialSignInButtons agreed={agreed} />
 
           {/* Terms Checkbox */}
           <TouchableOpacity

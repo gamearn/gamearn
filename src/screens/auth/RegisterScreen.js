@@ -66,13 +66,13 @@ export default function RegisterScreen({ navigation }) {
         style={styles.fixedBackground}
         resizeMode="cover"
       />
-      <View style={styles.fixedDarkOverlay} />
+      <View pointerEvents="none" style={styles.fixedDarkOverlay} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+        keyboardDismissMode="none"
       >
         {/* Top Logo */}
         <View style={styles.logoSection}>
