@@ -46,7 +46,6 @@ function profileFromMe(me) {
 }
 
 async function isAdminUser() {
-  const { getCurrentUser } = await import('../services/firebase');
   const user = getCurrentUser();
   if (!user) return false;
   try {
@@ -94,7 +93,7 @@ export const AuthProvider = ({ children }) => {
       return me;
     } catch (err) {
       if (err instanceof ApiError && err.statusCode === 404) {
-        // Registered in Firebase but not in the backend yet → onboarding.
+        // Registered in Firebase but not in the backend yet â†’ onboarding.
         setUserProfile(null);
         setBackendReady(false);
         return null;
