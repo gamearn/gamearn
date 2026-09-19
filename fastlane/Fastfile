@@ -62,9 +62,9 @@ platform :ios do
       upload_to_app_store(
         ipa: File.join(root, 'build', 'ios', "gamearn-#{ENV.fetch('BUILD_NUMBER')}.ipa"),
         api_key: api_key,
-        skip_waiting_for_build_processing: true,
-        skip_submission: true,
-        distribute_external: false
+        skip_metadata: true,
+        skip_screenshots: true,
+        submit_for_review: false
       )
     end
   end
