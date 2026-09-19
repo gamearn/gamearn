@@ -16,6 +16,10 @@ on:
         description: Refresh Apple distribution profiles using the existing API key
         type: boolean
         default: false
+      upload_testflight:
+        description: Upload the finished IPA to App Store Connect/TestFlight
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -50,4 +54,5 @@ jobs:
     with:
       build_number: ${{ needs.prepare.outputs.build_number }}
       refresh_profiles: ${{ inputs.refresh_profiles == true }}
+      upload_testflight: ${{ inputs.upload_testflight == true }}
     secrets: inherit

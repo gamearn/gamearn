@@ -58,5 +58,14 @@ platform :ios do
       output_name: "gamearn-#{ENV.fetch('BUILD_NUMBER')}.ipa",
       buildlog_path: File.join(root, 'build', 'logs')
     )
+    if ENV['UPLOAD_TESTFLIGHT'] == 'true'
+      upload_to_app_store(
+        ipa: File.join(root, 'build', 'ios', "gamearn-#{ENV.fetch('BUILD_NUMBER')}.ipa"),
+        api_key: api_key,
+        skip_waiting_for_build_processing: true,
+        skip_submission: true,
+        distribute_external: false
+      )
+    end
   end
 end

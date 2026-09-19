@@ -7,6 +7,7 @@ Run **Build release APK, AAB and IPA** in GitHub Actions on the React Native bra
 - Both builds generate fresh native projects from Expo configuration. The archived local Flutter native folders are not used by a fresh checkout.
 - Build numbers default to 1000 + workflow run number. Supply a higher unused number if either store already has it; a rerun retains the same number.
 - If Apple signing reports a missing Sign in with Apple capability, enable it for com.gamearn in Apple Developer, then rerun with refresh_profiles enabled to renew the provisioning profile. The normal build reads existing profiles without changing them.
+- You do not need a Mac: run this workflow with `upload_testflight=true`. The GitHub macOS runner uploads the IPA using the existing App Store Connect API key. Then select the processed build in App Store Connect from your browser and submit it for review.
 
 ## Login validation before publishing
 

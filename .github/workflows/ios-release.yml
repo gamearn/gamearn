@@ -8,6 +8,9 @@ on:
       refresh_profiles:
         type: boolean
         default: false
+      upload_testflight:
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -58,7 +61,8 @@ jobs:
           APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
           APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
-          REFRESH_PROFILES: ${{ inputs.refresh_profiles && 'true' || 'false' }}
+      REFRESH_PROFILES: ${{ inputs.refresh_profiles && 'true' || 'false' }}
+      UPLOAD_TESTFLIGHT: ${{ inputs.upload_testflight && 'true' || 'false' }}
         run: bundle exec fastlane ios release
       - uses: actions/upload-artifact@v4
         with:
