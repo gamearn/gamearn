@@ -110,3 +110,6 @@ tool/figma_export.ps1
 
 # Local packaged source snapshots
 /lib.zip
+
+dist-check/
+

@@ -30,6 +30,14 @@ export const GOOGLE_CLIENT_IDS = {
     '600025492198-2g641acpvmhl1bm0m3f535kcodvhmt8k.apps.googleusercontent.com',
 };
 
+// Facebook OAuth — App ID (used as the client id by expo-auth-session).
+// NOTE: the App Secret must NOT ship in the client; it goes only into the
+// Firebase console (Authentication → Facebook) for server-side verification.
+export const FACEBOOK_APP_ID = '1762055368454928';
+
+// Apple Sign-In — Team ID for the paid Apple Developer account.
+export const APPLE_TEAM_ID = '8D2897QPB3';
+
 // Entry fee tiers in kobo, matching matchmaking.js ENTRY_FEES.
 export const ENTRY_FEES = {
   whot: { beginner: 10000, intermediate: 50000, expert: 200000 },

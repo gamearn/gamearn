@@ -4,9 +4,13 @@
 // updateProfileData) plus backend-specific helpers.
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Google from 'expo-auth-session/providers/google';
-import { GOOGLE_CLIENT_IDS } from '../config/appConfig';
+import * as Facebook from 'expo-auth-session/providers/facebook';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { randomUUID as cryptoRandomUUID } from 'expo-crypto';
+import { GOOGLE_CLIENT_IDS, FACEBOOK_APP_ID } from '../config/appConfig';
 
 // Expo Go (StoreClient) runs a browser-based OAuth flow, so Google must go
 // through the https://auth.expo.io proxy with the WEB client ID (the android
@@ -18,6 +22,8 @@ import {
   loginEmailPassword,
   registerEmailPassword,
   signInWithGoogleIdToken,
+  signInWithFacebookToken,
+  signInWithAppleToken,
   signOutFirebase,
   friendlyAuthError,
   getCurrentUser,
@@ -67,6 +73,14 @@ export const AuthProvider = ({ children }) => {
           androidClientId: GOOGLE_CLIENT_IDS.androidClientId,
           iosClientId: GOOGLE_CLIENT_IDS.iosClientId,
         },
+    { useProxy: GOOGLE_USE_PROXY },
+  );
+
+  const [facebookRequest, facebookResponse, facebookPrompt] = Facebook.useAuthRequest(
+    {
+      clientId: FACEBOOK_APP_ID,
+      scopes: ['public_profile', 'email'],
+    },
     { useProxy: GOOGLE_USE_PROXY },
   );
 
@@ -133,6 +147,20 @@ export const AuthProvider = ({ children }) => {
       })();
     }
   }, [googleResponse, loadBackendProfile]);
+
+  useEffect(() => {
+    if (facebookResponse?.type === 'success' && facebookResponse.params?.access_token) {
+      (async () => {
+        try {
+          const fbUser = await signInWithFacebookToken(facebookResponse.params.access_token);
+          setUser(fbUser);
+          await loadBackendProfile(fbUser);
+        } catch (err) {
+          console.warn('[Auth] Facebook sign-in failed', err?.code || err?.message);
+        }
+      })();
+    }
+  }, [facebookResponse, loadBackendProfile]);
 
   const signIn = async (email, password) => {
     const fbUser = await loginEmailPassword(email, password);

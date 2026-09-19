@@ -13,7 +13,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gamearn.app",
+      "bundleIdentifier": "com.gamearn",
       "infoPlist": {
         "NSCameraUsageDescription": "Gamearn uses the camera to update your profile photo.",
         "NSPhotoLibraryUsageDescription": "Gamearn accesses your photo library so you can set a profile photo.",
@@ -25,7 +25,7 @@
         "foregroundImage": "./assets/logos/logo_dark.png",
         "backgroundColor": "#0A0E1A"
       },
-      "package": "com.gamearn.app",
+      "package": "com.gamearn",
       "versionCode": 25
     },
     "web": {
@@ -37,6 +37,7 @@
       "expo-font",
       "expo-web-browser",
       "expo-status-bar",
+      "expo-apple-authentication",
       [
         "expo-image-picker",
         {

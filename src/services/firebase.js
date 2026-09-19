@@ -10,6 +10,8 @@ import {
   sendPasswordResetEmail,
   signInWithCredential,
   GoogleAuthProvider,
+  FacebookAuthProvider,
+  OAuthProvider,
   signOut as fbSignOut,
   onAuthStateChanged,
 } from 'firebase/auth';
@@ -58,6 +60,21 @@ export const resetPassword = async (email) => {
 // Sign in with an id_token from Google OAuth (expo-auth-session).
 export const signInWithGoogleIdToken = async (idToken) => {
   const credential = GoogleAuthProvider.credential(idToken);
+  const res = await signInWithCredential(auth, credential);
+  return res.user;
+};
+
+// Sign in with an access_token from Facebook OAuth (expo-auth-session).
+export const signInWithFacebookToken = async (accessToken) => {
+  const credential = FacebookAuthProvider.credential(accessToken);
+  const res = await signInWithCredential(auth, credential);
+  return res.user;
+};
+
+// Sign in with the identity token + raw nonce from Sign In with Apple.
+export const signInWithAppleToken = async (idToken, rawNonce) => {
+  const provider = new OAuthProvider('apple.com');
+  const credential = provider.credential({ idToken, rawNonce });
   const res = await signInWithCredential(auth, credential);
   return res.user;
 };
