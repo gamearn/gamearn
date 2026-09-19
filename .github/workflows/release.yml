@@ -19,7 +19,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.ref }}-${{ inputs.platform || 'both' }}
   cancel-in-progress: false
 jobs:
   prepare:
