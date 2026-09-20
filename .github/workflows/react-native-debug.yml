@@ -1,6 +1,7 @@
 name: React Native Debug Build
 
 on:
+  workflow_call:
   workflow_dispatch:
 
 permissions:

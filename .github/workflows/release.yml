@@ -7,7 +7,7 @@ on:
       platform:
         description: Platforms to build
         type: choice
-        options: [both, android, ios]
+        options: [both, android, android-debug, ios]
         default: both
       build_number:
         description: 'Optional unused store build number (default: 1000 + run number)'
@@ -42,14 +42,18 @@ jobs:
         run: node scripts/ci/release-version.cjs
   android:
     needs: prepare
-    if: github.event_name == 'push' || inputs.platform != 'ios'
+    if: github.event_name == 'push' || inputs.platform == 'both' || inputs.platform == 'android'
     uses: ./.github/workflows/android-release.yml
     with:
       build_number: ${{ needs.prepare.outputs.build_number }}
     secrets: inherit
+  android-debug:
+    needs: prepare
+    if: inputs.platform == 'android-debug'
+    uses: ./.github/workflows/react-native-debug.yml
   ios:
     needs: prepare
-    if: github.event_name == 'push' || inputs.platform != 'android'
+    if: github.event_name == 'push' || inputs.platform == 'both' || inputs.platform == 'ios'
     uses: ./.github/workflows/ios-release.yml
     with:
       build_number: ${{ needs.prepare.outputs.build_number }}
