@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { PlusCircle, Banknote, Trophy, ShoppingCart, Flame, ChevronRight } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { wallet } from '../../services/api';
+import { wallet, streak } from '../../services/api';
 
 const CREDIT_TYPES = new Set(['deposit', 'prize', 'refund', 'tournament_prize']);
 
@@ -23,7 +23,7 @@ function formatTxDate(iso) {
   try {
     const d = new Date(iso);
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
-      ' · ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      ' Â· ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   } catch {
     return '';
   }
@@ -35,9 +35,10 @@ export default function WalletScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('Overview');
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading] = useState(true);
+  const [streakData, setStreakData] = useState(null);
 
-  const coins = userProfile?.coins ?? 0;
-  const usdValue = (coins * 0.01).toFixed(2);
+  const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.coins ?? 0);
+  const streakDays = Number(streakData?.currentStreak ?? userProfile?.streak ?? 0);
 
   useFocusEffect(
     useCallback(() => {
@@ -45,8 +46,16 @@ export default function WalletScreen({ navigation }) {
       (async () => {
         setTxLoading(true);
         try {
-          const res = await wallet.transactions({ limit: 20 });
-          if (active && res.pagination) setTransactions(res.transactions || []);
+          const [transactionsResult, streakResult] = await Promise.allSettled([
+            wallet.transactions({ limit: 20 }),
+            streak.get(),
+          ]);
+          if (active && transactionsResult.status === 'fulfilled' && transactionsResult.value.pagination) {
+            setTransactions(transactionsResult.value.transactions || []);
+          }
+          if (active && streakResult.status === 'fulfilled') {
+            setStreakData(streakResult.value?.data || streakResult.value || null);
+          }
         } catch {
           if (active) setTransactions([]);
         } finally {
@@ -110,28 +119,20 @@ export default function WalletScreen({ navigation }) {
               />
             </View>
 
-            {/* LEVEL Badge Pill */}
-            <View style={styles.levelBadgePill}>
-              <Text style={styles.levelBadgeText}>LEVEL 42</Text>
-            </View>
           </View>
 
           {/* Balance Unit Display */}
           <View style={styles.balanceTextRow}>
-            <Text style={[styles.balanceNum, { color: theme.textPrimary }]}>{coins.toLocaleString()}</Text>
-            <Text style={[styles.balanceUnitText, { color: theme.primary }]}>/Units</Text>
+            <Text style={[styles.balanceNum, { color: theme.textPrimary }]}>â‚¦{balanceNaira.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
           </View>
 
-          <Text style={[styles.usdEquivalentText, { color: theme.textSecondary }]}>${usdValue} USD Equivalent</Text>
-
-          {/* 90-Day Streak Active Pill */}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => navigation.navigate('DailyStreak')}
             style={[styles.streakPillBtn, { backgroundColor: isDark ? 'rgba(15, 35, 55, 0.8)' : 'rgba(0, 180, 216, 0.1)', borderColor: isDark ? 'rgba(0, 229, 255, 0.3)' : 'rgba(0, 180, 216, 0.3)' }]}
           >
             <Flame size={14} color="#FF5500" style={{ marginRight: 6 }} />
-            <Text style={[styles.streakPillText, { color: theme.primary }]}>90-Day Streak Active</Text>
+            <Text style={[styles.streakPillText, { color: theme.primary }]}>{streakDays} Day{streakDays === 1 ? '' : 's'} Streak</Text>
           </TouchableOpacity>
         </View>
 
@@ -249,10 +250,7 @@ export default function WalletScreen({ navigation }) {
                         { color: isCredit ? statusColor : theme.textPrimary },
                       ]}
                     >
-                      {`${isCredit ? '+' : '-'}₦${amountN.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`}
-                    </Text>
-                    <Text style={[styles.txItemUsd, { color: theme.textSecondary }]}>
-                      {isCredit ? '+' : '-'}{Number(tx.amountKobo || 0).toLocaleString()} coins
+                      {`${isCredit ? '+' : '-'}₦${amountN.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     </Text>
                   </View>
                 </View>
@@ -489,3 +487,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+

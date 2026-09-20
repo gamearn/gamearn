@@ -149,7 +149,9 @@ export default function HomeScreen({ navigation }) {
     return () => { active = false; };
   }, []);
 
-  const walletBalance = Number(backendWallet?.balanceKobo ?? backendWallet?.balance ?? userProfile?.coins ?? 0);
+  // The backend returns `balance` in naira. Keep accounting kobo out of the UI.
+  const walletBalanceNaira = Number(backendWallet?.balance ?? userProfile?.walletBalance ?? 0);
+  const formatNaira = (value) => `\u20A6${Number(value || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const streakDays = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
 
   const displayName = userProfile?.username || userProfile?.fullName || userProfile?.name || state.name || 'Gamer';
@@ -247,9 +249,9 @@ export default function HomeScreen({ navigation }) {
     return (
       <LinearGradient colors={['#003a72', '#001324', '#00101e']} style={[s.card, s.wallet]}>
         <View style={s.walletIcon}>{icon('wallet-outline', 34)}</View>
-        <Tap label={`Open wallet, balance ${money(walletBalance)}`} onPress={() => changeTab('Wallet')} style={{ flex: 1 }}>
+        <Tap label={`Open wallet, balance ${formatNaira(walletBalanceNaira)}`} onPress={() => changeTab('Wallet')} style={{ flex: 1 }}>
           {txt('Wallet Balance', 13, s.muted)}
-          {txt(homeDataLoading ? 'Loadingâ€¦' : money(walletBalance), 24, s.bold)}
+          {txt(homeDataLoading ? 'Loadingâ€¦' : formatNaira(walletBalanceNaira), 24, s.bold)}
           {txt('Live balance from wallet', 13, s.cyan)}
         </Tap>
         <Tap label="Add funds to demo wallet" onPress={() => open('deposit')} style={s.plus}>

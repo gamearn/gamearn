@@ -17,14 +17,24 @@ import {
 } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FIREBASE_CONFIG } from '../config/appConfig';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const app = initializeApp(FIREBASE_CONFIG);
 
 const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });
+const storage = getStorage(app);
 
 export { app };
+
+export const uploadProfileImage = async (uid, uri) => {
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  const target = ref(storage, `profile-photos/${uid}/avatar-${Date.now()}.jpg`);
+  await uploadBytes(target, blob, { contentType: blob.type || 'image/jpeg' });
+  return getDownloadURL(target);
+};
 
 export const getCurrentUser = () => auth.currentUser;
 

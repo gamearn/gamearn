@@ -38,6 +38,8 @@ function profileFromMe(me) {
     // Convenience fields consumed by existing screens.
     username: me.displayName || me.email?.split('@')[0] || '',
     displayName: me.displayName || '',
+    avatar: me.avatar || '',
+    bio: me.bio || '',
     phone: me.phoneNumber || '',
     walletBalance: me.wallet?.balance ?? 0,
     coins: me.wallet?.balance ?? 0,
@@ -72,9 +74,9 @@ export const AuthProvider = ({ children }) => {
     shouldAutoExchangeCode: false,
     selectAccount: true,
     ...(Platform.OS === 'ios' ? {
-      redirectUri: `com.googleusercontent.apps.${GOOGLE_CLIENT_IDS.iosClientId.split('.apps.')[0]}:/oauthredirect`,
+      redirectUri: `com.googleusercontent.apps.${(GOOGLE_CLIENT_IDS.iosClientId || '').split('.apps.')[0]}:/oauthredirect`,
     } : Platform.OS === 'android' ? {
-      redirectUri: `com.googleusercontent.apps.${GOOGLE_CLIENT_IDS.androidClientId.split('.apps.')[0]}:/oauthredirect`,
+      redirectUri: `com.googleusercontent.apps.${(GOOGLE_CLIENT_IDS.androidClientId || '').split('.apps.')[0]}:/oauthredirect`,
     } : {}),
   });
 
@@ -269,9 +271,13 @@ export const AuthProvider = ({ children }) => {
     const displayName = updates.displayName || updates.username;
     if (displayName) {
       try {
-        await authApi.updateProfile({ displayName });
+        await authApi.updateProfile({
+          ...(displayName ? { displayName } : {}),
+          ...(updates.avatar ? { avatarUrl: updates.avatar } : {}),
+          ...(updates.bio !== undefined ? { bio: updates.bio } : {}),
+        });
       } catch (err) {
-        console.warn('[Auth] profile patch failed', err?.message);
+        throw err;
       }
     }
     setUserProfile(profileFromMe(next));
