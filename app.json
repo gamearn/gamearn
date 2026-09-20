@@ -34,7 +34,10 @@
       },
       "package": "com.gamearn",
       "versionCode": 26,
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/logos/logo_dark.png",
@@ -68,6 +71,17 @@
           "backgroundColor": "#0A0E1A"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3c3e534f-2dbf-4e6d-bae1-1de1712cfb8a"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3c3e534f-2dbf-4e6d-bae1-1de1712cfb8a"
+    }
   }
 }
