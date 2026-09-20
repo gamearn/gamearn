@@ -11,6 +11,7 @@ export default function DailyStreakScreen({ navigation }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [recovering, setRecovering] = useState(false);
   useFocusEffect(useCallback(() => {
     let mounted = true;
     setLoading(true);
@@ -35,6 +36,11 @@ export default function DailyStreakScreen({ navigation }) {
     { day: 365, type: 'release_and_bonus', amount: 5000, name: 'Year Champion' },
   ];
   const rewardLabel = (reward) => reward.type.includes('badge') ? reward.name : `${reward.amount} ${reward.type.includes('locked') ? 'locked' : 'bonus'} coins`;
+  const recover = async () => {
+    setRecovering(true);
+    try { await streak.recover('coins'); } catch (err) { setError(err?.message || 'Unable to recover streak'); }
+    finally { setRecovering(false); }
+  };
   return <View style={[styles.root, { backgroundColor: theme.bg }]}>
     <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
     <LinearGradient colors={theme.gradientBg} style={StyleSheet.absoluteFillObject} />
@@ -45,7 +51,8 @@ export default function DailyStreakScreen({ navigation }) {
       <Text style={[styles.section, { color: theme.textPrimary }]}>Milestones and rewards</Text>
       {schedule.map((reward) => { const reached = days >= reward.day; return <View key={reward.day} style={[styles.row, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>{reached ? <Check size={18} color={theme.primary} /> : <Lock size={18} color={theme.textMuted} />}<View style={{ flex: 1, marginLeft: 12 }}><Text style={[styles.rowText, { color: theme.textPrimary, marginLeft: 0 }]}>Day {reward.day}</Text><Text style={[styles.rewardText, { color: theme.textSecondary }]}>{rewardLabel(reward)}</Text></View><Text style={[styles.rowStatus, { color: reached ? theme.primary : theme.textMuted }]}>{reached ? 'Reached' : 'Locked'}</Text></View>; })}
       <Text style={[styles.note, { color: theme.textSecondary }]}>Each completed game day adds {rewardPolicy.dailyLockedCoins || 10} locked coins. They release at day 90. A one-day miss can be recovered by watching an ad or paying {rewardPolicy.oneDayRecovery?.coinCost || 100} unlocked coins.</Text>
+      {!data?.activeToday && <TouchableOpacity disabled={recovering} onPress={recover} style={[styles.recover, { borderColor: theme.primary }]}><Text style={[styles.recoverText, { color: theme.primary }]}>{recovering ? 'Recovering…' : 'Recover with 100 unlocked coins'}</Text></TouchableOpacity>}
     </ScrollView>
   </View>;
 }
-const styles = StyleSheet.create({ root: { flex: 1 }, header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: 58 }, back: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }, headerTitle: { fontSize: 22, fontWeight: '800' }, content: { padding: 20, paddingBottom: 48 }, hero: { alignItems: 'center', marginBottom: 26 }, flame: { width: 94, height: 94, borderRadius: 47, backgroundColor: 'rgba(255,85,0,.12)', alignItems: 'center', justifyContent: 'center' }, days: { fontSize: 52, fontWeight: '900', marginTop: 8 }, label: { color: '#FF5500', fontSize: 13, fontWeight: '900', letterSpacing: 1.4 }, status: { flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 7, marginTop: 14 }, dot: { width: 6, height: 6, borderRadius: 3 }, statusText: { fontSize: 10, fontWeight: '900', letterSpacing: .7 }, card: { borderWidth: 1, borderRadius: 16, padding: 18, marginBottom: 24 }, small: { fontSize: 12, fontWeight: '700' }, title: { fontSize: 22, fontWeight: '900', marginVertical: 5 }, muted: { fontSize: 13, lineHeight: 19 }, section: { fontSize: 19, fontWeight: '900', marginBottom: 12 }, row: { minHeight: 60, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 9 }, rowText: { fontSize: 15, fontWeight: '800', marginLeft: 12, flex: 1 }, rewardText: { fontSize: 12, marginTop: 2 }, rowStatus: { fontSize: 12, fontWeight: '800' }, note: { fontSize: 12, lineHeight: 18, marginTop: 12 } });
+const styles = StyleSheet.create({ root: { flex: 1 }, header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: 58 }, back: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }, headerTitle: { fontSize: 22, fontWeight: '800' }, content: { padding: 20, paddingBottom: 48 }, hero: { alignItems: 'center', marginBottom: 26 }, flame: { width: 94, height: 94, borderRadius: 47, backgroundColor: 'rgba(255,85,0,.12)', alignItems: 'center', justifyContent: 'center' }, days: { fontSize: 52, fontWeight: '900', marginTop: 8 }, label: { color: '#FF5500', fontSize: 13, fontWeight: '900', letterSpacing: 1.4 }, status: { flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 7, marginTop: 14 }, dot: { width: 6, height: 6, borderRadius: 3 }, statusText: { fontSize: 10, fontWeight: '900', letterSpacing: .7 }, card: { borderWidth: 1, borderRadius: 16, padding: 18, marginBottom: 24 }, small: { fontSize: 12, fontWeight: '700' }, title: { fontSize: 22, fontWeight: '900', marginVertical: 5 }, muted: { fontSize: 13, lineHeight: 19 }, section: { fontSize: 19, fontWeight: '900', marginBottom: 12 }, row: { minHeight: 60, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 9 }, rowText: { fontSize: 15, fontWeight: '800', marginLeft: 12, flex: 1 }, rewardText: { fontSize: 12, marginTop: 2 }, rowStatus: { fontSize: 12, fontWeight: '800' }, note: { fontSize: 12, lineHeight: 18, marginTop: 12 }, recover: { borderWidth: 1, borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 14 }, recoverText: { fontSize: 13, fontWeight: '800' } });

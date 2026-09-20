@@ -188,5 +188,6 @@ export const practice = {
 };
 export const streak = {
   get: () => apiGet('/streak/'),
+  recover: (method) => apiPost('/streak/recover', { method }),
 };
 
