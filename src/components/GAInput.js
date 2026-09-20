@@ -21,6 +21,11 @@ export default function GAInput({
 }) {
   const [isSecure, setIsSecure] = useState(secureTextEntry);
   const [isFocused, setIsFocused] = useState(false);
+  const inputRef = React.useRef(null);
+
+  const claimFocus = () => {
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
 
   return (
     <View style={[styles.container, style]}>
@@ -44,6 +49,7 @@ export default function GAInput({
             ]}
           >
             <TextInput
+              ref={inputRef}
               value={value}
               onChangeText={onChangeText}
               placeholder={placeholder}
@@ -52,6 +58,7 @@ export default function GAInput({
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               onEndEditing={() => setIsFocused(false)}
+              onPressIn={claimFocus}
               style={[styles.textInput, inputStyle]}
             />
           </View>
@@ -66,6 +73,7 @@ export default function GAInput({
         >
           {leftIcon && <View style={styles.iconBox}>{leftIcon}</View>}
           <TextInput
+            ref={inputRef}
             value={value}
             onChangeText={onChangeText}
             placeholder={placeholder}
@@ -76,6 +84,7 @@ export default function GAInput({
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             onEndEditing={() => setIsFocused(false)}
+            onPressIn={claimFocus}
             style={[styles.textInput, inputStyle]}
           />
           {secureTextEntry && (
