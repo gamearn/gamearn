@@ -51,6 +51,7 @@ export default function GAInput({
               keyboardType="phone-pad"
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
+              onEndEditing={() => setIsFocused(false)}
               style={[styles.textInput, inputStyle]}
             />
           </View>
@@ -74,6 +75,7 @@ export default function GAInput({
             autoCapitalize={autoCapitalize}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
+            onEndEditing={() => setIsFocused(false)}
             style={[styles.textInput, inputStyle]}
           />
           {secureTextEntry && (

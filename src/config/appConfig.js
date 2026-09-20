@@ -25,7 +25,7 @@ export const GOOGLE_CLIENT_IDS = {
   webClientId:
     '600025492198-dcnafmn9aoojtn1v983ntie0vt2musgn.apps.googleusercontent.com',
   androidClientId:
-    '600025492198-eo1a768ea7ffh7m398fqu0d99ohc034f.apps.googleusercontent.com',
+    '600025492198-hlesciu9hv2j30p2ch4bp9u4blon97ll.apps.googleusercontent.com',
   iosClientId:
     '600025492198-2g641acpvmhl1bm0m3f535kcodvhmt8k.apps.googleusercontent.com',
 };
