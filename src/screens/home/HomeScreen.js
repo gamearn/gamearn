@@ -23,16 +23,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { reference, regions } from './art';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { wallet, tournaments } from '../../services/api';
 const { INITIAL_STATE, reducer, parseAmount, money, localDay, leaderboard } = require('./model');
 
 const STORAGE_KEY = '@adebayo-dashboard/v1';
 const CYAN = '#00d9ff';
 const GREEN = '#12ff39';
 const GAMES = [
-  { id: 'ludo', name: 'Lúdò', players: '1.2k', description: 'Race your four tokens around the board and bring them home.', targetScreen: 'LudoGame' },
-  { id: 'ayo', name: 'Ayo Ọpọ́n', players: '850', description: 'Sow seeds around the wooden board and capture your opponent’s seeds.', targetScreen: 'AyoGame' },
-  { id: 'whot', name: 'Whot', players: '640', description: 'Match shapes or numbers and be the first to empty your hand.', targetScreen: 'WhotGame' },
-  { id: 'draft', name: 'Draft', players: '520', description: 'Move diagonally, capture pieces, and crown your kings.', targetScreen: 'DraughtsGame' },
+  { id: 'ludo', name: 'Lúdò', description: 'Race your four tokens around the board and bring them home.', targetScreen: 'LudoGame' },
+  { id: 'ayo', name: 'Ayo Ọpọ́n', description: 'Sow seeds around the wooden board and capture your opponent’s seeds.', targetScreen: 'AyoGame' },
+  { id: 'whot', name: 'Whot', description: 'Match shapes or numbers and be the first to empty your hand.', targetScreen: 'WhotGame' },
+  { id: 'draft', name: 'Draft', description: 'Move diagonally, capture pieces, and crown your kings.', targetScreen: 'DraughtsGame' },
 ];
 
 function Art({ name, width, height, style }) {
@@ -107,6 +108,9 @@ export default function HomeScreen({ navigation }) {
   const [roll, setRoll] = useState(null);
   const [demoComplete, setDemoComplete] = useState(false);
   const [storageError, setStorageError] = useState('');
+  const [backendWallet, setBackendWallet] = useState(null);
+  const [featuredTournament, setFeaturedTournament] = useState(null);
+  const [homeDataLoading, setHomeDataLoading] = useState(true);
   const pendingWrites = useRef(Promise.resolve());
   const mounted = useRef(true);
   const depositLock = useRef(false);
@@ -128,6 +132,25 @@ export default function HomeScreen({ navigation }) {
       mounted.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    Promise.allSettled([wallet.get(), tournaments.list()]).then(([walletResult, tournamentResult]) => {
+      if (!active) return;
+      if (walletResult.status === 'fulfilled') setBackendWallet(walletResult.value);
+      if (tournamentResult.status === 'fulfilled') {
+        const list = Array.isArray(tournamentResult.value)
+          ? tournamentResult.value
+          : tournamentResult.value?.tournaments || tournamentResult.value?.data || [];
+        setFeaturedTournament(list.find((item) => ['open', 'live', 'registration_open'].includes(String(item.status).toLowerCase())) || null);
+      }
+      setHomeDataLoading(false);
+    });
+    return () => { active = false; };
+  }, []);
+
+  const walletBalance = Number(backendWallet?.balanceKobo ?? backendWallet?.balance ?? userProfile?.coins ?? 0);
+  const streakDays = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
 
   const displayName = userProfile?.username || userProfile?.fullName || userProfile?.name || state.name || 'Gamer';
 
@@ -174,7 +197,7 @@ export default function HomeScreen({ navigation }) {
 
   const txt = (value, size = 18, style) => <Text style={[s.text, { fontSize: size * scale }, style]}>{value}</Text>;
   const icon = (iconName, size = 24, color = CYAN) => <Ionicons name={iconName} size={size * scale} color={color} />;
-  const rows = leaderboard(period, state.name);
+  const rows = [];
 
   const addFunds = () => {
     const parsed = parseAmount(amount);
@@ -189,6 +212,7 @@ export default function HomeScreen({ navigation }) {
   function Header() {
     const displayName = userProfile?.username || userProfile?.fullName || state.name;
     const avatarUri = userProfile?.avatar;
+    const initials = displayName.trim().slice(0, 1).toUpperCase() || '?';
 
     return (
       <View style={s.header}>
@@ -197,7 +221,7 @@ export default function HomeScreen({ navigation }) {
             {avatarUri && avatarUri.startsWith('http') ? (
               <Image source={{ uri: avatarUri }} style={[s.avatar, { width: 55 * scale, height: 55 * scale, borderRadius: (55 * scale) / 2 }]} />
             ) : (
-              <Art name="adebayo" width={55 * scale} height={55 * scale} style={s.avatar} />
+              <View style={[s.avatar, s.avatarFallback]}><Text style={s.avatarInitial}>{initials}</Text></View>
             )}
           </LinearGradient>
           <View style={{ marginLeft: 15 * scale }}>
@@ -223,10 +247,10 @@ export default function HomeScreen({ navigation }) {
     return (
       <LinearGradient colors={['#003a72', '#001324', '#00101e']} style={[s.card, s.wallet]}>
         <View style={s.walletIcon}>{icon('wallet-outline', 34)}</View>
-        <Tap label={`Open wallet, balance ${money(state.balance)}`} onPress={() => changeTab('Wallet')} style={{ flex: 1 }}>
+        <Tap label={`Open wallet, balance ${money(walletBalance)}`} onPress={() => changeTab('Wallet')} style={{ flex: 1 }}>
           {txt('Wallet Balance', 13, s.muted)}
-          {txt(money(state.balance), 24, s.bold)}
-          {txt('+500 units this week', 13, s.cyan)}
+          {txt(homeDataLoading ? 'Loading…' : money(walletBalance), 24, s.bold)}
+          {txt('Live balance from wallet', 13, s.cyan)}
         </Tap>
         <Tap label="Add funds to demo wallet" onPress={() => open('deposit')} style={s.plus}>
           {icon('add', 27, '#002741')}
@@ -236,6 +260,9 @@ export default function HomeScreen({ navigation }) {
   }
 
   function TournamentCard() {
+    if (homeDataLoading) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>Loading live tournaments…</Text>;
+    if (!featuredTournament) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>No live tournaments right now.</Text>;
+    const tournament = featuredTournament;
     return (
       <LinearGradient colors={['#172019', '#170b19', '#001b30']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.tournament}>
         <Art name="tournament" width={320 * scale} height={168 * scale} style={s.trophyArt} />
@@ -244,15 +271,15 @@ export default function HomeScreen({ navigation }) {
           <View style={s.live}>{txt('Live Now', 13, { color: '#00110a', fontWeight: '800' })}</View>
           <View style={s.playersBadge}>
             {icon('people', 14, '#fff')}
-            {txt('1,240 Players', 12)}
+            {txt(`${Number(tournament.currentPlayers ?? tournament.playersCount ?? 0).toLocaleString()} Players`, 12)}
           </View>
         </View>
-        {txt('Ayo Ọpọ́n Grandmaster\nTournament', 23, s.tournamentTitle)}
-        {txt('Show Your Skill. Win Big!', 15, s.muted)}
+        {txt(tournament.name || 'Live Tournament', 23, s.tournamentTitle)}
+        {txt(tournament.description || 'Join an active tournament.', 15, s.muted)}
         <View style={s.prizeRow}>
           <View>
             {txt('Prize Pool', 13, s.muted)}
-            {txt('₦5,000.00', 25, [s.bold, s.cyan])}
+            {txt(tournament.prizePool ? `₦${Number(tournament.prizePool).toLocaleString()}` : 'Prize pool unavailable', 25, [s.bold, s.cyan])}
           </View>
           <GradientButton title={state.joined ? 'Joined ✓' : 'Join Now'} onPress={() => navigation.navigate('LiveTournament')} style={{ width: 148 * scale }} compact scale={scale} />
         </View>
@@ -262,13 +289,13 @@ export default function HomeScreen({ navigation }) {
 
   function GameCard({ game }) {
     return (
-      <Tap label={`${game.name}, ${game.players} playing. Open game lobby`} onPress={() => launchGame(game)} style={s.gameCard}>
+      <Tap label={`${game.name}. Open game lobby`} onPress={() => launchGame(game)} style={s.gameCard}>
         <Art name={game.id} width={116 * scale} height={81 * scale} style={{ width: '100%' }} />
         <View style={s.gameText}>
           {txt(game.name, 15, s.bold)}
           <View style={s.inline}>
             <View style={s.dot} />
-            {txt(`${game.players} Playing`, 11, s.muted)}
+          {txt('Live count unavailable', 11, s.muted)}
           </View>
         </View>
       </Tap>
@@ -284,9 +311,9 @@ export default function HomeScreen({ navigation }) {
         </View>
         <View style={s.milestones}>
           <View style={s.track} />
-          <View style={[s.track, { width: `${Math.min(state.streak / 30, 1) * 32}%`, backgroundColor: CYAN }]} />
+          <View style={[s.track, { width: `${Math.min(streakDays / 30, 1) * 32}%`, backgroundColor: CYAN }]} />
           {[7, 14, 30, 50, 90, 100].map((day) => {
-            const done = state.streak >= day;
+            const done = streakDays >= day;
             return (
               <Tap key={day} label={`${day} day milestone, ${done ? 'completed' : 'locked'}`} onPress={() => open('streak')} style={s.milestone}>
                 <View style={[s.milestoneCircle, done && s.done, !done && day === 30 && s.gold]}>
@@ -299,7 +326,7 @@ export default function HomeScreen({ navigation }) {
           })}
           <Tap label="30 day reward details" onPress={() => open('reward')} style={s.reward}>
             <Art name="gift" width={48 * scale} height={55 * scale} style={s.gift} />
-            {txt(`30-Day\nReward\n${state.claimed ? 'Claimed' : state.streak >= 30 ? 'Unlocked' : 'Locked'}`, 12, { textAlign: 'center', lineHeight: 14 * scale })}
+            {txt(`30-Day\nReward\n${streakDays >= 30 ? 'Unlocked' : 'Locked'}`, 12, { textAlign: 'center', lineHeight: 14 * scale })}
           </Tap>
         </View>
       </LinearGradient>
@@ -319,7 +346,9 @@ export default function HomeScreen({ navigation }) {
             ))}
           </View>
         </View>
-        {rows.map((player, index) => (
+        {rows.length === 0 ? (
+          <Text style={[s.muted, { marginTop: 12 * scale }]}>Leaderboard data unavailable.</Text>
+        ) : rows.map((player, index) => (
           <Tap key={player.id} label={`${index + 1}, ${player.name}, ${player.wins} wins, ${player.xp} XP`} onPress={() => open('player', player)} style={[s.leaderRow, index === 0 && s.firstRow]}>
             <View style={[s.rank, index < 3 && { borderColor: ['#eab51b', '#91a6b9', '#ff8a00'][index], backgroundColor: ['#8f6400', '#526b80', '#bf4004'][index] }]}>
               {index < 3 && <View style={s.medalRibbon} />}
@@ -359,11 +388,11 @@ export default function HomeScreen({ navigation }) {
         </View>
         <View style={s.stats}>
           <WalletCard />
-          <Tap label={`${state.streak} day streak. View details`} onPress={() => open('streak')} style={[s.card, s.streakSummary]}>
+          <Tap label={`${streakDays} day streak. View details`} onPress={() => open('streak')} style={[s.card, s.streakSummary]}>
             <Art name="flame" width={47 * scale} height={62 * scale} />
             <View style={{ flex: 1, marginLeft: 6 * scale }}>
               <View style={s.inline}>
-                {txt(`${state.streak} Days`, 21, s.bold)}
+                {txt(`${streakDays} Days`, 21, s.bold)}
                 <View style={s.activeBadge}>
                   {txt('Active', 12, { color: '#001a0b', fontWeight: '700' })}
                   {icon('checkmark-circle', 13, '#00511b')}
@@ -723,6 +752,8 @@ function makeStyles(k, theme, isDark) {
     member: { flexDirection: 'row', alignItems: 'center', flex: 1 },
     avatarRing: { width: 66, height: 66, borderRadius: 33, alignItems: 'center', justifyContent: 'center', shadowColor: CYAN, shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
     avatar: { borderRadius: 30 },
+    avatarFallback: { backgroundColor: '#14304a', alignItems: 'center', justifyContent: 'center' },
+    avatarInitial: { color: '#fff', fontSize: 24, fontWeight: '800' },
     roundIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: isDark ? '#002138' : 'rgba(0, 0, 0, 0.06)', alignItems: 'center', justifyContent: 'center' },
     unread: { position: 'absolute', right: 13, top: 10, width: 11, height: 11, borderRadius: 6, backgroundColor: '#ff1532' },
     dot: { width: 10, height: 10, borderRadius: 5, marginRight: 6, backgroundColor: GREEN },
