@@ -186,3 +186,7 @@ export const practice = {
     state: (sessionId) => apiGet(`/practice/draughts/state/${sessionId}`),
   },
 };
+export const streak = {
+  get: () => apiGet('/streak/'),
+};
+
