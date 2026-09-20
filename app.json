@@ -34,10 +34,7 @@
       },
       "package": "com.gamearn",
       "versionCode": 26,
-      "softwareKeyboardLayoutMode": "resize",
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "./assets/logos/logo_dark.png",
