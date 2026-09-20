@@ -1,6 +1,6 @@
-// Auth state: Firebase is the identity authority; the Node backend is the
+﻿// Auth state: Firebase is the identity authority; the Node backend is the
 // profile/wallet source of truth. Exposes the same API the screens used with
-// mock auth (user, userProfile, loading, signIn, signUp, signOut,
+// Authentication context (user, profile, loading, sign-in, sign-up, sign-out,
 // updateProfileData) plus backend-specific helpers.
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -97,7 +97,7 @@ export const AuthProvider = ({ children }) => {
       return me;
     } catch (err) {
       if (err instanceof ApiError && err.statusCode === 404) {
-        // Registered in Firebase but not in the backend yet â†’ onboarding.
+        // Registered in Firebase but not in the backend yet Ã¢â€ â€™ onboarding.
         setUserProfile(null);
         setBackendReady(false);
         return null;
@@ -313,3 +313,4 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+

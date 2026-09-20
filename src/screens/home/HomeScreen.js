@@ -507,7 +507,7 @@ export default function HomeScreen({ navigation }) {
               <Text style={ui.label}>{'\uD83D\uDD25 Keep your streak going'}</Text>
               <Text style={ui.body}>Youâ€™re on a {state.streak} day streak. Complete todayâ€™s daily challenge to try the streak interaction.</Text>
             </View>
-            <Text style={ui.caption}>Sample notifications Â· All read</Text>
+            <Text style={ui.caption}>No new notifications</Text>
           </>
         );
       case 'settings':
@@ -843,6 +843,7 @@ const ui = StyleSheet.create({
   notice: { padding: 15, backgroundColor: '#102b40', borderRadius: 12, marginBottom: 12 },
   dice: { color: CYAN, fontSize: 64, textAlign: 'center', marginVertical: 12 },
 });
+
 
 
 
