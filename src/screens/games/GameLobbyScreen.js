@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Swords, Settings, ArrowLeft, Wallet, Cpu } from 'lucide-react-native';
 import BrandLogo from '../../components/BrandLogo';
@@ -32,7 +32,8 @@ export default function GameLobbyScreen({ route, navigation }) {
   const sockRef = useRef(null);
 
   const selectedFee = tiers[selectedTier] || tiers.beginner;
-  const balance = userProfile?.coins ?? 0;
+  const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.coins ?? 0);
+  const balanceKobo = Math.round(balanceNaira * 100);
 
   const handleBack = () => {
     if (navigation.canGoBack()) {
@@ -86,10 +87,10 @@ export default function GameLobbyScreen({ route, navigation }) {
       ]);
       return;
     }
-    if (balance < selectedFee) {
+    if (balanceKobo < selectedFee) {
       Alert.alert(
         'Insufficient balance',
-        `This entry costs ${naira(koboToN(selectedFee))}. Your balance is ${naira(koboToN(balance))}.`,
+        `This entry costs ${naira(koboToN(selectedFee))}. Your balance is ${naira(balanceNaira)}.`,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Buy Coins', onPress: () => navigation.navigate('BuyCoins') },
@@ -157,7 +158,7 @@ export default function GameLobbyScreen({ route, navigation }) {
       <TouchableOpacity onPress={openDeposit} style={styles.walletRow}>
         <Wallet size={18} color={theme.accent} />
         <Text style={[styles.walletText, { color: theme.textPrimary }]}>
-          Wallet: {naira(koboToN(balance))}
+          Wallet: {naira(balanceNaira)}
         </Text>
         <Text style={[styles.walletAction, { color: theme.accent }]}>Top up</Text>
       </TouchableOpacity>
@@ -169,7 +170,7 @@ export default function GameLobbyScreen({ route, navigation }) {
         >
           <Settings size={20} color="#00E5FF" />
           <Text style={{ color: '#00E5FF', fontWeight: '800', fontSize: 14 }}>
-            ⚙️ Custom Match Setup ({gameName})
+            âš™ï¸ Custom Match Setup ({gameName})
           </Text>
         </TouchableOpacity>
       </View>
@@ -226,7 +227,7 @@ export default function GameLobbyScreen({ route, navigation }) {
       ) : (
         <View style={styles.searchBox}>
           <ActivityIndicator size="large" color={theme.primary} />
-          <Text style={[styles.searchText, { color: theme.textPrimary }]}>Searching for an opponent…</Text>
+          <Text style={[styles.searchText, { color: theme.textPrimary }]}>Searching for an opponentâ€¦</Text>
           {queueLen > 0 && (
             <Text style={[styles.searchSub, { color: theme.textSecondary }]}>Queue position: #{queueLen}</Text>
           )}
@@ -236,11 +237,11 @@ export default function GameLobbyScreen({ route, navigation }) {
         </View>
       )}
 
-      {gameType === 'whot' && (
+      {(
         <TouchableOpacity onPress={startPractice} style={styles.practiceRow}>
           <Cpu size={18} color={theme.success} />
           <Text style={{ color: theme.success, fontWeight: '700', fontSize: 14 }}>
-            Play vs CPU — free practice (server-validated)
+            Play vs Bot - free practice
           </Text>
         </TouchableOpacity>
       )}

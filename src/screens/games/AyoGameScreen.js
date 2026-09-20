@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { AyoScreen } from '../../games/ayo/AyoScreen';
 import { useAuth } from '../../context/AuthContext';
@@ -6,8 +6,8 @@ import { useOnlineMatch } from '../../games/useOnlineMatch';
 
 const STATUS_TEXT = {
   idle: '',
-  joining: 'Joining room…',
-  waiting: 'Waiting for opponent…',
+  joining: 'Joining roomâ€¦',
+  waiting: 'Waiting for opponentâ€¦',
   playing: 'Live match',
   game_over: 'Match over',
   aborted: 'Match cancelled',
@@ -53,12 +53,12 @@ export default function AyoGameScreen({ route, navigation }) {
     <View style={styles.container}>
       {isPractice ? (
         <View style={styles.practiceBanner}>
-          <Text style={styles.practiceBannerText}>Practice for Ayò rolls out with Whot first</Text>
+          <Text style={styles.practiceBannerText}>Practice for AyÃ² rolls out with Whot first</Text>
         </View>
       ) : null}
       {isMultiplayer ? (
         <View style={styles.liveBar}>
-          <Text style={styles.liveTitle}>Ayò Ọ̀pọ́n — Live</Text>
+          <Text style={styles.liveTitle}>AyÃ² á»ŒÌ€pá»Ìn â€” Live</Text>
           <Text style={styles.liveOpp}>{m.opponent?.displayName || 'Live opponent'}</Text>
           <Text style={styles.liveStatus}>{STATUS_TEXT[m.status] || m.status}</Text>
           {m.banner ? <Text style={styles.liveBanner}>{m.banner}</Text> : null}

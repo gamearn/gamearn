@@ -40,7 +40,7 @@ export default function LudoGameScreen({ route, navigation }) {
 
   useEffect(() => {
     if (practice) {
-      Alert.alert('Practice mode', 'Bot practice is not available for this game yet. Use Play Now for a live match.');
+      Alert.alert('Practice mode', 'Bot practice is free to play.');
     }
   }, [practice]);
 
@@ -140,3 +140,4 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 });
+

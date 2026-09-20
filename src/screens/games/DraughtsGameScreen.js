@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { CheckersScreen } from '../../games/checkers/CheckersScreen';
 import {
@@ -32,7 +32,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
 
   useEffect(() => {
     if (isPractice) {
-      Alert.alert('Practice', 'Practice for Dráfù rolls out with Whot first');
+      Alert.alert('Practice', 'Practice for DrÃ¡fÃ¹ rolls out with Whot first');
     }
   }, [isPractice]);
 
@@ -90,9 +90,9 @@ export default function DraughtsGameScreen({ route, navigation }) {
 
   const liveStatus =
     m.status === 'joining'
-      ? 'Connecting…'
+      ? 'Connectingâ€¦'
       : m.status === 'waiting'
-      ? 'Waiting for opponent…'
+      ? 'Waiting for opponentâ€¦'
       : m.status === 'playing'
       ? 'Live match'
       : m.status === 'game_over'
@@ -103,7 +103,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
       ? 'Ended'
       : m.status === 'error'
       ? 'Connection failed'
-      : 'Connecting…';
+      : 'Connectingâ€¦';
 
   const liveName = m.opponent?.displayName || 'Live opponent';
 
@@ -119,7 +119,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
 
       {isMultiplayer && (
         <View style={styles.liveBar} pointerEvents="none">
-          <Text style={styles.liveTitle}>Dráfù — Live</Text>
+          <Text style={styles.liveTitle}>DrÃ¡fÃ¹ â€” Live</Text>
           <Text style={styles.liveName}>{liveName}</Text>
           <Text style={styles.liveStatus}>{liveStatus}</Text>
         </View>
@@ -134,7 +134,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
       {(isPractice || localResult !== '') && (
         <View style={styles.noticeBanner} pointerEvents="none">
           <Text style={styles.noticeText}>
-            {isPractice ? 'Practice for Dráfù rolls out with Whot first' : localResult}
+            {isPractice ? 'Practice for DrÃ¡fÃ¹ rolls out with Whot first' : localResult}
           </Text>
         </View>
       )}
