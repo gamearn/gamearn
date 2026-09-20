@@ -55,7 +55,12 @@ export default function ProfileCreationScreen({ navigation }) {
       <StatusBar barStyle="light-content" backgroundColor="#070C1B" />
       <LinearGradient colors={['#091026', '#060919', '#040612']} style={StyleSheet.absoluteFillObject} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+      >
         {/* Title */}
         <Text style={styles.pageTitle}>Create Your Identity</Text>
 

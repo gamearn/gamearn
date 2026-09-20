@@ -52,7 +52,11 @@ export default function ProfileSetupScreen({ navigation }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.bg }]}>
+    <ScrollView
+      contentContainerStyle={[styles.container, { backgroundColor: theme.bg }]}
+      keyboardShouldPersistTaps="always"
+      keyboardDismissMode="none"
+    >
       <Text style={[styles.title, { color: theme.textPrimary }]}>Complete Profile</Text>
       <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
         Add your phone number & gamer handle to finish sign-up
