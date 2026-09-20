@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Keyboard, AppState } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Eye, EyeOff, ChevronDown } from 'lucide-react-native';
 
 const focusSubscribers = new Map();
@@ -29,37 +29,15 @@ export default function GAInput({
 }) {
   const [isSecure, setIsSecure] = useState(secureTextEntry);
   const [isFocused, setIsFocused] = useState(false);
-  const inputRef = React.useRef(null);
   const inputId = React.useRef({}).current;
-  const mountedRef = React.useRef(true);
-  const focusFrame = React.useRef(null);
 
   React.useEffect(() => {
     focusSubscribers.set(inputId, setIsFocused);
-    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'background' || nextState === 'inactive') {
-        inputRef.current?.blur();
-        Keyboard.dismiss();
-      }
-    });
     return () => {
-      mountedRef.current = false;
-      if (focusFrame.current) cancelAnimationFrame(focusFrame.current);
-      appStateSubscription.remove();
       focusSubscribers.delete(inputId);
       if (activeInput === inputId) activeInput = null;
     };
   }, [inputId]);
-
-  const claimFocus = () => {
-    // Android can retain the previous input method when moving from a
-    // phone-pad field to a text/email field. Restart it for the new input.
-    Keyboard.dismiss();
-    if (focusFrame.current) cancelAnimationFrame(focusFrame.current);
-    focusFrame.current = requestAnimationFrame(() => {
-      if (mountedRef.current) inputRef.current?.focus();
-    });
-  };
 
   const handleFocus = () => claimVisualFocus(inputId);
   const handleBlur = () => {
@@ -89,7 +67,6 @@ export default function GAInput({
             ]}
           >
             <TextInput
-              ref={inputRef}
               value={value}
               onChangeText={onChangeText}
               placeholder={placeholder}
@@ -98,7 +75,6 @@ export default function GAInput({
               onFocus={handleFocus}
               onBlur={handleBlur}
               onEndEditing={() => setIsFocused(false)}
-              onPressIn={claimFocus}
               style={[styles.textInput, inputStyle]}
             />
           </View>
@@ -113,7 +89,6 @@ export default function GAInput({
         >
           {leftIcon && <View style={styles.iconBox}>{leftIcon}</View>}
           <TextInput
-            ref={inputRef}
             value={value}
             onChangeText={onChangeText}
             placeholder={placeholder}
@@ -124,7 +99,6 @@ export default function GAInput({
             onFocus={handleFocus}
             onBlur={handleBlur}
             onEndEditing={() => setIsFocused(false)}
-            onPressIn={claimFocus}
             style={[styles.textInput, inputStyle]}
           />
           {secureTextEntry && (
