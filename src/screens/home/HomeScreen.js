@@ -30,8 +30,8 @@ const STORAGE_KEY = '@adebayo-dashboard/v1';
 const CYAN = '#00d9ff';
 const GREEN = '#12ff39';
 const GAMES = [
-  { id: 'ludo', name: 'LÃºdÃ²', description: 'Race your four tokens around the board and bring them home.', targetScreen: 'LudoGame' },
-  { id: 'ayo', name: 'Ayo á»Œpá»Ìn', description: 'Sow seeds around the wooden board and capture your opponentâ€™s seeds.', targetScreen: 'AyoGame' },
+  { id: 'ludo', name: 'Ludo', description: 'Race your four tokens around the board and bring them home.', targetScreen: 'LudoGame' },
+  { id: 'ayo', name: 'Ayo Ọ̀pọ́n', description: 'Sow seeds around the wooden board and capture your opponent’s seeds.', targetScreen: 'AyoGame' },
   { id: 'whot', name: 'Whot', description: 'Match shapes or numbers and be the first to empty your hand.', targetScreen: 'WhotGame' },
   { id: 'draft', name: 'Draft', description: 'Move diagonally, capture pieces, and crown your kings.', targetScreen: 'DraughtsGame' },
 ];
@@ -307,28 +307,30 @@ export default function HomeScreen({ navigation }) {
       <LinearGradient colors={['#002332', '#07122b', '#200732']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.streak}>
         <View style={s.sectionRow}>
           {txt('Streak Progress', 18, s.bold)}
-          {txt('Rewards unlock at day 90; amounts are not configured.', 10, s.muted)}
+          {txt('Day 90: +500 coins and Elite Champion', 10, s.muted)}
         </View>
-        <View style={s.milestones}>
-          <View style={s.track} />
-          <View style={[s.track, { width: `${Math.min(streakDays / 90, 1) * 32}%`, backgroundColor: CYAN }]} />
-          {[7, 14, 30, 50, 90, 100, 120, 150, 180, 200, 250, 270, 300, 350, 365].map((day) => {
-            const done = streakDays >= day;
-            return (
-              <Tap key={day} label={`${day} day milestone, ${done ? 'completed' : 'locked'}`} onPress={() => open('streak')} style={s.milestone}>
-                <View style={[s.milestoneCircle, done && s.done]}>
-                  {icon(done ? 'checkmark' : 'lock-closed', 19, done ? '#fff' : '#d8e4ef')}
-                </View>
-                {txt(String(day), 13, { marginTop: 6 * scale, color: '#fff' })}
-                {txt('Days', 12, { color: '#ced6e8' })}
-              </Tap>
-            );
-          })}
-          <Tap label="90 day reward details" onPress={() => open('reward')} style={s.reward}>
-            <Art name="gift" width={48 * scale} height={55 * scale} style={s.gift} />
-            {txt(`90-Day\nReward\n${streakDays >= 30 ? 'Unlocked' : 'Locked'}`, 12, { textAlign: 'center', lineHeight: 14 * scale })}
-          </Tap>
-        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled style={s.milestoneScroller} contentContainerStyle={s.milestones}>
+          <View style={s.milestoneTrack}>
+            <View style={s.track} />
+            <View style={[s.track, { width: `${Math.min(streakDays / 90, 1) * 32}%`, backgroundColor: CYAN }]} />
+            {[7, 14, 30, 50, 90].map((day) => {
+              const done = streakDays >= day;
+              return (
+                <Tap key={day} label={`${day} day milestone, ${done ? 'completed' : 'locked'}`} onPress={() => open('streak')} style={s.milestone}>
+                  <View style={[s.milestoneCircle, done && s.done]}>
+                    {icon(done ? 'checkmark' : 'lock-closed', 19, done ? '#fff' : '#d8e4ef')}
+                  </View>
+                  {txt(String(day), 13, { marginTop: 6 * scale, color: '#fff' })}
+                  {txt('Days', 12, { color: '#ced6e8' })}
+                </Tap>
+              );
+            })}
+            <Tap label="90 day reward details" onPress={() => open('reward')} style={s.reward}>
+              <Art name="gift" width={48 * scale} height={55 * scale} style={s.gift} />
+              {txt(`90-Day\nReward\n${streakDays >= 90 ? 'Unlocked' : 'Locked'}`, 12, { textAlign: 'center', lineHeight: 14 * scale })}
+            </Tap>
+          </View>
+        </ScrollView>
       </LinearGradient>
     );
   }
@@ -374,7 +376,7 @@ export default function HomeScreen({ navigation }) {
             {txt('Welcome,', 24, s.bold)}
             <View style={s.inline}>
               {txt(displayName, 37, [s.bold, s.cyan, { maxWidth: 205 * scale }])}
-              {txt(' ðŸ‘‹', 31)}
+              {txt(' \uD83D\uDC4B', 31)}
             </View>
             {txt('Play. Earn. Belong.', 16, s.muted)}
           </View>
@@ -496,11 +498,11 @@ export default function HomeScreen({ navigation }) {
           <>
             <Text style={ui.heading}>Notifications</Text>
             <View style={ui.notice}>
-              <Text style={ui.label}>ðŸ† Tournament is live</Text>
+              <Text style={ui.label}>{'\uD83C\uDFC6 Tournament is live'}</Text>
               <Text style={ui.body}>Ayo á»Œpá»Ìn Grandmaster Tournament is open for demo registration.</Text>
             </View>
             <View style={ui.notice}>
-              <Text style={ui.label}>ðŸ”¥ Keep your streak going</Text>
+              <Text style={ui.label}>{'\uD83D\uDD25 Keep your streak going'}</Text>
               <Text style={ui.body}>Youâ€™re on a {state.streak} day streak. Complete todayâ€™s demo challenge to try the streak interaction.</Text>
             </View>
             <Text style={ui.caption}>Sample notifications Â· All read</Text>
@@ -663,7 +665,7 @@ export default function HomeScreen({ navigation }) {
       case 'streak':
         return (
           <>
-            <Text style={ui.heading}>{state.streak} Day Streak ðŸ”¥</Text>
+            <Text style={ui.heading}>{state.streak} Day Streak {'\uD83D\uDD25'}</Text>
             <Text style={ui.body}>Complete a qualifying game each day. Opening the app alone does not count. In this demo, the dice challenge simulates a completed game.</Text>
             <Text style={ui.body}>Milestones: 7, 14, 30, 50, 90, 100, 120, 150, 180, 200, 250, 270, 300, 350, and 365 days. A day counts only after a completed game.</Text>
             <Text style={ui.caption}>Last demo activity: {state.lastPlayed || 'No completed demo challenge yet'}</Text>
@@ -769,7 +771,9 @@ function makeStyles(k, theme, isDark) {
     activeBadge: { marginLeft: 10, borderRadius: 15, backgroundColor: GREEN, paddingHorizontal: 12, height: 26, flexDirection: 'row', alignItems: 'center', gap: 3 },
     streak: { borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#087f94' : 'rgba(0, 0, 0, 0.08)', paddingHorizontal: 16, paddingTop: 7, height: 122, backgroundColor: isDark ? 'transparent' : '#FFFFFF' },
     sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    milestones: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 11, alignItems: 'flex-start', flex: 1 },
+    milestoneScroller: { marginTop: 11, flex: 1 },
+    milestones: { flexGrow: 1 },
+    milestoneTrack: { flexDirection: 'row', alignItems: 'flex-start', minWidth: 5 * 45 + 79, position: 'relative' },
     track: { position: 'absolute', top: 16, left: 17, right: 78, height: 4, backgroundColor: isDark ? '#3c455e' : '#CBD5E1' },
     milestone: { width: 37, alignItems: 'center' },
     milestoneCircle: { width: 33, height: 33, borderRadius: 17, borderWidth: 2, borderColor: isDark ? '#64778f' : '#94A3B8', backgroundColor: isDark ? '#142035' : '#E2E8F0', alignItems: 'center', justifyContent: 'center' },
