@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Keyboard, AppState } from 'react-native';
 import { Eye, EyeOff, ChevronDown } from 'lucide-react-native';
+
+const focusSubscribers = new Map();
+let activeInput = null;
+
+function claimVisualFocus(inputId) {
+  activeInput = inputId;
+  focusSubscribers.forEach((setFocused, id) => setFocused(id === inputId));
+}
 
 export default function GAInput({
   label,
@@ -22,9 +30,41 @@ export default function GAInput({
   const [isSecure, setIsSecure] = useState(secureTextEntry);
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = React.useRef(null);
+  const inputId = React.useRef({}).current;
+  const mountedRef = React.useRef(true);
+  const focusFrame = React.useRef(null);
+
+  React.useEffect(() => {
+    focusSubscribers.set(inputId, setIsFocused);
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        inputRef.current?.blur();
+        Keyboard.dismiss();
+      }
+    });
+    return () => {
+      mountedRef.current = false;
+      if (focusFrame.current) cancelAnimationFrame(focusFrame.current);
+      appStateSubscription.remove();
+      focusSubscribers.delete(inputId);
+      if (activeInput === inputId) activeInput = null;
+    };
+  }, [inputId]);
 
   const claimFocus = () => {
-    requestAnimationFrame(() => inputRef.current?.focus());
+    // Android can retain the previous input method when moving from a
+    // phone-pad field to a text/email field. Restart it for the new input.
+    Keyboard.dismiss();
+    if (focusFrame.current) cancelAnimationFrame(focusFrame.current);
+    focusFrame.current = requestAnimationFrame(() => {
+      if (mountedRef.current) inputRef.current?.focus();
+    });
+  };
+
+  const handleFocus = () => claimVisualFocus(inputId);
+  const handleBlur = () => {
+    if (activeInput === inputId) activeInput = null;
+    setIsFocused(false);
   };
 
   return (
@@ -55,8 +95,8 @@ export default function GAInput({
               placeholder={placeholder}
               placeholderTextColor="#64748B"
               keyboardType="phone-pad"
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
               onEndEditing={() => setIsFocused(false)}
               onPressIn={claimFocus}
               style={[styles.textInput, inputStyle]}
@@ -81,8 +121,8 @@ export default function GAInput({
             secureTextEntry={isSecure}
             keyboardType={keyboardType}
             autoCapitalize={autoCapitalize}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             onEndEditing={() => setIsFocused(false)}
             onPressIn={claimFocus}
             style={[styles.textInput, inputStyle]}
