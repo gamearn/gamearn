@@ -1,6 +1,12 @@
-import mobileAds, { AdEventType, RewardedAd, TestIds } from 'react-native-google-mobile-ads';
+import { Platform } from 'react-native';
+import mobileAds, { AdEventType, RewardedAd } from 'react-native-google-mobile-ads';
 
-const rewarded = RewardedAd.createForAdRequest(TestIds.REWARDED, {
+const rewardedUnitId = Platform.select({
+  android: 'ca-app-pub-2857679842539464/1433585250',
+  ios: 'ca-app-pub-2857679842539464/4484139051',
+  default: '',
+});
+const rewarded = RewardedAd.createForAdRequest(rewardedUnitId, {
   requestNonPersonalizedAdsOnly: true,
 });
 
