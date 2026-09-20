@@ -64,7 +64,11 @@ platform :ios do
         api_key: api_key,
         skip_metadata: true,
         skip_screenshots: true,
-        submit_for_review: false
+        submit_for_review: false,
+        # App Store Connect API keys cannot run Fastlane's in-app-purchase
+        # precheck. The binary upload itself succeeds; skip this optional
+        # precheck because review submission is handled separately.
+        run_precheck_before_submit: false
       )
     end
   end
