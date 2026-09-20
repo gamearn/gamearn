@@ -51,7 +51,9 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace
+          ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace \
+            -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
+            -Dkotlin.daemon.jvm.options="-Xmx2g"
       - name: Verify APK signature
         run: |
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
