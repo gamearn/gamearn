@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -30,8 +30,8 @@ const STORAGE_KEY = '@adebayo-dashboard/v1';
 const CYAN = '#00d9ff';
 const GREEN = '#12ff39';
 const GAMES = [
-  { id: 'ludo', name: 'Lúdò', description: 'Race your four tokens around the board and bring them home.', targetScreen: 'LudoGame' },
-  { id: 'ayo', name: 'Ayo Ọpọ́n', description: 'Sow seeds around the wooden board and capture your opponent’s seeds.', targetScreen: 'AyoGame' },
+  { id: 'ludo', name: 'LÃºdÃ²', description: 'Race your four tokens around the board and bring them home.', targetScreen: 'LudoGame' },
+  { id: 'ayo', name: 'Ayo á»Œpá»Ìn', description: 'Sow seeds around the wooden board and capture your opponentâ€™s seeds.', targetScreen: 'AyoGame' },
   { id: 'whot', name: 'Whot', description: 'Match shapes or numbers and be the first to empty your hand.', targetScreen: 'WhotGame' },
   { id: 'draft', name: 'Draft', description: 'Move diagonally, capture pieces, and crown your kings.', targetScreen: 'DraughtsGame' },
 ];
@@ -202,7 +202,7 @@ export default function HomeScreen({ navigation }) {
   const addFunds = () => {
     const parsed = parseAmount(amount);
     if (parsed === null) {
-      setFormError('Enter ₦100–₦1,000,000, using no more than two decimal places.');
+      setFormError('Enter â‚¦100â€“â‚¦1,000,000, using no more than two decimal places.');
       return;
     }
     setSheet(null);
@@ -249,7 +249,7 @@ export default function HomeScreen({ navigation }) {
         <View style={s.walletIcon}>{icon('wallet-outline', 34)}</View>
         <Tap label={`Open wallet, balance ${money(walletBalance)}`} onPress={() => changeTab('Wallet')} style={{ flex: 1 }}>
           {txt('Wallet Balance', 13, s.muted)}
-          {txt(homeDataLoading ? 'Loading…' : money(walletBalance), 24, s.bold)}
+          {txt(homeDataLoading ? 'Loadingâ€¦' : money(walletBalance), 24, s.bold)}
           {txt('Live balance from wallet', 13, s.cyan)}
         </Tap>
         <Tap label="Add funds to demo wallet" onPress={() => open('deposit')} style={s.plus}>
@@ -260,7 +260,7 @@ export default function HomeScreen({ navigation }) {
   }
 
   function TournamentCard() {
-    if (homeDataLoading) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>Loading live tournaments…</Text>;
+    if (homeDataLoading) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>Loading live tournamentsâ€¦</Text>;
     if (!featuredTournament) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>No live tournaments right now.</Text>;
     const tournament = featuredTournament;
     return (
@@ -279,9 +279,9 @@ export default function HomeScreen({ navigation }) {
         <View style={s.prizeRow}>
           <View>
             {txt('Prize Pool', 13, s.muted)}
-            {txt(tournament.prizePool ? `₦${Number(tournament.prizePool).toLocaleString()}` : 'Prize pool unavailable', 25, [s.bold, s.cyan])}
+            {txt(tournament.prizePool ? `â‚¦${Number(tournament.prizePool).toLocaleString()}` : 'Prize pool unavailable', 25, [s.bold, s.cyan])}
           </View>
-          <GradientButton title={state.joined ? 'Joined ✓' : 'Join Now'} onPress={() => navigation.navigate('LiveTournament')} style={{ width: 148 * scale }} compact scale={scale} />
+          <GradientButton title={state.joined ? 'Joined âœ“' : 'Join Now'} onPress={() => navigation.navigate('LiveTournament')} style={{ width: 148 * scale }} compact scale={scale} />
         </View>
       </LinearGradient>
     );
@@ -307,26 +307,26 @@ export default function HomeScreen({ navigation }) {
       <LinearGradient colors={['#002332', '#07122b', '#200732']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.streak}>
         <View style={s.sectionRow}>
           {txt('Streak Progress', 18, s.bold)}
-          {txt('Reach 30 days to unlock your reward!', 10, s.muted)}
+          {txt('Rewards unlock at day 90; amounts are not configured.', 10, s.muted)}
         </View>
         <View style={s.milestones}>
           <View style={s.track} />
-          <View style={[s.track, { width: `${Math.min(streakDays / 30, 1) * 32}%`, backgroundColor: CYAN }]} />
-          {[7, 14, 30, 50, 90, 100].map((day) => {
+          <View style={[s.track, { width: `${Math.min(streakDays / 90, 1) * 32}%`, backgroundColor: CYAN }]} />
+          {[7, 14, 30, 50, 90, 100, 120, 150, 180, 200, 250, 270, 300, 350, 365].map((day) => {
             const done = streakDays >= day;
             return (
               <Tap key={day} label={`${day} day milestone, ${done ? 'completed' : 'locked'}`} onPress={() => open('streak')} style={s.milestone}>
-                <View style={[s.milestoneCircle, done && s.done, !done && day === 30 && s.gold]}>
-                  {icon(done ? 'checkmark' : day === 30 ? 'star' : 'lock-closed', 19, done ? '#fff' : day === 30 ? '#fff790' : '#d8e4ef')}
+                <View style={[s.milestoneCircle, done && s.done]}>
+                  {icon(done ? 'checkmark' : 'lock-closed', 19, done ? '#fff' : '#d8e4ef')}
                 </View>
-                {txt(String(day), 13, { marginTop: 6 * scale, color: day === 30 ? '#ffef00' : '#fff' })}
-                {txt('Days', 12, { color: day === 30 ? '#ffef00' : '#ced6e8' })}
+                {txt(String(day), 13, { marginTop: 6 * scale, color: '#fff' })}
+                {txt('Days', 12, { color: '#ced6e8' })}
               </Tap>
             );
           })}
-          <Tap label="30 day reward details" onPress={() => open('reward')} style={s.reward}>
+          <Tap label="90 day reward details" onPress={() => open('reward')} style={s.reward}>
             <Art name="gift" width={48 * scale} height={55 * scale} style={s.gift} />
-            {txt(`30-Day\nReward\n${streakDays >= 30 ? 'Unlocked' : 'Locked'}`, 12, { textAlign: 'center', lineHeight: 14 * scale })}
+            {txt(`90-Day\nReward\n${streakDays >= 30 ? 'Unlocked' : 'Locked'}`, 12, { textAlign: 'center', lineHeight: 14 * scale })}
           </Tap>
         </View>
       </LinearGradient>
@@ -374,7 +374,7 @@ export default function HomeScreen({ navigation }) {
             {txt('Welcome,', 24, s.bold)}
             <View style={s.inline}>
               {txt(displayName, 37, [s.bold, s.cyan, { maxWidth: 205 * scale }])}
-              {txt(' 👋', 31)}
+              {txt(' ðŸ‘‹', 31)}
             </View>
             {txt('Play. Earn. Belong.', 16, s.muted)}
           </View>
@@ -439,7 +439,7 @@ export default function HomeScreen({ navigation }) {
           <TournamentCard />
           <View style={ui.panel}>
             <Text style={ui.heading}>Your registration</Text>
-            <Text style={ui.body}>{state.joined ? 'You have joined the Ayo Ọpọ́n Grandmaster Tournament in this demo.' : 'Join the featured tournament to see your registration here.'}</Text>
+            <Text style={ui.body}>{state.joined ? 'You have joined the Ayo á»Œpá»Ìn Grandmaster Tournament in this demo.' : 'Join the featured tournament to see your registration here.'}</Text>
             <GradientButton title={state.joined ? 'View tournament' : 'View entry details'} onPress={() => open('tournament')} />
           </View>
         </>
@@ -475,9 +475,9 @@ export default function HomeScreen({ navigation }) {
         <View style={[ui.panel, { alignItems: 'center' }]}>
           <Art name="adebayo" width={80} height={80} style={{ borderRadius: 40 }} />
           <Text style={ui.pageTitle}>{state.name}</Text>
-          <Text style={ui.credit}>● Active Member</Text>
+          <Text style={ui.credit}>â— Active Member</Text>
           <Text style={ui.body}>
-            {state.streak} day streak · 24 demo wins · 12,450 XP
+            {state.streak} day streak Â· 24 demo wins Â· 12,450 XP
           </Text>
         </View>
         <GradientButton title="Edit profile" onPress={() => open('profile')} />
@@ -496,14 +496,14 @@ export default function HomeScreen({ navigation }) {
           <>
             <Text style={ui.heading}>Notifications</Text>
             <View style={ui.notice}>
-              <Text style={ui.label}>🏆 Tournament is live</Text>
-              <Text style={ui.body}>Ayo Ọpọ́n Grandmaster Tournament is open for demo registration.</Text>
+              <Text style={ui.label}>ðŸ† Tournament is live</Text>
+              <Text style={ui.body}>Ayo á»Œpá»Ìn Grandmaster Tournament is open for demo registration.</Text>
             </View>
             <View style={ui.notice}>
-              <Text style={ui.label}>🔥 Keep your streak going</Text>
-              <Text style={ui.body}>You’re on a {state.streak} day streak. Complete today’s demo challenge to try the streak interaction.</Text>
+              <Text style={ui.label}>ðŸ”¥ Keep your streak going</Text>
+              <Text style={ui.body}>Youâ€™re on a {state.streak} day streak. Complete todayâ€™s demo challenge to try the streak interaction.</Text>
             </View>
-            <Text style={ui.caption}>Sample notifications · All read</Text>
+            <Text style={ui.caption}>Sample notifications Â· All read</Text>
           </>
         );
       case 'settings':
@@ -525,7 +525,7 @@ export default function HomeScreen({ navigation }) {
                 />
               </View>
             ))}
-            <Text style={ui.body}>Preferences are saved on this device. Push delivery and game audio must be connected to your app’s notification and audio services.</Text>
+            <Text style={ui.body}>Preferences are saved on this device. Push delivery and game audio must be connected to your appâ€™s notification and audio services.</Text>
           </>
         );
       case 'profile':
@@ -579,7 +579,7 @@ export default function HomeScreen({ navigation }) {
             <View style={ui.quickAmounts}>
               {['500', '1000', '5000'].map((value) => (
                 <Tap key={value} label={`Set amount to ${value} naira`} onPress={() => setAmount(value)} style={ui.chip}>
-                  <Text style={ui.label}>₦{Number(value).toLocaleString('en-US')}</Text>
+                  <Text style={ui.label}>â‚¦{Number(value).toLocaleString('en-US')}</Text>
                 </Tap>
               ))}
             </View>
@@ -589,10 +589,10 @@ export default function HomeScreen({ navigation }) {
       case 'tournament':
         return (
           <>
-            <Text style={ui.heading}>Ayo Ọpọ́n Grandmaster Tournament</Text>
+            <Text style={ui.heading}>Ayo á»Œpá»Ìn Grandmaster Tournament</Text>
             <Art name="tournament" width={280} height={146} style={{ alignSelf: 'center', borderRadius: 12 }} />
             <Text style={ui.body}>
-              Prize pool: ₦5,000.00{'\n'}
+              Prize pool: â‚¦5,000.00{'\n'}
               Players: 1,240 (sample count){'\n'}
               Entry: Free in this demo
             </Text>
@@ -617,7 +617,7 @@ export default function HomeScreen({ navigation }) {
                 <Art name={game.id} width={74} height={52} style={{ borderRadius: 8 }} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={ui.label}>{game.name}</Text>
-                  <Text style={ui.caption}>● {game.players} Playing</Text>
+                  <Text style={ui.caption}>â— {game.players} Playing</Text>
                 </View>
                 <Ionicons name="chevron-forward" color={CYAN} size={22} />
               </Tap>
@@ -631,12 +631,12 @@ export default function HomeScreen({ navigation }) {
             <Art name={sheet.data.id} width={174} height={122} style={{ alignSelf: 'center', borderRadius: 16 }} />
             <Text style={ui.body}>{sheet.data.description}</Text>
             <Text style={ui.label}>Dashboard interaction demo</Text>
-            <Text style={ui.body}>Roll a 4, 5, or 6 to complete today’s streak challenge, or launch the game lobby directly below.</Text>
-            {roll !== null && <Text accessibilityLiveRegion="polite" style={ui.dice}>{['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][roll - 1]}  {roll}</Text>}
-            {demoComplete && <Text accessibilityLiveRegion="polite" style={ui.credit}>Challenge complete! Today’s streak activity is saved.</Text>}
+            <Text style={ui.body}>Roll a 4, 5, or 6 to complete todayâ€™s streak challenge, or launch the game lobby directly below.</Text>
+            {roll !== null && <Text accessibilityLiveRegion="polite" style={ui.dice}>{['âš€', 'âš', 'âš‚', 'âšƒ', 'âš„', 'âš…'][roll - 1]}  {roll}</Text>}
+            {demoComplete && <Text accessibilityLiveRegion="polite" style={ui.credit}>Challenge complete! Todayâ€™s streak activity is saved.</Text>}
             <GradientButton
               disabled={demoComplete}
-              title={demoComplete ? 'Completed today’s challenge' : roll ? 'Roll again' : 'Roll the dice'}
+              title={demoComplete ? 'Completed todayâ€™s challenge' : roll ? 'Roll again' : 'Roll the dice'}
               onPress={() => {
                 const result = 1 + Math.floor(Math.random() * 6);
                 setRoll(result);
@@ -654,18 +654,18 @@ export default function HomeScreen({ navigation }) {
       case 'reward':
         return (
           <>
-            <Text style={ui.heading}>30-Day Reward</Text>
+            <Text style={ui.heading}>Streak rewards</Text>
             <Art name="gift" width={90} height={105} style={{ alignSelf: 'center' }} />
-            <Text style={ui.body}>{state.claimed ? 'Your demo reward has been claimed.' : state.streak >= 30 ? 'Your reward is unlocked. Claim the demo achievement below.' : `${30 - state.streak} more qualifying days to unlock your reward.`}</Text>
-            <GradientButton disabled={state.streak < 30 || state.claimed} title={state.claimed ? 'Claimed' : state.streak >= 30 ? 'Claim demo achievement' : 'Reward locked'} onPress={() => dispatch({ type: 'CLAIM' })} />
+            <Text style={ui.body}>{state.claimed ? 'Your reward status is managed by the backend.' : state.streak >= 30 ? 'Your reward is unlocked according to the backend milestone policy.' : `${30 - state.streak} more qualifying days to unlock your reward.`}</Text>
+            <GradientButton disabled={state.streak < 30 || state.claimed} title={state.claimed ? 'Claimed' : state.streak >= 30 ? 'Reward status' : 'Reward locked'} onPress={() => dispatch({ type: 'CLAIM' })} />
           </>
         );
       case 'streak':
         return (
           <>
-            <Text style={ui.heading}>{state.streak} Day Streak 🔥</Text>
+            <Text style={ui.heading}>{state.streak} Day Streak ðŸ”¥</Text>
             <Text style={ui.body}>Complete a qualifying game each day. Opening the app alone does not count. In this demo, the dice challenge simulates a completed game.</Text>
-            <Text style={ui.body}>Milestones: 7, 14, 30, 50, 90, and 100 days. The featured reward unlocks at 30 days. A missed day resets the streak on the next completion.</Text>
+            <Text style={ui.body}>Milestones: 7, 14, 30, 50, 90, 100, 120, 150, 180, 200, 250, 270, 300, 350, and 365 days. A day counts only after a completed game.</Text>
             <Text style={ui.caption}>Last demo activity: {state.lastPlayed || 'No completed demo challenge yet'}</Text>
             <GradientButton title="Choose a game" onPress={() => open('games')} />
           </>
@@ -677,7 +677,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={ui.body}>Explore all four games, work toward streak milestones, and join the featured tournament.</Text>
             <GradientButton title="Explore games" onPress={() => open('games')} />
             <Tap label="View 30 day reward" onPress={() => open('reward')} style={ui.listItem}>
-              <Text style={ui.label}>View 30-Day Reward</Text>
+              <Text style={ui.label}>View Streak rewards</Text>
               <Ionicons name="gift-outline" size={24} color={CYAN} />
             </Tap>
           </>
@@ -837,3 +837,5 @@ const ui = StyleSheet.create({
   notice: { padding: 15, backgroundColor: '#102b40', borderRadius: 12, marginBottom: 12 },
   dice: { color: CYAN, fontSize: 64, textAlign: 'center', marginVertical: 12 },
 });
+
+
