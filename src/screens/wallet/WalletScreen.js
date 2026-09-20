@@ -206,6 +206,13 @@ export default function WalletScreen({ navigation }) {
           ) : (
             transactions.map((tx) => {
               const isCredit = CREDIT_TYPES.has(tx.type);
+              const status = String(tx.status || 'pending').toLowerCase();
+              const isSuccessful = ['completed', 'successful', 'success', 'paid'].includes(status);
+              const statusColor = isSuccessful
+                ? '#10B981'
+                : ['failed', 'declined', 'cancelled', 'canceled', 'reversed'].includes(status)
+                  ? '#EF4444'
+                  : '#F59E0B';
               const amountN = Number(tx.amount) || 0;
               return (
                 <View key={tx.id} style={[styles.txCardItem, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
@@ -214,12 +221,12 @@ export default function WalletScreen({ navigation }) {
                       styles.txIconBox,
                       {
                         backgroundColor:
-                          isCredit ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 229, 255, 0.15)',
+                          isSuccessful ? 'rgba(16, 185, 129, 0.15)' : `${statusColor}26`,
                       },
                     ]}
                   >
                     {isCredit ? (
-                      <Trophy size={18} color="#10B981" />
+                      <Trophy size={18} color={statusColor} />
                     ) : (
                       <ShoppingCart size={18} color={theme.primary} />
                     )}
@@ -230,13 +237,16 @@ export default function WalletScreen({ navigation }) {
                       {tx.description || tx.type.replace('_', ' ')}
                     </Text>
                     <Text style={[styles.txItemDate, { color: theme.textSecondary }]}>{formatTxDate(tx.createdAt)}</Text>
+                    <Text style={[styles.txItemDate, { color: statusColor, textTransform: 'capitalize', fontWeight: '700' }]}>
+                      {status}
+                    </Text>
                   </View>
 
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text
                       style={[
                         styles.txItemUnits,
-                        { color: isCredit ? '#10B981' : theme.textPrimary },
+                        { color: isCredit ? statusColor : theme.textPrimary },
                       ]}
                     >
                       {`${isCredit ? '+' : '-'}₦${amountN.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`}
