@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Text, Alert, ActivityIndicator } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { WhotScreen } from '../../games/whot/WhotScreen';
@@ -57,7 +57,7 @@ export default function WhotGameScreen({ route, navigation }) {
     );
   };
 
-  // ── Multiplayer room session ──────────────────────────────────────────────
+  // â”€â”€ Multiplayer room session â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     if (mode !== 'multiplayer' || !roomId) return;
 
@@ -87,7 +87,7 @@ export default function WhotGameScreen({ route, navigation }) {
         navigation.goBack();
       },
       onOpponentDisconnected: (p) =>
-        setBanner(`Opponent disconnected — ${p?.graceSeconds || 30}s to reconnect.`),
+        setBanner(`Opponent disconnected â€” ${p?.graceSeconds || 30}s to reconnect.`),
       onOpponentReconnected: () => setBanner(''),
       onOpponentForfeited: (p) => {
         setBanner(p?.reason === 'disconnect_timeout' ? 'Opponent forfeited. You win!' : 'Opponent left the match.');
@@ -108,7 +108,7 @@ export default function WhotGameScreen({ route, navigation }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, roomId]);
 
-  // ── Practice session ──────────────────────────────────────────────────────
+  // â”€â”€ Practice session â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     if (mode !== 'practice') return;
     let cancelled = false;
@@ -135,7 +135,7 @@ export default function WhotGameScreen({ route, navigation }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
-  // ── Human move → server ───────────────────────────────────────────────────
+  // â”€â”€ Human move â†’ server â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleRemoteMove = async (move) => {
     if (pendingMove) return;
 
@@ -153,7 +153,7 @@ export default function WhotGameScreen({ route, navigation }) {
         if (res?.gameOver) {
           const won = res.winner === myUid;
           setPhase('game_over');
-          setBanner(won ? 'Practice complete — you emptied your hand first!' : 'Practice complete — Gamearn Bot won.');
+          setBanner(won ? 'Practice complete â€” you emptied your hand first!' : 'Practice complete â€” Gamearn Bot won.');
           setTimeout(() => {
             Alert.alert(won ? 'You won!' : 'Good effort', won ? 'You beat the Gamearn Bot.' : 'The Gamearn Bot beat you.');
           }, 250);
@@ -180,10 +180,10 @@ export default function WhotGameScreen({ route, navigation }) {
   };
 
   const statusPill = {
-    local: 'Offline demo',
-    joining: 'Connecting…',
-    waiting: 'Waiting for opponent…',
-    playing: mode === 'practice' ? 'Practice · vs CPU' : 'Live match',
+    local: 'Offline',
+    joining: 'Connectingâ€¦',
+    waiting: 'Waiting for opponentâ€¦',
+    playing: mode === 'practice' ? 'Practice Â· vs CPU' : 'Live match',
     game_over: result?.winner === myUid ? 'You won' : 'Match over',
   }[phase];
 
@@ -225,9 +225,9 @@ export default function WhotGameScreen({ route, navigation }) {
           <Text style={styles.overlayText}>
             {phase === 'joining'
               ? mode === 'practice'
-                ? 'Starting practice game…'
-                : 'Joining live room…'
-              : 'Waiting for the match to start…'}
+                ? 'Starting practice gameâ€¦'
+                : 'Joining live roomâ€¦'
+              : 'Waiting for the match to startâ€¦'}
           </Text>
         </View>
       )}

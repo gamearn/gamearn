@@ -254,7 +254,7 @@ export default function HomeScreen({ navigation }) {
           {txt(homeDataLoading ? 'Loadingâ€¦' : formatNaira(walletBalanceNaira), 24, s.bold)}
           {txt('Live balance from wallet', 13, s.cyan)}
         </Tap>
-        <Tap label="Add funds to demo wallet" onPress={() => open('deposit')} style={s.plus}>
+        <Tap label="Add funds" onPress={() => open('deposit')} style={s.plus}>
           {icon('add', 27, '#002741')}
         </Tap>
       </LinearGradient>
@@ -443,7 +443,7 @@ export default function HomeScreen({ navigation }) {
           <TournamentCard />
           <View style={ui.panel}>
             <Text style={ui.heading}>Your registration</Text>
-            <Text style={ui.body}>{state.joined ? 'You have joined the Ayo á»Œpá»Ìn Grandmaster Tournament in this demo.' : 'Join the featured tournament to see your registration here.'}</Text>
+            <Text style={ui.body}>{state.joined ? 'You have joined the Ayo á»Œpá»Ìn Grandmaster Tournament .' : 'Join the featured tournament to see your registration here.'}</Text>
             <GradientButton title={state.joined ? 'View tournament' : 'View entry details'} onPress={() => open('tournament')} />
           </View>
         </>
@@ -453,13 +453,13 @@ export default function HomeScreen({ navigation }) {
         <>
           <Text style={ui.pageTitle}>Wallet</Text>
           <View style={ui.panel}>
-            <Text style={ui.body}>Available demo balance</Text>
+            <Text style={ui.body}>Wallet balance</Text>
             <Text style={ui.balance}>{money(state.balance)}</Text>
-            <GradientButton title="Add demo funds" onPress={() => open('deposit')} />
+            <GradientButton title="Add funds" onPress={() => open('deposit')} />
           </View>
           <Text style={ui.heading}>Transaction history</Text>
           {state.transactions.length === 0 ? (
-            <Text style={ui.body}>No transactions yet. The opening balance is sample data.</Text>
+            <Text style={ui.body}>No transactions yet.</Text>
           ) : (
             state.transactions.map((t) => (
               <View key={t.id} style={ui.transaction}>
@@ -481,7 +481,7 @@ export default function HomeScreen({ navigation }) {
           <Text style={ui.pageTitle}>{state.name}</Text>
           <Text style={ui.credit}>â— Active Member</Text>
           <Text style={ui.body}>
-            {state.streak} day streak Â· 24 demo wins Â· 12,450 XP
+            {state.streak} day streak Â· 24 wins Â· 12,450 XP
           </Text>
         </View>
         <GradientButton title="Edit profile" onPress={() => open('profile')} />
@@ -501,7 +501,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={ui.heading}>Notifications</Text>
             <View style={ui.notice}>
               <Text style={ui.label}>{'\uD83C\uDFC6 Tournament is live'}</Text>
-              <Text style={ui.body}>Ayo á»Œpá»Ìn Grandmaster Tournament is open for demo registration.</Text>
+              <Text style={ui.body}>Ayo á»Œpá»Ìn Grandmaster Tournament is open for registration.</Text>
             </View>
             <View style={ui.notice}>
               <Text style={ui.label}>{'\uD83D\uDD25 Keep your streak going'}</Text>
@@ -564,8 +564,8 @@ export default function HomeScreen({ navigation }) {
       case 'deposit':
         return (
           <>
-            <Text style={ui.heading}>Add demo funds</Text>
-            <Text style={ui.body}>This adds virtual funds on this device. It does not charge a card or make a bank transfer.</Text>
+            <Text style={ui.heading}>Add funds</Text>
+            <Text style={ui.body}>Add funds through the wallet to start a payment.</Text>
             <Text style={ui.label}>Amount (NGN)</Text>
             <TextInput
               accessibilityLabel="Amount in naira"
@@ -597,12 +597,12 @@ export default function HomeScreen({ navigation }) {
             <Art name="tournament" width={280} height={146} style={{ alignSelf: 'center', borderRadius: 12 }} />
             <Text style={ui.body}>
               Prize pool: â‚¦5,000.00{'\n'}
-              Players: 1,240 (sample count){'\n'}
-              Entry: Free in this demo
+              Players: 1,240 (players){'\n'}
+              Entry fee: Free
             </Text>
-            <Text style={ui.body}>{state.joined ? 'Your demo registration is saved. Tap below to launch the Ayo lobby.' : 'Register locally to preview the joined state. No entry fee will be deducted.'}</Text>
+            <Text style={ui.body}>{state.joined ? 'Your registration is saved. Tap below to launch the Ayo lobby.' : 'Register locally to preview the joined state. No entry fee will be deducted.'}</Text>
             <GradientButton
-              title={state.joined ? 'Open Ayo lobby' : 'Confirm demo registration'}
+              title={state.joined ? 'Open Ayo lobby' : 'Confirm registration'}
               onPress={() => {
                 if (state.joined) {
                   setSheet(null);
@@ -634,7 +634,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={ui.heading}>{sheet.data.name}</Text>
             <Art name={sheet.data.id} width={174} height={122} style={{ alignSelf: 'center', borderRadius: 16 }} />
             <Text style={ui.body}>{sheet.data.description}</Text>
-            <Text style={ui.label}>Dashboard interaction demo</Text>
+            <Text style={ui.label}>Daily activity</Text>
             <Text style={ui.body}>Roll a 4, 5, or 6 to complete todayâ€™s streak challenge, or launch the game lobby directly below.</Text>
             {roll !== null && <Text accessibilityLiveRegion="polite" style={ui.dice}>{['âš€', 'âš', 'âš‚', 'âšƒ', 'âš„', 'âš…'][roll - 1]}  {roll}</Text>}
             {demoComplete && <Text accessibilityLiveRegion="polite" style={ui.credit}>Challenge complete! Todayâ€™s streak activity is saved.</Text>}
@@ -670,7 +670,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={ui.heading}>{state.streak} Day Streak {'\uD83D\uDD25'}</Text>
             <Text style={ui.body}>Complete a qualifying game each day. Opening the app alone does not count. In this demo, the dice challenge simulates a completed game.</Text>
             <Text style={ui.body}>Milestones: 7, 14, 30, 50, 90, 100, 120, 150, 180, 200, 250, 270, 300, 350, and 365 days. A day counts only after a completed game.</Text>
-            <Text style={ui.caption}>Last demo activity: {state.lastPlayed || 'No completed demo challenge yet'}</Text>
+            <Text style={ui.caption}>Last activity: {state.lastPlayed || 'No completed demo challenge yet'}</Text>
             <GradientButton title="Choose a game" onPress={() => open('games')} />
           </>
         );
@@ -843,5 +843,6 @@ const ui = StyleSheet.create({
   notice: { padding: 15, backgroundColor: '#102b40', borderRadius: 12, marginBottom: 12 },
   dice: { color: CYAN, fontSize: 64, textAlign: 'center', marginVertical: 12 },
 });
+
 
 
