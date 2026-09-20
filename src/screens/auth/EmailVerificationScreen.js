@@ -122,6 +122,8 @@ export default function EmailVerificationScreen({ route, navigation }) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
       >
         {/* Glowing Envelope Container */}
         <View style={styles.centerBlock}>

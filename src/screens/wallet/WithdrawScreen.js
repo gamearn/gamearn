@@ -139,7 +139,7 @@ export default function WithdrawScreen({ route, navigation }) {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always" keyboardDismissMode="none">
         {/* Step Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressTrack}>

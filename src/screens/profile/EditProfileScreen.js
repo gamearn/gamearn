@@ -77,7 +77,7 @@ export default function EditProfileScreen({ navigation }) {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always" keyboardDismissMode="none">
         {/* Hero Avatar Display */}
         <View style={styles.avatarCenterWrap}>
           <View style={styles.mainAvatarRing}>

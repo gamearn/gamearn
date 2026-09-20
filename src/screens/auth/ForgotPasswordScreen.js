@@ -102,6 +102,8 @@ export default function ForgotPasswordScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
       >
         {/* Top Logo Badge */}
         <View style={styles.logoSection}>

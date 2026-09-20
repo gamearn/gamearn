@@ -682,7 +682,7 @@ export default function HomeScreen({ navigation }) {
     <View style={[ui.root, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
       <LinearGradient colors={theme.gradientBg} style={StyleSheet.absoluteFillObject} />
-      <ScrollView ref={scroll} showsVerticalScrollIndicator={false} contentContainerStyle={[s.content, { paddingTop: insets.top + 10 * scale, paddingBottom: 110 * scale }]}>
+      <ScrollView ref={scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always" keyboardDismissMode="none" contentContainerStyle={[s.content, { paddingTop: insets.top + 10 * scale, paddingBottom: 110 * scale }]}>
         <Header />
         {!!storageError && <Text accessibilityLiveRegion="polite" style={ui.error}>{storageError}</Text>}
         {tab === 'Home' ? <Home /> : <OtherTab />}
@@ -698,7 +698,7 @@ export default function HomeScreen({ navigation }) {
                 <Ionicons name="close" size={26} color="#fff" />
               </Tap>
             </View>
-            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 16 }}>
+            <ScrollView keyboardShouldPersistTaps="always" keyboardDismissMode="none" contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 16 }}>
               {SheetContent()}
               {!!formError && <Text accessibilityLiveRegion="polite" style={ui.error}>{formError}</Text>}
             </ScrollView>

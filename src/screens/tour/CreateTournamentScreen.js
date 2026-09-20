@@ -112,7 +112,7 @@ export default function CreateTournamentScreen({ navigation }) {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always" keyboardDismissMode="none">
         {/* Section Heading */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Tournament Info</Text>
