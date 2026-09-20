@@ -2,14 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Eye, EyeOff, ChevronDown } from 'lucide-react-native';
 
-const focusSubscribers = new Map();
-let activeInput = null;
-
-function claimVisualFocus(inputId) {
-  activeInput = inputId;
-  focusSubscribers.forEach((setFocused, id) => setFocused(id === inputId));
-}
-
 export default function GAInput({
   label,
   value,
@@ -28,22 +20,6 @@ export default function GAInput({
   inputStyle,
 }) {
   const [isSecure, setIsSecure] = useState(secureTextEntry);
-  const [isFocused, setIsFocused] = useState(false);
-  const inputId = React.useRef({}).current;
-
-  React.useEffect(() => {
-    focusSubscribers.set(inputId, setIsFocused);
-    return () => {
-      focusSubscribers.delete(inputId);
-      if (activeInput === inputId) activeInput = null;
-    };
-  }, [inputId]);
-
-  const handleFocus = () => claimVisualFocus(inputId);
-  const handleBlur = () => {
-    if (activeInput === inputId) activeInput = null;
-    setIsFocused(false);
-  };
 
   return (
     <View style={[styles.container, style]}>
@@ -62,7 +38,6 @@ export default function GAInput({
             style={[
               styles.inputContainer,
               { flex: 1 },
-              isFocused && styles.focusedContainer,
               error ? styles.errorContainer : null,
             ]}
           >
@@ -72,9 +47,6 @@ export default function GAInput({
               placeholder={placeholder}
               placeholderTextColor="#64748B"
               keyboardType="phone-pad"
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onEndEditing={() => setIsFocused(false)}
               style={[styles.textInput, inputStyle]}
             />
           </View>
@@ -83,7 +55,6 @@ export default function GAInput({
         <View
           style={[
             styles.inputContainer,
-            isFocused && styles.focusedContainer,
             error ? styles.errorContainer : null,
           ]}
         >
@@ -96,9 +67,6 @@ export default function GAInput({
             secureTextEntry={isSecure}
             keyboardType={keyboardType}
             autoCapitalize={autoCapitalize}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onEndEditing={() => setIsFocused(false)}
             style={[styles.textInput, inputStyle]}
           />
           {secureTextEntry && (
