@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text, Alert } from 'react-native';
 import { LudoScreen } from '../../games/ludo/LudoScreen';
 import { useAuth } from '../../context/AuthContext';
 import { useOnlineMatch } from '../../games/useOnlineMatch';
 
 const STATUS_LABEL = {
-  joining: 'Connecting…',
-  waiting: 'Waiting…',
+  joining: 'Connectingâ€¦',
+  waiting: 'Waitingâ€¦',
   playing: 'Live match',
   game_over: 'Match over',
   aborted: 'Match cancelled',
@@ -40,7 +40,7 @@ export default function LudoGameScreen({ route, navigation }) {
 
   useEffect(() => {
     if (practice) {
-      Alert.alert('Practice mode', 'Practice for Ludo is rolling out to Whot first');
+      Alert.alert('Practice mode', 'Bot practice is not available for this game yet. Use Play Now for a live match.');
     }
   }, [practice]);
 

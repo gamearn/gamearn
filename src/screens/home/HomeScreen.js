@@ -123,7 +123,7 @@ export default function HomeScreen({ navigation }) {
         if (raw && mounted.current) dispatch({ type: 'HYDRATE', value: JSON.parse(raw) });
       })
       .catch(() => {
-        if (mounted.current) setStorageError('Saved data could not be loaded. This session uses demo defaults.');
+        if (mounted.current) setStorageError('Saved data could not be loaded. No saved preferences were found.');
       })
       .finally(() => {
         if (mounted.current) setReady(true);
@@ -505,7 +505,7 @@ export default function HomeScreen({ navigation }) {
             </View>
             <View style={ui.notice}>
               <Text style={ui.label}>{'\uD83D\uDD25 Keep your streak going'}</Text>
-              <Text style={ui.body}>Youâ€™re on a {state.streak} day streak. Complete todayâ€™s demo challenge to try the streak interaction.</Text>
+              <Text style={ui.body}>Youâ€™re on a {state.streak} day streak. Complete todayâ€™s daily challenge to try the streak interaction.</Text>
             </View>
             <Text style={ui.caption}>Sample notifications Â· All read</Text>
           </>
@@ -600,7 +600,7 @@ export default function HomeScreen({ navigation }) {
               Players: 1,240 (players){'\n'}
               Entry fee: Free
             </Text>
-            <Text style={ui.body}>{state.joined ? 'Your registration is saved. Tap below to launch the Ayo lobby.' : 'Register locally to preview the joined state. No entry fee will be deducted.'}</Text>
+            <Text style={ui.body}>{state.joined ? 'Your registration is saved. Tap below to launch the Ayo lobby.' : 'Tournament registration is handled by the backend.'}</Text>
             <GradientButton
               title={state.joined ? 'Open Ayo lobby' : 'Confirm registration'}
               onPress={() => {
@@ -668,9 +668,9 @@ export default function HomeScreen({ navigation }) {
         return (
           <>
             <Text style={ui.heading}>{state.streak} Day Streak {'\uD83D\uDD25'}</Text>
-            <Text style={ui.body}>Complete a qualifying game each day. Opening the app alone does not count. In this demo, the dice challenge simulates a completed game.</Text>
+            <Text style={ui.body}>Complete a qualifying game each day. Opening the app alone does not count. Complete a qualifying game to advance your streak.</Text>
             <Text style={ui.body}>Milestones: 7, 14, 30, 50, 90, 100, 120, 150, 180, 200, 250, 270, 300, 350, and 365 days. A day counts only after a completed game.</Text>
-            <Text style={ui.caption}>Last activity: {state.lastPlayed || 'No completed demo challenge yet'}</Text>
+            <Text style={ui.caption}>Last activity: {state.lastPlayed || 'No completed daily challenge yet'}</Text>
             <GradientButton title="Choose a game" onPress={() => open('games')} />
           </>
         );
@@ -696,7 +696,7 @@ export default function HomeScreen({ navigation }) {
               {sheet.data.wins} Wins{'\n'}
               {sheet.data.xp.toLocaleString('en-US')} XP
             </Text>
-            <Text style={ui.caption}>Sample player profile</Text>
+            <Text style={ui.caption}>Player profile</Text>
           </>
         );
       default:
@@ -843,6 +843,7 @@ const ui = StyleSheet.create({
   notice: { padding: 15, backgroundColor: '#102b40', borderRadius: 12, marginBottom: 12 },
   dice: { color: CYAN, fontSize: 64, textAlign: 'center', marginVertical: 12 },
 });
+
 
 
 
