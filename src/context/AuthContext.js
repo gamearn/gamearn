@@ -73,6 +73,8 @@ export const AuthProvider = ({ children }) => {
     selectAccount: true,
     ...(Platform.OS === 'ios' ? {
       redirectUri: `com.googleusercontent.apps.${GOOGLE_CLIENT_IDS.iosClientId.split('.apps.')[0]}:/oauthredirect`,
+    } : Platform.OS === 'android' ? {
+      redirectUri: `com.googleusercontent.apps.${GOOGLE_CLIENT_IDS.androidClientId.split('.apps.')[0]}:/oauthredirect`,
     } : {}),
   });
 

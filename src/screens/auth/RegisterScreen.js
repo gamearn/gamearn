@@ -62,6 +62,7 @@ export default function RegisterScreen({ navigation }) {
     >
       {/* Fixed Non-Repeating Background Image */}
       <Image
+        pointerEvents="none"
         source={require('../../../assets/auth/register_bg.png')}
         style={styles.fixedBackground}
         resizeMode="cover"

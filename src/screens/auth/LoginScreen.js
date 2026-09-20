@@ -59,6 +59,7 @@ export default function LoginScreen({ navigation }) {
     >
       {/* Clean Background Image with Glowing Neon & 3D Games */}
       <Image
+        pointerEvents="none"
         source={require('../../../assets/auth/login_bg.png')}
         style={styles.fixedBackground}
         resizeMode="cover"
