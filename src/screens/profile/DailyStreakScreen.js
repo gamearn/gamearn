@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Flame, Lock, Check } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { streak } from '../../services/api';
+import { showRecoveryAd } from '../../services/rewardedAd';
 
 export default function DailyStreakScreen({ navigation }) {
   const { theme, isDark } = useTheme();
@@ -41,6 +42,15 @@ export default function DailyStreakScreen({ navigation }) {
     try { await streak.recover('coins'); } catch (err) { setError(err?.message || 'Unable to recover streak'); }
     finally { setRecovering(false); }
   };
+  const recoverWithAd = async () => {
+    setRecovering(true);
+    try {
+      const earned = await showRecoveryAd();
+      if (!earned) throw new Error('Watch the complete ad to recover your streak');
+      await streak.recover('ad');
+    } catch (err) { setError(err?.message || 'Unable to recover streak'); }
+    finally { setRecovering(false); }
+  };
   return <View style={[styles.root, { backgroundColor: theme.bg }]}>
     <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
     <LinearGradient colors={theme.gradientBg} style={StyleSheet.absoluteFillObject} />
@@ -52,6 +62,7 @@ export default function DailyStreakScreen({ navigation }) {
       {schedule.map((reward) => { const reached = days >= reward.day; return <View key={reward.day} style={[styles.row, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>{reached ? <Check size={18} color={theme.primary} /> : <Lock size={18} color={theme.textMuted} />}<View style={{ flex: 1, marginLeft: 12 }}><Text style={[styles.rowText, { color: theme.textPrimary, marginLeft: 0 }]}>Day {reward.day}</Text><Text style={[styles.rewardText, { color: theme.textSecondary }]}>{rewardLabel(reward)}</Text></View><Text style={[styles.rowStatus, { color: reached ? theme.primary : theme.textMuted }]}>{reached ? 'Reached' : 'Locked'}</Text></View>; })}
       <Text style={[styles.note, { color: theme.textSecondary }]}>Each completed game day adds {rewardPolicy.dailyLockedCoins || 10} locked coins. They release at day 90. A one-day miss can be recovered by watching an ad or paying {rewardPolicy.oneDayRecovery?.coinCost || 100} unlocked coins.</Text>
       {!data?.activeToday && <TouchableOpacity disabled={recovering} onPress={recover} style={[styles.recover, { borderColor: theme.primary }]}><Text style={[styles.recoverText, { color: theme.primary }]}>{recovering ? 'Recovering…' : 'Recover with 100 unlocked coins'}</Text></TouchableOpacity>}
+      {!data?.activeToday && <TouchableOpacity disabled={recovering} onPress={recoverWithAd} style={[styles.recover, { borderColor: theme.primary }]}><Text style={[styles.recoverText, { color: theme.primary }]}>{recovering ? 'Loading ad…' : 'Recover by watching an ad'}</Text></TouchableOpacity>}
     </ScrollView>
   </View>;
 }
