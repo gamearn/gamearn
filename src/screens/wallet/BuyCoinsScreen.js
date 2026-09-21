@@ -11,6 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Coins, Sprout, Trees, Mountain, Medal } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const PACKAGES = [
   {

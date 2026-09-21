@@ -93,6 +93,7 @@ export default function HomeScreen({ navigation }) {
   const { width } = useWindowDimensions();
   const scale = Math.min(width, 650) / 590;
   const { theme, isDark } = useTheme();
+  const { userProfile, updateProfileData } = useAuth() || {};
   const s = useMemo(() => makeStyles(scale, theme, isDark), [scale, theme, isDark]);
 
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);

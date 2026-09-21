@@ -20,6 +20,7 @@ import {
   Share2,
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const INITIAL_FRIENDS = [
   {
