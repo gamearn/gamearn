@@ -20,13 +20,15 @@ import {
 import {
   AI_CHAT_RESPONSES,
   createInitialState,
-  drawCardForCurrentPlayer,
-  playCardForCurrentPlayer,
+  drawCard,
+  playCard,
   reduceStateOnTurnTimeout,
   isValidMove,
 } from './whotGameEngine';
 import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 import { engineCardToServer } from './serverAdapter';
+import { useAuth } from '../../context/AuthContext';
+import { recordGameStreak } from '../../utils/recordGameStreak';
 
 export function Portrait({ index, scale }) {
   const c = PORTRAITS[index];
@@ -152,9 +154,12 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
     });
   }, []);
 
+  const { updateProfileData, userProfile } = useAuth();
+
   useEffect(() => {
     if (gameState.gameStatus === 'game_over') {
       clearActiveMatch();
+      recordGameStreak(updateProfileData, userProfile);
       if (isRemote) {
         onRemoteGameOver?.(gameState.winner);
         return;
@@ -164,7 +169,7 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
         onWin?.(500);
       }
     }
-  }, [gameState.gameStatus, gameState.winner, isRemote, onWin, onRemoteGameOver]);
+  }, [gameState.gameStatus, gameState.winner, isRemote, onWin, onRemoteGameOver, updateProfileData, userProfile]);
 
 
   function layout(e) {
@@ -633,9 +638,14 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
                     ? 'Congratulations! You emptied your hand first and won the match!'
                     : `${gameState.winner?.name} won the match!`}
                 </Text>
-                <Pressable style={[styles.button, { backgroundColor: '#7042ff', marginTop: 16 }]} onPress={handleRestart}>
-                  <Text style={[styles.buttonText, { color: '#fff' }]}>🎮 Play Again</Text>
-                </Pressable>
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+                  <Pressable style={[styles.button, { backgroundColor: 'rgba(255,255,255,0.15)', flex: 1, alignItems: 'center' }]} onPress={onBack || handleRestart}>
+                    <Text style={[styles.buttonText, { color: '#fff' }]}>🚪 Exit Game</Text>
+                  </Pressable>
+                  <Pressable style={[styles.button, { backgroundColor: '#7042ff', flex: 1, alignItems: 'center' }]} onPress={handleRestart}>
+                    <Text style={[styles.buttonText, { color: '#fff' }]}>🎮 Play Again</Text>
+                  </Pressable>
+                </View>
               </>
             ) : null}
 

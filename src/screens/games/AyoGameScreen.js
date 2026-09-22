@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { AyoScreen } from '../../games/ayo/AyoScreen';
 import { useAuth } from '../../context/AuthContext';
@@ -86,11 +86,11 @@ const styles = StyleSheet.create({
   },
   practiceBanner: {
     alignSelf: 'center',
-    marginTop: 6,
+    marginTop: 4,
     marginHorizontal: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#F59E0B',
     backgroundColor: 'rgba(245, 158, 11, 0.15)',

@@ -30,12 +30,12 @@ export default function Board({ size, state, onMove }) {
     });
   }
 
-  // 4 Yard Base Configurations (matching image)
+  // 4 Yard Base Configurations (matching reference board)
   const YARDS = [
     { p: 0, x: 0, y: 0, color: '#e61c24', light: '#ffffff', tokenColor: '#e61c24' }, // Red (Top-Left)
     { p: 1, x: 8, y: 0, color: '#00b843', light: '#ffffff', tokenColor: '#00b843' }, // Green (Top-Right)
-    { p: 2, x: 0, y: 8, color: '#0085ff', light: '#ffffff', tokenColor: '#0085ff' }, // Blue (Bottom-Left)
-    { p: 3, x: 8, y: 8, color: '#ffcc00', light: '#ffffff', tokenColor: '#ffcc00' }, // Yellow (Bottom-Right)
+    { p: 2, x: 8, y: 8, color: '#ffcc00', light: '#ffffff', tokenColor: '#ffcc00' }, // Yellow (Bottom-Right)
+    { p: 3, x: 0, y: 8, color: '#0085ff', light: '#ffffff', tokenColor: '#0085ff' }, // Blue (Bottom-Left)
   ];
 
   return (
@@ -46,7 +46,7 @@ export default function Board({ size, state, onMove }) {
             <RadialGradient key={i} id={`token${i}`} cx="32%" cy="25%" r="80%">
               <Stop offset="0" stopColor={color} />
               <Stop offset="0.65" stopColor={color} />
-              <Stop offset="1" stopColor={['#980014', '#006320', '#0033a8', '#bb7300'][i]} />
+              <Stop offset="1" stopColor={['#980014', '#006320', '#bb7300', '#0033a8'][i]} />
             </RadialGradient>
           ))}
         </Defs>
@@ -82,16 +82,16 @@ export default function Board({ size, state, onMove }) {
             let strokeColor = '#2b3954';
 
             // Colored Home Pathways leading to center
-            if (x === 6 && y > 0 && y < 5) fillColor = COLORS[0]; // Red pathway (Top)
-            if (x === 6 && y > 7 && y < 12) fillColor = COLORS[3]; // Blue pathway (Bottom)
-            if (y === 6 && x > 0 && x < 5) fillColor = COLORS[2]; // Blue/Red pathway (Left)
-            if (y === 6 && x > 7 && x < 12) fillColor = COLORS[1]; // Green pathway (Right)
+            if (x === 6 && y > 0 && y < 5) fillColor = COLORS[0]; // Red pathway (Top, from Red House)
+            if (y === 6 && x > 7 && x < 12) fillColor = COLORS[1]; // Green pathway (Right, from Green House)
+            if (x === 6 && y > 7 && y < 12) fillColor = COLORS[2]; // Yellow pathway (Bottom, from Yellow House)
+            if (y === 6 && x > 0 && x < 5) fillColor = COLORS[3]; // Blue pathway (Left, from Blue House)
 
             // Starting Entry Cells (matching Ludo rules)
-            if (x === 1 && y === 5) fillColor = COLORS[0]; // Red Start
-            if (x === 7 && y === 1) fillColor = COLORS[1]; // Green Start
-            if (x === 11 && y === 7) fillColor = COLORS[3]; // Yellow Start
-            if (x === 5 && y === 11) fillColor = COLORS[2]; // Blue Start
+            if (x === 5 && y === 1) fillColor = COLORS[0]; // Red Start
+            if (x === 11 && y === 5) fillColor = COLORS[1]; // Green Start
+            if (x === 7 && y === 11) fillColor = COLORS[2]; // Yellow Start
+            if (x === 1 && y === 7) fillColor = COLORS[3]; // Blue Start
 
             return (
               <Rect
@@ -112,8 +112,8 @@ export default function Board({ size, state, onMove }) {
         {/* Center Triangles */}
         <Polygon points="5,5 8,5 6.5,6.5" fill={COLORS[0]} stroke="#1e293b" strokeWidth="0.04" />
         <Polygon points="8,5 8,8 6.5,6.5" fill={COLORS[1]} stroke="#1e293b" strokeWidth="0.04" />
-        <Polygon points="8,8 5,8 6.5,6.5" fill={COLORS[3]} stroke="#1e293b" strokeWidth="0.04" />
-        <Polygon points="5,8 5,5 6.5,6.5" fill={COLORS[2]} stroke="#1e293b" strokeWidth="0.04" />
+        <Polygon points="5,8 8,8 6.5,6.5" fill={COLORS[2]} stroke="#1e293b" strokeWidth="0.04" />
+        <Polygon points="5,5 5,8 6.5,6.5" fill={COLORS[3]} stroke="#1e293b" strokeWidth="0.04" />
 
         {/* Star Safe Haven Symbols */}
         {[[6.5, 0.5], [12.5, 6.5], [6.5, 12.5], [0.5, 6.5]].map(([x, y], i) => (
@@ -146,7 +146,7 @@ export default function Board({ size, state, onMove }) {
                   strokeWidth="0.08"
                 />
               )}
-              <Circle cx={x} cy={y} r="0.42" fill={`url(#token${p})`} stroke={['#980014', '#006320', '#0033a8', '#bb7300'][p]} strokeWidth="0.05" />
+              <Circle cx={x} cy={y} r="0.42" fill={`url(#token${p})`} stroke={['#980014', '#006320', '#bb7300', '#0033a8'][p]} strokeWidth="0.05" />
               <Circle cx={x - 0.13} cy={y - 0.17} r="0.085" fill="#ffffff77" />
               {state.tokens[p][t] >= 0 && (
                 <SvgText x={x} y={y + 0.12} fontSize="0.32" fontWeight="bold" textAnchor="middle" fill="#ffffff">

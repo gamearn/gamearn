@@ -3,10 +3,11 @@ import { AppState, Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressabl
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Board from './Board';
 import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
-const { COLORS, NAMES, FINISH, fresh, legal, reduce } = require('./engine');
+import { useAuth } from '../../context/AuthContext';
+import { recordGameStreak } from '../../utils/recordGameStreak';
+const { COLORS, NAMES, FINISH, SAFE, globalIndex, fresh, legal, reduce } = require('./engine');
 const PHOTO = require('./assets/reference.jpg');
 const BONUS_KEY = '@ludo-reference/bonus-v1';
 const ART = {
@@ -20,7 +21,7 @@ const ART = {
   right: [1086, 674, 149, 250],
 };
 
-const RULES = `This local four-player variant follows the board in the picture: five-cell arms, a 44-square perimeter, and two dice.\n\n1. Turns run red → green → blue → yellow. Pass the device to the active player.\n\n2. Roll both dice. Select either unused die, then a highlighted token. Each die makes one move. A six brings a token out of its yard; the full six is consumed.\n\n3. A token travels 43 perimeter positions, then four private lane positions and the center. You need an exact roll to finish.\n\n4. Landing on opponents on an unsafe square sends all of those tokens back to their yards. Stars and starting squares are safe. Stacked tokens do not block movement.\n\n5. A roll containing a six earns one extra turn after both dice are used or no legal moves remain. Captures and finishes do not grant extra turns. There is no three-sixes penalty.\n\n6. If no die can move a token, the turn advances automatically. Get all four tokens to the center to win.\n\n7. Each turn lasts 2:45. Time expiring forfeits unused dice and extra turns. Menus and backgrounding pause the timer.\n\n8. Undo restores the previous roll or move; this is a local practice feature. Hint recommends a finish, capture, yard exit, or advanced token.\n\nThis is not the standard 15×15, single-die ruleset. Room 458721 and 4/4 identify the local table, not an online connection.`;
+const RULES = `This local four-player variant follows the board in the picture: five-cell arms, a 44-square perimeter, and two dice.\n\n1. Turns run red → green → yellow → blue. Pass the device to the active player.\n\n2. Roll both dice. Select either unused die, then a highlighted token. Each die makes one move. A six brings a token out of its yard; the full six is consumed.\n\n3. A token travels 43 perimeter positions, then four private lane positions and the center. You need an exact roll to finish.\n\n4. Landing on opponents on an unsafe square sends all of those tokens back to their yards. Stars and starting squares are safe. Stacked tokens do not block movement.\n\n5. A roll containing a six earns one extra turn after both dice are used or no legal moves remain. Captures and finishes do not grant extra turns. There is no three-sixes penalty.\n\n6. If no die can move a token, the turn advances automatically. Get all four tokens to the center to win.\n\n7. Each turn lasts 2:45. Time expiring forfeits unused dice and extra turns. Menus and backgrounding pause the timer.\n\n8. Undo restores the previous roll or move; this is a local practice feature. Hint recommends a finish, capture, yard exit, or advanced token.\n\nThis is not the standard 15×15, single-die ruleset. Room 458721 and 4/4 identify the local table, not an online connection.`;
 
 function Art({ name, w, h }) {
   const [x, y, cw, ch] = ART[name];
@@ -203,8 +204,9 @@ function Game({ onBack, stake, timer, onWin }) {
   const [draft, setDraft] = useState('');
   const [hints, setHints] = useState(true);
   const [bonus, setBonus] = useState(null);
-  const [cellChoiceMode, setCellChoiceMode] = useState('single');
   const [storageError, setStorageError] = useState('');
+  const [rollingDice, setRollingDice] = useState(false);
+  const [animDice, setAnimDice] = useState([1, 1]);
   const pause = useRef(null);
   const background = useRef(false);
   const dialog = useRef(false);
@@ -275,30 +277,52 @@ function Game({ onBack, stake, timer, onWin }) {
     });
   }, []);
 
+  const { updateProfileData, userProfile } = useAuth();
+
   useEffect(() => {
     if (state.phase === 'won') {
       clearActiveMatch();
       if (!wonReported.current) {
         wonReported.current = true;
+        recordGameStreak(updateProfileData, userProfile);
         if (onWin) onWin(stake);
       }
     }
-  }, [state.phase, onWin, stake]);
+  }, [state.phase, onWin, stake, updateProfileData, userProfile]);
 
-  // Automatic AI Bot (Oba) Turn Controller
+  // Automatic AI Bot (Oba) Turn Controller & Dice Rolling
   useEffect(() => {
     if (state.phase === 'won') return;
 
-    // Is it an Oba (AI Bot) turn? (Player 0 = You, Players 1,2,3 = Oba)
     if (state.turn !== 0) {
-      const aiTimer = setTimeout(() => {
-        if (state.phase === 'roll') {
-          // Auto-roll dice for Oba
-          const d1 = 1 + Math.floor(Math.random() * 6);
-          const d2 = 1 + Math.floor(Math.random() * 6);
-          dispatch({ type: 'ROLL', dice: [d1, d2] });
-        } else if (state.phase === 'move') {
-          // Auto-choose best legal move for Oba
+      if (state.phase === 'roll' && !rollingDice) {
+        const rollTimer = setTimeout(() => {
+          setRollingDice(true);
+          let count = 0;
+          const animInterval = setInterval(() => {
+            setAnimDice([1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)]);
+            count++;
+            if (count >= 8) {
+              clearInterval(animInterval);
+              setRollingDice(false);
+              const d1 = 1 + Math.floor(Math.random() * 6);
+              const d2 = 1 + Math.floor(Math.random() * 6);
+              dispatch({ type: 'ROLL', dice: [d1, d2] });
+            }
+          }, 80);
+        }, 700);
+        return () => clearTimeout(rollTimer);
+      }
+
+      if (state.phase === 'no_moves') {
+        const passTimer = setTimeout(() => {
+          dispatch({ type: 'PASS_TURN' });
+        }, 1600);
+        return () => clearTimeout(passTimer);
+      }
+
+      if (state.phase === 'move') {
+        const aiTimer = setTimeout(() => {
           let best = null;
           for (const d of state.available) {
             const legalTokens = legal(state, d);
@@ -308,9 +332,10 @@ function Game({ onBack, stake, timer, onWin }) {
               const capture =
                 target < 43 &&
                 !SAFE.has(globalIndex(state.turn, target)) &&
-                state.tokens.some((team, player) =>
-                  player !== state.turn &&
-                  team.some((v) => v >= 0 && v < 43 && globalIndex(player, v) === globalIndex(state.turn, target))
+                state.tokens.some(
+                  (team, player) =>
+                    player !== state.turn &&
+                    team.some((v) => v >= 0 && v < 43 && globalIndex(player, v) === globalIndex(state.turn, target))
                 );
               const score = target === FINISH ? 1000 : capture ? 500 : p < 0 ? 200 : target;
               if (!best || score > best.score) {
@@ -323,14 +348,44 @@ function Game({ onBack, stake, timer, onWin }) {
             dispatch({ type: 'SELECT', index: best.die });
             setTimeout(() => {
               dispatch({ type: 'MOVE', token: best.token });
-            }, 300);
+            }, 500);
+          } else {
+            dispatch({ type: 'PASS_TURN' });
           }
-        }
-      }, 700);
+        }, 1000);
 
-      return () => clearTimeout(aiTimer);
+        return () => clearTimeout(aiTimer);
+      }
+    } else {
+      if (state.phase === 'no_moves') {
+        const passTimer = setTimeout(() => {
+          dispatch({ type: 'PASS_TURN' });
+        }, 1800);
+        return () => clearTimeout(passTimer);
+      }
     }
-  }, [state.turn, state.phase, state.available, state.dice]);
+  }, [state.turn, state.phase, state.available, state.dice, rollingDice]);
+
+  const handleRollDice = () => {
+    if (state.phase === 'won') {
+      reset();
+      return;
+    }
+    if (state.turn !== 0 || state.phase !== 'roll' || rollingDice) return;
+    setRollingDice(true);
+    let count = 0;
+    const animInterval = setInterval(() => {
+      setAnimDice([1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)]);
+      count++;
+      if (count >= 8) {
+        clearInterval(animInterval);
+        setRollingDice(false);
+        const d1 = 1 + Math.floor(Math.random() * 6);
+        const d2 = 1 + Math.floor(Math.random() * 6);
+        dispatch({ type: 'ROLL', dice: [d1, d2] });
+      }
+    }, 80);
+  };
 
   const claim = async () => {
     if (!bonus || Date.now() < bonus.next || bonusLock.current) return;
@@ -542,38 +597,6 @@ function Game({ onBack, stake, timer, onWin }) {
             </View>
             <Player p={0} x={112} y={57} w={350} />
             <Player p={1} x={792} y={57} w={350} reverse />
-            {/* Cell Choice Selection Bar (Single Cell vs Double Cell Move) */}
-            <View style={[rect(22, 300, 151, 300), ui.panel, { borderRadius: 20 * k, padding: 12 * k, justifyContent: 'space-around', alignItems: 'center' }]}>
-              {text('Cell Choice', 22, { textAlign: 'center', color: '#ffd700', fontWeight: '900' })}
-              <Pressable
-                onPress={() => setCellChoiceMode('single')}
-                style={{
-                  width: '100%',
-                  paddingVertical: 10 * k,
-                  borderRadius: 12 * k,
-                  backgroundColor: cellChoiceMode === 'single' ? '#00e5ff' : '#1a2472',
-                  alignItems: 'center',
-                  borderWidth: 2 * k,
-                  borderColor: cellChoiceMode === 'single' ? '#fff' : '#394bbb',
-                }}
-              >
-                {text('Single Cell', 18, { color: cellChoiceMode === 'single' ? '#000' : '#fff', fontWeight: '800' })}
-              </Pressable>
-              <Pressable
-                onPress={() => setCellChoiceMode('double')}
-                style={{
-                  width: '100%',
-                  paddingVertical: 10 * k,
-                  borderRadius: 12 * k,
-                  backgroundColor: cellChoiceMode === 'double' ? '#ff9900' : '#1a2472',
-                  alignItems: 'center',
-                  borderWidth: 2 * k,
-                  borderColor: cellChoiceMode === 'double' ? '#fff' : '#394bbb',
-                }}
-              >
-                {text('Double Cell', 18, { color: cellChoiceMode === 'double' ? '#000' : '#fff', fontWeight: '800' })}
-              </Pressable>
-            </View>
             <View style={rect(22, 676, 157, 244)}>
               <Art name="left" w={157 * k} h={244 * k} />
             </View>
@@ -582,17 +605,7 @@ function Game({ onBack, stake, timer, onWin }) {
                 <Board
                   size={828 * k}
                   state={state}
-                  onMove={(token) => {
-                    if (cellChoiceMode === 'double' && state.available.length === 2) {
-                      // Double cell move: combine both dice
-                      dispatch({ type: 'MOVE', token });
-                      setTimeout(() => {
-                        dispatch({ type: 'MOVE', token });
-                      }, 250);
-                    } else {
-                      dispatch({ type: 'MOVE', token });
-                    }
-                  }}
+                  onMove={(token) => dispatch({ type: 'MOVE', token })}
                 />
               </View>
             </View>
@@ -620,7 +633,7 @@ function Game({ onBack, stake, timer, onWin }) {
                 <Die
                   key={index}
                   index={index}
-                  value={value}
+                  value={rollingDice ? animDice[index] : value}
                   size={89 * k}
                   selected={state.phase === 'move' && state.selected === index}
                   used={state.phase === 'move' && !state.available.includes(index)}
@@ -629,19 +642,19 @@ function Game({ onBack, stake, timer, onWin }) {
               ))}
               {ico('chevron-forward', 55, '#1262ef')}
             </View>
-            <Button label="Undo last roll or move" onPress={() => dispatch({ type: 'UNDO' })} disabled={!state.history.length} style={[rect(88, 1122, 271, 92), ui.round, { borderRadius: 46 * k, borderWidth: 5 * k, flexDirection: 'row', gap: 23 * k }]}>
+            <Button label="Undo last roll or move" onPress={() => dispatch({ type: 'UNDO' })} disabled={!state.history.length || state.turn !== 0} style={[rect(88, 1122, 271, 92), ui.round, { borderRadius: 46 * k, borderWidth: 5 * k, flexDirection: 'row', gap: 23 * k }]}>
               {ico('arrow-undo', 45, '#ffe52b')}
               {text('UNDO', 28)}
             </Button>
             <Button
-              label={state.phase === 'won' ? 'Start new game' : state.turn !== 0 ? "Oba's Turn" : 'Roll both dice'}
-              disabled={state.phase === 'move' || state.turn !== 0}
-              onPress={() => (state.phase === 'won' ? reset() : dispatch({ type: 'ROLL', dice: [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)] }))}
+              label={state.phase === 'won' ? 'Start new game' : rollingDice ? 'Rolling dice...' : state.turn !== 0 ? `${NAMES[state.turn]}'s Turn` : 'Roll both dice'}
+              disabled={state.phase === 'move' || state.turn !== 0 || rollingDice}
+              onPress={handleRollDice}
               style={rect(435, 1118, 385, 98)}
             >
               <LinearGradient colors={state.turn !== 0 ? ['#64748B', '#475569', '#334155'] : ['#fff147', '#ffc600', '#ffab00']} style={{ flex: 1, borderRadius: 50 * k, borderWidth: 5 * k, borderColor: state.turn !== 0 ? '#94A3B8' : '#ffe950', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24 * k }}>
-                {ico(state.turn !== 0 ? 'sync' : 'play', 48, state.turn !== 0 ? '#FFF' : '#402500')}
-                {text(state.phase === 'won' ? 'NEW GAME' : state.turn !== 0 ? `${NAMES[state.turn].toUpperCase()}'S TURN` : 'ROLL DICE', 32, { color: state.turn !== 0 ? '#FFF' : '#281a00', fontWeight: '900' })}
+                {ico(rollingDice || state.turn !== 0 ? 'sync' : 'play', 48, state.turn !== 0 ? '#FFF' : '#402500')}
+                {text(state.phase === 'won' ? 'NEW GAME' : rollingDice ? 'ROLLING...' : state.turn !== 0 ? `${NAMES[state.turn].toUpperCase()}'S TURN` : 'ROLL DICE', 32, { color: state.turn !== 0 ? '#FFF' : '#281a00', fontWeight: '900' })}
               </LinearGradient>
             </Button>
             <Button label="Show best move hint" disabled={!hints || state.phase === 'won'} onPress={() => dispatch({ type: 'HINT' })} style={[rect(897, 1122, 270, 92), ui.round, { borderRadius: 46 * k, borderWidth: 5 * k, flexDirection: 'row', gap: 24 * k }]}>

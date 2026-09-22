@@ -22,9 +22,28 @@ export default function GameSetupScreen({ route, navigation }) {
   const [selectedTimer, setSelectedTimer] = useState('2m');
   const TIMERS = ['30s', '1m', '2m', '3m'];
 
+  // Game-specific custom setup state
+  const [tokenCount, setTokenCount] = useState(4); // For Ludo: 1, 2, 3, 4
+  const [playerColor, setPlayerColor] = useState('white'); // For Checkers/Draft: 'white' or 'black'
+  const [cardCount, setCardCount] = useState(6); // For WHOT: 3 to 8
+  const [enableSpecialCards, setEnableSpecialCards] = useState(true); // For WHOT special cards
+
   const handleStartGame = () => {
-    navigation.navigate(targetScreen, { timer: selectedTimer });
+    navigation.navigate(targetScreen, {
+      timer: selectedTimer,
+      tokenCount,
+      playerColor,
+      cardCount,
+      enableSpecialCards,
+      gameName,
+      targetScreen,
+      entryFee,
+    });
   };
+
+  const isLudo = targetScreen === 'LudoGame' || gameName.toLowerCase().includes('ludo');
+  const isDraft = targetScreen === 'DraughtsGame' || gameName.toLowerCase().includes('dráfù') || gameName.toLowerCase().includes('draft') || gameName.toLowerCase().includes('checkers');
+  const isWhot = targetScreen === 'WhotGame' || gameName.toLowerCase().includes('whot');
 
   return (
     <View style={[styles.screenRoot, { backgroundColor: theme.bg }]}>
@@ -97,8 +116,133 @@ export default function GameSetupScreen({ route, navigation }) {
           </View>
         </View>
 
+        {/* LUDO Custom Tokens Setting */}
+        {isLudo && (
+          <View style={styles.settingBlock}>
+            <View style={styles.settingHeaderRow}>
+              <Text style={styles.settingLabel}>Tokens per Player</Text>
+              <Text style={styles.selectedTimerValue}>{tokenCount} Token{tokenCount > 1 ? 's' : ''}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+              {[1, 2, 3, 4].map((num) => (
+                <TouchableOpacity
+                  key={num}
+                  onPress={() => setTokenCount(num)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    backgroundColor: tokenCount === num ? '#00E5FF' : 'rgba(255,255,255,0.06)',
+                    borderWidth: 1.5,
+                    borderColor: tokenCount === num ? '#00E5FF' : 'rgba(255,255,255,0.15)',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: tokenCount === num ? '#070C1B' : '#FFF', fontWeight: '900', fontSize: 15 }}>
+                    {num} {num === 4 ? '(Default)' : ''}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* DRAFT Custom Piece Color Setting */}
+        {isDraft && (
+          <View style={styles.settingBlock}>
+            <View style={styles.settingHeaderRow}>
+              <Text style={styles.settingLabel}>Your Piece Color</Text>
+              <Text style={styles.selectedTimerValue}>{playerColor === 'white' ? '⚪ White (First)' : '⚫ Black (Second)'}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 10 }}>
+              <TouchableOpacity
+                onPress={() => setPlayerColor('white')}
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  backgroundColor: playerColor === 'white' ? '#00E5FF' : 'rgba(255,255,255,0.06)',
+                  borderWidth: 1.5,
+                  borderColor: playerColor === 'white' ? '#00E5FF' : 'rgba(255,255,255,0.15)',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: playerColor === 'white' ? '#070C1B' : '#FFF', fontWeight: '900', fontSize: 14 }}>
+                  ⚪ Play White
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setPlayerColor('black')}
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  backgroundColor: playerColor === 'black' ? '#F59E0B' : 'rgba(255,255,255,0.06)',
+                  borderWidth: 1.5,
+                  borderColor: playerColor === 'black' ? '#F59E0B' : 'rgba(255,255,255,0.15)',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: playerColor === 'black' ? '#070C1B' : '#FFF', fontWeight: '900', fontSize: 14 }}>
+                  ⚫ Play Black
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* WHOT Custom Cards Setting */}
+        {isWhot && (
+          <View style={styles.settingBlock}>
+            <View style={styles.settingHeaderRow}>
+              <Text style={styles.settingLabel}>Starting Cards Count</Text>
+              <Text style={styles.selectedTimerValue}>{cardCount} Cards</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+              {[3, 4, 5, 6, 7, 8].map((num) => (
+                <TouchableOpacity
+                  key={num}
+                  onPress={() => setCardCount(num)}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    borderRadius: 10,
+                    backgroundColor: cardCount === num ? '#00E5FF' : 'rgba(255,255,255,0.06)',
+                    borderWidth: 1.5,
+                    borderColor: cardCount === num ? '#00E5FF' : 'rgba(255,255,255,0.15)',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: cardCount === num ? '#070C1B' : '#FFF', fontWeight: '900', fontSize: 14 }}>
+                    {num} Cards {num === 6 ? '(Standard)' : ''}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              onPress={() => setEnableSpecialCards(!enableSpecialCards)}
+              style={{
+                flexDirection: 'row',
+                justify: 'space-between',
+                alignItems: 'center',
+                marginTop: 14,
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.1)',
+              }}
+            >
+              <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 14 }}>Enable Special Action Cards (1,2,5,8,14,20)</Text>
+              <Text style={{ color: enableSpecialCards ? '#10B981' : '#EF4444', fontWeight: '900' }}>
+                {enableSpecialCards ? 'ON' : 'OFF'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Spacer */}
-        <View style={{ flex: 1, minHeight: 180 }} />
+        <View style={{ minHeight: 40 }} />
 
         {/* Leaderboard Position & Entry Fee Card */}
         <View style={styles.metaCard}>

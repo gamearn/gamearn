@@ -1,7 +1,7 @@
 // Reference-board variant: 13x13 grid, 44 outer squares, two dice.
-const COLORS = ['#ff202c', '#00c852', '#ffc400', '#0086ff'];
+const COLORS = ['#e61c24', '#00b843', '#ffcc00', '#0085ff'];
 const NAMES = ['You', 'Oba 1', 'Oba 2', 'Oba 3'];
-const ORDER = [0, 1, 3, 2]; // clockwise: red, green, blue, yellow
+const ORDER = [0, 1, 2, 3]; // clockwise: red (top-left), green (top-right), yellow (bottom-right), blue (bottom-left)
 const TRACK = [
   [5,0],[6,0],[7,0],[7,1],[7,2],[7,3],[7,4],
   [8,5],[9,5],[10,5],[11,5],[12,5],[12,6],[12,7],
@@ -10,8 +10,8 @@ const TRACK = [
   [4,7],[3,7],[2,7],[1,7],[0,7],[0,6],[0,5],
   [1,5],[2,5],[3,5],[4,5],[5,4],[5,3],[5,2],[5,1],
 ];
-const START = [3,14,36,25];
-const SAFE = new Set([1,3,12,14,23,25,34,36]);
+const START = [43, 10, 21, 32];
+const SAFE = new Set([43, 10, 21, 32, 1, 12, 23, 34]);
 const FINISH = 47;
 function fresh(now = Date.now(), timerMs = 120000) {
   return { tokens: Array.from({length:4}, () => [-1,-1,-1,-1]), turn:0,
@@ -21,12 +21,12 @@ function fresh(now = Date.now(), timerMs = 120000) {
 function globalIndex(player, progress) { return (START[player] + progress) % 44; }
 function coordinate(player, token, progress) {
   if (progress < 0) {
-    const origin = [[0,0],[8,0],[0,8],[8,8]][player];
-    return [origin[0] + (token % 2 ? 3.25 : 1.6), origin[1] + (token > 1 ? 3.25 : 1.6)];
+    const origin = [[0,0],[8,0],[8,8],[0,8]][player];
+    return [origin[0] + (token % 2 ? 3.4 : 1.6), origin[1] + (token > 1 ? 3.4 : 1.6)];
   }
   if (progress < 43) return TRACK[globalIndex(player, progress)].map(v => v + .5);
   const step = progress - 43;
-  const homes = [[6,1+step],[11-step,6],[1+step,6],[6,11-step]];
+  const homes = [[6,1+step],[11-step,6],[6,11-step],[1+step,6]];
   return progress === FINISH ? [6.5,6.5] : homes[player].map(v => v + .5);
 }
 function legal(state, dieIndex = state.selected) {
@@ -34,15 +34,49 @@ function legal(state, dieIndex = state.selected) {
   const die = state.dice[dieIndex];
   return state.tokens[state.turn].flatMap((p,i) => p === FINISH || (p < 0 && die !== 6) || (p >= 0 && p + die > FINISH) ? [] : [i]);
 }
-function settle(state, now) {
-  if (state.tokens[state.turn].every(p => p === FINISH)) return {...state, winner:state.turn, phase:'won', available:[], message:`${NAMES[state.turn]} wins!`};
-  const playable = state.available.filter(i => legal(state,i).length);
-  if (playable.length) return {...state, selected:playable.includes(state.selected) ? state.selected : playable[0]};
-  const next = state.extra ? state.turn : ORDER[(ORDER.indexOf(state.turn)+1)%4];
+function passTurn(state, now) {
+  const next = state.extra ? state.turn : ORDER[(ORDER.indexOf(state.turn) + 1) % 4];
   const tMs = state.timerMs || 120000;
-  return {...state, turn:next, phase:'roll', available:[], selected:0, extra:false, deadline:now+tMs,
-    message:`${NAMES[next]}: ${state.extra ? 'bonus turn — ' : ''}roll both dice.`, hint:null};
+  return {
+    ...state,
+    turn: next,
+    phase: 'roll',
+    available: [],
+    selected: 0,
+    extra: false,
+    deadline: now + tMs,
+    message: `${NAMES[next]}'s turn: roll both dice.`,
+    hint: null,
+  };
 }
+
+function settle(state, now) {
+  if (state.tokens[state.turn].every((p) => p === FINISH))
+    return { ...state, winner: state.turn, phase: 'won', available: [], message: `${NAMES[state.turn]} wins!` };
+
+  if (state.available.length === 0) {
+    return passTurn(state, now);
+  }
+
+  const playable = state.available.filter((i) => legal(state, i).length);
+  if (playable.length) {
+    const sel = playable.includes(state.selected) ? state.selected : playable[0];
+    return {
+      ...state,
+      selected: sel,
+      phase: 'move',
+      message: `${NAMES[state.turn]} rolled ${state.dice[0]} & ${state.dice[1]}. Tap die or token to move.`,
+    };
+  }
+
+  return {
+    ...state,
+    phase: 'no_moves',
+    available: [],
+    message: `${NAMES[state.turn]} rolled ${state.dice[0]} & ${state.dice[1]} — no legal moves!`,
+  };
+}
+
 function reduce(state, action) {
   const now = action.now ?? Date.now();
   const tMs = state?.timerMs || action.timerMs || 120000;
@@ -54,6 +88,7 @@ function reduce(state, action) {
   }
   if (action.type === 'RESUME') return {...state, deadline:state.deadline + Math.max(0,action.duration)};
   if (state.phase === 'won') return state;
+  if (action.type === 'PASS_TURN') return passTurn(state, now);
   if (action.type === 'TIMEOUT') {
     if (now < state.deadline) return state;
     const next = ORDER[(ORDER.indexOf(state.turn)+1)%4];

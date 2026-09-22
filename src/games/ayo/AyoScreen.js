@@ -17,6 +17,8 @@ import {
   sowAyoSeeds,
 } from './ayoGameEngine';
 import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
+import { useAuth } from '../../context/AuthContext';
+import { recordGameStreak } from '../../utils/recordGameStreak';
 
 import Svg, { G, Path, Rect } from 'react-native-svg';
 
@@ -110,11 +112,18 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove }) {
     });
   }, []);
 
-  // AI Turn Handling
+  const { updateProfileData, userProfile } = useAuth();
+  const gameOverStreakRecorded = useRef(false);
+
+  // AI Turn Handling & Game Over Streak
   useEffect(() => {
     if (gameState.gameStatus === 'game_over') {
       clearActiveMatch();
       setDialogVisible(true);
+      if (!gameOverStreakRecorded.current) {
+        gameOverStreakRecorded.current = true;
+        recordGameStreak(updateProfileData, userProfile);
+      }
       if (gameState.winner === 1) {
         onWin?.(500);
       }
@@ -135,7 +144,7 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove }) {
 
       return () => clearTimeout(aiTimer);
     }
-  }, [gameState.activePlayer, gameState.gameStatus]);
+  }, [gameState.activePlayer, gameState.gameStatus, updateProfileData, userProfile, gameState.winner, onWin]);
 
   function layout(event) {
     const { width, height } = event.nativeEvent.layout;
@@ -184,7 +193,7 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove }) {
 
   if (effectiveWidth > 0 && effectiveHeight > 0) {
     const availableWidth = effectiveWidth * 0.96;
-    const availableHeight = Math.max(100, effectiveHeight - 110);
+    const availableHeight = Math.max(100, effectiveHeight - 125);
     scale = Math.min(availableWidth / ART_WIDTH, availableHeight / ART_HEIGHT);
     width = ART_WIDTH * scale;
     height = ART_HEIGHT * scale;
@@ -322,9 +331,14 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove }) {
             <Text style={[styles.body, { color: '#F59E0B', fontWeight: '800' }]}>
               Final Score: You ({gameState.scores[0]}) - Oba ({gameState.scores[1]})
             </Text>
-            <Pressable style={styles.button} onPress={handleRestart}>
-              <Text style={styles.buttonText}>🎮 Play Again</Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+              <Pressable style={[styles.button, { backgroundColor: 'rgba(255,255,255,0.15)', flex: 1, alignItems: 'center' }]} onPress={onBack || handleRestart}>
+                <Text style={[styles.buttonText, { color: '#FFF' }]}>🚪 Exit Game</Text>
+              </Pressable>
+              <Pressable style={[styles.button, { flex: 1, alignItems: 'center' }]} onPress={handleRestart}>
+                <Text style={styles.buttonText}>🎮 Play Again</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -341,7 +355,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#03271d',
     overflow: 'hidden',
-    paddingVertical: 14,
+    paddingVertical: 8,
     paddingHorizontal: 12,
   },
   navHeader: {
@@ -349,6 +363,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
+    marginTop: 20,
+    marginBottom: 4,
     zIndex: 10,
   },
   iconBtn: {
@@ -363,31 +379,33 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#FFD700',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
     letterSpacing: 2,
   },
   playerHudTop: {
     width: '100%',
     alignItems: 'center',
+    marginVertical: 2,
     zIndex: 10,
   },
   playerHudBottom: {
     width: '100%',
     alignItems: 'center',
+    marginVertical: 2,
     zIndex: 10,
   },
   playerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '90%',
+    width: '92%',
     maxWidth: 380,
     backgroundColor: 'rgba(6, 64, 48, 0.9)',
     borderWidth: 1.5,
     borderColor: 'rgba(245, 158, 11, 0.4)',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
   activePlayerGlow: {
     borderColor: '#F59E0B',

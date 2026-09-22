@@ -9,6 +9,8 @@ import {
   getLegalMovesForSquare,
   initialBoardState,
 } from './CheckersEngine';
+import { useAuth } from '../../context/AuthContext';
+import { recordGameStreak } from '../../utils/recordGameStreak';
 
 function parseTimerSec(timerStr) {
   if (!timerStr) return 120;
@@ -28,7 +30,12 @@ export function CheckersScreen({
   onBack,
   stake = 250,
   onWin,
+  playerColor = 'white',
 }) {
+  const { updateProfileData, userProfile } = useAuth();
+  const playerSide = playerColor === 'black' ? 'black' : 'white';
+  const aiSide = playerSide === 'white' ? 'black' : 'white';
+
   const turnDuration = parseTimerSec(timer);
   const [size, setSize] = useState(0);
   const [boardState, setBoardState] = useState(initialBoardState());
@@ -48,6 +55,13 @@ export function CheckersScreen({
     isOver: false,
     winner: null,
   });
+
+  // Record daily streak when player finishes a game
+  const handleRecordStreak = React.useCallback(() => {
+    if (updateProfileData && userProfile) {
+      recordGameStreak(updateProfileData, userProfile);
+    }
+  }, [updateProfileData, userProfile]);
 
   // Sync external board prop if provided
   useEffect(() => {
@@ -70,36 +84,38 @@ export function CheckersScreen({
 
   // Computer AI turn trigger
   useEffect(() => {
-    if (vsAI && turn === 'black' && !gameOver.isOver && dialog === null) {
+    if (vsAI && turn === aiSide && !gameOver.isOver && dialog === null) {
       setIsAiThinking(true);
       const timer = setTimeout(() => {
-        const aiMove = getBestAIMove(boardState, 'black');
+        const aiMove = getBestAIMove(boardState, aiSide);
         if (aiMove) {
-          setHistory((prev) => [...prev, { board: [...boardState], turn: 'black' }]);
+          setHistory((prev) => [...prev, { board: [...boardState], turn: aiSide }]);
           const newBoard = applyMove(boardState, aiMove);
           setBoardState(newBoard);
 
-          const endResult = checkGameEnd(newBoard, 'white');
+          const endResult = checkGameEnd(newBoard, playerSide);
           if (endResult.isOver) {
             setGameOver(endResult);
             setDialog('gameover');
-            if (endResult.winner === 'white' && onWin) {
+            handleRecordStreak();
+            if (endResult.winner === playerSide && onWin) {
               onWin(stake);
             }
           } else {
-            setTurn('white');
+            setTurn(playerSide);
           }
         } else {
-          // Black has no legal moves -> White wins
-          setGameOver({ isOver: true, winner: 'white' });
+          // AI has no legal moves -> Player wins
+          setGameOver({ isOver: true, winner: playerSide });
           setDialog('gameover');
+          handleRecordStreak();
           if (onWin) onWin(stake);
         }
         setIsAiThinking(false);
       }, 400);
       return () => clearTimeout(timer);
     }
-  }, [turn, vsAI, boardState, gameOver.isOver, dialog]);
+  }, [turn, vsAI, boardState, gameOver.isOver, dialog, aiSide, playerSide, handleRecordStreak, onWin, stake]);
 
   function restartGame() {
     setBoardState(initialBoardState());

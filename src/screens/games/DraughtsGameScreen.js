@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { CheckersScreen } from '../../games/checkers/CheckersScreen';
 import {
@@ -107,11 +107,14 @@ export default function DraughtsGameScreen({ route, navigation }) {
 
   const liveName = m.opponent?.displayName || 'Live opponent';
 
+  const playerColor = route.params?.playerColor || 'white';
+
   return (
     <View style={styles.container}>
       <CheckersScreen
         stake={stake}
         timer={timer}
+        playerColor={playerColor}
         onWin={handleLocalWin}
         onSquarePress={isMultiplayer ? relayIfMove : undefined}
         onBack={handleBack}

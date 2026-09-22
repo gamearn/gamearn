@@ -105,6 +105,7 @@ export default function GameLobbyScreen({ route, navigation }) {
 
     setIsSearching(true);
     setQueueLen(0);
+    Alert.alert('⚔️ Challenge Created!', `All active players have been notified of your ${gameName} challenge broadcast! Searching for an opponent...`);
 
     const sock = new GamearnSocket({
       onConnected: () => joinQueue(selectedFee),
