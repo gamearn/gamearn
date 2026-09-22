@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
-import { PlusCircle, Banknote, Trophy, ShoppingCart, Flame, ChevronRight } from 'lucide-react-native';
+import { PlusCircle, Banknote, Trophy, ShoppingCart, Flame, ChevronRight, ArrowLeft } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -55,7 +55,17 @@ export default function WalletScreen({ navigation }) {
 
       {/* Screen Title */}
       <View style={styles.topHeader}>
+        {navigation.canGoBack() ? (
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={[styles.backCircleBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' }]}
+            activeOpacity={0.8}
+          >
+            <ArrowLeft size={20} color={theme.textPrimary} />
+          </TouchableOpacity>
+        ) : <View style={{ width: 40 }} />}
         <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Wallet & Earnings</Text>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -108,20 +118,38 @@ export default function WalletScreen({ navigation }) {
 
           <Text style={[styles.usdEquivalentText, { color: theme.textSecondary }]}>${usdValue} USD Equivalent</Text>
 
-          {/* 90-Day Streak Active Pill */}
+          {/* Streak Active / Inactive Pill */}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => navigation.navigate('DailyStreak')}
-            style={[styles.streakPillBtn, { backgroundColor: isDark ? 'rgba(15, 35, 55, 0.8)' : 'rgba(0, 180, 216, 0.1)', borderColor: isDark ? 'rgba(0, 229, 255, 0.3)' : 'rgba(0, 180, 216, 0.3)' }]}
+            style={[
+              styles.streakPillBtn,
+              {
+                backgroundColor: (userProfile?.streak ?? 0) > 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                borderColor: (userProfile?.streak ?? 0) > 0 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+              },
+            ]}
           >
-            <Flame size={14} color="#FF5500" style={{ marginRight: 6 }} />
-            <Text style={[styles.streakPillText, { color: theme.primary }]}>90-Day Streak Active</Text>
+            <Flame
+              size={14}
+              color={(userProfile?.streak ?? 0) > 0 ? '#10B981' : '#EF4444'}
+              fill={(userProfile?.streak ?? 0) > 0 ? '#10B981' : 'none'}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={[
+                styles.streakPillText,
+                { color: (userProfile?.streak ?? 0) > 0 ? '#10B981' : '#EF4444' },
+              ]}
+            >
+              {(userProfile?.streak ?? 0) > 0 ? `${userProfile?.streak}-Day Streak Active` : 'Streak Inactive'}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Tab Navigation */}
         <View style={[styles.tabNavRow, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)' }]}>
-          {['Overview', 'Buy', 'Sell', 'Withdraw'].map((tab) => {
+          {['Overview', 'Buy', 'Cash out', 'Withdraw'].map((tab) => {
             const isSelected = activeTab === tab;
             return (
               <TouchableOpacity
@@ -131,7 +159,7 @@ export default function WalletScreen({ navigation }) {
                   setActiveTab(tab);
                   if (tab === 'Buy') navigation.navigate('BuyCoins');
                   if (tab === 'Withdraw') navigation.navigate('Withdraw');
-                  if (tab === 'Sell') navigation.navigate('SellCoins');
+                  if (tab.trim() === 'Cash out' || tab === 'Sell') navigation.navigate('SellCoins');
                 }}
                 style={styles.tabNavItem}
               >
@@ -229,8 +257,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#070C1B',
   },
   topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 15,
+  },
+  backCircleBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },

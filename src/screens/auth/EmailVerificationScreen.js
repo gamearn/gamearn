@@ -76,7 +76,7 @@ export default function EmailVerificationScreen({ route, navigation }) {
   return (
     <KeyboardAvoidingView
       style={styles.flexContainer}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Auth Background with Overlay */}
       <Image
@@ -99,11 +99,16 @@ export default function EmailVerificationScreen({ route, navigation }) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Glowing Envelope Container */}
+        {/* Glowing Logo Container */}
         <View style={styles.centerBlock}>
-          <View style={styles.mailIconCircle}>
-            <Mail size={32} color="#FF5500" />
+          <View style={styles.glowingBadge}>
+            <Image
+              source={require('../../../assets/logos/logo_icon.png')}
+              style={styles.logoIcon}
+              resizeMode="contain"
+            />
           </View>
 
           <Text style={styles.title}>OTP Verification</Text>
@@ -184,10 +189,10 @@ const styles = StyleSheet.create({
     height: '100%',
     ...(Platform.OS === 'web'
       ? {
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
       : {}),
   },
   fixedDarkOverlay: {
@@ -214,29 +219,34 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingBottom: 320,
     flexGrow: 1,
     justifyContent: 'space-between',
   },
   centerBlock: {
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 10,
     width: '100%',
   },
-  mailIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 85, 0, 0.12)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 85, 0, 0.4)',
+  glowingBadge: {
+    width: 125,
+    height: 125,
+    borderRadius: 28,
+    backgroundColor: '#0B132B',
+    borderWidth: 2,
+    borderColor: '#00E5FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
-    shadowColor: '#FF5500',
-    shadowOpacity: 0.4,
+    padding: 10,
+    marginBottom: 20,
+    shadowColor: '#00E5FF',
+    shadowOpacity: 0.85,
     shadowRadius: 16,
-    elevation: 8,
+    elevation: 10,
+  },
+  logoIcon: {
+    width: '100%',
+    height: '100%',
   },
   title: {
     fontSize: 30,

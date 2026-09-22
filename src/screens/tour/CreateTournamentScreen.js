@@ -35,15 +35,36 @@ export default function CreateTournamentScreen({ navigation }) {
       Alert.alert('Tournament Name Required', 'Please enter a name for your tournament.');
       return;
     }
+
+    if (maxPlayers.trim()) {
+      const parsedPlayers = parseInt(maxPlayers, 10);
+      if (isNaN(parsedPlayers) || parsedPlayers < 2) {
+        Alert.alert(
+          'Invalid Player Count 👥',
+          'Number of players must be from 2 to ∞ (infinity) players.'
+        );
+        return;
+      }
+    }
+
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      Alert.alert('Tournament Published! 🏆', `"${tourName}" is now active in the tournament lobby.`, [
-        {
-          text: 'View Tournament',
-          onPress: () => navigation.navigate('TournamentDetails', { title: tourName }),
-        },
-      ]);
+      Alert.alert(
+        'Tournament Published! 🏆',
+        `"${tourName}" is now active in the tournament lobby.`,
+        [
+          {
+            text: 'Go to Game Lobby 🎮',
+            onPress: () => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              }
+              navigation.navigate('MainTabs', { screen: 'TourTab' });
+            },
+          },
+        ]
+      );
     }, 1000);
   };
 
@@ -64,7 +85,11 @@ export default function CreateTournamentScreen({ navigation }) {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Section Heading */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Tournament Info</Text>
@@ -193,12 +218,12 @@ export default function CreateTournamentScreen({ navigation }) {
 
         {/* 5. Number of Players (Max) */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Number of Players (Max)</Text>
+          <Text style={styles.fieldLabel}>Number of Players (2 to ∞)</Text>
           <TextInput
             style={styles.textInput}
             value={maxPlayers}
             onChangeText={setMaxPlayers}
-            placeholder="e.g. 30, 50, 100..."
+            placeholder="e.g. 2 to ∞ (e.g. 30, 100, 1000...)"
             placeholderTextColor="#64748B"
             keyboardType="numeric"
           />
@@ -261,7 +286,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 50,
+    paddingBottom: 320,
   },
   sectionHeader: {
     marginBottom: 20,

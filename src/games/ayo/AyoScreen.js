@@ -16,6 +16,7 @@ import {
   getAyoAiMove,
   sowAyoSeeds,
 } from './ayoGameEngine';
+import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 
 import Svg, { G, Path, Rect } from 'react-native-svg';
 
@@ -100,9 +101,19 @@ export function AyoScreen({ timer = '2m', onWin, onBack }) {
     setSecondsRemaining(turnDuration);
   }, [gameState.activePlayer, turnDuration]);
 
+  useEffect(() => {
+    setActiveMatch({
+      gameId: 'ayo',
+      gameName: 'Ayò Ọ̀pọ́n',
+      targetScreen: 'AyoGame',
+      durationSecs: 120,
+    });
+  }, []);
+
   // AI Turn Handling
   useEffect(() => {
     if (gameState.gameStatus === 'game_over') {
+      clearActiveMatch();
       setDialogVisible(true);
       if (gameState.winner === 1) {
         onWin?.(500);
@@ -134,7 +145,7 @@ export function AyoScreen({ timer = '2m', onWin, onBack }) {
   function handlePitPress(index) {
     if (gameState.gameStatus === 'game_over') return;
     if (gameState.activePlayer !== 1) {
-      setGameState((prev) => ({ ...prev, statusMessage: "Wait for AI Bot's turn!" }));
+      setGameState((prev) => ({ ...prev, statusMessage: "Wait for Oba's turn!" }));
       return;
     }
 
@@ -203,7 +214,7 @@ export function AyoScreen({ timer = '2m', onWin, onBack }) {
         <View style={[styles.playerCard, gameState.activePlayer === 2 && styles.activePlayerGlow]}>
           <Text style={styles.avatarEmoji}>🤖</Text>
           <View style={styles.playerInfo}>
-            <Text style={styles.playerName}>AI Bot (Top Row)</Text>
+            <Text style={styles.playerName}>Oba (Top Row)</Text>
             <Text style={styles.scoreText}>
               Seeds Captured: <Text style={styles.scoreValue}>{gameState.scores[1]}</Text> / 24
             </Text>
@@ -308,7 +319,7 @@ export function AyoScreen({ timer = '2m', onWin, onBack }) {
             <Text style={styles.title}>{gameState.winner === 1 ? '🏆 VICTORY!' : '💔 GAME OVER'}</Text>
             <Text style={styles.body}>{gameState.statusMessage}</Text>
             <Text style={[styles.body, { color: '#F59E0B', fontWeight: '800' }]}>
-              Final Score: You ({gameState.scores[0]}) - Bot ({gameState.scores[1]})
+              Final Score: You ({gameState.scores[0]}) - Oba ({gameState.scores[1]})
             </Text>
             <Pressable style={styles.button} onPress={handleRestart}>
               <Text style={styles.buttonText}>🎮 Play Again</Text>

@@ -86,7 +86,11 @@ export default function SellCoinsScreen({ navigation }) {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Top 2 Balance Cards Side-By-Side */}
         <View style={styles.topCardsRow}>
           {/* Card 1: Coin Balance */}
@@ -230,7 +234,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 100,
+    paddingBottom: 320,
   },
   topCardsRow: {
     flexDirection: 'row',

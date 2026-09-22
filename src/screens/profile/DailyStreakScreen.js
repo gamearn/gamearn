@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
@@ -18,11 +19,78 @@ import {
   Gift,
   Award,
   Medal,
+  RotateCcw,
 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import GAButton from '../../components/GAButton';
 
 export default function DailyStreakScreen({ navigation }) {
   const { theme, isDark } = useTheme();
+  const { userProfile, updateProfileData } = useAuth();
+  const [loading, setLoading] = useState(false);
+
+  const streakDays = userProfile?.streak ?? 0;
+  const lastStreakDate = userProfile?.lastStreakDate || null;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isClaimedToday = lastStreakDate === todayStr;
+  const isActive = streakDays > 0;
+
+  // Next milestone calculation
+  const nextMilestone = streakDays < 7 ? 7 : streakDays < 30 ? 30 : streakDays < 50 ? 50 : 90;
+  const daysLeft = Math.max(0, nextMilestone - streakDays);
+  const progressPercent = Math.min(100, Math.max(0, Math.floor((streakDays / nextMilestone) * 100)));
+
+  const handleClaimStreak = async () => {
+    if (isClaimedToday) {
+      Alert.alert('Streak Active! 🔥', 'You have already checked in today! Come back tomorrow to continue your streak.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const nextStreak = streakDays + 1;
+      await updateProfileData({
+        streak: nextStreak,
+        lastStreakDate: todayStr,
+      });
+      Alert.alert(
+        'Daily Streak Active! 🔥',
+        `Great job! You checked in today. Your streak is now ${nextStreak} day${nextStreak === 1 ? '' : 's'} ACTIVE!`
+      );
+    } catch (e) {
+      Alert.alert('Error', e.message || 'Could not update daily streak.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetStreak = async () => {
+    Alert.alert(
+      'Reset Daily Streak',
+      'Reset streak count to 0 days (Inactive in RED)?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset to 0 Days',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await updateProfileData({
+                streak: 0,
+                lastStreakDate: null,
+              });
+              Alert.alert('Streak Reset', 'Daily streak is now 0 days and INACTIVE in RED.');
+            } catch (e) {
+              console.warn(e);
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={[styles.screenRoot, { backgroundColor: theme.bg }]}>
@@ -50,7 +118,7 @@ export default function DailyStreakScreen({ navigation }) {
                 cx={60}
                 cy={60}
                 r={54}
-                stroke="rgba(255, 85, 0, 0.2)"
+                stroke={isActive ? "rgba(255, 85, 0, 0.2)" : "rgba(239, 68, 68, 0.2)"}
                 strokeWidth={4}
                 fill="none"
               />
@@ -58,27 +126,56 @@ export default function DailyStreakScreen({ navigation }) {
                 cx={60}
                 cy={60}
                 r={54}
-                stroke="#FF5500"
+                stroke={isActive ? "#10B981" : "#EF4444"}
                 strokeWidth={4}
                 strokeDasharray={340}
-                strokeDashoffset={60}
+                strokeDashoffset={isActive ? 60 : 340}
                 strokeLinecap="round"
                 fill="none"
               />
             </Svg>
 
-            <View style={styles.flameIconInnerCircle}>
-              <Flame size={44} color="#FF5500" fill="#FF5500" />
+            <View style={[styles.flameIconInnerCircle, { backgroundColor: isActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)' }]}>
+              <Flame size={44} color={isActive ? "#10B981" : "#EF4444"} fill={isActive ? "#10B981" : "none"} />
             </View>
           </View>
 
-          <Text style={[styles.bigDaysNum, { color: theme.textPrimary }]}>42</Text>
-          <Text style={styles.daysActiveLabel}>DAYS ACTIVE</Text>
+          <Text style={[styles.bigDaysNum, { color: isActive ? theme.textPrimary : '#EF4444' }]}>{streakDays}</Text>
+          <Text style={[styles.daysActiveLabel, { color: isActive ? '#10B981' : '#EF4444' }]}>
+            {isActive ? `${streakDays === 1 ? 'DAY' : 'DAYS'} STREAK ACTIVE` : 'DAYS ACTIVE (0)'}
+          </Text>
 
-          {/* Status Pill */}
-          <View style={[styles.streakStatusPill, { backgroundColor: isDark ? 'rgba(0, 229, 255, 0.08)' : 'rgba(0, 180, 216, 0.12)', borderColor: isDark ? 'rgba(0, 229, 255, 0.4)' : 'rgba(0, 180, 216, 0.4)' }]}>
-            <View style={[styles.cyanDot, { backgroundColor: theme.primary }]} />
-            <Text style={[styles.streakStatusText, { color: theme.primary }]}>STREAK MAINTAINED</Text>
+          {/* Dynamic Status Pill */}
+          <View
+            style={[
+              styles.streakStatusPill,
+              {
+                backgroundColor: isActive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                borderColor: isActive ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)',
+              },
+            ]}
+          >
+            <View style={[styles.statusDot, { backgroundColor: isActive ? '#10B981' : '#EF4444' }]} />
+            <Text style={[styles.streakStatusText, { color: isActive ? '#10B981' : '#EF4444' }]}>
+              {isActive ? 'ACTIVE STREAK' : 'INACTIVE'}
+            </Text>
+          </View>
+
+          {/* Action CTAs */}
+          <View style={styles.actionBlock}>
+            <GAButton
+              title={isClaimedToday ? "Streak Claimed Today! ✓" : "Check In & Claim Streak 🔥"}
+              onPress={handleClaimStreak}
+              loading={loading}
+              variant={isClaimedToday ? "outline" : "primary"}
+              disabled={isClaimedToday}
+              style={{ width: '100%' }}
+            />
+
+            <TouchableOpacity onPress={handleResetStreak} style={styles.resetBtn} activeOpacity={0.8}>
+              <RotateCcw size={14} color="#94A3B8" style={{ marginRight: 6 }} />
+              <Text style={styles.resetBtnText}>Reset Streak (Set to 0 Days)</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -87,24 +184,26 @@ export default function DailyStreakScreen({ navigation }) {
           <View style={styles.milestoneHeader}>
             <View>
               <Text style={[styles.milestoneSubLabel, { color: theme.textSecondary }]}>Next Milestone</Text>
-              <Text style={[styles.milestoneTitle, { color: theme.textPrimary }]}>50 Day Badge</Text>
+              <Text style={[styles.milestoneTitle, { color: theme.textPrimary }]}>{nextMilestone} Day Badge</Text>
             </View>
-            <Text style={[styles.daysLeftBadge, { color: theme.primary }]}>8 DAYS LEFT</Text>
+            <Text style={[styles.daysLeftBadge, { color: isActive ? theme.primary : '#EF4444' }]}>
+              {daysLeft > 0 ? `${daysLeft} DAYS LEFT` : 'MILESTONE UNLOCKED!'}
+            </Text>
           </View>
 
           {/* Progress Bar Track */}
           <View style={[styles.progressTrack, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)' }]}>
             <LinearGradient
-              colors={theme.gradientPrimary}
+              colors={isActive ? theme.gradientPrimary : ['#EF4444', '#DC2626']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={[styles.progressFill, { width: '80%' }]}
+              style={[styles.progressFill, { width: `${progressPercent}%` }]}
             />
           </View>
 
           <View style={styles.progressLabelsRow}>
-            <Text style={[styles.progressFootnote, { color: theme.textMuted }]}>DAY 30 REACHED</Text>
-            <Text style={[styles.progressFootnote, { color: theme.textMuted }]}>DAY 50 MILESTONE</Text>
+            <Text style={[styles.progressFootnote, { color: theme.textMuted }]}>{streakDays} DAYS CURRENT</Text>
+            <Text style={[styles.progressFootnote, { color: theme.textMuted }]}>DAY {nextMilestone} TARGET</Text>
           </View>
         </View>
 
@@ -240,25 +339,38 @@ const styles = StyleSheet.create({
   streakStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 229, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 229, 255, 0.4)',
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 20,
+    borderWidth: 1,
     gap: 8,
+    marginBottom: 16,
   },
-  cyanDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#00E5FF',
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   streakStatusText: {
-    color: '#00E5FF',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '900',
     letterSpacing: 1,
+  },
+  actionBlock: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  resetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingVertical: 6,
+  },
+  resetBtnText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '700',
   },
   milestoneCard: {
     backgroundColor: 'rgba(15, 25, 45, 0.75)',

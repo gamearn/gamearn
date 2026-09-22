@@ -71,7 +71,7 @@ export default function ForgotPasswordScreen({ navigation }) {
   return (
     <KeyboardAvoidingView
       style={styles.flexContainer}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Auth Background with Overlay */}
       <Image
@@ -102,6 +102,7 @@ export default function ForgotPasswordScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Top Logo Badge */}
         <View style={styles.logoSection}>
@@ -111,7 +112,6 @@ export default function ForgotPasswordScreen({ navigation }) {
               style={styles.logoIcon}
               resizeMode="contain"
             />
-            <Text style={styles.logoBadgeText}>GAMEARN</Text>
           </View>
         </View>
 
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingBottom: 320,
     alignItems: 'center',
     flexGrow: 1,
     justifyContent: 'space-between',
@@ -320,30 +320,23 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   glowingBadge: {
-    width: 76,
-    height: 76,
-    borderRadius: 20,
+    width: 125,
+    height: 125,
+    borderRadius: 28,
     backgroundColor: '#0B132B',
     borderWidth: 2,
     borderColor: '#00E5FF',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
+    padding: 10,
     shadowColor: '#00E5FF',
-    shadowOpacity: 0.8,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.85,
+    shadowRadius: 16,
+    elevation: 10,
   },
   logoIcon: {
-    width: 38,
-    height: 38,
-  },
-  logoBadgeText: {
-    color: '#00E5FF',
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginTop: 2,
+    width: '90%',
+    height: '90%',
   },
   headingSection: {
     alignItems: 'center',

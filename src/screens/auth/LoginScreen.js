@@ -9,7 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Mail, Lock } from 'lucide-react-native';
+import { Mail, Lock, ArrowLeft } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
 import GAInput from '../../components/GAInput';
 import { GoogleIcon, AppleIcon } from '../../components/SocialIcons';
@@ -54,7 +54,7 @@ export default function LoginScreen({ navigation }) {
   return (
     <KeyboardAvoidingView
       style={styles.flexContainer}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Clean Background Image with Glowing Neon & 3D Games */}
       <Image
@@ -64,9 +64,21 @@ export default function LoginScreen({ navigation }) {
       />
       <View style={styles.fixedDarkOverlay} />
 
+      {/* Top Header Navigation */}
+      <View style={styles.topHeader}>
+        <TouchableOpacity
+          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Landing'))}
+          style={styles.backCircleBtn}
+          activeOpacity={0.8}
+        >
+          <ArrowLeft size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Top Logo */}
         <View style={styles.logoSection}>
@@ -76,7 +88,6 @@ export default function LoginScreen({ navigation }) {
               style={styles.logoIcon}
               resizeMode="contain"
             />
-            <Text style={styles.logoBadgeText}>GAMEARN</Text>
           </View>
         </View>
 
@@ -194,10 +205,10 @@ const styles = StyleSheet.create({
     height: '100%',
     ...(Platform.OS === 'web'
       ? {
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
       : {}),
   },
   fixedDarkOverlay: {
@@ -210,42 +221,50 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 30,
+    paddingTop: 10,
+    paddingBottom: 320,
     alignItems: 'center',
     flexGrow: 1,
     justifyContent: 'space-between',
+  },
+  topHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 55,
+    paddingBottom: 10,
+    zIndex: 10,
+    alignItems: 'flex-start',
+  },
+  backCircleBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logoSection: {
     alignItems: 'center',
     marginBottom: 20,
   },
   glowingBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
+    width: 125,
+    height: 125,
+    borderRadius: 28,
     backgroundColor: '#0B132B',
     borderWidth: 2,
     borderColor: '#00E5FF',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
+    padding: 10,
     shadowColor: '#00E5FF',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.85,
+    shadowRadius: 16,
+    elevation: 10,
   },
   logoIcon: {
-    width: 42,
-    height: 42,
-  },
-  logoBadgeText: {
-    color: '#00E5FF',
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginTop: 2,
+    width: '100%',
+    height: '100%',
   },
   headingSection: {
     alignItems: 'center',

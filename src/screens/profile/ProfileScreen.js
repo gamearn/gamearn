@@ -65,15 +65,16 @@ export default function ProfileScreen({ navigation }) {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Profile Avatar & Info Header */}
         <View style={styles.heroCenterBlock}>
           <View style={styles.avatarWrap}>
             <Image
               source={{
                 uri:
-                  userProfile?.avatar ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+                  (userProfile?.avatar && typeof userProfile.avatar === 'string' && userProfile.avatar.startsWith('http'))
+                    ? userProfile.avatar
+                    : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
               }}
               style={styles.avatarImg}
             />
@@ -122,13 +123,38 @@ export default function ProfileScreen({ navigation }) {
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => navigation.navigate('DailyStreak')}
-            style={[styles.statCardBox, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}
+            style={[
+              styles.statCardBox,
+              {
+                backgroundColor: theme.cardBg,
+                borderColor: (userProfile?.streak ?? 0) > 0 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+              },
+            ]}
           >
             <View style={styles.streakInlineRow}>
-              <Flame size={16} color={theme.primary} fill={theme.primary} style={{ marginRight: 2 }} />
-              <Text style={[styles.streakBigVal, { color: theme.primary }]}>90</Text>
+              <Flame
+                size={16}
+                color={(userProfile?.streak ?? 0) > 0 ? '#10B981' : '#EF4444'}
+                fill={(userProfile?.streak ?? 0) > 0 ? '#10B981' : 'none'}
+                style={{ marginRight: 2 }}
+              />
+              <Text
+                style={[
+                  styles.streakBigVal,
+                  { color: (userProfile?.streak ?? 0) > 0 ? '#10B981' : '#EF4444' },
+                ]}
+              >
+                {userProfile?.streak ?? 0}
+              </Text>
             </View>
-            <Text style={[styles.streakSubLabel, { color: theme.primary }]}>DAY STREAK</Text>
+            <Text
+              style={[
+                styles.streakSubLabel,
+                { color: (userProfile?.streak ?? 0) > 0 ? '#10B981' : '#EF4444' },
+              ]}
+            >
+              {(userProfile?.streak ?? 0) > 0 ? 'ACTIVE STREAK' : 'INACTIVE'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -211,7 +237,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 110,
+    paddingBottom: 320,
   },
   heroCenterBlock: {
     alignItems: 'center',

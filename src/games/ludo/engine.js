@@ -1,6 +1,6 @@
 // Reference-board variant: 13x13 grid, 44 outer squares, two dice.
 const COLORS = ['#ff202c', '#00c852', '#ffc400', '#0086ff'];
-const NAMES = ['Player 1', 'Player 2', 'Player 3', 'Player 4'];
+const NAMES = ['You', 'Oba 1', 'Oba 2', 'Oba 3'];
 const ORDER = [0, 1, 3, 2]; // clockwise: red, green, blue, yellow
 const TRACK = [
   [5,0],[6,0],[7,0],[7,1],[7,2],[7,3],[7,4],
@@ -16,7 +16,7 @@ const FINISH = 47;
 function fresh(now = Date.now(), timerMs = 120000) {
   return { tokens: Array.from({length:4}, () => [-1,-1,-1,-1]), turn:0,
     dice:[5,2], available:[], selected:0, phase:'roll', winner:null,
-    extra:false, timerMs, deadline:now+timerMs, message:'Player 1: roll both dice.', history:[], hint:null };
+    extra:false, timerMs, deadline:now+timerMs, message:'Your turn: roll both dice.', history:[], hint:null };
 }
 function globalIndex(player, progress) { return (START[player] + progress) % 44; }
 function coordinate(player, token, progress) {

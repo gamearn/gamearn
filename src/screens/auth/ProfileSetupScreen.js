@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { User, Gamepad2, Check } from 'lucide-react-native';
+import { User, Gamepad2, Check, ArrowLeft } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
 import GAInput from '../../components/GAInput';
 import GACard from '../../components/GACard';
@@ -38,7 +38,19 @@ export default function ProfileSetupScreen({ navigation }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.bg }]}>
+    <View style={[styles.screenRoot, { backgroundColor: theme.bg }]}>
+      {/* Top Header Navigation */}
+      <View style={styles.topHeader}>
+        <TouchableOpacity
+          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs'))}
+          style={styles.backCircleBtn}
+          activeOpacity={0.8}
+        >
+          <ArrowLeft size={20} color={theme.textPrimary} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={[styles.title, { color: theme.textPrimary }]}>Complete Profile</Text>
       <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
         Pick your gamer handle & favorite game
@@ -86,14 +98,34 @@ export default function ProfileSetupScreen({ navigation }) {
         style={{ marginTop: 28 }}
       />
     </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+  },
+  topHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 55,
+    paddingBottom: 10,
+    zIndex: 10,
+    alignItems: 'flex-start',
+  },
+  backCircleBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flexGrow: 1,
     padding: 24,
-    paddingTop: 65,
+    paddingTop: 10,
+    paddingBottom: 320,
     justifyContent: 'center',
   },
   title: {

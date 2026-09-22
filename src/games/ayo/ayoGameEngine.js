@@ -78,7 +78,7 @@ export function sowAyoSeeds(state, pitIndex) {
   } else if (scores[1] > 24) {
     gameStatus = 'game_over';
     winner = 2;
-    msg = '💔 Game Over! AI Bot won with ' + scores[1] + ' seeds.';
+    msg = '💔 Game Over! Oba won with ' + scores[1] + ' seeds.';
   } else {
     // Check if remaining seeds on board are too few or next player has no valid moves
     const nextPlayer = player === 1 ? 2 : 1;
@@ -97,7 +97,7 @@ export function sowAyoSeeds(state, pitIndex) {
         msg = `🎉 You won ${scores[0]} - ${scores[1]}!`;
       } else if (scores[1] > scores[0]) {
         winner = 2;
-        msg = `💔 AI Bot won ${scores[1]} - ${scores[0]}!`;
+        msg = `💔 Oba won ${scores[1]} - ${scores[0]}!`;
       } else {
         winner = 'draw';
         msg = `🤝 Game ended in a tie (${scores[0]} - ${scores[1]})!`;

@@ -43,6 +43,10 @@ export default function GameLobbyScreen({ route, navigation }) {
     }
   };
 
+  const handlePlayVsOba = () => {
+    navigation.navigate(targetScreen, { stake: selectedStake, vsOba: true });
+  };
+
   return (
     <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.bg }]}>
       <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
@@ -53,7 +57,7 @@ export default function GameLobbyScreen({ route, navigation }) {
         <BrandLogo size={48} variant="icon" />
         <Text style={[styles.title, { color: theme.textPrimary }]}>{gameName}</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Select your stake and find an online opponent
+          Select your stake and play vs Oba or create a challenge
         </Text>
       </View>
 
@@ -103,12 +107,22 @@ export default function GameLobbyScreen({ route, navigation }) {
         </View>
       </GACard>
 
+      {/* Button 1 (Above): Play vs Oba */}
       <GAButton
-        title={isSearching ? 'Matchmaking... Searching' : 'Find Opponent & Play'}
+        title="Play vs Oba 🤖"
+        onPress={handlePlayVsOba}
+        variant="secondary"
+        icon={<Gamepad2 size={20} color={theme.primary} />}
+        style={{ marginTop: 20 }}
+      />
+
+      {/* Button 2 (Below): Create Challenge */}
+      <GAButton
+        title={isSearching ? 'Creating Challenge...' : 'Create Challenge'}
         onPress={handleStartMatch}
         loading={isSearching}
         icon={<Swords size={20} color="#FFF" />}
-        style={{ marginTop: 24 }}
+        style={{ marginTop: 12 }}
       />
     </ScrollView>
   );

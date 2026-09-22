@@ -20,11 +20,11 @@ import {
 import {
   AI_CHAT_RESPONSES,
   createInitialState,
-  drawCard,
-  getAiMove,
-  isValidMove,
-  playCard,
+  drawCardForCurrentPlayer,
+  playCardForCurrentPlayer,
+  reduceStateOnTurnTimeout,
 } from './whotGameEngine';
+import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 
 export function Portrait({ index, scale }) {
   const c = PORTRAITS[index];
@@ -128,7 +128,17 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin })
 
   // Open Game Over dialog when game finishes
   useEffect(() => {
+    setActiveMatch({
+      gameId: 'whot',
+      gameName: 'Wọ́t Game',
+      targetScreen: 'WhotGame',
+      durationSecs: 120,
+    });
+  }, []);
+
+  useEffect(() => {
     if (gameState.gameStatus === 'game_over') {
+      clearActiveMatch();
       setDialog('game_over');
       if (gameState.winner?.id === 0) {
         onWin?.(500);
@@ -252,7 +262,7 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin })
 
     // Random AI bot response after 1.5s
     setTimeout(() => {
-      const botNames = ['QueenBee', 'AI Bot', 'KingTee'];
+      const botNames = ['QueenBee', 'Oba', 'KingTee'];
       const randomBot = botNames[Math.floor(Math.random() * botNames.length)];
       const randomReply = AI_CHAT_RESPONSES[Math.floor(Math.random() * AI_CHAT_RESPONSES.length)];
 
@@ -475,7 +485,7 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin })
               <>
                 <Text style={styles.title}>🎮 Room 458721</Text>
                 <Text style={styles.body}>Classic 4-Player WHOT Mode</Text>
-                <Text style={styles.body}>• You vs QueenBee, AI Bot, and KingTee</Text>
+                <Text style={styles.body}>• You vs QueenBee, Oba, and KingTee</Text>
                 <Text style={styles.body}>• Play matching shape or value to empty your hand!</Text>
                 <Pressable style={[styles.button, { backgroundColor: '#7042ff', marginTop: 16 }]} onPress={handleRestart}>
                   <Text style={[styles.buttonText, { color: '#fff' }]}>🔄 Restart Game</Text>

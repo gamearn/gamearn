@@ -9,7 +9,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { Gamepad2, Trophy, Gift, Users, Check } from 'lucide-react-native';
+import { Gamepad2, Trophy, Gift, Users, Check, ArrowLeft } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
 import { GoogleIcon, AppleIcon, FacebookIcon } from '../../components/SocialIcons';
 import { useAuth } from '../../context/AuthContext';
@@ -43,6 +43,15 @@ export default function LandingScreen({ navigation }) {
       >
         {/* Top Right Header Menu */}
         <View style={styles.topHeader}>
+          {navigation.canGoBack() ? (
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.backCircleBtn}
+              activeOpacity={0.8}
+            >
+              <ArrowLeft size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : <View />}
           <View style={styles.topRightMenu}>
             <Text style={styles.topMenuText}>Play  Earn  Belong</Text>
             <View style={styles.cyanIndicator} />
@@ -57,7 +66,6 @@ export default function LandingScreen({ navigation }) {
               style={styles.logoIcon}
               resizeMode="contain"
             />
-            <Text style={styles.logoBadgeText}>GAMEARN</Text>
           </View>
           <Text style={styles.taglineSubText}>ELITE BOARD GAMING TOURNAMENTS</Text>
         </View>
@@ -217,10 +225,10 @@ const styles = StyleSheet.create({
     height: '100%',
     ...(Platform.OS === 'web'
       ? {
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
       : {}),
   },
   fixedDarkOverlay: {
@@ -239,8 +247,18 @@ const styles = StyleSheet.create({
   },
   topHeader: {
     width: '100%',
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 10,
+  },
+  backCircleBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   topRightMenu: {
     alignItems: 'center',
@@ -263,31 +281,24 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   glowingBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
+    width: 125,
+    height: 125,
+    borderRadius: 28,
     backgroundColor: '#0B132B',
     borderWidth: 2,
     borderColor: '#00E5FF',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
+    padding: 10,
     shadowColor: '#00E5FF',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.85,
+    shadowRadius: 16,
+    elevation: 10,
   },
   logoIcon: {
-    width: 40,
-    height: 40,
-  },
-  logoBadgeText: {
-    color: '#00E5FF',
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginTop: 2,
+    width: '100%',
+    height: '100%',
   },
   taglineSubText: {
     color: '#94A3B8',

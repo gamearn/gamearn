@@ -64,7 +64,7 @@ export function createInitialState(timer = '2m') {
   const players = [
     { id: 0, name: 'You', hand: [], isAi: false, avatarIndex: 3 },
     { id: 1, name: 'QueenBee', hand: [], isAi: true, avatarIndex: 0 },
-    { id: 2, name: 'AI Bot', hand: [], isAi: true, avatarIndex: 2 },
+    { id: 2, name: 'Oba', hand: [], isAi: true, avatarIndex: 2 },
     { id: 3, name: 'KingTee', hand: [], isAi: true, avatarIndex: 1 },
   ];
 

@@ -223,9 +223,9 @@ export function AyoArtwork({ width, height, pits, scores, dice, selected, rollin
       <ForestBackground />
       <WoodenBoard />
       <AyoTitle />
-      {/* Top Panels: Player 2 (AI Bot) */}
-      <ScorePanel x={67} y={220} player={2} score={scores[1]} label="BOT" />
-      <ScorePanel x={1207} y={220} player={2} score={scores[1]} label="BOT" />
+      {/* Top Panels: Player 2 (Oba) */}
+      <ScorePanel x={67} y={220} player={2} score={scores[1]} label="OBA" />
+      <ScorePanel x={1207} y={220} player={2} score={scores[1]} label="OBA" />
       {/* Bottom Panels: Player 1 (You) */}
       <ScorePanel x={67} y={757} player={1} score={scores[0]} label="YOU" />
       <ScorePanel x={1207} y={757} player={1} score={scores[0]} label="YOU" />

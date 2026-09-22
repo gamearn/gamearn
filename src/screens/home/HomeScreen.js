@@ -23,6 +23,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { reference, regions } from './art';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import ActiveMatchBanner from '../../components/ActiveMatchBanner';
 const { INITIAL_STATE, reducer, parseAmount, money, localDay, leaderboard } = require('./model');
 
 const STORAGE_KEY = '@adebayo-dashboard/v1';
@@ -229,12 +230,12 @@ export default function HomeScreen({ navigation }) {
     return (
       <LinearGradient colors={['#003a72', '#001324', '#00101e']} style={[s.card, s.wallet]}>
         <View style={s.walletIcon}>{icon('wallet-outline', 34)}</View>
-        <Tap label={`Open wallet, balance ${money(state.balance)}`} onPress={() => changeTab('Wallet')} style={{ flex: 1 }}>
+        <Tap label={`Open wallet, balance ${money(state.balance)}`} onPress={() => navigation?.navigate('WalletTab')} style={{ flex: 1 }}>
           {txt('Wallet Balance', 13, s.muted)}
           {txt(money(state.balance), 24, s.bold)}
           {txt('+500 units this week', 13, s.cyan)}
         </Tap>
-        <Tap label="Add funds to demo wallet" onPress={() => open('deposit')} style={s.plus}>
+        <Tap label="Buy coins" onPress={() => navigation?.navigate('BuyCoins')} style={s.plus}>
           {icon('add', 27, '#002741')}
         </Tap>
       </LinearGradient>
@@ -267,14 +268,18 @@ export default function HomeScreen({ navigation }) {
   }
 
   function GameCard({ game }) {
+    const rawVal = String(game.players || '0').trim();
+    const countNum = parseInt(rawVal.replace(/[^0-9]/g, '') || '0', 10);
+    const hasPlayers = countNum > 0;
+
     return (
-      <Tap label={`${game.name}, ${game.players} playing. Open game lobby`} onPress={() => launchGame(game)} style={s.gameCard}>
+      <Tap label={`${game.name}, ${hasPlayers ? game.players : '0'} playing. Open game lobby`} onPress={() => launchGame(game)} style={s.gameCard}>
         <Art name={game.id} width={116 * scale} height={81 * scale} style={{ width: '100%' }} />
         <View style={s.gameText}>
           {txt(game.name, 15, s.bold)}
           <View style={s.inline}>
-            <View style={s.dot} />
-            {txt(`${game.players} Playing`, 11, s.muted)}
+            <View style={[s.dot, { backgroundColor: hasPlayers ? GREEN : '#EF4444' }]} />
+            {txt(hasPlayers ? `${game.players} Playing` : '0 Playing', 11, hasPlayers ? s.muted : { color: '#EF4444', fontWeight: '700' })}
           </View>
         </View>
       </Tap>
@@ -282,19 +287,21 @@ export default function HomeScreen({ navigation }) {
   }
 
   function Streak() {
+    const userStreak = userProfile?.streak ?? 0;
+    const isActive = userStreak > 0;
     return (
       <LinearGradient colors={['#002332', '#07122b', '#200732']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.streak}>
         <View style={s.sectionRow}>
           {txt('Streak Progress', 18, s.bold)}
-          {txt('Reach 30 days to unlock your reward!', 10, s.muted)}
+          {txt(isActive ? 'Reach 30 days to unlock your reward!' : 'Streak Inactive - Check in today!', 10, isActive ? s.muted : { color: '#EF4444' })}
         </View>
         <View style={s.milestones}>
           <View style={s.track} />
-          <View style={[s.track, { width: `${Math.min(state.streak / 30, 1) * 32}%`, backgroundColor: CYAN }]} />
+          <View style={[s.track, { width: `${Math.min(userStreak / 30, 1) * 32}%`, backgroundColor: isActive ? CYAN : '#EF4444' }]} />
           {[7, 14, 30, 50, 90, 100].map((day) => {
-            const done = state.streak >= day;
+            const done = userStreak >= day;
             return (
-              <Tap key={day} label={`${day} day milestone, ${done ? 'completed' : 'locked'}`} onPress={() => open('streak')} style={s.milestone}>
+              <Tap key={day} label={`${day} day milestone, ${done ? 'completed' : 'locked'}`} onPress={() => navigation?.navigate('DailyStreak')} style={s.milestone}>
                 <View style={[s.milestoneCircle, done && s.done, !done && day === 30 && s.gold]}>
                   {icon(done ? 'checkmark' : day === 30 ? 'star' : 'lock-closed', 19, done ? '#fff' : day === 30 ? '#fff790' : '#d8e4ef')}
                 </View>
@@ -303,9 +310,9 @@ export default function HomeScreen({ navigation }) {
               </Tap>
             );
           })}
-          <Tap label="30 day reward details" onPress={() => open('reward')} style={s.reward}>
+          <Tap label="30 day reward details" onPress={() => navigation?.navigate('DailyStreak')} style={s.reward}>
             <Art name="gift" width={48 * scale} height={55 * scale} style={s.gift} />
-            {txt(`30-Day\nReward\n${state.claimed ? 'Claimed' : state.streak >= 30 ? 'Unlocked' : 'Locked'}`, 12, { textAlign: 'center', lineHeight: 14 * scale })}
+            {txt(`30-Day\nReward\n${state.claimed ? 'Claimed' : userStreak >= 30 ? 'Unlocked' : 'Locked'}`, 12, { textAlign: 'center', lineHeight: 14 * scale })}
           </Tap>
         </View>
       </LinearGradient>
@@ -344,6 +351,9 @@ export default function HomeScreen({ navigation }) {
   }
 
   function Home() {
+    const userStreak = userProfile?.streak ?? 0;
+    const isActive = userStreak > 0;
+
     return (
       <>
         <View style={s.welcomeRow}>
@@ -365,18 +375,18 @@ export default function HomeScreen({ navigation }) {
         </View>
         <View style={s.stats}>
           <WalletCard />
-          <Tap label={`${state.streak} day streak. View details`} onPress={() => open('streak')} style={[s.card, s.streakSummary]}>
+          <Tap label={`${userStreak} day streak. View details`} onPress={() => navigation?.navigate('DailyStreak')} style={[s.card, s.streakSummary]}>
             <Art name="flame" width={47 * scale} height={62 * scale} />
             <View style={{ flex: 1, marginLeft: 6 * scale }}>
               <View style={s.inline}>
-                {txt(`${state.streak} Days`, 21, s.bold)}
-                <View style={s.activeBadge}>
-                  {txt('Active', 12, { color: '#001a0b', fontWeight: '700' })}
-                  {icon('checkmark-circle', 13, '#00511b')}
+                {txt(`${userStreak} Days`, 21, [s.bold, { color: isActive ? '#FFFFFF' : '#EF4444' }])}
+                <View style={[s.activeBadge, { backgroundColor: isActive ? '#10B981' : '#EF4444' }]}>
+                  {txt(isActive ? 'Active' : 'Inactive', 12, { color: '#FFFFFF', fontWeight: '800' })}
+                  {icon(isActive ? 'checkmark-circle' : 'close-circle', 13, '#FFFFFF')}
                 </View>
               </View>
               {txt('Day Streak', 14, s.muted)}
-              {txt('Great! Keep it going.', 13, s.cyan)}
+              {txt(isActive ? 'Great! Keep it going.' : 'Streak is inactive. Check in today!', 13, isActive ? s.cyan : { color: '#EF4444' })}
             </View>
             {icon('chevron-forward', 18, '#e6e9ff')}
           </Tap>
@@ -691,6 +701,7 @@ export default function HomeScreen({ navigation }) {
       <LinearGradient colors={theme.gradientBg} style={StyleSheet.absoluteFillObject} />
       <ScrollView ref={scroll} showsVerticalScrollIndicator={false} contentContainerStyle={[s.content, { paddingTop: insets.top + 10 * scale, paddingBottom: 110 * scale }]}>
         <Header />
+        <ActiveMatchBanner navigation={navigation} />
         {!!storageError && <Text accessibilityLiveRegion="polite" style={ui.error}>{storageError}</Text>}
         {tab === 'Home' ? <Home /> : <OtherTab />}
       </ScrollView>
@@ -705,7 +716,7 @@ export default function HomeScreen({ navigation }) {
                 <Ionicons name="close" size={26} color="#fff" />
               </Tap>
             </View>
-            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 16 }}>
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 220 }}>
               {SheetContent()}
               {!!formError && <Text accessibilityLiveRegion="polite" style={ui.error}>{formError}</Text>}
             </ScrollView>

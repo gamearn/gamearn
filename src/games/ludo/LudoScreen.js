@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Board from './Board';
+import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 const { COLORS, NAMES, FINISH, fresh, legal, reduce } = require('./engine');
 const PHOTO = require('./assets/reference.jpg');
 const BONUS_KEY = '@ludo-reference/bonus-v1';
@@ -187,11 +188,70 @@ function Game({ onBack, stake, timer, onWin }) {
   }, []);
 
   useEffect(() => {
-    if (state.phase === 'won' && !wonReported.current) {
-      wonReported.current = true;
-      if (onWin) onWin(stake);
+    setActiveMatch({
+      gameId: 'ludo',
+      gameName: 'Lúùdò Game',
+      targetScreen: 'LudoGame',
+      durationSecs: 120,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (state.phase === 'won') {
+      clearActiveMatch();
+      if (!wonReported.current) {
+        wonReported.current = true;
+        if (onWin) onWin(stake);
+      }
     }
   }, [state.phase, onWin, stake]);
+
+  // Automatic AI Bot (Oba) Turn Controller
+  useEffect(() => {
+    if (state.phase === 'won') return;
+
+    // Is it an Oba (AI Bot) turn? (Player 0 = You, Players 1,2,3 = Oba)
+    if (state.turn !== 0) {
+      const aiTimer = setTimeout(() => {
+        if (state.phase === 'roll') {
+          // Auto-roll dice for Oba
+          const d1 = 1 + Math.floor(Math.random() * 6);
+          const d2 = 1 + Math.floor(Math.random() * 6);
+          dispatch({ type: 'ROLL', dice: [d1, d2] });
+        } else if (state.phase === 'move') {
+          // Auto-choose best legal move for Oba
+          let best = null;
+          for (const d of state.available) {
+            const legalTokens = legal(state, d);
+            for (const t of legalTokens) {
+              const p = state.tokens[state.turn][t];
+              const target = p < 0 ? 0 : p + state.dice[d];
+              const capture =
+                target < 43 &&
+                !SAFE.has(globalIndex(state.turn, target)) &&
+                state.tokens.some((team, player) =>
+                  player !== state.turn &&
+                  team.some((v) => v >= 0 && v < 43 && globalIndex(player, v) === globalIndex(state.turn, target))
+                );
+              const score = target === FINISH ? 1000 : capture ? 500 : p < 0 ? 200 : target;
+              if (!best || score > best.score) {
+                best = { die: d, token: t, score };
+              }
+            }
+          }
+
+          if (best) {
+            dispatch({ type: 'SELECT', index: best.die });
+            setTimeout(() => {
+              dispatch({ type: 'MOVE', token: best.token });
+            }, 300);
+          }
+        }
+      }, 700);
+
+      return () => clearTimeout(aiTimer);
+    }
+  }, [state.turn, state.phase, state.available, state.dice]);
 
   const claim = async () => {
     if (!bonus || Date.now() < bonus.next || bonusLock.current) return;
@@ -462,14 +522,14 @@ function Game({ onBack, stake, timer, onWin }) {
               {text('UNDO', 28)}
             </Button>
             <Button
-              label={state.phase === 'won' ? 'Start new game' : 'Roll both dice'}
-              disabled={state.phase === 'move'}
+              label={state.phase === 'won' ? 'Start new game' : state.turn !== 0 ? "Oba's Turn" : 'Roll both dice'}
+              disabled={state.phase === 'move' || state.turn !== 0}
               onPress={() => (state.phase === 'won' ? reset() : dispatch({ type: 'ROLL', dice: [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)] }))}
               style={rect(435, 1118, 385, 98)}
             >
-              <LinearGradient colors={['#fff147', '#ffc600', '#ffab00']} style={{ flex: 1, borderRadius: 50 * k, borderWidth: 5 * k, borderColor: '#ffe950', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24 * k }}>
-                {ico('play', 48, '#402500')}
-                {text(state.phase === 'won' ? 'NEW GAME' : 'ROLL DICE', 36, { color: '#281a00', fontWeight: '900' })}
+              <LinearGradient colors={state.turn !== 0 ? ['#64748B', '#475569', '#334155'] : ['#fff147', '#ffc600', '#ffab00']} style={{ flex: 1, borderRadius: 50 * k, borderWidth: 5 * k, borderColor: state.turn !== 0 ? '#94A3B8' : '#ffe950', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24 * k }}>
+                {ico(state.turn !== 0 ? 'sync' : 'play', 48, state.turn !== 0 ? '#FFF' : '#402500')}
+                {text(state.phase === 'won' ? 'NEW GAME' : state.turn !== 0 ? `${NAMES[state.turn].toUpperCase()}'S TURN` : 'ROLL DICE', 32, { color: state.turn !== 0 ? '#FFF' : '#281a00', fontWeight: '900' })}
               </LinearGradient>
             </Button>
             <Button label="Show best move hint" disabled={!hints || state.phase === 'won'} onPress={() => dispatch({ type: 'HINT' })} style={[rect(897, 1122, 270, 92), ui.round, { borderRadius: 46 * k, borderWidth: 5 * k, flexDirection: 'row', gap: 24 * k }]}>

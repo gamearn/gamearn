@@ -104,7 +104,11 @@ export default function WithdrawScreen({ navigation }) {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Step Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressTrack}>
@@ -356,7 +360,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 320,
   },
   progressContainer: {
     marginBottom: 24,

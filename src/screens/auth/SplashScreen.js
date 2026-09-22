@@ -88,7 +88,6 @@ export default function SplashScreen({ navigation }) {
               style={styles.logoIconImage}
               resizeMode="contain"
             />
-            <Text style={styles.badgeLogoText}>GAMEARN</Text>
           </View>
         </View>
 
@@ -217,33 +216,25 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
   glowingAppBadge: {
-    width: 90,
-    height: 90,
-    borderRadius: 30,
+    width: 125,
+    height: 125,
+    borderRadius: 28,
     backgroundColor: '#0B132B',
     borderWidth: 2,
     borderColor: '#00E5FF',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
+    padding: 10,
     shadowColor: '#00E5FF',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 15,
+    shadowOpacity: 0.85,
+    shadowRadius: 16,
     elevation: 10,
     overflow: 'hidden',
   },
   logoIconImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 30,
-  },
-  badgeLogoText: {
-    color: '#00E5FF',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginTop: 2,
+    width: '90%',
+    height: '90%',
   },
   heroSection: {
     alignItems: 'center',

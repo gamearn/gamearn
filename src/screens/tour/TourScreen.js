@@ -9,7 +9,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Plus, Trophy, Coins, Users, Zap, Shield, ChevronRight } from 'lucide-react-native';
+import { Plus, Trophy, Coins, Users, Zap, Shield, ChevronRight, ArrowLeft } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -90,7 +90,17 @@ export default function TourScreen({ navigation }) {
 
       {/* Screen Title */}
       <View style={styles.topHeader}>
-        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Tournament Details</Text>
+        {navigation.canGoBack() ? (
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={[styles.backCircleBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' }]}
+            activeOpacity={0.8}
+          >
+            <ArrowLeft size={20} color={theme.textPrimary} />
+          </TouchableOpacity>
+        ) : <View style={{ width: 40 }} />}
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Tournaments</Text>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -215,8 +225,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#070C1B',
   },
   topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 15,
+  },
+  backCircleBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },

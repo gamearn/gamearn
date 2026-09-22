@@ -17,7 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
 const AVATAR_PRESETS = [
-  { id: 'bot', label: 'BOT', uri: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200' },
+  { id: 'oba', label: 'OBA', uri: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200' },
   { id: 'mage', label: 'MAGE', uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200' },
   { id: 'cyber', label: 'CYBER', uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200' },
   { id: 'queen', label: 'QUEEN', uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=200' },
@@ -77,12 +77,23 @@ export default function EditProfileScreen({ navigation }) {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Hero Avatar Display */}
         <View style={styles.avatarCenterWrap}>
           <View style={styles.mainAvatarRing}>
             <Image source={{ uri: selectedAvatar.uri }} style={styles.mainAvatarImg} />
-            <TouchableOpacity style={styles.cameraBadgeBtn} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={styles.cameraBadgeBtn}
+              onPress={() => {
+                const nextIndex = (AVATAR_PRESETS.findIndex((a) => a.id === selectedAvatar.id) + 1) % AVATAR_PRESETS.length;
+                setSelectedAvatar(AVATAR_PRESETS[nextIndex]);
+              }}
+              activeOpacity={0.8}
+            >
               <Camera size={16} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
@@ -95,7 +106,7 @@ export default function EditProfileScreen({ navigation }) {
             }}
             activeOpacity={0.85}
           >
-            <Text style={styles.changeBtnText}>Change</Text>
+            <Text style={styles.changeBtnText}>Change Avatar</Text>
           </TouchableOpacity>
         </View>
 
@@ -205,7 +216,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingBottom: 320,
   },
   avatarCenterWrap: {
     alignItems: 'center',

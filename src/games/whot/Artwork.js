@@ -399,7 +399,7 @@ export function Artwork({
 
       <Panel x={410} y={253} w={272} h={91} stroke={activePlayerIndex === 2 ? '#57faff' : '#7435ff'} />
       <T x="493" y="290" fontFamily={FONT} fontSize="26" fontWeight="800" fill="#fff">
-        ♟ AI Bot
+        ♟ Oba
       </T>
       <T x="493" y="323" fontFamily={FONT} fontSize="23" fill={activePlayerIndex === 2 ? '#00e5ff' : '#00d5ff'}>
         {activePlayerIndex === 2 ? 'Playing...' : 'Waiting'}
