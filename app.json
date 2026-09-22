@@ -2,37 +2,82 @@
   "expo": {
     "name": "Gamearn",
     "slug": "gamearn",
-    "version": "2.0.25",
+    "owner": "gamearn",
+    "version": "2.0.26",
+    "scheme": [
+      "gamearn",
+      "fb1762055368454928",
+      "com.googleusercontent.apps.600025492198-eo1a768ea7ffh7m398fqu0d99ohc034f",
+      "com.googleusercontent.apps.600025492198-2g641acpvmhl1bm0m3f535kcodvhmt8k",
+      "com.gamearn"
+    ],
     "orientation": "portrait",
     "icon": "./assets/logos/logo_dark.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "image": "./assets/logos/logo_dark.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0A0E1A"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gamearn.app"
+      "bundleIdentifier": "com.gamearn",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Gamearn uses the camera to update your profile photo.",
+        "NSPhotoLibraryUsageDescription": "Gamearn accesses your photo library so you can set a profile photo."
+      },
+      "usesAppleSignIn": true,
+      "buildNumber": "26"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logos/logo_icon.png",
+        "foregroundImage": "./assets/logos/logo_dark.png",
         "backgroundColor": "#0A0E1A"
       },
-      "package": "com.gamearn.app"
+      "package": "com.gamearn",
+      "versionCode": 26,
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
-      "favicon": "./assets/logos/logo_icon.png",
+      "favicon": "./assets/logos/logo_dark.png",
       "bundler": "metro"
     },
     "plugins": [
       "expo-asset",
       "expo-font",
-      "expo-web-browser"
-    ]
+      "expo-web-browser",
+      "expo-apple-authentication",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-2857679842539464~7839211507",
+          "iosAppId": "ca-app-pub-2857679842539464~9942525461"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Gamearn accesses your photo library so you can set a profile photo.",
+          "cameraPermission": "Gamearn uses the camera to update your profile photo."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logos/logo_dark.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0A0E1A"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3c3e534f-2dbf-4e6d-bae1-1de1712cfb8a"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3c3e534f-2dbf-4e6d-bae1-1de1712cfb8a"
+    }
   }
 }

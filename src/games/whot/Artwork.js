@@ -115,6 +115,7 @@ export function Shape({ shape, x, y, size = 63, color = '#be001d' }) {
       {shape === 'square' && <Rect x="-29" y="-29" width="58" height="58" fill={color} stroke={color} strokeWidth="7" />}
       {shape === 'circle' && <Circle r="31" fill="none" stroke={color} strokeWidth="11" />}
       {shape === 'triangle' && <Path d="M0 -34 L34 29 H-34Z" fill="none" stroke={color} strokeWidth="7" />}
+      {shape === 'star' && <Path d="M0 -33 L8.5 -11 L33 -11 L14.5 6 L22.5 32 L0 18 L-22.5 32 L-14.5 6 L-33 -11 L-8.5 -11Z" fill={color} stroke={color} strokeWidth="4" />}
       {shape === 'whot' && (
         <G>
           <Crown x={0} y={-15} size={49} color={color} />

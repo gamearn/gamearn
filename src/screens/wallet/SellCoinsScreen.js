@@ -15,31 +15,28 @@ import {
   Coins,
   Wallet,
   Building2,
-  CreditCard,
   CheckCircle2,
-  Circle,
 } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function SellCoinsScreen({ navigation }) {
-  const { userProfile, updateProfileData } = useAuth();
+  const { userProfile } = useAuth();
   const { theme, isDark } = useTheme();
-  const coinBalance = userProfile?.coins ?? 25400;
-  const usdValue = (coinBalance / 100).toFixed(2);
+  const coinBalance = userProfile?.coins ?? 0;
+  const nairaValue = (coinBalance / 100).toFixed(2);
   const cashableBalance = (coinBalance / 100).toFixed(2);
 
   const [coinInput, setCoinInput] = useState('5000');
-  const [destination, setDestination] = useState('bank'); // 'bank', 'paypal'
   const [loading, setLoading] = useState(false);
 
   const parsedCoins = parseInt(coinInput, 10) || 0;
-  const receivedUsd = (parsedCoins / 100).toFixed(2);
+  const receivedNaira = (parsedCoins / 100).toFixed(0);
 
   const handleSellCoins = () => {
     if (parsedCoins < 100) {
-      Alert.alert('Minimum Amount', 'Minimum amount to convert is 100 coins ($1.00 USD).');
+      Alert.alert('Minimum Amount', 'Minimum amount to convert is 100 coins (₦1.00).');
       return;
     }
     if (parsedCoins > coinBalance) {
@@ -48,25 +45,10 @@ export default function SellCoinsScreen({ navigation }) {
     }
 
     setLoading(true);
-    setTimeout(async () => {
-      const remainingCoins = Math.max(0, coinBalance - parsedCoins);
-      if (updateProfileData) {
-        await updateProfileData({ coins: remainingCoins });
-      }
+    setTimeout(() => {
       setLoading(false);
-      Alert.alert(
-        'Conversion Successful 💰',
-        `You converted ${parsedCoins.toLocaleString()} Coins for $${receivedUsd} USD!\n\nPayout Destination: ${
-          destination === 'bank' ? 'Bank Transfer' : 'PayPal'
-        }`,
-        [
-          {
-            text: 'View Wallet',
-            onPress: () => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')),
-          },
-        ]
-      );
-    }, 1000);
+      navigation.navigate('Withdraw', { amount: receivedNaira });
+    }, 400);
   };
 
   return (
@@ -100,7 +82,7 @@ export default function SellCoinsScreen({ navigation }) {
               <Text style={[styles.cardHeaderTitle, { color: theme.textSecondary }]}>Coin Balance</Text>
             </View>
             <Text style={[styles.bigNumTextCyan, { color: theme.primary }]}>{coinBalance.toLocaleString()}</Text>
-            <Text style={[styles.subValText, { color: theme.textMuted }]}>Value: ${usdValue}</Text>
+            <Text style={[styles.subValText, { color: theme.textMuted }]}>Value: ₦{Number(nairaValue).toLocaleString()}</Text>
           </View>
 
           {/* Card 2: Cashable */}
@@ -109,7 +91,7 @@ export default function SellCoinsScreen({ navigation }) {
               <Wallet size={16} color={theme.textSecondary} style={{ marginRight: 6 }} />
               <Text style={[styles.cardHeaderTitle, { color: theme.textSecondary }]}>Cashable</Text>
             </View>
-            <Text style={[styles.bigNumTextWhite, { color: theme.textPrimary }]}>${cashableBalance}</Text>
+            <Text style={[styles.bigNumTextWhite, { color: theme.textPrimary }]}>₦{Number(cashableBalance).toLocaleString()}</Text>
             <Text style={[styles.subValText, { color: theme.textMuted }]}>Ready to withdraw</Text>
           </View>
         </View>
@@ -139,13 +121,13 @@ export default function SellCoinsScreen({ navigation }) {
         <View style={styles.sectionWrap}>
           <Text style={[styles.inputSubLabel, { color: theme.textSecondary }]}>You will receive</Text>
           <View style={[styles.inputBox, styles.receiveBox, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder }]}>
-            <Text style={[styles.receiveAmountText, { color: theme.primary }]}>${receivedUsd}</Text>
+            <Text style={[styles.receiveAmountText, { color: theme.primary }]}>₦{Number(receivedNaira).toLocaleString()}</Text>
             <View style={[styles.usdPill, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' }]}>
-              <Text style={[styles.usdPillText, { color: theme.textPrimary }]}>USD</Text>
+              <Text style={[styles.usdPillText, { color: theme.textPrimary }]}>NGN</Text>
               <Wallet size={16} color={theme.textPrimary} style={{ marginLeft: 4 }} />
             </View>
           </View>
-          <Text style={[styles.exchangeRateText, { color: theme.textMuted }]}>EXCHANGE RATE: 100 COINS = $1.00 USD</Text>
+          <Text style={[styles.exchangeRateText, { color: theme.textMuted }]}>EXCHANGE RATE: 100 COINS = ₦1.00</Text>
         </View>
 
         {/* Section: Withdrawal Destination */}
@@ -155,47 +137,22 @@ export default function SellCoinsScreen({ navigation }) {
           {/* Bank Transfer Card */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => setDestination('bank')}
-            style={[styles.destinationCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }, destination === 'bank' && { borderColor: theme.primary, backgroundColor: isDark ? 'rgba(0, 229, 255, 0.05)' : 'rgba(0, 180, 216, 0.08)' }]}
+            style={[styles.destinationCard, { backgroundColor: theme.cardBg, borderColor: theme.primary, borderWidth: 1.5 }]}
           >
             <View style={[styles.iconSquare, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' }]}>
               <Building2 size={22} color={theme.textPrimary} />
             </View>
             <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={[styles.destTitle, { color: theme.textPrimary }]}>Bank Transfer</Text>
-              <Text style={[styles.destSub, { color: theme.textSecondary }]}>Processing: 2-3 business days</Text>
+              <Text style={[styles.destTitle, { color: theme.textPrimary }]}>Bank Transfer (NGN)</Text>
+              <Text style={[styles.destSub, { color: theme.textSecondary }]}>Withdraw straight to a Nigerian bank account · 1-2 business days</Text>
             </View>
-            {destination === 'bank' ? (
-              <CheckCircle2 size={22} color={theme.primary} />
-            ) : (
-              <Circle size={22} color={theme.textMuted} />
-            )}
-          </TouchableOpacity>
-
-          {/* PayPal Card */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setDestination('paypal')}
-            style={[styles.destinationCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }, destination === 'paypal' && { borderColor: theme.primary, backgroundColor: isDark ? 'rgba(0, 229, 255, 0.05)' : 'rgba(0, 180, 216, 0.08)' }]}
-          >
-            <View style={[styles.iconSquare, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' }]}>
-              <CreditCard size={22} color={theme.textPrimary} />
-            </View>
-            <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={[styles.destTitle, { color: theme.textPrimary }]}>PayPal</Text>
-              <Text style={[styles.destSub, { color: theme.textSecondary }]}>Instant transfer</Text>
-            </View>
-            {destination === 'paypal' ? (
-              <CheckCircle2 size={22} color={theme.primary} />
-            ) : (
-              <Circle size={22} color={theme.textMuted} />
-            )}
+            <CheckCircle2 size={22} color={theme.primary} />
           </TouchableOpacity>
         </View>
 
         {/* Sell CTA */}
         <GAButton
-          title="Sell Coins & Cash Out 🚀"
+          title="Continue to Withdraw 🚀"
           onPress={handleSellCoins}
           loading={loading}
           variant="primary"

@@ -25,6 +25,7 @@ import {
   reduceStateOnTurnTimeout,
 } from './whotGameEngine';
 import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
+import { engineCardToServer } from './serverAdapter';
 
 export function Portrait({ index, scale }) {
   const c = PORTRAITS[index];
@@ -58,13 +59,26 @@ export function Portrait({ index, scale }) {
   );
 }
 
-export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin }) {
+export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, isRemote = false, remote = null, onRemoteMove, onRemoteGameOver }) {
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
   const [gameState, setGameState] = useState(() => createInitialState(timer));
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [pendingWhotCardId, setPendingWhotCardId] = useState(null);
   const [draft, setDraft] = useState('');
+
+  // Remote (server-authoritative) mode: every turn/law/effect comes from the
+  // backend. Rehydrate the local render tree wholesale on each new snapshot;
+  // human moves are sent to the server, never applied locally.
+  useEffect(() => {
+    if (!isRemote || !remote) return;
+    setGameState(remote);
+  }, [remote, isRemote]);
+
+  function sendRemoteMove(move) {
+    setGameState((prev) => ({ ...prev, statusMessage: 'Sending move…' }));
+    onRemoteMove?.(move);
+  }
 
   const activePlayer = gameState.players[gameState.activePlayerIndex];
   const humanHand = gameState.players[0].hand;
@@ -87,7 +101,7 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin })
     const t = setInterval(() => {
       setGameState((prev) => {
         const nextBonus = Math.max(0, prev.dailyBonusSeconds - 1);
-        if (prev.secondsRemaining <= 1) {
+        if (!isRemote && prev.secondsRemaining <= 1) {
           // Timeout! Force turn progression
           if (prev.activePlayerIndex === 0) {
             // Human timed out: auto draw
@@ -103,10 +117,11 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin })
     }, 1000);
 
     return () => clearInterval(t);
-  }, [gameState.gameStatus, gameState.activePlayerIndex]);
+  }, [gameState.gameStatus, gameState.activePlayerIndex, isRemote]);
 
   // AI Turn Execution
   useEffect(() => {
+    if (isRemote) return; // opponent turns arrive via server snapshots
     if (gameState.gameStatus === 'game_over') return;
     if (gameState.activePlayerIndex === 0) return; // Human turn
 
@@ -124,7 +139,7 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin })
     }, 1300);
 
     return () => clearTimeout(timer);
-  }, [gameState.activePlayerIndex, gameState.gameStatus, gameState.discardPile.length]);
+  }, [isRemote, gameState.activePlayerIndex, gameState.gameStatus, gameState.discardPile.length]);
 
   // Open Game Over dialog when game finishes
   useEffect(() => {
@@ -139,12 +154,16 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin })
   useEffect(() => {
     if (gameState.gameStatus === 'game_over') {
       clearActiveMatch();
+      if (isRemote) {
+        onRemoteGameOver?.(gameState.winner);
+        return;
+      }
       setDialog('game_over');
       if (gameState.winner?.id === 0) {
         onWin?.(500);
       }
     }
-  }, [gameState.gameStatus, gameState.winner]);
+  }, [gameState.gameStatus, gameState.winner, isRemote, onWin, onRemoteGameOver]);
 
 
   function layout(e) {
@@ -161,6 +180,18 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin })
 
     const card = humanHand.find((c) => c.id === cardId);
     if (!card) return;
+
+    if (isRemote) {
+      setSelected(null);
+      if (card.value === 20) {
+        // Server requires a declared shape for WHOT (20).
+        setPendingWhotCardId(card.id);
+        setDialog('whot_picker');
+        return;
+      }
+      sendRemoteMove({ card: engineCardToServer(card) });
+      return;
+    }
 
     if (!isValidMove(card, topDiscard, gameState.requestedShape, gameState.pendingDrawPenalty)) {
       setGameState((prev) => ({
@@ -187,6 +218,10 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin })
     if (id === 'draw') {
       if (gameState.activePlayerIndex !== 0) {
         setGameState((prev) => ({ ...prev, statusMessage: "Wait for your turn to draw!" }));
+        return;
+      }
+      if (isRemote) {
+        sendRemoteMove({ pickFromMarket: true });
         return;
       }
       setGameState((prev) => drawCard(prev, 0));
@@ -228,6 +263,15 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin })
   // Handle WHOT Shape Selection
   function handleSelectShape(shape) {
     setDialog(null);
+    if (isRemote) {
+      if (pendingWhotCardId) {
+        const card = humanHand.find((c) => c.id === pendingWhotCardId);
+        setPendingWhotCardId(null);
+        setSelected(null);
+        if (card) sendRemoteMove({ card: engineCardToServer(card), declaredShape: shape });
+      }
+      return;
+    }
     if (pendingWhotCardId) {
       setGameState((prev) => playCard(prev, 0, pendingWhotCardId, shape));
       setPendingWhotCardId(null);
@@ -438,13 +482,13 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin })
                 <Text style={styles.title}>🃏 Call WHOT Shape!</Text>
                 <Text style={styles.body}>Select the shape you want to request for the next play:</Text>
                 <View style={styles.shapeGrid}>
-                  {['circle', 'triangle', 'cross', 'square'].map((shape) => (
+                  {['circle', 'triangle', 'cross', 'square', 'star'].map((shape) => (
                     <Pressable
                       key={shape}
                       style={styles.shapeCard}
                       onPress={() => handleSelectShape(shape)}
                     >
-                      <Shape shape={shape} x={0} y={0} size={50} color={shape === 'cross' ? '#f9002c' : shape === 'square' ? '#00bb50' : shape === 'circle' ? '#9400df' : '#ff9900'} />
+                      <Shape shape={shape} x={0} y={0} size={50} color={shape === 'cross' ? '#f9002c' : shape === 'square' ? '#00bb50' : shape === 'circle' ? '#9400df' : shape === 'triangle' ? '#ff9900' : '#ff5e00'} />
                       <Text style={styles.shapeText}>{shape.toUpperCase()}</Text>
                     </Pressable>
                   ))}

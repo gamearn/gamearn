@@ -9,6 +9,8 @@ import {
   Image,
   StatusBar,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Camera, CheckCircle2 } from 'lucide-react-native';
@@ -51,7 +53,10 @@ export default function ProfileCreationScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.screenRoot}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.screenRoot}
+    >
       <StatusBar barStyle="light-content" backgroundColor="#070C1B" />
       <LinearGradient colors={['#091026', '#060919', '#040612']} style={StyleSheet.absoluteFillObject} />
 
@@ -174,7 +179,7 @@ export default function ProfileCreationScreen({ navigation }) {
           <Text style={styles.skipText}>Skip for now</Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

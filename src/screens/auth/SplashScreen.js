@@ -13,7 +13,7 @@ import { CrownIcon } from '../../components/SocialIcons';
 import { useAuth } from '../../context/AuthContext';
 
 export default function SplashScreen({ navigation }) {
-  const { user } = useAuth();
+  const { user, backendReady, loading } = useAuth();
   const [progress, setProgress] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
@@ -45,13 +45,19 @@ export default function SplashScreen({ navigation }) {
       }, 300);
       return () => clearTimeout(timeout);
     }
-  }, [progress]);
+  }, [progress, loading, user, backendReady]);
 
   const handleProceed = () => {
-    if (user) {
-      navigation.replace('MainTabs');
-    } else {
+    if (loading) return;
+    if (!user) {
       navigation.replace('Landing');
+    } else if (!user.emailVerified && user.providerData?.some(p => p.providerId === 'password')) {
+      navigation.replace('EmailVerification', { email: user.email });
+    } else if (!backendReady) {
+      // Signed in to Firebase but no backend profile yet → complete onboarding.
+      navigation.replace('ProfileSetup');
+    } else {
+      navigation.replace('MainTabs');
     }
   };
 

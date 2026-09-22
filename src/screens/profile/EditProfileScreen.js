@@ -1,19 +1,11 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  StatusBar,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, StatusBar, Alert } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Camera, CheckCircle2 } from 'lucide-react-native';
+import { ArrowLeft, Camera } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
 import { useAuth } from '../../context/AuthContext';
+import { uploadProfileImage } from '../../services/firebase';
 import { useTheme } from '../../context/ThemeContext';
 
 const AVATAR_PRESETS = [

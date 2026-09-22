@@ -62,11 +62,12 @@ export default function RegisterScreen({ navigation }) {
     >
       {/* Fixed Non-Repeating Background Image */}
       <Image
+        pointerEvents="none"
         source={require('../../../assets/auth/register_bg.png')}
         style={styles.fixedBackground}
         resizeMode="cover"
       />
-      <View style={styles.fixedDarkOverlay} />
+      <View pointerEvents="none" style={styles.fixedDarkOverlay} />
 
       {/* Top Header Navigation */}
       <View style={styles.topHeader}>
@@ -238,8 +239,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 320,
     alignItems: 'center',
-    flexGrow: 1,
-    justifyContent: 'space-between',
   },
   topHeader: {
     paddingHorizontal: 20,

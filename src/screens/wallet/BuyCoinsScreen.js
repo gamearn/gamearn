@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,26 +7,30 @@ import {
   TouchableOpacity,
   Alert,
   StatusBar,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Coins, Sprout, Trees, Mountain, Medal } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { wallet } from '../../services/api';
+import { ApiError } from '../../services/apiClient';
 
+// 1 coin = 1 kobo, so each pack maps cleanly to a naira price.
 const PACKAGES = [
   {
     id: 'starter',
     name: 'Starter Pack',
-    coins: 500,
-    price: '$4.99',
+    coins: 10000,
+    price: 100,
     icon: Sprout,
     popular: false,
   },
   {
     id: 'pro',
     name: 'Pro Pack',
-    coins: 1500,
-    price: '$12.99',
+    coins: 50000,
+    price: 500,
     icon: Trees,
     popular: true,
     badgeText: 'BEST VALUE',
@@ -34,41 +38,82 @@ const PACKAGES = [
   {
     id: 'elite',
     name: 'Elite Pack',
-    coins: 5000,
-    price: '$39.99',
+    coins: 150000,
+    price: 1500,
     icon: Mountain,
     popular: false,
   },
   {
     id: 'champion',
     name: 'Champion Pack',
-    coins: 12000,
-    price: '$89.99',
+    coins: 500000,
+    price: 5000,
     icon: Medal,
     popular: false,
   },
 ];
 
-export default function BuyCoinsScreen({ navigation }) {
-  const { userProfile, updateProfileData } = useAuth();
-  const { theme, isDark } = useTheme();
-  const currentCoins = userProfile?.coins ?? 24500;
-  const [loadingId, setLoadingId] = useState(null);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const handleBuyPack = (pkg) => {
-    setLoadingId(pkg.id);
-    setTimeout(async () => {
-      const newTotal = currentCoins + pkg.coins;
-      if (updateProfileData) {
-        await updateProfileData({ coins: newTotal });
+export default function BuyCoinsScreen({ navigation }) {
+  const { userProfile, refreshWallet } = useAuth();
+  const { theme, isDark } = useTheme();
+  const currentCoins = userProfile?.coins ?? 0;
+  const [loadingId, setLoadingId] = useState(null);
+  const cancelled = useRef(false);
+
+  const verifyPaid = async (txRef) => {
+    for (let i = 0; i < 8; i += 1) {
+      await sleep(4000);
+      if (cancelled.current) return false;
+      try {
+        const res = await wallet.verify(txRef);
+        if (res.status !== 'pending') {
+          await refreshWallet();
+          return res.status === 'completed' || res.status === 'successful';
+        }
+      } catch {
+        // keep polling; the row may not be local yet
       }
-      setLoadingId(null);
+    }
+    return false;
+  };
+
+  const handleBuyPack = async (pkg) => {
+    setLoadingId(pkg.id);
+    cancelled.current = false;
+    try {
+      const res = await wallet.topup({ amount: pkg.price, paymentMethod: 'card' });
+      if (!res.paymentLink) {
+        throw new ApiError({ code: 'PAY_LINK_MISSING', message: 'Payment link unavailable.' });
+      }
+
       Alert.alert(
-        'Purchase Successful 🎉',
-        `Successfully added ${pkg.coins.toLocaleString()} Coins to your wallet!\n\nNew Balance: ${newTotal.toLocaleString()} Units`,
-        [{ text: 'Awesome', style: 'default' }]
+        'Payment',
+        `Continue on the payment page to add ₦${pkg.price.toLocaleString()} (${pkg.coins.toLocaleString()} coins) to your wallet.`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => { cancelled.current = true; },
+          },
+          { text: 'Continue', onPress: () => Linking.openURL(res.paymentLink) },
+        ],
       );
-    }, 800);
+
+      const paid = await verifyPaid(res.txRef);
+      if (!paid) return;
+      await refreshWallet();
+      Alert.alert(
+        'Payment Confirmed 🎉',
+        `${pkg.coins.toLocaleString()} coins were added to your wallet.`,
+      );
+    } catch (e) {
+      cancelled.current = true;
+      Alert.alert('Payment Failed', e?.message || 'Could not start the payment. Please try again.');
+    } finally {
+      setLoadingId(null);
+    }
   };
 
   return (
@@ -148,7 +193,7 @@ export default function BuyCoinsScreen({ navigation }) {
                     style={styles.priceBtn}
                   >
                     <Text style={styles.priceBtnText}>
-                      {isLoading ? 'Processing...' : pkg.price}
+                      {isLoading ? 'Processing...' : `₦${pkg.price.toLocaleString()}`}
                     </Text>
                   </TouchableOpacity>
                 </View>

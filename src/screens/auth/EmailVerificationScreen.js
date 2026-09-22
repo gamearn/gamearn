@@ -13,15 +13,30 @@ import {
 } from 'react-native';
 import { Mail, ArrowLeft, ArrowRight, ShieldCheck, Clock } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
+import { useAuth } from '../../context/AuthContext';
 
 export default function EmailVerificationScreen({ route, navigation }) {
+  const { sendEmailOtp, verifyEmailOtp } = useAuth();
   const email = route?.params?.email || 'player@gamearn.com';
-  const [code, setCode] = useState(['', '', '', '']);
+  const [code, setCode] = useState(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(119); // 01:59 countdown
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const inputRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
+  const inputRefs = [useRef(null), useRef(null), useRef(null), useRef(null), useRef(null), useRef(null)];
+
+  const requestOtp = async () => {
+    try {
+      await sendEmailOtp(email);
+    } catch (e) {
+      setError(e.message || 'Could not send the verification code. Try again.');
+    }
+  };
+
+  useEffect(() => {
+    requestOtp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -42,7 +57,7 @@ export default function EmailVerificationScreen({ route, navigation }) {
     setCode(newCode);
 
     // Auto-advance focus
-    if (text && index < 3) {
+    if (text && index < 5) {
       inputRefs[index + 1].current?.focus();
     }
   };
@@ -53,24 +68,32 @@ export default function EmailVerificationScreen({ route, navigation }) {
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     setTimer(119);
-    Alert.alert('Code Resent 📧', `A new verification code has been sent to ${email}`);
+    setError('');
+    try {
+      await sendEmailOtp(email);
+    } catch (e) {
+      setError(e.message || 'Could not resend the code. Try again.');
+    }
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     const enteredCode = code.join('');
-    if (enteredCode.length < 4) {
-      setError('Please enter the complete 4-digit code');
+    if (enteredCode.length < 6) {
+      setError('Please enter the complete 6-digit code');
       return;
     }
     setError('');
     setLoading(true);
-
-    setTimeout(() => {
+    try {
+      await verifyEmailOtp(email, enteredCode);
+      // Email verified in Firebase — continue to backend registration.
+      navigation.replace('ProfileSetup', { email });
+    } catch (e) {
+      setError(e.message || 'That code is incorrect or has expired. Try again.');
       setLoading(false);
-      navigation.navigate('ProfileCreation', { email });
-    }, 800);
+    }
   };
 
   return (

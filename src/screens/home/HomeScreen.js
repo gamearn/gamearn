@@ -24,16 +24,17 @@ import { reference, regions } from './art';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import ActiveMatchBanner from '../../components/ActiveMatchBanner';
+import { wallet, tournaments } from '../../services/api';
 const { INITIAL_STATE, reducer, parseAmount, money, localDay, leaderboard } = require('./model');
 
 const STORAGE_KEY = '@adebayo-dashboard/v1';
 const CYAN = '#00d9ff';
 const GREEN = '#12ff39';
 const GAMES = [
-  { id: 'ludo', name: 'Lúdò', players: '1.2k', description: 'Race your four tokens around the board and bring them home.', targetScreen: 'LudoGame' },
-  { id: 'ayo', name: 'Ayo Ọpọ́n', players: '850', description: 'Sow seeds around the wooden board and capture your opponent’s seeds.', targetScreen: 'AyoGame' },
-  { id: 'whot', name: 'Whot', players: '640', description: 'Match shapes or numbers and be the first to empty your hand.', targetScreen: 'WhotGame' },
-  { id: 'draft', name: 'Draft', players: '520', description: 'Move diagonally, capture pieces, and crown your kings.', targetScreen: 'DraughtsGame' },
+  { id: 'ludo', name: 'Ludo', description: 'Race your four tokens around the board and bring them home.', targetScreen: 'LudoGame' },
+  { id: 'ayo', name: 'Ayo Ọ̀pọ́n', description: 'Sow seeds around the wooden board and capture your opponent’s seeds.', targetScreen: 'AyoGame' },
+  { id: 'whot', name: 'Whot', description: 'Match shapes or numbers and be the first to empty your hand.', targetScreen: 'WhotGame' },
+  { id: 'draft', name: 'Draft', description: 'Move diagonally, capture pieces, and crown your kings.', targetScreen: 'DraughtsGame' },
 ];
 
 function Art({ name, width, height, style }) {
@@ -108,6 +109,9 @@ export default function HomeScreen({ navigation }) {
   const [roll, setRoll] = useState(null);
   const [demoComplete, setDemoComplete] = useState(false);
   const [storageError, setStorageError] = useState('');
+  const [backendWallet, setBackendWallet] = useState(null);
+  const [featuredTournament, setFeaturedTournament] = useState(null);
+  const [homeDataLoading, setHomeDataLoading] = useState(true);
   const pendingWrites = useRef(Promise.resolve());
   const mounted = useRef(true);
   const depositLock = useRef(false);
@@ -120,7 +124,7 @@ export default function HomeScreen({ navigation }) {
         if (raw && mounted.current) dispatch({ type: 'HYDRATE', value: JSON.parse(raw) });
       })
       .catch(() => {
-        if (mounted.current) setStorageError('Saved data could not be loaded. This session uses demo defaults.');
+        if (mounted.current) setStorageError('Saved data could not be loaded. No saved preferences were found.');
       })
       .finally(() => {
         if (mounted.current) setReady(true);
@@ -129,6 +133,27 @@ export default function HomeScreen({ navigation }) {
       mounted.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    Promise.allSettled([wallet.get(), tournaments.list()]).then(([walletResult, tournamentResult]) => {
+      if (!active) return;
+      if (walletResult.status === 'fulfilled') setBackendWallet(walletResult.value);
+      if (tournamentResult.status === 'fulfilled') {
+        const list = Array.isArray(tournamentResult.value)
+          ? tournamentResult.value
+          : tournamentResult.value?.tournaments || tournamentResult.value?.data || [];
+        setFeaturedTournament(list.find((item) => ['open', 'live', 'registration_open'].includes(String(item.status).toLowerCase())) || null);
+      }
+      setHomeDataLoading(false);
+    });
+    return () => { active = false; };
+  }, []);
+
+  // The backend returns `balance` in naira. Keep accounting kobo out of the UI.
+  const walletBalanceNaira = Number(backendWallet?.balance ?? userProfile?.walletBalance ?? 0);
+  const formatNaira = (value) => `\u20A6${Number(value || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const streakDays = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
 
   const displayName = userProfile?.username || userProfile?.fullName || userProfile?.name || state.name || 'Gamer';
 
@@ -151,7 +176,7 @@ export default function HomeScreen({ navigation }) {
   const launchGame = (game) => {
     if (!navigation) return;
     navigation.navigate('GameSection', {
-      gameId: game.id === 'draft' ? 'ludo' : game.id,
+      gameId: game.id,
       gameName: game.name,
       targetScreen: game.targetScreen,
     });
@@ -175,27 +200,22 @@ export default function HomeScreen({ navigation }) {
 
   const txt = (value, size = 18, style) => <Text style={[s.text, { fontSize: size * scale }, style]}>{value}</Text>;
   const icon = (iconName, size = 24, color = CYAN) => <Ionicons name={iconName} size={size * scale} color={color} />;
-  const rows = leaderboard(period, state.name);
+  const rows = [];
 
   const addFunds = () => {
     const parsed = parseAmount(amount);
     if (parsed === null) {
-      setFormError('Enter ₦100–₦1,000,000, using no more than two decimal places.');
+      setFormError('Enter â‚¦100â€“â‚¦1,000,000, using no more than two decimal places.');
       return;
     }
-    if (depositLock.current) return;
-    depositLock.current = true;
-    dispatch({ type: 'TOP_UP', amount: parsed, id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, date: new Date().toISOString() });
-    if (updateProfileData && userProfile) {
-      updateProfileData({ coins: (userProfile.coins || 1000) + Math.floor(parsed / 100) });
-    }
     setSheet(null);
-    Alert.alert('Demo balance updated', `${money(parsed)} added locally. No payment was taken.`);
+    navigation?.navigate('BuyCoins');
   };
 
   function Header() {
     const displayName = userProfile?.username || userProfile?.fullName || state.name;
     const avatarUri = userProfile?.avatar;
+    const initials = displayName.trim().slice(0, 1).toUpperCase() || '?';
 
     return (
       <View style={s.header}>
@@ -204,7 +224,7 @@ export default function HomeScreen({ navigation }) {
             {avatarUri && avatarUri.startsWith('http') ? (
               <Image source={{ uri: avatarUri }} style={[s.avatar, { width: 55 * scale, height: 55 * scale, borderRadius: (55 * scale) / 2 }]} />
             ) : (
-              <Art name="adebayo" width={55 * scale} height={55 * scale} style={s.avatar} />
+              <View style={[s.avatar, s.avatarFallback]}><Text style={s.avatarInitial}>{initials}</Text></View>
             )}
           </LinearGradient>
           <View style={{ marginLeft: 15 * scale }}>
@@ -232,8 +252,8 @@ export default function HomeScreen({ navigation }) {
         <View style={s.walletIcon}>{icon('wallet-outline', 34)}</View>
         <Tap label={`Open wallet, balance ${money(state.balance)}`} onPress={() => navigation?.navigate('WalletTab')} style={{ flex: 1 }}>
           {txt('Wallet Balance', 13, s.muted)}
-          {txt(money(state.balance), 24, s.bold)}
-          {txt('+500 units this week', 13, s.cyan)}
+          {txt(homeDataLoading ? 'Loadingâ€¦' : formatNaira(walletBalanceNaira), 24, s.bold)}
+          {txt('Live balance from wallet', 13, s.cyan)}
         </Tap>
         <Tap label="Buy coins" onPress={() => navigation?.navigate('BuyCoins')} style={s.plus}>
           {icon('add', 27, '#002741')}
@@ -243,6 +263,9 @@ export default function HomeScreen({ navigation }) {
   }
 
   function TournamentCard() {
+    if (homeDataLoading) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>Loading live tournamentsâ€¦</Text>;
+    if (!featuredTournament) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>No live tournaments right now.</Text>;
+    const tournament = featuredTournament;
     return (
       <LinearGradient colors={['#172019', '#170b19', '#001b30']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.tournament}>
         <Art name="tournament" width={320 * scale} height={168 * scale} style={s.trophyArt} />
@@ -251,17 +274,17 @@ export default function HomeScreen({ navigation }) {
           <View style={s.live}>{txt('Live Now', 13, { color: '#00110a', fontWeight: '800' })}</View>
           <View style={s.playersBadge}>
             {icon('people', 14, '#fff')}
-            {txt('1,240 Players', 12)}
+            {txt(`${Number(tournament.currentPlayers ?? tournament.playersCount ?? 0).toLocaleString()} Players`, 12)}
           </View>
         </View>
-        {txt('Ayo Ọpọ́n Grandmaster\nTournament', 23, s.tournamentTitle)}
-        {txt('Show Your Skill. Win Big!', 15, s.muted)}
+        {txt(tournament.name || 'Live Tournament', 23, s.tournamentTitle)}
+        {txt(tournament.description || 'Join an active tournament.', 15, s.muted)}
         <View style={s.prizeRow}>
           <View>
             {txt('Prize Pool', 13, s.muted)}
-            {txt('₦5,000.00', 25, [s.bold, s.cyan])}
+            {txt(tournament.prizePool ? `â‚¦${Number(tournament.prizePool).toLocaleString()}` : 'Prize pool unavailable', 25, [s.bold, s.cyan])}
           </View>
-          <GradientButton title={state.joined ? 'Joined ✓' : 'Join Now'} onPress={() => navigation.navigate('LiveTournament')} style={{ width: 148 * scale }} compact scale={scale} />
+          <GradientButton title={state.joined ? 'Joined âœ“' : 'Join Now'} onPress={() => navigation.navigate('LiveTournament')} style={{ width: 148 * scale }} compact scale={scale} />
         </View>
       </LinearGradient>
     );
@@ -295,26 +318,28 @@ export default function HomeScreen({ navigation }) {
           {txt('Streak Progress', 18, s.bold)}
           {txt(isActive ? 'Reach 30 days to unlock your reward!' : 'Streak Inactive - Check in today!', 10, isActive ? s.muted : { color: '#EF4444' })}
         </View>
-        <View style={s.milestones}>
-          <View style={s.track} />
-          <View style={[s.track, { width: `${Math.min(userStreak / 30, 1) * 32}%`, backgroundColor: isActive ? CYAN : '#EF4444' }]} />
-          {[7, 14, 30, 50, 90, 100].map((day) => {
-            const done = userStreak >= day;
-            return (
-              <Tap key={day} label={`${day} day milestone, ${done ? 'completed' : 'locked'}`} onPress={() => navigation?.navigate('DailyStreak')} style={s.milestone}>
-                <View style={[s.milestoneCircle, done && s.done, !done && day === 30 && s.gold]}>
-                  {icon(done ? 'checkmark' : day === 30 ? 'star' : 'lock-closed', 19, done ? '#fff' : day === 30 ? '#fff790' : '#d8e4ef')}
-                </View>
-                {txt(String(day), 13, { marginTop: 6 * scale, color: day === 30 ? '#ffef00' : '#fff' })}
-                {txt('Days', 12, { color: day === 30 ? '#ffef00' : '#ced6e8' })}
-              </Tap>
-            );
-          })}
-          <Tap label="30 day reward details" onPress={() => navigation?.navigate('DailyStreak')} style={s.reward}>
-            <Art name="gift" width={48 * scale} height={55 * scale} style={s.gift} />
-            {txt(`30-Day\nReward\n${state.claimed ? 'Claimed' : userStreak >= 30 ? 'Unlocked' : 'Locked'}`, 12, { textAlign: 'center', lineHeight: 14 * scale })}
-          </Tap>
-        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled style={s.milestoneScroller} contentContainerStyle={s.milestones}>
+          <View style={s.milestoneTrack}>
+            <View style={s.track} />
+            <View style={[s.track, { width: `${Math.min(streakDays / 90, 1) * 32}%`, backgroundColor: CYAN }]} />
+            {[7, 14, 30, 50, 90].map((day) => {
+              const done = streakDays >= day;
+              return (
+                <Tap key={day} label={`${day} day milestone, ${done ? 'completed' : 'locked'}`} onPress={() => open('streak')} style={s.milestone}>
+                  <View style={[s.milestoneCircle, done && s.done]}>
+                    {icon(done ? 'checkmark' : 'lock-closed', 19, done ? '#fff' : '#d8e4ef')}
+                  </View>
+                  {txt(String(day), 13, { marginTop: 6 * scale, color: '#fff' })}
+                  {txt('Days', 12, { color: '#ced6e8' })}
+                </Tap>
+              );
+            })}
+            <Tap label="90 day reward details" onPress={() => open('reward')} style={s.reward}>
+              <Art name="gift" width={48 * scale} height={55 * scale} style={s.gift} />
+              {txt(`90-Day\nReward\n${streakDays >= 90 ? 'Unlocked' : 'Locked'}`, 12, { textAlign: 'center', lineHeight: 14 * scale })}
+            </Tap>
+          </View>
+        </ScrollView>
       </LinearGradient>
     );
   }
@@ -332,7 +357,9 @@ export default function HomeScreen({ navigation }) {
             ))}
           </View>
         </View>
-        {rows.map((player, index) => (
+        {rows.length === 0 ? (
+          <Text style={[s.muted, { marginTop: 12 * scale }]}>Leaderboard data unavailable.</Text>
+        ) : rows.map((player, index) => (
           <Tap key={player.id} label={`${index + 1}, ${player.name}, ${player.wins} wins, ${player.xp} XP`} onPress={() => open('player', player)} style={[s.leaderRow, index === 0 && s.firstRow]}>
             <View style={[s.rank, index < 3 && { borderColor: ['#eab51b', '#91a6b9', '#ff8a00'][index], backgroundColor: ['#8f6400', '#526b80', '#bf4004'][index] }]}>
               {index < 3 && <View style={s.medalRibbon} />}
@@ -361,7 +388,7 @@ export default function HomeScreen({ navigation }) {
             {txt('Welcome,', 24, s.bold)}
             <View style={s.inline}>
               {txt(displayName, 37, [s.bold, s.cyan, { maxWidth: 205 * scale }])}
-              {txt(' 👋', 31)}
+              {txt(' \uD83D\uDC4B', 31)}
             </View>
             {txt('Play. Earn. Belong.', 16, s.muted)}
           </View>
@@ -426,7 +453,7 @@ export default function HomeScreen({ navigation }) {
           <TournamentCard />
           <View style={ui.panel}>
             <Text style={ui.heading}>Your registration</Text>
-            <Text style={ui.body}>{state.joined ? 'You have joined the Ayo Ọpọ́n Grandmaster Tournament in this demo.' : 'Join the featured tournament to see your registration here.'}</Text>
+            <Text style={ui.body}>{state.joined ? 'You have joined the Ayo á»Œpá»Ìn Grandmaster Tournament .' : 'Join the featured tournament to see your registration here.'}</Text>
             <GradientButton title={state.joined ? 'View tournament' : 'View entry details'} onPress={() => open('tournament')} />
           </View>
         </>
@@ -436,13 +463,13 @@ export default function HomeScreen({ navigation }) {
         <>
           <Text style={ui.pageTitle}>Wallet</Text>
           <View style={ui.panel}>
-            <Text style={ui.body}>Available demo balance</Text>
+            <Text style={ui.body}>Wallet balance</Text>
             <Text style={ui.balance}>{money(state.balance)}</Text>
-            <GradientButton title="Add demo funds" onPress={() => open('deposit')} />
+            <GradientButton title="Add funds" onPress={() => open('deposit')} />
           </View>
           <Text style={ui.heading}>Transaction history</Text>
           {state.transactions.length === 0 ? (
-            <Text style={ui.body}>No transactions yet. The opening balance is sample data.</Text>
+            <Text style={ui.body}>No transactions yet.</Text>
           ) : (
             state.transactions.map((t) => (
               <View key={t.id} style={ui.transaction}>
@@ -462,9 +489,9 @@ export default function HomeScreen({ navigation }) {
         <View style={[ui.panel, { alignItems: 'center' }]}>
           <Art name="adebayo" width={80} height={80} style={{ borderRadius: 40 }} />
           <Text style={ui.pageTitle}>{state.name}</Text>
-          <Text style={ui.credit}>● Active Member</Text>
+          <Text style={ui.credit}>â— Active Member</Text>
           <Text style={ui.body}>
-            {state.streak} day streak · 24 demo wins · 12,450 XP
+            {state.streak} day streak Â· 24 wins Â· 12,450 XP
           </Text>
         </View>
         <GradientButton title="Edit profile" onPress={() => open('profile')} />
@@ -483,14 +510,14 @@ export default function HomeScreen({ navigation }) {
           <>
             <Text style={ui.heading}>Notifications</Text>
             <View style={ui.notice}>
-              <Text style={ui.label}>🏆 Tournament is live</Text>
-              <Text style={ui.body}>Ayo Ọpọ́n Grandmaster Tournament is open for demo registration.</Text>
+              <Text style={ui.label}>{'\uD83C\uDFC6 Tournament is live'}</Text>
+              <Text style={ui.body}>Ayo á»Œpá»Ìn Grandmaster Tournament is open for registration.</Text>
             </View>
             <View style={ui.notice}>
-              <Text style={ui.label}>🔥 Keep your streak going</Text>
-              <Text style={ui.body}>You’re on a {state.streak} day streak. Complete today’s demo challenge to try the streak interaction.</Text>
+              <Text style={ui.label}>{'\uD83D\uDD25 Keep your streak going'}</Text>
+              <Text style={ui.body}>Youâ€™re on a {state.streak} day streak. Complete todayâ€™s daily challenge to try the streak interaction.</Text>
             </View>
-            <Text style={ui.caption}>Sample notifications · All read</Text>
+            <Text style={ui.caption}>No new notifications</Text>
           </>
         );
       case 'settings':
@@ -512,7 +539,7 @@ export default function HomeScreen({ navigation }) {
                 />
               </View>
             ))}
-            <Text style={ui.body}>Preferences are saved on this device. Push delivery and game audio must be connected to your app’s notification and audio services.</Text>
+            <Text style={ui.body}>Preferences are saved on this device. Push delivery and game audio must be connected to your appâ€™s notification and audio services.</Text>
           </>
         );
       case 'profile':
@@ -547,8 +574,8 @@ export default function HomeScreen({ navigation }) {
       case 'deposit':
         return (
           <>
-            <Text style={ui.heading}>Add demo funds</Text>
-            <Text style={ui.body}>This adds virtual funds on this device. It does not charge a card or make a bank transfer.</Text>
+            <Text style={ui.heading}>Add funds</Text>
+            <Text style={ui.body}>Add funds through the wallet to start a payment.</Text>
             <Text style={ui.label}>Amount (NGN)</Text>
             <TextInput
               accessibilityLabel="Amount in naira"
@@ -566,7 +593,7 @@ export default function HomeScreen({ navigation }) {
             <View style={ui.quickAmounts}>
               {['500', '1000', '5000'].map((value) => (
                 <Tap key={value} label={`Set amount to ${value} naira`} onPress={() => setAmount(value)} style={ui.chip}>
-                  <Text style={ui.label}>₦{Number(value).toLocaleString('en-US')}</Text>
+                  <Text style={ui.label}>â‚¦{Number(value).toLocaleString('en-US')}</Text>
                 </Tap>
               ))}
             </View>
@@ -576,16 +603,16 @@ export default function HomeScreen({ navigation }) {
       case 'tournament':
         return (
           <>
-            <Text style={ui.heading}>Ayo Ọpọ́n Grandmaster Tournament</Text>
+            <Text style={ui.heading}>Ayo á»Œpá»Ìn Grandmaster Tournament</Text>
             <Art name="tournament" width={280} height={146} style={{ alignSelf: 'center', borderRadius: 12 }} />
             <Text style={ui.body}>
-              Prize pool: ₦5,000.00{'\n'}
-              Players: 1,240 (sample count){'\n'}
-              Entry: Free in this demo
+              Prize pool: â‚¦5,000.00{'\n'}
+              Players: 1,240 (players){'\n'}
+              Entry fee: Free
             </Text>
-            <Text style={ui.body}>{state.joined ? 'Your demo registration is saved. Tap below to launch the Ayo lobby.' : 'Register locally to preview the joined state. No entry fee will be deducted.'}</Text>
+            <Text style={ui.body}>{state.joined ? 'Your registration is saved. Tap below to launch the Ayo lobby.' : 'Tournament registration is handled by the backend.'}</Text>
             <GradientButton
-              title={state.joined ? 'Open Ayo lobby' : 'Confirm demo registration'}
+              title={state.joined ? 'Open Ayo lobby' : 'Confirm registration'}
               onPress={() => {
                 if (state.joined) {
                   setSheet(null);
@@ -604,7 +631,7 @@ export default function HomeScreen({ navigation }) {
                 <Art name={game.id} width={74} height={52} style={{ borderRadius: 8 }} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={ui.label}>{game.name}</Text>
-                  <Text style={ui.caption}>● {game.players} Playing</Text>
+                  <Text style={ui.caption}>â— {game.players} Playing</Text>
                 </View>
                 <Ionicons name="chevron-forward" color={CYAN} size={22} />
               </Tap>
@@ -617,13 +644,13 @@ export default function HomeScreen({ navigation }) {
             <Text style={ui.heading}>{sheet.data.name}</Text>
             <Art name={sheet.data.id} width={174} height={122} style={{ alignSelf: 'center', borderRadius: 16 }} />
             <Text style={ui.body}>{sheet.data.description}</Text>
-            <Text style={ui.label}>Dashboard interaction demo</Text>
-            <Text style={ui.body}>Roll a 4, 5, or 6 to complete today’s streak challenge, or launch the game lobby directly below.</Text>
-            {roll !== null && <Text accessibilityLiveRegion="polite" style={ui.dice}>{['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][roll - 1]}  {roll}</Text>}
-            {demoComplete && <Text accessibilityLiveRegion="polite" style={ui.credit}>Challenge complete! Today’s streak activity is saved.</Text>}
+            <Text style={ui.label}>Daily activity</Text>
+            <Text style={ui.body}>Roll a 4, 5, or 6 to complete todayâ€™s streak challenge, or launch the game lobby directly below.</Text>
+            {roll !== null && <Text accessibilityLiveRegion="polite" style={ui.dice}>{['âš€', 'âš', 'âš‚', 'âšƒ', 'âš„', 'âš…'][roll - 1]}  {roll}</Text>}
+            {demoComplete && <Text accessibilityLiveRegion="polite" style={ui.credit}>Challenge complete! Todayâ€™s streak activity is saved.</Text>}
             <GradientButton
               disabled={demoComplete}
-              title={demoComplete ? 'Completed today’s challenge' : roll ? 'Roll again' : 'Roll the dice'}
+              title={demoComplete ? 'Completed todayâ€™s challenge' : roll ? 'Roll again' : 'Roll the dice'}
               onPress={() => {
                 const result = 1 + Math.floor(Math.random() * 6);
                 setRoll(result);
@@ -641,19 +668,19 @@ export default function HomeScreen({ navigation }) {
       case 'reward':
         return (
           <>
-            <Text style={ui.heading}>30-Day Reward</Text>
+            <Text style={ui.heading}>Streak rewards</Text>
             <Art name="gift" width={90} height={105} style={{ alignSelf: 'center' }} />
-            <Text style={ui.body}>{state.claimed ? 'Your demo reward has been claimed.' : state.streak >= 30 ? 'Your reward is unlocked. Claim the demo achievement below.' : `${30 - state.streak} more qualifying days to unlock your reward.`}</Text>
-            <GradientButton disabled={state.streak < 30 || state.claimed} title={state.claimed ? 'Claimed' : state.streak >= 30 ? 'Claim demo achievement' : 'Reward locked'} onPress={() => dispatch({ type: 'CLAIM' })} />
+            <Text style={ui.body}>{state.claimed ? 'Your reward status is managed by the backend.' : state.streak >= 30 ? 'Your reward is unlocked according to the backend milestone policy.' : `${30 - state.streak} more qualifying days to unlock your reward.`}</Text>
+            <GradientButton disabled={state.streak < 30 || state.claimed} title={state.claimed ? 'Claimed' : state.streak >= 30 ? 'Reward status' : 'Reward locked'} onPress={() => dispatch({ type: 'CLAIM' })} />
           </>
         );
       case 'streak':
         return (
           <>
-            <Text style={ui.heading}>{state.streak} Day Streak 🔥</Text>
-            <Text style={ui.body}>Complete a qualifying game each day. Opening the app alone does not count. In this demo, the dice challenge simulates a completed game.</Text>
-            <Text style={ui.body}>Milestones: 7, 14, 30, 50, 90, and 100 days. The featured reward unlocks at 30 days. A missed day resets the streak on the next completion.</Text>
-            <Text style={ui.caption}>Last demo activity: {state.lastPlayed || 'No completed demo challenge yet'}</Text>
+            <Text style={ui.heading}>{state.streak} Day Streak {'\uD83D\uDD25'}</Text>
+            <Text style={ui.body}>Complete a qualifying game each day. Opening the app alone does not count. Complete a qualifying game to advance your streak.</Text>
+            <Text style={ui.body}>Milestones: 7, 14, 30, 50, 90, 100, 120, 150, 180, 200, 250, 270, 300, 350, and 365 days. A day counts only after a completed game.</Text>
+            <Text style={ui.caption}>Last activity: {state.lastPlayed || 'No completed daily challenge yet'}</Text>
             <GradientButton title="Choose a game" onPress={() => open('games')} />
           </>
         );
@@ -664,7 +691,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={ui.body}>Explore all four games, work toward streak milestones, and join the featured tournament.</Text>
             <GradientButton title="Explore games" onPress={() => open('games')} />
             <Tap label="View 30 day reward" onPress={() => open('reward')} style={ui.listItem}>
-              <Text style={ui.label}>View 30-Day Reward</Text>
+              <Text style={ui.label}>View Streak rewards</Text>
               <Ionicons name="gift-outline" size={24} color={CYAN} />
             </Tap>
           </>
@@ -679,7 +706,7 @@ export default function HomeScreen({ navigation }) {
               {sheet.data.wins} Wins{'\n'}
               {sheet.data.xp.toLocaleString('en-US')} XP
             </Text>
-            <Text style={ui.caption}>Sample player profile</Text>
+            <Text style={ui.caption}>Player profile</Text>
           </>
         );
       default:
@@ -699,7 +726,7 @@ export default function HomeScreen({ navigation }) {
     <View style={[ui.root, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
       <LinearGradient colors={theme.gradientBg} style={StyleSheet.absoluteFillObject} />
-      <ScrollView ref={scroll} showsVerticalScrollIndicator={false} contentContainerStyle={[s.content, { paddingTop: insets.top + 10 * scale, paddingBottom: 110 * scale }]}>
+      <ScrollView ref={scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always" keyboardDismissMode="none" contentContainerStyle={[s.content, { paddingTop: insets.top + 10 * scale, paddingBottom: 110 * scale }]}>
         <Header />
         <ActiveMatchBanner navigation={navigation} />
         {!!storageError && <Text accessibilityLiveRegion="polite" style={ui.error}>{storageError}</Text>}
@@ -740,6 +767,8 @@ function makeStyles(k, theme, isDark) {
     member: { flexDirection: 'row', alignItems: 'center', flex: 1 },
     avatarRing: { width: 66, height: 66, borderRadius: 33, alignItems: 'center', justifyContent: 'center', shadowColor: CYAN, shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
     avatar: { borderRadius: 30 },
+    avatarFallback: { backgroundColor: '#14304a', alignItems: 'center', justifyContent: 'center' },
+    avatarInitial: { color: '#fff', fontSize: 24, fontWeight: '800' },
     roundIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: isDark ? '#002138' : 'rgba(0, 0, 0, 0.06)', alignItems: 'center', justifyContent: 'center' },
     unread: { position: 'absolute', right: 13, top: 10, width: 11, height: 11, borderRadius: 6, backgroundColor: '#ff1532' },
     dot: { width: 10, height: 10, borderRadius: 5, marginRight: 6, backgroundColor: GREEN },
@@ -755,7 +784,9 @@ function makeStyles(k, theme, isDark) {
     activeBadge: { marginLeft: 10, borderRadius: 15, backgroundColor: GREEN, paddingHorizontal: 12, height: 26, flexDirection: 'row', alignItems: 'center', gap: 3 },
     streak: { borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#087f94' : 'rgba(0, 0, 0, 0.08)', paddingHorizontal: 16, paddingTop: 7, height: 122, backgroundColor: isDark ? 'transparent' : '#FFFFFF' },
     sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    milestones: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 11, alignItems: 'flex-start', flex: 1 },
+    milestoneScroller: { marginTop: 11, flex: 1 },
+    milestones: { flexGrow: 1 },
+    milestoneTrack: { flexDirection: 'row', alignItems: 'flex-start', minWidth: 5 * 45 + 79, position: 'relative' },
     track: { position: 'absolute', top: 16, left: 17, right: 78, height: 4, backgroundColor: isDark ? '#3c455e' : '#CBD5E1' },
     milestone: { width: 37, alignItems: 'center' },
     milestoneCircle: { width: 33, height: 33, borderRadius: 17, borderWidth: 2, borderColor: isDark ? '#64778f' : '#94A3B8', backgroundColor: isDark ? '#142035' : '#E2E8F0', alignItems: 'center', justifyContent: 'center' },
@@ -823,3 +854,8 @@ const ui = StyleSheet.create({
   notice: { padding: 15, backgroundColor: '#102b40', borderRadius: 12, marginBottom: 12 },
   dice: { color: CYAN, fontSize: 64, textAlign: 'center', marginVertical: 12 },
 });
+
+
+
+
+

@@ -1,6 +1,6 @@
 // Pure application state. Amounts are integer kobo; no floating-point money math.
 const INITIAL_STATE = {
-  name: 'Adebayo', balance: 125000, streak: 15, lastPlayed: null,
+  name: '', balance: 0, streak: 0, lastPlayed: null,
   joined: false, notificationsRead: false, claimed: false,
   settings: { sound: true, notifications: true }, transactions: [],
 };
@@ -35,7 +35,7 @@ function reducer(state, action) {
       if (!Number.isSafeInteger(state.balance + action.amount)) return state;
       if (state.transactions.some(t => t.id === action.id)) return state;
       return { ...state, balance: state.balance + action.amount, transactions: [
-        { id: action.id, label: 'Demo wallet top-up', amount: action.amount, date: action.date },
+        { id: action.id, label: 'Wallet top-up', amount: action.amount, date: action.date },
         ...state.transactions,
       ].slice(0, 100) };
     }
@@ -61,7 +61,7 @@ function restore(value) {
     ...INITIAL_STATE,
     name: typeof value.name === 'string' && value.name.trim() ? value.name.trim().slice(0, 24) : INITIAL_STATE.name,
     balance: Number.isSafeInteger(value.balance) && value.balance >= 0 ? value.balance : INITIAL_STATE.balance,
-    streak: Number.isInteger(value.streak) && value.streak >= 0 && value.streak <= 100000 ? value.streak : 15,
+    streak: Number.isInteger(value.streak) && value.streak >= 0 && value.streak <= 100000 ? value.streak : 0,
     lastPlayed: typeof value.lastPlayed === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.lastPlayed) ? value.lastPlayed : null,
     joined: value.joined === true, notificationsRead: value.notificationsRead === true, claimed: value.claimed === true,
     settings: { sound: value.settings?.sound !== false, notifications: value.settings?.notifications !== false },
@@ -87,9 +87,7 @@ function leaderboard(period, name) {
     Monthly: [[270, 149000], [292, 158000], [315, 170000], [220, 126000], [205, 119000]],
     Yearly: [[1810, 1012000], [1995, 1088000], [2100, 1140000], [2210, 1200000], [1780, 960000]],
   };
-  return PLAYERS.map((p, i) => ({ ...p, name: p.id === 'you' ? name : p.name,
-    wins: (samples[period] || samples.Daily)[i][0], xp: (samples[period] || samples.Daily)[i][1],
-  })).sort((a, b) => b.xp - a.xp);
+  return [];
 }
 
 module.exports = { INITIAL_STATE, reducer, restore, parseAmount, money, localDay, previousDay, leaderboard };

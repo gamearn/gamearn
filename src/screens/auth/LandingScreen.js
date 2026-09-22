@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,21 +11,20 @@ import {
 } from 'react-native';
 import { Gamepad2, Trophy, Gift, Users, Check, ArrowLeft } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
-import { GoogleIcon, AppleIcon, FacebookIcon } from '../../components/SocialIcons';
+import SocialSignInButtons from '../../components/SocialSignInButtons';
+import { useIsFocused } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 
 export default function LandingScreen({ navigation }) {
-  const { signIn } = useAuth();
+  const { backendReady, user, loading: authLoading } = useAuth();
+  const focused = useIsFocused();
   const [agreed, setAgreed] = useState(true);
 
-  const handleGuestLogin = async () => {
-    try {
-      await signIn('guest@gamearn.com', 'guest123');
-      navigation.replace('MainTabs');
-    } catch (e) {
-      navigation.replace('MainTabs');
+  useEffect(() => {
+    if (user && focused && !authLoading) {
+      navigation.replace(!user.emailVerified && user.providerData?.some(p => p.providerId === 'password') ? 'EmailVerification' : backendReady ? 'MainTabs' : 'ProfileSetup', { email: user.email });
     }
-  };
+  }, [user, backendReady, authLoading, focused, navigation]);
 
   return (
     <View style={styles.flexContainer}>
@@ -144,33 +143,7 @@ export default function LandingScreen({ navigation }) {
           </View>
 
           {/* Social Buttons */}
-          <View style={styles.socialRow}>
-            <View style={{ flex: 1 }}>
-              <GAButton
-                title="Google"
-                onPress={handleGuestLogin}
-                variant="social"
-                icon={<GoogleIcon size={18} />}
-              />
-            </View>
-            <View style={{ width: 12 }} />
-            <View style={{ flex: 1 }}>
-              <GAButton
-                title="Apple"
-                onPress={handleGuestLogin}
-                variant="social"
-                icon={<AppleIcon size={18} color="#FFFFFF" />}
-              />
-            </View>
-          </View>
-
-          <GAButton
-            title="Facebook"
-            onPress={handleGuestLogin}
-            variant="social"
-            icon={<FacebookIcon size={18} />}
-            style={{ marginTop: 10 }}
-          />
+          <SocialSignInButtons agreed={agreed} />
 
           {/* Terms Checkbox */}
           <TouchableOpacity

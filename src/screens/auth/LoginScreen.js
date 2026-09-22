@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,19 +8,32 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { Mail, Lock, ArrowLeft } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
 import GAInput from '../../components/GAInput';
-import { GoogleIcon, AppleIcon } from '../../components/SocialIcons';
+import SocialSignInButtons from '../../components/SocialSignInButtons';
+import { useIsFocused } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen({ navigation }) {
-  const { signIn } = useAuth();
+  const { signIn, backendReady, user, loading: authLoading, authError } = useAuth();
+  const focused = useIsFocused();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const didNavigate = React.useRef(false);
+
+  useEffect(() => {
+    const routeHome = () => {
+      if (didNavigate.current || !focused || authLoading || !user) return;
+      didNavigate.current = true;
+      navigation.replace(!user.emailVerified && user.providerData?.some(p => p.providerId === 'password') ? 'EmailVerification' : backendReady ? 'MainTabs' : 'ProfileSetup', { email: user.email });
+    };
+    routeHome();
+  }, [user, backendReady, authLoading, focused, navigation]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -31,21 +44,9 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       await signIn(email.trim(), password);
-      navigation.replace('MainTabs');
+      // signIn loads the backend profile; navigate from the effect above.
     } catch (e) {
       setError(e.message || 'Login failed. Check your credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSocialLogin = async () => {
-    setLoading(true);
-    try {
-      await signIn('guest@gamearn.com', 'guest123');
-      navigation.replace('MainTabs');
-    } catch (e) {
-      navigation.replace('MainTabs');
     } finally {
       setLoading(false);
     }
@@ -58,11 +59,12 @@ export default function LoginScreen({ navigation }) {
     >
       {/* Clean Background Image with Glowing Neon & 3D Games */}
       <Image
+        pointerEvents="none"
         source={require('../../../assets/auth/login_bg.png')}
         style={styles.fixedBackground}
         resizeMode="cover"
       />
-      <View style={styles.fixedDarkOverlay} />
+      <View pointerEvents="none" style={styles.fixedDarkOverlay} />
 
       {/* Top Header Navigation */}
       <View style={styles.topHeader}>
@@ -99,7 +101,7 @@ export default function LoginScreen({ navigation }) {
 
         {/* Form */}
         <View style={styles.formContainer}>
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error || authError ? <Text style={styles.errorText}>{error || authError}</Text> : null}
 
           <GAInput
             label="Email Address"
@@ -145,26 +147,7 @@ export default function LoginScreen({ navigation }) {
             <View style={styles.dividerLine} />
           </View>
 
-          {/* Social Buttons */}
-          <View style={styles.socialRow}>
-            <View style={{ flex: 1 }}>
-              <GAButton
-                title="Google"
-                onPress={handleSocialLogin}
-                variant="social"
-                icon={<GoogleIcon size={18} />}
-              />
-            </View>
-            <View style={{ width: 12 }} />
-            <View style={{ flex: 1 }}>
-              <GAButton
-                title="Apple"
-                onPress={handleSocialLogin}
-                variant="social"
-                icon={<AppleIcon size={18} color="#FFFFFF" />}
-              />
-            </View>
-          </View>
+          <SocialSignInButtons />
 
           {/* Footer Sign Up Link */}
           <View style={styles.footerRow}>
@@ -224,8 +207,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 320,
     alignItems: 'center',
-    flexGrow: 1,
-    justifyContent: 'space-between',
   },
   topHeader: {
     paddingHorizontal: 20,

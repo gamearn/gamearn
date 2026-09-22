@@ -20,7 +20,6 @@ export default function GAInput({
   inputStyle,
 }) {
   const [isSecure, setIsSecure] = useState(secureTextEntry);
-  const [isFocused, setIsFocused] = useState(false);
 
   return (
     <View style={[styles.container, style]}>
@@ -39,7 +38,6 @@ export default function GAInput({
             style={[
               styles.inputContainer,
               { flex: 1 },
-              isFocused && styles.focusedContainer,
               error ? styles.errorContainer : null,
             ]}
           >
@@ -49,8 +47,6 @@ export default function GAInput({
               placeholder={placeholder}
               placeholderTextColor="#64748B"
               keyboardType="phone-pad"
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
               style={[styles.textInput, inputStyle]}
             />
           </View>
@@ -59,7 +55,6 @@ export default function GAInput({
         <View
           style={[
             styles.inputContainer,
-            isFocused && styles.focusedContainer,
             error ? styles.errorContainer : null,
           ]}
         >
@@ -72,8 +67,6 @@ export default function GAInput({
             secureTextEntry={isSecure}
             keyboardType={keyboardType}
             autoCapitalize={autoCapitalize}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
             style={[styles.textInput, inputStyle]}
           />
           {secureTextEntry && (

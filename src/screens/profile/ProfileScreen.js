@@ -1,26 +1,14 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  StatusBar,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Search, CheckCircle2, Flame, UserCheck, Shield } from 'lucide-react-native';
+import { ArrowLeft, Flame } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
-
 import { useTheme } from '../../context/ThemeContext';
 
 export default function ProfileScreen({ navigation }) {
   const { userProfile } = useAuth();
   const { theme, isDark } = useTheme();
-  const userName = userProfile?.username || userProfile?.fullName || 'Adebayo_001';
   const [searchQuery, setSearchQuery] = useState('');
-
   const FRIENDS = [
     {
       id: 'f1',
