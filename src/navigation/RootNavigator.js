@@ -76,6 +76,7 @@ export default function RootNavigator() {
       <Stack.Screen name="AccountSecurity" component={AccountSecurityScreen} />
       <Stack.Screen name="PrivacySecurity" component={PrivacySecurityScreen} />
       <Stack.Screen name="InviteFriends" component={InviteFriendsScreen} />
+      <Stack.Screen name="Referrals" component={InviteFriendsScreen} />
       <Stack.Screen name="Language" component={LanguageScreen} />
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
       <Stack.Screen name="CreateTournament" component={CreateTournamentScreen} />

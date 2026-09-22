@@ -62,38 +62,116 @@ function Die({ value, size, selected, used, onPress, index }) {
     4: [[0, 0], [2, 0], [0, 2], [2, 2]],
     5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]],
     6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]],
-  }[value];
+  }[value] || [[1, 1]];
+
+  const isRedDot = value === 1;
 
   return (
     <Button
-      label={`Die ${index + 1}: ${value}${used ? ', unavailable' : ''}`}
+      label={`3D Die ${index + 1}: ${value}${used ? ', unavailable' : ''}`}
       onPress={onPress}
       disabled={used}
       style={{
         width: size,
         height: size,
-        borderRadius: size * 0.19,
-        backgroundColor: '#fafcff',
-        borderWidth: selected ? 3 : 1,
-        borderColor: selected ? '#ffdf00' : '#b6c7ef',
-        transform: [{ rotate: index ? '12deg' : '-15deg' }],
-        elevation: 5,
+        position: 'relative',
+        transform: [{ rotate: index ? '10deg' : '-12deg' }],
       }}
     >
-      {dots.map(([x, y], i) => (
+      {/* 3D Drop Shadow Base */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 4,
+          top: 6,
+          width: size - 4,
+          height: size - 4,
+          borderRadius: size * 0.22,
+          backgroundColor: '#030712',
+          opacity: 0.6,
+        }}
+      />
+
+      {/* 3D Side Bevel (Depth layer) */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 2,
+          top: 3,
+          width: size - 2,
+          height: size - 2,
+          borderRadius: size * 0.22,
+          backgroundColor: selected ? '#d97706' : '#94a3b8',
+        }}
+      />
+
+      {/* 3D Main Front Face */}
+      <LinearGradient
+        colors={selected ? ['#ffffff', '#fef08a', '#fde047'] : ['#ffffff', '#f8fafc', '#e2e8f0']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          width: size - 3,
+          height: size - 3,
+          borderRadius: size * 0.2,
+          borderWidth: selected ? 3 : 1.5,
+          borderColor: selected ? '#f59e0b' : '#cbd5e1',
+          justifyContent: 'center',
+          alignItems: 'center',
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 3, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 5,
+        }}
+      >
+        {/* Top Gloss Reflection Highlight */}
         <View
-          key={i}
           style={{
             position: 'absolute',
-            left: size * (0.18 + x * 0.25),
-            top: size * (0.18 + y * 0.25),
-            width: size * 0.15,
-            height: size * 0.15,
+            top: 2,
+            left: 6,
+            right: 6,
+            height: size * 0.18,
             borderRadius: size * 0.1,
-            backgroundColor: '#071020',
+            backgroundColor: 'rgba(255, 255, 255, 0.7)',
           }}
         />
-      ))}
+
+        {/* 3D Inset Pip Dots */}
+        {dots.map(([x, y], i) => (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              left: size * (0.16 + x * 0.26),
+              top: size * (0.16 + y * 0.26),
+              width: isRedDot ? size * 0.24 : size * 0.16,
+              height: isRedDot ? size * 0.24 : size * 0.16,
+              borderRadius: size * 0.12,
+              backgroundColor: isRedDot ? '#dc2626' : '#0f172a',
+              borderWidth: 1,
+              borderColor: isRedDot ? '#991b1b' : '#334155',
+              elevation: 2,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.5,
+            }}
+          >
+            {/* Dot 3D Highlight */}
+            <View
+              style={{
+                width: size * 0.05,
+                height: size * 0.05,
+                borderRadius: size * 0.03,
+                backgroundColor: 'rgba(255, 255, 255, 0.6)',
+                marginTop: 1,
+                marginLeft: 1,
+              }}
+            />
+          </View>
+        ))}
+      </LinearGradient>
     </Button>
   );
 }
@@ -125,6 +203,7 @@ function Game({ onBack, stake, timer, onWin }) {
   const [draft, setDraft] = useState('');
   const [hints, setHints] = useState(true);
   const [bonus, setBonus] = useState(null);
+  const [cellChoiceMode, setCellChoiceMode] = useState('single');
   const [storageError, setStorageError] = useState('');
   const pause = useRef(null);
   const background = useRef(false);
@@ -463,25 +542,58 @@ function Game({ onBack, stake, timer, onWin }) {
             </View>
             <Player p={0} x={112} y={57} w={350} />
             <Player p={1} x={792} y={57} w={350} reverse />
-            <Button label="Room 458721, four local players" onPress={() => show('menu')} style={[rect(22, 267, 151, 156), ui.panel, { borderRadius: 30 * k, padding: 23 * k }]}>
-              {text('Room\n458721', 28)}
-              <View style={{ height: 1, backgroundColor: '#2851c0', marginVertical: 10 * k }} />
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 * k }}>
-                {ico('people', 34, '#00ed8b')}
-                {text('4/4', 30, { color: '#00ed8b' })}
-              </View>
-            </Button>
-            <Button label="Daily bonus" onPress={() => show('bonus')} style={[rect(22, 454, 151, 182), ui.panel, { borderRadius: 30 * k, alignItems: 'center', paddingTop: 10 * k }]}>
-              <Art name="gift" w={91 * k} h={88 * k} />
-              {text('Daily Bonus', 22, { marginTop: 7 * k })}
-              {text(bonus ? clock((bonus.next - now) / 1000, true) : 'Loading', 28)}
-            </Button>
+            {/* Cell Choice Selection Bar (Single Cell vs Double Cell Move) */}
+            <View style={[rect(22, 300, 151, 300), ui.panel, { borderRadius: 20 * k, padding: 12 * k, justifyContent: 'space-around', alignItems: 'center' }]}>
+              {text('Cell Choice', 22, { textAlign: 'center', color: '#ffd700', fontWeight: '900' })}
+              <Pressable
+                onPress={() => setCellChoiceMode('single')}
+                style={{
+                  width: '100%',
+                  paddingVertical: 10 * k,
+                  borderRadius: 12 * k,
+                  backgroundColor: cellChoiceMode === 'single' ? '#00e5ff' : '#1a2472',
+                  alignItems: 'center',
+                  borderWidth: 2 * k,
+                  borderColor: cellChoiceMode === 'single' ? '#fff' : '#394bbb',
+                }}
+              >
+                {text('Single Cell', 18, { color: cellChoiceMode === 'single' ? '#000' : '#fff', fontWeight: '800' })}
+              </Pressable>
+              <Pressable
+                onPress={() => setCellChoiceMode('double')}
+                style={{
+                  width: '100%',
+                  paddingVertical: 10 * k,
+                  borderRadius: 12 * k,
+                  backgroundColor: cellChoiceMode === 'double' ? '#ff9900' : '#1a2472',
+                  alignItems: 'center',
+                  borderWidth: 2 * k,
+                  borderColor: cellChoiceMode === 'double' ? '#fff' : '#394bbb',
+                }}
+              >
+                {text('Double Cell', 18, { color: cellChoiceMode === 'double' ? '#000' : '#fff', fontWeight: '800' })}
+              </Pressable>
+            </View>
             <View style={rect(22, 676, 157, 244)}>
               <Art name="left" w={157 * k} h={244 * k} />
             </View>
             <View style={[rect(194, 203, 864, 748), { borderWidth: 5 * k, borderColor: '#1664d4', borderRadius: 51 * k, backgroundColor: '#073b9a', padding: 12 * k }]}>
               <View style={{ flex: 1, transform: [{ scaleY: 710 / 828 }], marginTop: -59 * k, marginBottom: -59 * k, justifyContent: 'center' }}>
-                <Board size={828 * k} state={state} onMove={(token) => dispatch({ type: 'MOVE', token })} />
+                <Board
+                  size={828 * k}
+                  state={state}
+                  onMove={(token) => {
+                    if (cellChoiceMode === 'double' && state.available.length === 2) {
+                      // Double cell move: combine both dice
+                      dispatch({ type: 'MOVE', token });
+                      setTimeout(() => {
+                        dispatch({ type: 'MOVE', token });
+                      }, 250);
+                    } else {
+                      dispatch({ type: 'MOVE', token });
+                    }
+                  }}
+                />
               </View>
             </View>
             <View style={[rect(1077, 252, 160, 160), ui.round, { borderWidth: 6 * k, borderColor: '#168dff', borderRadius: 90 * k }]}>

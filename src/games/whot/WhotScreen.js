@@ -23,6 +23,7 @@ import {
   drawCardForCurrentPlayer,
   playCardForCurrentPlayer,
   reduceStateOnTurnTimeout,
+  isValidMove,
 } from './whotGameEngine';
 import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 import { engineCardToServer } from './serverAdapter';
@@ -208,13 +209,56 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
       return;
     }
 
+    pushHistory(gameState);
     setGameState((prev) => playCard(prev, 0, card.id));
     setSelected(null);
     onPlay?.(card);
   }
 
+  const [history, setHistory] = useState([]);
+  const [lastMoveTimestamp, setLastMoveTimestamp] = useState(null);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timerId = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(timerId);
+  }, []);
+
+  const undoSecondsLeft = lastMoveTimestamp ? Math.max(0, 10 - Math.floor((now - lastMoveTimestamp) / 1000)) : 0;
+  const canUndo = history.length > 0 && undoSecondsLeft > 0;
+
+  function pushHistory(stateToSave) {
+    setHistory((prev) => [...prev.slice(-10), stateToSave]);
+    setLastMoveTimestamp(Date.now());
+  }
+
   // Handle Action Buttons
   function handleAction(id) {
+    if (id === 'undo') {
+      if (!canUndo) {
+        setGameState((prev) => ({ ...prev, statusMessage: undoSecondsLeft === 0 && lastMoveTimestamp ? "Undo time expired (10s limit)!" : "No previous move to undo!" }));
+        return;
+      }
+      const previousState = history[history.length - 1];
+      setHistory((prev) => prev.slice(0, -1));
+      setGameState({ ...previousState, statusMessage: "↺ Last play undone!" });
+      return;
+    }
+
+    if (id === 'hint') {
+      const top = gameState.discardPile[gameState.discardPile.length - 1];
+      const req = gameState.requestedShape;
+      const validCards = humanHand.filter((c) => c.value === 20 || (req ? c.shape === req : (c.shape === top.shape || c.value === top.value)));
+      if (validCards.length > 0) {
+        const bestCard = validCards.find((c) => c.value === 20) || validCards[0];
+        setGameState((prev) => ({ ...prev, statusMessage: `💡 Hint: Play ${bestCard.value} ${bestCard.shape.toUpperCase()}!` }));
+        setSelected(bestCard.id);
+      } else {
+        setGameState((prev) => ({ ...prev, statusMessage: "💡 Hint: No matching card in hand. Tap Draw Pile to draw!" }));
+      }
+      return;
+    }
+
     if (id === 'draw') {
       if (gameState.activePlayerIndex !== 0) {
         setGameState((prev) => ({ ...prev, statusMessage: "Wait for your turn to draw!" }));
@@ -224,6 +268,7 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
         sendRemoteMove({ pickFromMarket: true });
         return;
       }
+      pushHistory(gameState);
       setGameState((prev) => drawCard(prev, 0));
       setSelected(null);
       return;
@@ -364,6 +409,8 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
               activePlayerIndex={gameState.activePlayerIndex}
               coinBalance={gameState.coinBalance}
               statusText={gameState.statusMessage}
+              undoSecondsLeft={undoSecondsLeft}
+              canUndo={canUndo}
             />
           </View>
 

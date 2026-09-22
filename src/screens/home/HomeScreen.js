@@ -229,9 +229,15 @@ export default function HomeScreen({ navigation }) {
           </LinearGradient>
           <View style={{ marginLeft: 15 * scale }}>
             {txt(displayName, 20, s.medium)}
-            <View style={s.inline}>
+            <View style={[s.inline, { flexWrap: 'wrap', gap: 6 * scale }]}>
               <View style={s.dot} />
-              {txt('Active Member', 15, s.cyan)}
+              {txt('Active Member', 14, s.cyan)}
+              <View style={{ backgroundColor: '#F59E0B22', paddingHorizontal: 6 * scale, paddingVertical: 2 * scale, borderRadius: 6 * scale, borderWidth: 1, borderColor: '#F59E0B66' }}>
+                <Text style={{ color: '#F59E0B', fontSize: 11 * scale, fontWeight: '900' }}>⚡ {userProfile?.gpText || '0 GP'}</Text>
+              </View>
+              <View style={{ backgroundColor: '#3B82F622', paddingHorizontal: 6 * scale, paddingVertical: 2 * scale, borderRadius: 6 * scale, borderWidth: 1, borderColor: '#3B82F666' }}>
+                <Text style={{ color: '#60A5FA', fontSize: 11 * scale, fontWeight: '900' }}>🏆 {userProfile?.vpText || '0 VP'}</Text>
+              </View>
             </View>
           </View>
         </Tap>
@@ -251,8 +257,14 @@ export default function HomeScreen({ navigation }) {
       <LinearGradient colors={['#003a72', '#001324', '#00101e']} style={[s.card, s.wallet]}>
         <View style={s.walletIcon}>{icon('wallet-outline', 34)}</View>
         <Tap label={`Open wallet, balance ${money(state.balance)}`} onPress={() => navigation?.navigate('WalletTab')} style={{ flex: 1 }}>
-          {txt('Wallet Balance', 13, s.muted)}
-          {txt(homeDataLoading ? 'Loadingâ€¦' : formatNaira(walletBalanceNaira), 24, s.bold)}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            {txt('Wallet Balance', 13, s.muted)}
+            <View style={{ flexDirection: 'row', gap: 6 * scale }}>
+              <Text style={{ color: '#F59E0B', fontSize: 11 * scale, fontWeight: '900' }}>{userProfile?.gpText || '0 GP'}</Text>
+              <Text style={{ color: '#60A5FA', fontSize: 11 * scale, fontWeight: '900' }}>{userProfile?.vpText || '0 VP'}</Text>
+            </View>
+          </View>
+          {txt(homeDataLoading ? 'Loading...' : formatNaira(walletBalanceNaira), 24, s.bold)}
           {txt('Live balance from wallet', 13, s.cyan)}
         </Tap>
         <Tap label="Buy coins" onPress={() => navigation?.navigate('BuyCoins')} style={s.plus}>
@@ -263,7 +275,7 @@ export default function HomeScreen({ navigation }) {
   }
 
   function TournamentCard() {
-    if (homeDataLoading) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>Loading live tournamentsâ€¦</Text>;
+    if (homeDataLoading) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>Loading live tournaments...</Text>;
     if (!featuredTournament) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>No live tournaments right now.</Text>;
     const tournament = featuredTournament;
     return (

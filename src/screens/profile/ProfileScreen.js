@@ -1,40 +1,17 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Flame } from 'lucide-react-native';
+import { ArrowLeft, Flame, CheckCircle2, Search } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function ProfileScreen({ navigation }) {
   const { userProfile } = useAuth();
   const { theme, isDark } = useTheme();
+  const userName = userProfile?.username || userProfile?.fullName || userProfile?.name || 'Adebayo';
   const [searchQuery, setSearchQuery] = useState('');
-  const FRIENDS = [
-    {
-      id: 'f1',
-      name: 'ShadowReaper',
-      badge: 'PRO',
-      badgeColor: '#FF5500',
-      rank: 'Diamond Tier • Level 84',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100',
-    },
-    {
-      id: 'f2',
-      name: 'Luna_Cyber',
-      badge: 'MVP',
-      badgeColor: '#00E5FF',
-      rank: 'Master Tier • Level 102',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-    },
-    {
-      id: 'f3',
-      name: 'CyberKnight',
-      badge: 'PRO',
-      badgeColor: '#FF5500',
-      rank: 'Gold Tier • Level 45',
-      avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100',
-    },
-  ];
+  const friendsList = userProfile?.friends || [];
+  const onlineCount = friendsList.filter((f) => f.isOnline).length;
 
   return (
     <View style={[styles.screenRoot, { backgroundColor: theme.bg }]}>
@@ -99,12 +76,12 @@ export default function ProfileScreen({ navigation }) {
         {/* Stats Row (Followers, Following, Day Streak) */}
         <View style={styles.statsGridRow}>
           <View style={[styles.statCardBox, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
-            <Text style={[styles.statBigVal, { color: theme.textPrimary }]}>1.2k</Text>
+            <Text style={[styles.statBigVal, { color: theme.textPrimary }]}>{userProfile?.followersCount ?? 0}</Text>
             <Text style={[styles.statSubLabel, { color: theme.textSecondary }]}>FOLLOWERS</Text>
           </View>
 
           <View style={[styles.statCardBox, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
-            <Text style={[styles.statBigVal, { color: theme.textPrimary }]}>850</Text>
+            <Text style={[styles.statBigVal, { color: theme.textPrimary }]}>{userProfile?.followingCount ?? 0}</Text>
             <Text style={[styles.statSubLabel, { color: theme.textSecondary }]}>FOLLOWING</Text>
           </View>
 
@@ -146,6 +123,88 @@ export default function ProfileScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
+        {/* Game Power (GP) & Value Points (VP) Row */}
+        <View style={{ flexDirection: 'row', gap: 10, marginVertical: 8 }}>
+          <View
+            style={[
+              styles.statCardBox,
+              {
+                flex: 1,
+                backgroundColor: '#1E1B4B',
+                borderColor: '#6366F1AA',
+                borderWidth: 1,
+                paddingVertical: 14,
+              },
+            ]}
+          >
+            <Text style={{ color: '#F59E0B', fontSize: 20, fontWeight: '900' }}>
+              ⚡ {userProfile?.gpText || '0 GP'}
+            </Text>
+            <Text style={{ color: '#A5B4FC', fontSize: 11, fontWeight: '800', marginTop: 2 }}>
+              GAME POWER (GP)
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.statCardBox,
+              {
+                flex: 1,
+                backgroundColor: '#0F172A',
+                borderColor: '#3B82F6AA',
+                borderWidth: 1,
+                paddingVertical: 14,
+              },
+            ]}
+          >
+            <Text style={{ color: '#60A5FA', fontSize: 20, fontWeight: '900' }}>
+              🏆 {userProfile?.vpText || '0 VP'}
+            </Text>
+            <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '800', marginTop: 2 }}>
+              VALUE POINTS (VP)
+            </Text>
+          </View>
+        </View>
+
+        {/* Referrals & 5% Commission Entry Banner */}
+        <TouchableOpacity
+          activeOpacity={0.88}
+          onPress={() => navigation.navigate('Referrals')}
+          style={{
+            marginVertical: 14,
+            borderRadius: 18,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: '#3B82F644',
+          }}
+        >
+          <LinearGradient
+            colors={['#0F172A', '#1E1B4B', '#0F172A']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <View style={{ backgroundColor: '#3B82F622', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+                  <Text style={{ color: '#60A5FA', fontSize: 11, fontWeight: '900' }}>5% COMMISSION</Text>
+                </View>
+                <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '800' }}>👑 Grow Your Squad</Text>
+              </View>
+              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900', marginBottom: 2 }}>Referrals & Squad Earnings</Text>
+              <Text style={{ color: '#94A3B8', fontSize: 13, fontWeight: '600' }}>Earn 5% of everything your referrals earn forever.</Text>
+            </View>
+            <View style={{ backgroundColor: '#2563EB', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, elevation: 4 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '900' }}>Check Referrals</Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+
         {/* Search Friends Input */}
         <View style={[styles.searchBarWrap, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder }]}>
           <Search size={18} color={theme.textMuted} style={{ marginRight: 10 }} />
@@ -161,36 +220,44 @@ export default function ProfileScreen({ navigation }) {
         {/* Active Friends List Section */}
         <View style={styles.friendsSectionHeader}>
           <Text style={[styles.friendsTitle, { color: theme.textSecondary }]}>ACTIVE FRIENDS</Text>
-          <Text style={styles.onlineCountText}>12 Online</Text>
+          <Text style={styles.onlineCountText}>{onlineCount} Online</Text>
         </View>
 
         <View style={styles.friendsList}>
-          {FRIENDS.filter((f) => f.name.toLowerCase().includes(searchQuery.toLowerCase())).map((friend) => (
-            <View key={friend.id} style={[styles.friendCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
-              <View style={styles.friendAvatarWrap}>
-                <Image source={{ uri: friend.avatar }} style={styles.friendAvatarImg} />
-                <View style={styles.friendOnlineDot} />
-              </View>
-
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[styles.friendNameText, { color: theme.textPrimary }]}>{friend.name}</Text>
-                  <View style={[styles.badgePill, { backgroundColor: 'rgba(255, 85, 0, 0.2)' }]}>
-                    <Text style={[styles.badgePillText, { color: friend.badgeColor }]}>{friend.badge}</Text>
-                  </View>
-                </View>
-                <Text style={[styles.friendRankText, { color: theme.textSecondary }]}>{friend.rank}</Text>
-              </View>
-
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => alert(`Invite sent to ${friend.name}!`)}
-                style={styles.inviteBtn}
-              >
-                <Text style={styles.inviteBtnText}>Invite</Text>
-              </TouchableOpacity>
+          {friendsList.length === 0 ? (
+            <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+              <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '600' }}>No active friends yet.</Text>
             </View>
-          ))}
+          ) : (
+            friendsList.filter((f) => (f.name || f.username || '').toLowerCase().includes(searchQuery.toLowerCase())).map((friend) => (
+              <View key={friend.id} style={[styles.friendCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
+                <View style={styles.friendAvatarWrap}>
+                  <Image source={{ uri: friend.avatar }} style={styles.friendAvatarImg} />
+                  <View style={styles.friendOnlineDot} />
+                </View>
+
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={[styles.friendNameText, { color: theme.textPrimary }]}>{friend.name || friend.username}</Text>
+                    {friend.badge && (
+                      <View style={[styles.badgePill, { backgroundColor: 'rgba(255, 85, 0, 0.2)' }]}>
+                        <Text style={[styles.badgePillText, { color: friend.badgeColor || '#FF5500' }]}>{friend.badge}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.friendRankText, { color: theme.textSecondary }]}>{friend.rank || 'Gamer'}</Text>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => alert(`Invite sent to ${friend.name || friend.username}!`)}
+                  style={styles.inviteBtn}
+                >
+                  <Text style={styles.inviteBtnText}>Invite</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
     </View>

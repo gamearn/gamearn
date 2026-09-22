@@ -23,7 +23,7 @@ function formatTxDate(iso) {
   try {
     const d = new Date(iso);
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
-      ' Â· ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      ' · ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   } catch {
     return '';
   }
@@ -39,6 +39,7 @@ export default function WalletScreen({ navigation }) {
 
   const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.coins ?? 0);
   const streakDays = Number(streakData?.currentStreak ?? userProfile?.streak ?? 0);
+  const usdValue = (balanceNaira / 1500).toFixed(2);
 
   useFocusEffect(
     useCallback(() => {
@@ -133,10 +134,23 @@ export default function WalletScreen({ navigation }) {
 
           {/* Balance Unit Display */}
           <View style={styles.balanceTextRow}>
-            <Text style={[styles.balanceNum, { color: theme.textPrimary }]}>â‚¦{balanceNaira.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+            <Text style={[styles.balanceNum, { color: theme.textPrimary }]}>₦{balanceNaira.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
           </View>
 
           <Text style={[styles.usdEquivalentText, { color: theme.textSecondary }]}>${usdValue} USD Equivalent</Text>
+
+          {/* GP (Game Power) & VP (Value Points) Pills */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, justifyContent: 'center' }}>
+            <View style={{ backgroundColor: '#1E1B4B', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: '#6366F1AA', flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '900' }}>⚡ {userProfile?.gpText || '0 GP'}</Text>
+              <Text style={{ color: '#A5B4FC', fontSize: 10, fontWeight: '700', marginLeft: 4 }}>Game Power</Text>
+            </View>
+
+            <View style={{ backgroundColor: '#0F172A', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: '#3B82F6AA', flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: '#60A5FA', fontSize: 13, fontWeight: '900' }}>🏆 {userProfile?.vpText || '0 VP'}</Text>
+              <Text style={{ color: '#94A3B8', fontSize: 10, fontWeight: '700', marginLeft: 4 }}>Value Points</Text>
+            </View>
+          </View>
 
           <TouchableOpacity
             activeOpacity={0.8}

@@ -294,8 +294,8 @@ export function Badge({ x, y, value }) {
 export const BUTTONS = [
   { id: 'menu', x: 24, y: 24, w: 83, h: 83 },
   { id: 'settings', x: 920, y: 24, w: 81, h: 83 },
-  { id: 'coins', x: 829, y: 34, w: 55, h: 56 },
-  { id: 'bonus', x: 25, y: 150, w: 265, h: 96 },
+  { id: 'undo', x: 131, y: 23, w: 220, h: 80 },
+  { id: 'hint', x: 671, y: 23, w: 220, h: 80 },
   { id: 'draw', x: 33, y: 1400, w: 292, h: 84 },
   { id: 'play', x: 348, y: 1400, w: 328, h: 84 },
   { id: 'whot', x: 699, y: 1400, w: 292, h: 84 },
@@ -338,6 +338,8 @@ export function Artwork({
   opponentCounts = [5, 4, 6],
   coinBalance = 1250,
   statusText,
+  undoSecondsLeft = 0,
+  canUndo = false,
 }) {
   const centers = getCardCenters(hand.length);
 
@@ -346,46 +348,21 @@ export function Artwork({
       <Gradients />
       <Background />
 
-      <Panel x={131} y={23} w={222} h={96} />
-      <Icon x={167} y={51} name="home" scale={0.77} />
-      <T x="194" y="52" fontFamily={FONT} fontSize="23" fontWeight="800" fill="#fff">
-        Room 458721
+      {/* 10-Second Undo Button Panel */}
+      <Panel x={131} y={23} w={220} h={80} stroke={canUndo && undoSecondsLeft > 0 ? '#ffea00' : '#475569'} />
+      <T x="241" y="62" textAnchor="middle" fontFamily={FONT} fontSize="24" fontWeight="900" fill={canUndo && undoSecondsLeft > 0 ? '#ffea00' : '#94a3b8'}>
+        {canUndo && undoSecondsLeft > 0 ? `↺ UNDO (${undoSecondsLeft}s)` : '↺ UNDO (10s)'}
       </T>
-      <T x="194" y="77" fontFamily={FONT} fontSize="17" fill="#ddd7ff">
-        Classic Mode
-      </T>
-      <Icon x={166} y={98} name="people" color="#00ef6b" scale={0.8} />
-      <T x="194" y="107" fontFamily={FONT} fontSize="27" fontWeight="800" fill="#00ef6b">
-        4/4
-      </T>
-      <Icon x={317} y={98} name="wifi" color="#00ed75" scale={0.7} />
 
       <Circle cx="65" cy="65" r="41" fill="url(#purple)" stroke="#9144ff" strokeWidth="3" />
       <Icon x={65} y={65} name="menu" />
       <Circle cx="960" cy="65" r="41" fill="url(#purple)" stroke="#9144ff" strokeWidth="3" />
       <Icon x={960} y={65} name="settings" />
 
-      <Panel x={671} y={25} w={220} h={72} />
-      <Circle cx={706} cy={60} r="24" fill="url(#gold)" stroke="#ffe96c" strokeWidth="3" />
-      <T x="706" y="72" textAnchor="middle" fill="#fff8a4" fontSize="37" fontWeight="800">
-        $
-      </T>
-      <T x="744" y="72" fontFamily={FONT} fontSize="27" fontWeight="800" fill="#fff">
-        {coinBalance.toLocaleString()}
-      </T>
-      <Circle cx="855" cy={60} r="25" fill="#00d653" stroke="#81ff9d" strokeWidth="2" />
-      <Icon x={855} y={60} name="plus" />
-
-      <Logo />
-
-      <Panel x={31} y={163} w={256} h={77} stroke="#ed53ff" />
-      <Circle cx={76} cy={200} r="48" fill="url(#panel)" stroke="#e854ff" strokeWidth="3" />
-      <Gift />
-      <T x="139" y="193" fontFamily={FONT} fontSize="21" fontWeight="700" fill="#fff">
-        Daily Bonus
-      </T>
-      <T x="139" y="226" fontFamily={FONT} fontSize="31" fontWeight="800" fill="#fff">
-        {bonus}
+      {/* Hint Button Panel */}
+      <Panel x={671} y={23} w={220} h={80} stroke="#00e5ff" />
+      <T x="781" y="62" textAnchor="middle" fontFamily={FONT} fontSize="24" fontWeight="900" fill="#00e5ff">
+        💡 HINT
       </T>
 
       <Circle cx="906" cy={219} r="83" fill="url(#panel)" stroke="#6722ff" strokeWidth="3" />

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, StatusBar, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Camera } from 'lucide-react-native';
+import { ArrowLeft, Camera, CheckCircle2 } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
 import { useAuth } from '../../context/AuthContext';
 import { uploadProfileImage } from '../../services/firebase';
@@ -20,12 +20,33 @@ export default function EditProfileScreen({ navigation }) {
   const { userProfile, updateProfileData } = useAuth();
   const { theme, isDark } = useTheme();
 
-  // Find initial avatar or default to mage
-  const initialAvatar = AVATAR_PRESETS.find((a) => a.uri === userProfile?.avatar) || AVATAR_PRESETS[1];
+  const currentAvatarUri = userProfile?.avatar || AVATAR_PRESETS[1].uri;
+  const initialAvatar = AVATAR_PRESETS.find((a) => a.uri === currentAvatarUri) || { id: 'current', label: 'CURRENT', uri: currentAvatarUri };
   const [selectedAvatar, setSelectedAvatar] = useState(initialAvatar);
-  const [username, setUsername] = useState(userProfile?.username || 'GamerOne');
+  const [username, setUsername] = useState(userProfile?.username || userProfile?.name || userProfile?.displayName || '');
   const [bio, setBio] = useState(userProfile?.bio || '');
   const [loading, setLoading] = useState(false);
+
+  const handlePickCustomAvatar = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'Gallery access is needed to select a custom avatar photo.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setSelectedAvatar({ id: 'custom', label: 'CUSTOM', uri: result.assets[0].uri });
+      }
+    } catch (err) {
+      console.log('Pick avatar error:', err);
+    }
+  };
 
   const handleSaveChanges = async () => {
     if (!username.trim()) {
@@ -34,11 +55,25 @@ export default function EditProfileScreen({ navigation }) {
     }
     setLoading(true);
     try {
+      let finalAvatarUri = selectedAvatar.uri;
+      if (selectedAvatar.id === 'custom' && selectedAvatar.uri.startsWith('file')) {
+        try {
+          finalAvatarUri = await uploadProfileImage(selectedAvatar.uri);
+        } catch (uploadErr) {
+          console.log('Upload image notice:', uploadErr);
+          finalAvatarUri = selectedAvatar.uri;
+        }
+      }
+
+      const newName = username.trim();
       await updateProfileData({
-        username: username.trim(),
-        avatar: selectedAvatar.uri,
+        username: newName,
+        name: newName,
+        displayName: newName,
+        avatar: finalAvatarUri,
         bio: bio.trim(),
       });
+
       Alert.alert('Profile Updated 🌟', 'Your profile details have been updated successfully!', [
         {
           text: 'OK',
@@ -80,10 +115,7 @@ export default function EditProfileScreen({ navigation }) {
             <Image source={{ uri: selectedAvatar.uri }} style={styles.mainAvatarImg} />
             <TouchableOpacity
               style={styles.cameraBadgeBtn}
-              onPress={() => {
-                const nextIndex = (AVATAR_PRESETS.findIndex((a) => a.id === selectedAvatar.id) + 1) % AVATAR_PRESETS.length;
-                setSelectedAvatar(AVATAR_PRESETS[nextIndex]);
-              }}
+              onPress={handlePickCustomAvatar}
               activeOpacity={0.8}
             >
               <Camera size={16} color="#FFFFFF" />
@@ -92,13 +124,10 @@ export default function EditProfileScreen({ navigation }) {
 
           <TouchableOpacity
             style={styles.changeBtn}
-            onPress={() => {
-              const nextIndex = (AVATAR_PRESETS.findIndex((a) => a.id === selectedAvatar.id) + 1) % AVATAR_PRESETS.length;
-              setSelectedAvatar(AVATAR_PRESETS[nextIndex]);
-            }}
+            onPress={handlePickCustomAvatar}
             activeOpacity={0.85}
           >
-            <Text style={styles.changeBtnText}>Change Avatar</Text>
+            <Text style={styles.changeBtnText}>Upload Photo / Change Avatar</Text>
           </TouchableOpacity>
         </View>
 

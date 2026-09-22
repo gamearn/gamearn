@@ -209,6 +209,13 @@ export default function GameLobbyScreen({ route, navigation }) {
 
       <GACard style={styles.summaryCard}>
         <View style={styles.summaryRow}>
+          <Text style={{ color: theme.textSecondary }}>Challenger Strength:</Text>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Text style={{ color: '#F59E0B', fontWeight: '900' }}>⚡ {userProfile?.gpText || '0 GP'}</Text>
+            <Text style={{ color: '#60A5FA', fontWeight: '900' }}>🏆 {userProfile?.vpText || '0 VP'}</Text>
+          </View>
+        </View>
+        <View style={styles.summaryRow}>
           <Text style={{ color: theme.textSecondary }}>Entry Fee (escrowed):</Text>
           <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>{naira(koboToN(selectedFee))}</Text>
         </View>

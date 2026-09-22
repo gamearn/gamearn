@@ -43,8 +43,6 @@
     "plugins": [
       "expo-asset",
       "expo-font",
-      "expo-web-browser",
-      "expo-apple-authentication",
       [
         "react-native-google-mobile-ads",
         {
