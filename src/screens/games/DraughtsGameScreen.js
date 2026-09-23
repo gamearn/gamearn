@@ -12,7 +12,7 @@ import { useOnlineMatch } from '../../games/useOnlineMatch';
 import { useAuth } from '../../context/AuthContext';
 
 export default function DraughtsGameScreen({ route, navigation }) {
-  const { mode = 'local', roomId } = route.params || {};
+  const { mode = 'local', roomId, aiDifficulty = 'auto' } = route.params || {};
   const stake = route.params?.stake || 250;
   const timer = route.params?.timer || '2m';
 
@@ -115,6 +115,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
         stake={stake}
         timer={timer}
         playerColor={playerColor}
+        aiDifficulty={aiDifficulty}
         onWin={handleLocalWin}
         onSquarePress={isMultiplayer ? relayIfMove : undefined}
         onBack={handleBack}

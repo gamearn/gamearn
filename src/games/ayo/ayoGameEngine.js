@@ -116,11 +116,45 @@ export function sowAyoSeeds(state, pitIndex) {
   };
 }
 
-export function getAyoAiMove(state) {
+export function getAyoAiMove(state, difficulty = 'medium') {
   const validPits = [0, 1, 2, 3, 4, 5].filter((i) => state.pits[i] > 0);
   if (validPits.length === 0) return null;
 
-  // Evaluate best pit to sow
+  if (difficulty === 'easy') {
+    // 45% chance to pick a random legal pit to play sub-optimally
+    if (Math.random() < 0.45) {
+      return validPits[Math.floor(Math.random() * validPits.length)];
+    }
+  }
+
+  if (difficulty === 'hard') {
+    // 2-step lookahead minimax heuristic
+    let bestPit = validPits[0];
+    let maxNetScore = -999;
+
+    for (const pitIdx of validPits) {
+      const testState = sowAyoSeeds(state, pitIdx);
+      const scoreGained = testState.scores[1] - state.scores[1];
+
+      // Evaluate opponent's best response capture
+      const playerValidPits = [6, 7, 8, 9, 10, 11].filter((i) => testState.pits[i] > 0);
+      let oppMaxScore = 0;
+      for (const oppPit of playerValidPits) {
+        const oppState = sowAyoSeeds(testState, oppPit);
+        const oppGained = oppState.scores[0] - testState.scores[0];
+        if (oppGained > oppMaxScore) oppMaxScore = oppGained;
+      }
+
+      const netScore = scoreGained - oppMaxScore * 0.8;
+      if (netScore > maxNetScore) {
+        maxNetScore = netScore;
+        bestPit = pitIdx;
+      }
+    }
+    return bestPit;
+  }
+
+  // Medium / Default (1-step greedy capture)
   let bestPit = validPits[0];
   let maxScore = -1;
 

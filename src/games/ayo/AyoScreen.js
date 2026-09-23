@@ -19,6 +19,7 @@ import {
 import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 import { useAuth } from '../../context/AuthContext';
 import { recordGameStreak } from '../../utils/recordGameStreak';
+import { getAiDifficulty } from '../../utils/aiDifficulty';
 
 import Svg, { G, Path, Rect } from 'react-native-svg';
 
@@ -78,7 +79,7 @@ function parseTimerSec(timerStr) {
   return 120;
 }
 
-export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove }) {
+export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficulty = 'auto' }) {
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
   const [gameState, setGameState] = useState(createAyoInitialState);
   const [selected, setSelected] = useState(null);
@@ -131,10 +132,11 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove }) {
     }
 
     if (gameState.activePlayer === 2) {
+      const activeDifficulty = getAiDifficulty(userProfile, aiDifficulty);
       const aiTimer = setTimeout(() => {
         setGameState((prev) => {
           if (prev.activePlayer !== 2 || prev.gameStatus === 'game_over') return prev;
-          const bestPit = getAyoAiMove(prev);
+          const bestPit = getAyoAiMove(prev, activeDifficulty);
           if (bestPit !== null) {
             return sowAyoSeeds(prev, bestPit);
           }
@@ -144,7 +146,7 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove }) {
 
       return () => clearTimeout(aiTimer);
     }
-  }, [gameState.activePlayer, gameState.gameStatus, updateProfileData, userProfile, gameState.winner, onWin]);
+  }, [gameState.activePlayer, gameState.gameStatus, updateProfileData, userProfile, gameState.winner, onWin, aiDifficulty]);
 
   function layout(event) {
     const { width, height } = event.nativeEvent.layout;
@@ -222,7 +224,7 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove }) {
       {/* Top Player Profile HUD (AI Bot) */}
       <View style={styles.playerHudTop}>
         <View style={[styles.playerCard, gameState.activePlayer === 2 && styles.activePlayerGlow]}>
-          <Text style={styles.avatarEmoji}>🤖</Text>
+          <Text style={styles.avatarEmoji}>👑</Text>
           <View style={styles.playerInfo}>
             <Text style={styles.playerName}>Oba (Top Row)</Text>
             <Text style={styles.scoreText}>

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Text, Alert, ActivityIndicator } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { WhotScreen } from '../../games/whot/WhotScreen';
@@ -192,6 +192,7 @@ export default function WhotGameScreen({ route, navigation }) {
       <View style={styles.gameArea}>
         <WhotScreen
           timer={timer}
+          aiDifficulty={route.params?.aiDifficulty}
           isRemote={isRemote && phase !== 'local'}
           remote={remote}
           onRemoteMove={handleRemoteMove}

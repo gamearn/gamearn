@@ -71,6 +71,7 @@ export default function AyoGameScreen({ route, navigation }) {
       ) : null}
       <AyoScreen
         timer={timer}
+        aiDifficulty={params.aiDifficulty}
         onWin={handleWin}
         onBack={handleBack}
         onHumanMove={handleHumanMove}

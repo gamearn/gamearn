@@ -27,6 +27,7 @@ export default function GameSetupScreen({ route, navigation }) {
   const [playerColor, setPlayerColor] = useState('white'); // For Checkers/Draft: 'white' or 'black'
   const [cardCount, setCardCount] = useState(6); // For WHOT: 3 to 8
   const [enableSpecialCards, setEnableSpecialCards] = useState(true); // For WHOT special cards
+  const [aiDifficulty, setAiDifficulty] = useState('auto'); // 'auto', 'easy', 'medium', 'hard'
 
   const handleStartGame = () => {
     navigation.navigate(targetScreen, {
@@ -35,6 +36,7 @@ export default function GameSetupScreen({ route, navigation }) {
       playerColor,
       cardCount,
       enableSpecialCards,
+      aiDifficulty,
       gameName,
       targetScreen,
       entryFee,
@@ -113,6 +115,46 @@ export default function GameSetupScreen({ route, navigation }) {
                 );
               })}
             </View>
+          </View>
+        {/* AI Difficulty Setting */}
+        <View style={styles.settingBlock}>
+          <View style={styles.settingHeaderRow}>
+            <Text style={styles.settingLabel}>Bot Difficulty (Oba 👑)</Text>
+            <Text style={styles.selectedTimerValue}>
+              {aiDifficulty === 'auto'
+                ? '⚡ Auto (Adaptive to GP)'
+                : aiDifficulty === 'easy'
+                ? '🟢 Easy'
+                : aiDifficulty === 'medium'
+                ? '🟡 Medium'
+                : '🔴 Hard (Expert)'}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            {[
+              { id: 'auto', label: '⚡ Adaptive (GP)' },
+              { id: 'easy', label: '🟢 Easy' },
+              { id: 'medium', label: '🟡 Medium' },
+              { id: 'hard', label: '🔴 Hard' },
+            ].map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => setAiDifficulty(item.id)}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  backgroundColor: aiDifficulty === item.id ? '#00E5FF' : 'rgba(255,255,255,0.06)',
+                  borderWidth: 1.5,
+                  borderColor: aiDifficulty === item.id ? '#00E5FF' : 'rgba(255,255,255,0.15)',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: aiDifficulty === item.id ? '#070C1B' : '#FFF', fontWeight: '900', fontSize: 13 }}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 

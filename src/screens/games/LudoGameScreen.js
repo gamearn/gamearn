@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text, Alert } from 'react-native';
 import { LudoScreen } from '../../games/ludo/LudoScreen';
 import { useAuth } from '../../context/AuthContext';
@@ -57,6 +57,7 @@ export default function LudoGameScreen({ route, navigation }) {
       <LudoScreen
         stake={stake}
         timer={timer}
+        aiDifficulty={params.aiDifficulty}
         onWin={handleWin}
         onBack={handleBack}
       />

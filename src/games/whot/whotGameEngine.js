@@ -64,9 +64,9 @@ export function createInitialState(timer = '2m') {
 
   const players = [
     { id: 0, name: 'You', hand: [], isAi: false, avatarIndex: 3 },
-    { id: 1, name: 'QueenBee', hand: [], isAi: true, avatarIndex: 0 },
-    { id: 2, name: 'Oba', hand: [], isAi: true, avatarIndex: 2 },
-    { id: 3, name: 'KingTee', hand: [], isAi: true, avatarIndex: 1 },
+    { id: 1, name: 'QueenBee 👑', hand: [], isAi: true, avatarIndex: 0 },
+    { id: 2, name: 'Oba 👑', hand: [], isAi: true, avatarIndex: 2 },
+    { id: 3, name: 'KingTee 👑', hand: [], isAi: true, avatarIndex: 1 },
   ];
 
   // Deal 6 cards to each player
@@ -103,8 +103,8 @@ export function createInitialState(timer = '2m') {
     soundEnabled: true,
     pendingWhotSelection: false,
     messages: [
-      { id: '1', sender: 'QueenBee', text: 'Good luck everyone! Let’s play WHOT!', isUser: false },
-      { id: '2', sender: 'KingTee', text: 'Watch out for my Pick 2s! 😄', isUser: false },
+      { id: '1', sender: 'QueenBee 👑', text: 'Good luck everyone! Let’s play WHOT!', isUser: false },
+      { id: '2', sender: 'KingTee 👑', text: 'Watch out for my Pick 2s! 😄', isUser: false },
     ],
   };
 }
@@ -305,7 +305,7 @@ export function drawCard(state, playerIndex) {
   };
 }
 
-export function getAiMove(state, aiPlayerIndex) {
+export function getAiMove(state, aiPlayerIndex, difficulty = 'medium') {
   const aiPlayer = state.players[aiPlayerIndex];
   const topCard = state.discardPile[state.discardPile.length - 1];
 
@@ -317,6 +317,44 @@ export function getAiMove(state, aiPlayerIndex) {
     return { action: 'draw' };
   }
 
+  if (difficulty === 'easy' && Math.random() < 0.45) {
+    // Pick any random legal card
+    const randomCard = validCards[Math.floor(Math.random() * validCards.length)];
+    if (randomCard.value === 20) {
+      return { action: 'play', cardId: randomCard.id, shape: 'circle' };
+    }
+    return { action: 'play', cardId: randomCard.id };
+  }
+
+  if (difficulty === 'hard') {
+    // Prioritize special attack cards (2, 5, 14, 8, 1) or WHOT 20 strategically
+    const attackCard = validCards.find((c) => [2, 5, 14, 8, 1].includes(c.value));
+    const whotCard = validCards.find((c) => c.value === 20);
+
+    if (attackCard) {
+      return { action: 'play', cardId: attackCard.id };
+    }
+
+    if (whotCard) {
+      const shapeCounts = { cross: 0, square: 0, circle: 0, triangle: 0 };
+      aiPlayer.hand.forEach((c) => {
+        if (c.shape !== 'whot') shapeCounts[c.shape] = (shapeCounts[c.shape] || 0) + 1;
+      });
+
+      let bestShape = 'circle';
+      let maxCount = -1;
+      Object.keys(shapeCounts).forEach((s) => {
+        if (shapeCounts[s] > maxCount) {
+          maxCount = shapeCounts[s];
+          bestShape = s;
+        }
+      });
+
+      return { action: 'play', cardId: whotCard.id, shape: bestShape };
+    }
+  }
+
+  // Medium (Default)
   const whotCard = validCards.find((c) => c.value === 20);
   const actionCard = validCards.find((c) => [2, 5, 8, 1, 14].includes(c.value));
   const chosenCard = actionCard || validCards[0];

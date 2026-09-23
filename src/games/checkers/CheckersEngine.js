@@ -263,12 +263,29 @@ function minimax(board, depth, alpha, beta, isMaximizing) {
   }
 }
 
-/** Get best move for Computer AI */
-export function getBestAIMove(board, side = 'black') {
-  const depth = 4;
-  const isMaximizing = side === 'black';
-  const result = minimax(board, depth, -Infinity, Infinity, isMaximizing);
-  return result.move;
+/** Get best move for Computer AI based on difficulty */
+export function getBestAIMove(board, side = 'black', difficulty = 'medium') {
+  const legalMoves = getAllLegalMoves(board, side);
+  if (legalMoves.length === 0) return null;
+
+  if (difficulty === 'easy') {
+    // 45% chance to play casual random move for beginners
+    if (Math.random() < 0.45) {
+      return legalMoves[Math.floor(Math.random() * legalMoves.length)];
+    }
+    const result = minimax(board, 2, -Infinity, Infinity, side === 'black');
+    return result.move || legalMoves[0];
+  }
+
+  if (difficulty === 'hard') {
+    // Expert depth 5 minimax
+    const result = minimax(board, 5, -Infinity, Infinity, side === 'black');
+    return result.move || legalMoves[0];
+  }
+
+  // Medium depth 3 minimax
+  const result = minimax(board, 3, -Infinity, Infinity, side === 'black');
+  return result.move || legalMoves[0];
 }
 
 /** Get hint move for player */

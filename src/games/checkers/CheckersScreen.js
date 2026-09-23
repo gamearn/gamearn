@@ -11,6 +11,7 @@ import {
 } from './CheckersEngine';
 import { useAuth } from '../../context/AuthContext';
 import { recordGameStreak } from '../../utils/recordGameStreak';
+import { getAiDifficulty } from '../../utils/aiDifficulty';
 
 function parseTimerSec(timerStr) {
   if (!timerStr) return 120;
@@ -31,10 +32,12 @@ export function CheckersScreen({
   stake = 250,
   onWin,
   playerColor = 'white',
+  aiDifficulty = 'auto',
 }) {
   const { updateProfileData, userProfile } = useAuth();
   const playerSide = playerColor === 'black' ? 'black' : 'white';
   const aiSide = playerSide === 'white' ? 'black' : 'white';
+  const activeDifficulty = getAiDifficulty(userProfile, aiDifficulty);
 
   const turnDuration = parseTimerSec(timer);
   const [size, setSize] = useState(0);
@@ -87,7 +90,7 @@ export function CheckersScreen({
     if (vsAI && turn === aiSide && !gameOver.isOver && dialog === null) {
       setIsAiThinking(true);
       const timer = setTimeout(() => {
-        const aiMove = getBestAIMove(boardState, aiSide);
+        const aiMove = getBestAIMove(boardState, aiSide, activeDifficulty);
         if (aiMove) {
           setHistory((prev) => [...prev, { board: [...boardState], turn: aiSide }]);
           const newBoard = applyMove(boardState, aiMove);
@@ -115,7 +118,7 @@ export function CheckersScreen({
       }, 400);
       return () => clearTimeout(timer);
     }
-  }, [turn, vsAI, boardState, gameOver.isOver, dialog, aiSide, playerSide, handleRecordStreak, onWin, stake]);
+  }, [turn, vsAI, boardState, gameOver.isOver, dialog, aiSide, playerSide, activeDifficulty, handleRecordStreak, onWin, stake]);
 
   function restartGame() {
     setBoardState(initialBoardState());
@@ -365,10 +368,10 @@ export function CheckersScreen({
               </>
             ) : dialog === 'gameover' ? (
               <Text style={styles.body}>
-                {gameOver.winner === 'white'
-                  ? `🎉 Player 1 (White) Wins! You won ${Math.floor(stake * 1.9)} Coins!`
-                  : gameOver.winner === 'black'
-                  ? '🤖 Computer (Black) Wins!'
+                {gameOver.winner === playerSide
+                  ? `🎉 VICTORY! You won ${Math.floor(stake * 1.9)} Coins!`
+                  : gameOver.winner === aiSide
+                  ? '👑 Oba Won the Match!'
                   : '🤝 Game ended in a Draw!'}
               </Text>
             ) : dialog === 'surrender' ? (

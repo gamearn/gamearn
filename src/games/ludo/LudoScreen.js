@@ -7,6 +7,7 @@ import Board from './Board';
 import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 import { useAuth } from '../../context/AuthContext';
 import { recordGameStreak } from '../../utils/recordGameStreak';
+import { getAiDifficulty } from '../../utils/aiDifficulty';
 const { COLORS, NAMES, FINISH, SAFE, globalIndex, fresh, legal, reduce } = require('./engine');
 const PHOTO = require('./assets/reference.jpg');
 const BONUS_KEY = '@ludo-reference/bonus-v1';
@@ -185,15 +186,15 @@ function parseTimerMs(timerStr) {
   return 120000;
 }
 
-export function LudoScreen({ onBack, stake = 250, timer = '2m', onWin }) {
+export function LudoScreen({ onBack, stake = 250, timer = '2m', onWin, aiDifficulty = 'auto' }) {
   return (
     <SafeAreaProvider>
-      <Game onBack={onBack} stake={stake} timer={timer} onWin={onWin} />
+      <Game onBack={onBack} stake={stake} timer={timer} onWin={onWin} aiDifficulty={aiDifficulty} />
     </SafeAreaProvider>
   );
 }
 
-function Game({ onBack, stake, timer, onWin }) {
+function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const timerMs = React.useMemo(() => parseTimerMs(timer), [timer]);
@@ -322,8 +323,9 @@ function Game({ onBack, stake, timer, onWin }) {
       }
 
       if (state.phase === 'move') {
+        const activeDifficulty = getAiDifficulty(userProfile, aiDifficulty);
         const aiTimer = setTimeout(() => {
-          let best = null;
+          const allMoves = [];
           for (const d of state.available) {
             const legalTokens = legal(state, d);
             for (const t of legalTokens) {
@@ -337,10 +339,22 @@ function Game({ onBack, stake, timer, onWin }) {
                     player !== state.turn &&
                     team.some((v) => v >= 0 && v < 43 && globalIndex(player, v) === globalIndex(state.turn, target))
                 );
-              const score = target === FINISH ? 1000 : capture ? 500 : p < 0 ? 200 : target;
-              if (!best || score > best.score) {
-                best = { die: d, token: t, score };
+              const isSafeSquare = target < 43 && SAFE.has(globalIndex(state.turn, target));
+              let score = target === FINISH ? 1000 : capture ? 500 : p < 0 ? 200 : target;
+              if (activeDifficulty === 'hard') {
+                score = target === FINISH ? 1200 : capture ? 800 : isSafeSquare ? score + 150 : p < 0 ? 300 : target;
               }
+              allMoves.push({ die: d, token: t, score });
+            }
+          }
+
+          let best = null;
+          if (allMoves.length > 0) {
+            if (activeDifficulty === 'easy' && Math.random() < 0.45) {
+              best = allMoves[Math.floor(Math.random() * allMoves.length)];
+            } else {
+              allMoves.sort((a, b) => b.score - a.score);
+              best = allMoves[0];
             }
           }
 

@@ -21,6 +21,7 @@ import {
   AI_CHAT_RESPONSES,
   createInitialState,
   drawCard,
+  getAiMove,
   playCard,
   reduceStateOnTurnTimeout,
   isValidMove,
@@ -29,6 +30,7 @@ import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 import { engineCardToServer } from './serverAdapter';
 import { useAuth } from '../../context/AuthContext';
 import { recordGameStreak } from '../../utils/recordGameStreak';
+import { getAiDifficulty } from '../../utils/aiDifficulty';
 
 export function Portrait({ index, scale }) {
   const c = PORTRAITS[index];
@@ -62,7 +64,7 @@ export function Portrait({ index, scale }) {
   );
 }
 
-export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, isRemote = false, remote = null, onRemoteMove, onRemoteGameOver }) {
+export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, isRemote = false, remote = null, onRemoteMove, onRemoteGameOver, aiDifficulty = 'auto' }) {
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
   const [gameState, setGameState] = useState(() => createInitialState(timer));
   const [selected, setSelected] = useState(null);
@@ -128,11 +130,12 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
     if (gameState.gameStatus === 'game_over') return;
     if (gameState.activePlayerIndex === 0) return; // Human turn
 
+    const activeDifficulty = getAiDifficulty(userProfile, aiDifficulty);
     const aiIdx = gameState.activePlayerIndex;
     const timer = setTimeout(() => {
       setGameState((prev) => {
         if (prev.activePlayerIndex !== aiIdx || prev.gameStatus === 'game_over') return prev;
-        const move = getAiMove(prev, aiIdx);
+        const move = getAiMove(prev, aiIdx, activeDifficulty);
         if (move.action === 'play') {
           return playCard(prev, aiIdx, move.cardId, move.shape);
         } else {
@@ -142,7 +145,7 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
     }, 1300);
 
     return () => clearTimeout(timer);
-  }, [isRemote, gameState.activePlayerIndex, gameState.gameStatus, gameState.discardPile.length]);
+  }, [isRemote, gameState.activePlayerIndex, gameState.gameStatus, gameState.discardPile.length, aiDifficulty, userProfile]);
 
   // Open Game Over dialog when game finishes
   useEffect(() => {

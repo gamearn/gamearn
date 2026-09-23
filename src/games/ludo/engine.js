@@ -1,6 +1,6 @@
 // Reference-board variant: 13x13 grid, 44 outer squares, two dice.
 const COLORS = ['#e61c24', '#00b843', '#ffcc00', '#0085ff'];
-const NAMES = ['You', 'Oba 1', 'Oba 2', 'Oba 3'];
+const NAMES = ['You', 'Oba 1 👑', 'Oba 2 👑', 'Oba 3 👑'];
 const ORDER = [0, 1, 2, 3]; // clockwise: red (top-left), green (top-right), yellow (bottom-right), blue (bottom-left)
 const TRACK = [
   [5,0],[6,0],[7,0],[7,1],[7,2],[7,3],[7,4],

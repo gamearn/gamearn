@@ -231,7 +231,7 @@ export default function GameLobbyScreen({ route, navigation }) {
 
       {/* Button 1 (Above): Play vs Oba */}
       <GAButton
-        title="Play vs Oba 🤖"
+        title="Play vs Oba 👑"
         onPress={handlePlayVsOba}
         variant="secondary"
         icon={<Cpu size={20} color={theme.primary} />}
