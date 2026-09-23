@@ -3,6 +3,7 @@ import { AppState, Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressabl
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Board from './Board';
 import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 import { useAuth } from '../../context/AuthContext';

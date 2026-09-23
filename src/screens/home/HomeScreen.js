@@ -205,7 +205,7 @@ export default function HomeScreen({ navigation }) {
   const addFunds = () => {
     const parsed = parseAmount(amount);
     if (parsed === null) {
-      setFormError('Enter â‚¦100â€“â‚¦1,000,000, using no more than two decimal places.');
+      setFormError('Enter ₦100â€“₦1,000,000, using no more than two decimal places.');
       return;
     }
     setSheet(null);
@@ -294,7 +294,7 @@ export default function HomeScreen({ navigation }) {
         <View style={s.prizeRow}>
           <View>
             {txt('Prize Pool', 13, s.muted)}
-            {txt(tournament.prizePool ? `â‚¦${Number(tournament.prizePool).toLocaleString()}` : 'Prize pool unavailable', 25, [s.bold, s.cyan])}
+            {txt(tournament.prizePool ? `₦${Number(tournament.prizePool).toLocaleString()}` : 'Prize pool unavailable', 25, [s.bold, s.cyan])}
           </View>
           <GradientButton title={state.joined ? 'Joined âœ“' : 'Join Now'} onPress={() => navigation.navigate('LiveTournament')} style={{ width: 148 * scale }} compact scale={scale} />
         </View>
@@ -527,7 +527,7 @@ export default function HomeScreen({ navigation }) {
             </View>
             <View style={ui.notice}>
               <Text style={ui.label}>{'\uD83D\uDD25 Keep your streak going'}</Text>
-              <Text style={ui.body}>Youâ€™re on a {state.streak} day streak. Complete todayâ€™s daily challenge to try the streak interaction.</Text>
+              <Text style={ui.body}>You're on a {state.streak} day streak. Complete today's daily challenge to try the streak interaction.</Text>
             </View>
             <Text style={ui.caption}>No new notifications</Text>
           </>
@@ -551,7 +551,7 @@ export default function HomeScreen({ navigation }) {
                 />
               </View>
             ))}
-            <Text style={ui.body}>Preferences are saved on this device. Push delivery and game audio must be connected to your appâ€™s notification and audio services.</Text>
+            <Text style={ui.body}>Preferences are saved on this device. Push delivery and game audio must be connected to your app's notification and audio services.</Text>
           </>
         );
       case 'profile':
@@ -605,7 +605,7 @@ export default function HomeScreen({ navigation }) {
             <View style={ui.quickAmounts}>
               {['500', '1000', '5000'].map((value) => (
                 <Tap key={value} label={`Set amount to ${value} naira`} onPress={() => setAmount(value)} style={ui.chip}>
-                  <Text style={ui.label}>â‚¦{Number(value).toLocaleString('en-US')}</Text>
+                  <Text style={ui.label}>₦{Number(value).toLocaleString('en-US')}</Text>
                 </Tap>
               ))}
             </View>
@@ -618,7 +618,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={ui.heading}>Ayo á»Œpá»Ìn Grandmaster Tournament</Text>
             <Art name="tournament" width={280} height={146} style={{ alignSelf: 'center', borderRadius: 12 }} />
             <Text style={ui.body}>
-              Prize pool: â‚¦5,000.00{'\n'}
+              Prize pool: ₦5,000.00{'\n'}
               Players: 1,240 (players){'\n'}
               Entry fee: Free
             </Text>
@@ -643,7 +643,7 @@ export default function HomeScreen({ navigation }) {
                 <Art name={game.id} width={74} height={52} style={{ borderRadius: 8 }} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={ui.label}>{game.name}</Text>
-                  <Text style={ui.caption}>â— {game.players} Playing</Text>
+                  <Text style={ui.caption}>🟢 {game.players} Playing</Text>
                 </View>
                 <Ionicons name="chevron-forward" color={CYAN} size={22} />
               </Tap>
@@ -657,12 +657,12 @@ export default function HomeScreen({ navigation }) {
             <Art name={sheet.data.id} width={174} height={122} style={{ alignSelf: 'center', borderRadius: 16 }} />
             <Text style={ui.body}>{sheet.data.description}</Text>
             <Text style={ui.label}>Daily activity</Text>
-            <Text style={ui.body}>Roll a 4, 5, or 6 to complete todayâ€™s streak challenge, or launch the game lobby directly below.</Text>
+            <Text style={ui.body}>Roll a 4, 5, or 6 to complete today's streak challenge, or launch the game lobby directly below.</Text>
             {roll !== null && <Text accessibilityLiveRegion="polite" style={ui.dice}>{['âš€', 'âš', 'âš‚', 'âšƒ', 'âš„', 'âš…'][roll - 1]}  {roll}</Text>}
-            {demoComplete && <Text accessibilityLiveRegion="polite" style={ui.credit}>Challenge complete! Todayâ€™s streak activity is saved.</Text>}
+            {demoComplete && <Text accessibilityLiveRegion="polite" style={ui.credit}>Challenge complete! Today's streak activity is saved.</Text>}
             <GradientButton
               disabled={demoComplete}
-              title={demoComplete ? 'Completed todayâ€™s challenge' : roll ? 'Roll again' : 'Roll the dice'}
+              title={demoComplete ? "Completed today's challenge" : roll ? 'Roll again' : 'Roll the dice'}
               onPress={() => {
                 const result = 1 + Math.floor(Math.random() * 6);
                 setRoll(result);

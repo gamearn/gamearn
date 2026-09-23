@@ -301,7 +301,7 @@ function Dashboard() {
       case 'tournament': return <>
         <Text style={ui.heading}>Ayo Ọpọ́n Grandmaster Tournament</Text>
         <Art name="tournament" width={280} height={146} style={{ alignSelf: 'center', borderRadius: 12 }} />
-        <Text style={ui.body}>Prize pool: ₦5,000.00{ '\n' }Players: 1,240 (sample count){ '\n' }Entry: Free in this demo</Text>
+        <Text style={ui.body}>Prize pool: ₦5,000.00{\n}
         <Text style={ui.body}>{state.joined ? 'Your demo registration is saved. A production lobby needs a tournament service and an Ayo game engine.' : 'Register locally to preview the joined state. No entry fee will be deducted.'}</Text>
         <GradientButton title={state.joined ? 'Open Ayo lobby' : 'Confirm demo registration'} onPress={() => {
           if (state.joined) open('game', GAMES[1]); else dispatch({ type: 'JOIN' });
@@ -311,7 +311,7 @@ function Dashboard() {
         <Text style={ui.heading}>Choose a game</Text>
         {GAMES.map(game => <Tap key={game.id} label={`Open ${game.name}`} onPress={() => open('game', game)} style={ui.listItem}>
           <Art name={game.id} width={74} height={52} style={{ borderRadius: 8 }} />
-          <View style={{ flex: 1, marginLeft: 12 }}><Text style={ui.label}>{game.name}</Text><Text style={ui.caption}>● {game.players} Playing</Text></View><Ionicons name="chevron-forward" color={CYAN} size={22} />
+          <View style={{ flex: 1, marginLeft: 12 }}><Text style={ui.label}>{game.name}</Text><Text style={ui.caption}>🟢 {game.players} Playing</Text></View><Ionicons name="chevron-forward" color={CYAN} size={22} />
         </Tap>)}
       </>;
       case 'game': return <>

@@ -37,16 +37,26 @@ import { useTheme } from '../../context/ThemeContext';
 import { referral } from '../../services/api';
 
 export default function InviteFriendsScreen({ navigation }) {
-  const { userProfile } = useAuth();
+  const { userProfile, updateProfileData } = useAuth();
   const { theme, isDark } = useTheme();
 
   const userName = userProfile?.username || userProfile?.fullName || userProfile?.name || 'Gamer';
   const referralCode = useMemo(() => {
     if (userProfile?.referralCode) return userProfile.referralCode;
-    const cleanName = userName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || 'GAMER';
-    const randNum = Math.floor(100 + Math.random() * 900);
-    return `${cleanName}${randNum}`;
-  }, [userProfile?.referralCode, userName]);
+    const uid = String(userProfile?.uid || userProfile?.id || '').trim();
+    if (uid && uid.length >= 6) {
+      return uid.substring(0, 8).toUpperCase();
+    }
+    const cleanName = (userName || 'GAMER').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6) || 'GAMER';
+    return `${cleanName}88`;
+  }, [userProfile?.referralCode, userProfile?.uid, userProfile?.id, userName]);
+
+  useEffect(() => {
+    if (referralCode && !userProfile?.referralCode && updateProfileData) {
+      updateProfileData({ referralCode });
+    }
+  }, [referralCode, userProfile?.referralCode, updateProfileData]);
+
   const referralLink = `https://gamearn.app/invite/${referralCode}`;
 
   const [copied, setCopied] = useState(false);

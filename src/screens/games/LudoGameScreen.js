@@ -50,7 +50,21 @@ export default function LudoGameScreen({ route, navigation }) {
     return () => clearTimeout(t);
   }, [localWinBanner]);
 
-  const handleWin = () => setLocalWinBanner('You win!');
+  const handleWin = (won = true) => {
+    setLocalWinBanner(won ? 'You win!' : 'Match over!');
+    setTimeout(() => {
+      navigation.navigate('GameResult', {
+        isWinner: won,
+        myScore: won ? 56 : 32,
+        opponentScore: won ? 30 : 56,
+        opponentName: m.opponent?.displayName || 'Gamearn Bot 🤖',
+        gameId: 'ludo',
+        gameName: 'Ludo Classic',
+        targetScreen: 'LudoGame',
+        stake: stake,
+      });
+    }, 800);
+  };
 
   return (
     <View style={styles.container}>

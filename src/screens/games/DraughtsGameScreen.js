@@ -10,6 +10,7 @@ import {
 } from '../../games/checkers/CheckersEngine';
 import { useOnlineMatch } from '../../games/useOnlineMatch';
 import { useAuth } from '../../context/AuthContext';
+import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 
 export default function DraughtsGameScreen({ route, navigation }) {
   const { mode = 'local', roomId, aiDifficulty = 'auto' } = route.params || {};
@@ -18,6 +19,15 @@ export default function DraughtsGameScreen({ route, navigation }) {
 
   const isMultiplayer = mode === 'multiplayer' && !!roomId;
   const isPractice = mode === 'practice';
+
+  useEffect(() => {
+    setActiveMatch({
+      gameId: 'draft',
+      gameName: 'Dráfù Game',
+      targetScreen: 'DraughtsGame',
+      params: route.params,
+    });
+  }, []);
 
   const m = useOnlineMatch({
     roomId: isMultiplayer ? roomId : undefined,
@@ -76,8 +86,20 @@ export default function DraughtsGameScreen({ route, navigation }) {
     selectedRef.current = piece && piece.side === turnRef.current ? index : null;
   };
 
-  const handleLocalWin = () => {
-    if (!isMultiplayer) setLocalResult('You win!');
+  const handleLocalWin = (won = true) => {
+    setLocalResult(won ? 'You win!' : 'Match over!');
+    setTimeout(() => {
+      navigation.navigate('GameResult', {
+        isWinner: won,
+        myScore: won ? 12 : 6,
+        opponentScore: won ? 4 : 12,
+        opponentName: m.opponent?.displayName || 'Dráfù Master 🤖',
+        gameId: 'draft',
+        gameName: 'Dráfù Game',
+        targetScreen: 'DraughtsGame',
+        stake: stake,
+      });
+    }, 800);
   };
 
   const handleBack = () => {

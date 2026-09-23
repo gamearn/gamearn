@@ -11,9 +11,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Trophy, Play } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { getAiDifficulty } from '../../utils/aiDifficulty';
 
 export default function GameSetupScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
+  const { userProfile } = useAuth();
   const gameName = route.params?.gameName || 'Dráfù Game';
   const targetScreen = route.params?.targetScreen || 'DraughtsGame';
   const leaderboardRank = route.params?.rank || '2,625';
@@ -28,6 +31,15 @@ export default function GameSetupScreen({ route, navigation }) {
   const [cardCount, setCardCount] = useState(6); // For WHOT: 3 to 8
   const [enableSpecialCards, setEnableSpecialCards] = useState(true); // For WHOT special cards
   const [aiDifficulty, setAiDifficulty] = useState('auto'); // 'auto', 'easy', 'medium', 'hard'
+
+  const currentGp = Number(userProfile?.gamePower ?? userProfile?.gp ?? 0);
+  const calculatedDifficulty = getAiDifficulty(userProfile, 'auto');
+  const difficultyBadgeLabel =
+    calculatedDifficulty === 'easy'
+      ? '🟢 Easy'
+      : calculatedDifficulty === 'medium'
+      ? '🟡 Medium'
+      : '🔴 Hard';
 
   const handleStartGame = () => {
     navigation.navigate(targetScreen, {
@@ -116,13 +128,15 @@ export default function GameSetupScreen({ route, navigation }) {
               })}
             </View>
           </View>
+        </View>
+
         {/* AI Difficulty Setting */}
         <View style={styles.settingBlock}>
           <View style={styles.settingHeaderRow}>
             <Text style={styles.settingLabel}>Bot Difficulty (Oba 👑)</Text>
             <Text style={styles.selectedTimerValue}>
               {aiDifficulty === 'auto'
-                ? '⚡ Auto (Adaptive to GP)'
+                ? `⚡ Adaptive (${difficultyBadgeLabel})`
                 : aiDifficulty === 'easy'
                 ? '🟢 Easy'
                 : aiDifficulty === 'medium'
@@ -130,9 +144,44 @@ export default function GameSetupScreen({ route, navigation }) {
                 : '🔴 Hard (Expert)'}
             </Text>
           </View>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+
+          {/* GP Difficulty Indicator */}
+          <View
+            style={{
+              padding: 10,
+              borderRadius: 12,
+              backgroundColor: 'rgba(0, 229, 255, 0.08)',
+              borderWidth: 1,
+              borderColor: 'rgba(0, 229, 255, 0.25)',
+              marginTop: 6,
+              marginBottom: 10,
+            }}
+          >
+            <Text style={{ fontSize: 12, color: '#FFF', fontWeight: '700' }}>
+              ⚡ Your Power: <Text style={{ color: '#F59E0B', fontWeight: '900' }}>{currentGp} GP</Text>
+            </Text>
+            <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
+              Oba 👑 automatically matches your skill:{' '}
+              <Text
+                style={{
+                  color:
+                    calculatedDifficulty === 'easy'
+                      ? '#10B981'
+                      : calculatedDifficulty === 'medium'
+                      ? '#F59E0B'
+                      : '#EF4444',
+                  fontWeight: '900',
+                }}
+              >
+                {difficultyBadgeLabel}
+              </Text>{' '}
+              (&lt;1k GP = Easy, 1k-3k GP = Medium, &gt;3k GP = Hard).
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
             {[
-              { id: 'auto', label: '⚡ Adaptive (GP)' },
+              { id: 'auto', label: `⚡ Adaptive (${difficultyBadgeLabel})` },
               { id: 'easy', label: '🟢 Easy' },
               { id: 'medium', label: '🟡 Medium' },
               { id: 'hard', label: '🔴 Hard' },

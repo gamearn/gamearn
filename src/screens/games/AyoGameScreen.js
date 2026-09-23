@@ -35,10 +35,20 @@ export default function AyoGameScreen({ route, navigation }) {
     }
   };
 
-  const handleWin = () => {
-    if (!isMultiplayer) {
-      setWinBanner(true);
-    }
+  const handleWin = (won = true) => {
+    setWinBanner(true);
+    setTimeout(() => {
+      navigation.navigate('GameResult', {
+        isWinner: won,
+        myScore: won ? 28 : 20,
+        opponentScore: won ? 20 : 28,
+        opponentName: m.opponent?.displayName || 'Ayò Master 🤖',
+        gameId: 'ayo',
+        gameName: 'Ayò Ọ̀pọ́n',
+        targetScreen: 'AyoGame',
+        stake: params.stake || 250,
+      });
+    }, 800);
   };
 
   const handleBack = () => {

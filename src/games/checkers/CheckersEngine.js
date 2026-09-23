@@ -160,10 +160,32 @@ export function getAllLegalMoves(board, side) {
   return simpleMoves;
 }
 
-/** Get legal moves starting from a specific square */
+/** Get legal moves starting from a specific square (allows player full freedom of choice) */
 export function getLegalMovesForSquare(board, side, squareIndex) {
-  const allMoves = getAllLegalMoves(board, side);
-  return allMoves.filter((m) => m.from === squareIndex);
+  const piece = board[squareIndex];
+  if (!piece || piece.side !== side) return [];
+
+  const moves = [];
+  const captures = getCaptureMovesForPiece(board, squareIndex, squareIndex, piece);
+  moves.push(...captures);
+
+  const { r, c } = getCoord(squareIndex);
+  const dirs = getDirections(piece);
+  for (const { dr, dc } of dirs) {
+    const destR = r + dr;
+    const destC = c + dc;
+    const destIdx = getIndex(destR, destC);
+    if (destIdx !== null && board[destIdx] === null) {
+      moves.push({
+        from: squareIndex,
+        to: destIdx,
+        captures: [],
+        path: [squareIndex, destIdx],
+      });
+    }
+  }
+
+  return moves;
 }
 
 /** Execute a move on the board and return new board state */

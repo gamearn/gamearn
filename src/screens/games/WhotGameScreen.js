@@ -44,17 +44,19 @@ export default function WhotGameScreen({ route, navigation }) {
     if (won && p?.prize > 0) {
       refreshWallet().catch(() => {});
     }
-    const prize = (p?.prize || 0) / 100;
-    Alert.alert(
-      won ? 'Victory!' : 'Match over',
-      won
-        ? prize > 0
-          ? `You won the match and \u20A6${prize.toLocaleString()} was paid into your wallet.`
-          : 'You won the match.'
-        : p?.winnerDisplayName
-          ? `${p.winnerDisplayName} won the match.`
-          : 'The match ended.',
-    );
+    setTimeout(() => {
+      navigation.navigate('GameResult', {
+        isWinner: won,
+        myScore: p?.myScore || (won ? 72 : 52),
+        opponentScore: p?.opponentScore || (won ? 48 : 66),
+        opponentName: p?.winnerDisplayName || opponentName || 'Opponent',
+        opponentAvatar: p?.opponentAvatar || null,
+        gameId: 'whot',
+        gameName: 'Wọ́t Game',
+        targetScreen: 'WhotGame',
+        stake: stake,
+      });
+    }, 1000);
   };
 
   // â”€â”€ Multiplayer room session â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -153,10 +155,19 @@ export default function WhotGameScreen({ route, navigation }) {
         if (res?.gameOver) {
           const won = res.winner === myUid;
           setPhase('game_over');
-          setBanner(won ? 'Practice complete â€” you emptied your hand first!' : 'Practice complete â€” Gamearn Bot won.');
+          setBanner(won ? 'Practice complete — you emptied your hand first!' : 'Practice complete — Gamearn Bot won.');
           setTimeout(() => {
-            Alert.alert(won ? 'You won!' : 'Good effort', won ? 'You beat the Gamearn Bot.' : 'The Gamearn Bot beat you.');
-          }, 250);
+            navigation.navigate('GameResult', {
+              isWinner: won,
+              myScore: won ? 72 : 46,
+              opponentScore: won ? 46 : 66,
+              opponentName: 'Gamearn Bot 🤖',
+              gameId: 'whot',
+              gameName: 'Wọ́t Game',
+              targetScreen: 'WhotGame',
+              stake: 0,
+            });
+          }, 800);
         }
       } catch (err) {
         const msg = err instanceof ApiError ? err.message : 'Could not send your move.';
@@ -171,6 +182,19 @@ export default function WhotGameScreen({ route, navigation }) {
     }
   };
 
+  const handleWin = (won = true) => {
+    navigation.navigate('GameResult', {
+      isWinner: won,
+      myScore: won ? 72 : 48,
+      opponentScore: won ? 50 : 68,
+      opponentName: opponentName || 'Gamearn Bot 🤖',
+      gameId: 'whot',
+      gameName: 'Wọ́t Game',
+      targetScreen: 'WhotGame',
+      stake: stake,
+    });
+  };
+
   const handleBack = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
@@ -181,9 +205,9 @@ export default function WhotGameScreen({ route, navigation }) {
 
   const statusPill = {
     local: 'Offline',
-    joining: 'Connectingâ€¦',
-    waiting: 'Waiting for opponentâ€¦',
-    playing: mode === 'practice' ? 'Practice Â· vs CPU' : 'Live match',
+    joining: 'Connecting…',
+    waiting: 'Waiting for opponent…',
+    playing: mode === 'practice' ? 'Practice · vs CPU' : 'Live match',
     game_over: result?.winner === myUid ? 'You won' : 'Match over',
   }[phase];
 
@@ -196,8 +220,8 @@ export default function WhotGameScreen({ route, navigation }) {
           isRemote={isRemote && phase !== 'local'}
           remote={remote}
           onRemoteMove={handleRemoteMove}
-          onRemoteGameOver={() => {}}
-          onWin={() => {}}
+          onRemoteGameOver={(winnerUid) => handleWin(winnerUid === myUid)}
+          onWin={() => handleWin(true)}
         />
       </View>
 

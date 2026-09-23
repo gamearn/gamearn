@@ -4,11 +4,15 @@
 // Flutter client used (docs/DEVELOPER_HANDOFF.md). Firebase options mirror
 // the gamearn-app Firebase project config kept in the Flutter repo.
 
+// Backend API Base URL — Change to your live server or http://localhost:3000 for local testing
+// TODO: REPLACE_WITH_YOUR_BACKEND_URL (e.g., 'http://localhost:3000' or 'https://api.yourdomain.com')
 export const NODE_API_BASE =
   process.env.EXPO_PUBLIC_NODE_API_BASE || 'https://api.gamearn.app';
 
 export const API_PREFIX = '/api/v1';
 
+// Firebase Web SDK Configuration — From Firebase Console -> Project Settings -> General -> Your Apps
+// TODO: REPLACE_WITH_YOUR_FIREBASE_WEB_CONFIG
 export const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyBV8HNGct-D1DdV0Eo4U1RzOhTJ4gw9d94',
   authDomain: 'gamearn-app.firebaseapp.com',
@@ -18,9 +22,8 @@ export const FIREBASE_CONFIG = {
   appId: '1:600025492198:web:0000000000000000000000',
 };
 
-// Google OAuth clients from google-services.json + GoogleService-Info.plist
-// (gamearn-app project). The web client is used by Expo auth-session; the
-// native ids are kept for future dev builds.
+// Google OAuth Clients — From Google Cloud Console / Firebase Console Authentication
+// TODO: REPLACE_WITH_YOUR_GOOGLE_CLIENT_IDS
 export const GOOGLE_CLIENT_IDS = {
   webClientId:
     '600025492198-dcnafmn9aoojtn1v983ntie0vt2musgn.apps.googleusercontent.com',
@@ -30,12 +33,12 @@ export const GOOGLE_CLIENT_IDS = {
     '600025492198-2g641acpvmhl1bm0m3f535kcodvhmt8k.apps.googleusercontent.com',
 };
 
-// Facebook OAuth — App ID (used as the client id by expo-auth-session).
-// NOTE: the App Secret must NOT ship in the client; it goes only into the
-// Firebase console (Authentication → Facebook) for server-side verification.
+// Facebook OAuth — App ID from Meta Developer Portal (https://developers.facebook.com)
+// TODO: REPLACE_WITH_YOUR_FACEBOOK_APP_ID
 export const FACEBOOK_APP_ID = '1762055368454928';
 
-// Apple Sign-In — Team ID for the paid Apple Developer account.
+// Apple Sign-In — Team ID from Apple Developer Portal (https://developer.apple.com)
+// TODO: REPLACE_WITH_YOUR_APPLE_TEAM_ID
 export const APPLE_TEAM_ID = '8D2897QPB3';
 
 // Entry fee tiers in kobo, matching matchmaking.js ENTRY_FEES.

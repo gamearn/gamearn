@@ -36,6 +36,7 @@ import EmailVerificationScreen from '../screens/auth/EmailVerificationScreen';
 import ProfileCreationScreen from '../screens/auth/ProfileCreationScreen';
 import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import SellCoinsScreen from '../screens/wallet/SellCoinsScreen';
+import GameResultScreen from '../screens/games/GameResultScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -84,6 +85,7 @@ export default function RootNavigator() {
       <Stack.Screen name="LiveTournament" component={LiveTournamentScreen} />
       <Stack.Screen name="TournamentResults" component={TournamentResultsScreen} />
       <Stack.Screen name="TournamentPending" component={TournamentPendingScreen} />
+      <Stack.Screen name="GameResult" component={GameResultScreen} />
     </Stack.Navigator>
   );
 }
