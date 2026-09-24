@@ -14,7 +14,7 @@ Production API: `https://api.gamearn.app`
 - Xcode and CocoaPods for iOS work
 - Firebase CLI for hosting/functions changes
 - Access to the `gamearn-app` Firebase project
-- A local checkout of the Node backend when changing API or game contracts
+- A local checkout of the Node backend when changing API or game contracts.
 
 ## Local setup
 
