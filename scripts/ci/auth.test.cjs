@@ -48,6 +48,7 @@ function harness(options = {}) {
       signInAsync:async args=>{calls.push(['appleRequest',args]);return{identityToken:'apple-token',state:options.badState?'bad':args.state,fullName:{givenName:'Ada'}};},
     },
     '../config/appConfig':{GOOGLE_CLIENT_IDS:{iosClientId:'ios.apps.googleusercontent.com'},FACEBOOK_APP_ID:'fb-id'},
+    '../utils/gamePower':{calculateGamePower:()=>0,formatGP:(x)=>String(x),calculateValuePoints:()=>0,formatVP:(x)=>String(x)},
     '../services/firebase':firebase,
     '../services/apiClient':{ApiError},
     '../services/api':{auth:{login:async()=>{calls.push(['backend']);if(options.backendStatus)throw new ApiError(options.backendStatus);},me:async()=>({wallet:{balance:10}})},wallet:{}},
