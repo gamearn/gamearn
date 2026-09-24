@@ -122,7 +122,7 @@ export default function GameResultScreen({ route, navigation }) {
 
   const handleJoinTournament = (tourId) => {
     if (tourId) {
-      navigation.navigate('TournamentDetails', { tournamentId: tourId });
+      navigation.navigate('TournamentDetails', { tourId });
     } else {
       navigation.navigate('MainTabs', { screen: 'TourTab' });
     }

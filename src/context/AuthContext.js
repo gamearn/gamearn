@@ -55,7 +55,7 @@ function profileFromMe(me) {
     bio: me?.bio || '',
     phone: me?.phoneNumber || me?.phone || '',
     walletBalance: me?.wallet?.balance ?? me?.walletBalance ?? 0,
-    coins: me?.wallet?.balance ?? me?.coins ?? 0,
+    coins: me?.coins ?? me?.wallet?.balance ?? 0,
     isPremium: !!(me?.premium?.isPremium || me?.isPremium),
     gamesPlayed,
     wins,
@@ -336,7 +336,6 @@ export const AuthProvider = ({ children }) => {
     setUserProfile((prev) => ({
       ...(prev || {}),
       walletBalance: w.balance,
-      coins: w.balance,
     }));
     return w;
   }, []);
