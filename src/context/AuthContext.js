@@ -294,6 +294,11 @@ export const AuthProvider = ({ children }) => {
           ...(displayName ? { displayName } : {}),
           ...(updates.avatar ? { avatarUrl: updates.avatar } : {}),
           ...(updates.bio !== undefined ? { bio: updates.bio } : {}),
+          ...(updates.streak !== undefined ? { streak: updates.streak } : {}),
+          ...(updates.gamesPlayed !== undefined ? { gamesPlayed: updates.gamesPlayed } : {}),
+          ...(updates.lastStreakDate !== undefined ? { lastStreakDate: updates.lastStreakDate } : {}),
+          ...(updates.lastCheckInDate !== undefined ? { lastCheckInDate: updates.lastCheckInDate } : {}),
+          ...(updates.lastPlayedDate !== undefined ? { lastPlayedDate: updates.lastPlayedDate } : {}),
         });
       }
     } catch (err) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -27,70 +27,143 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { auth as authApi } from '../../services/api';
+import { ApiError } from '../../services/apiClient';
 import GAButton from '../../components/GAButton';
 
 export default function AccountSecurityScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { userProfile, updateProfileData } = useAuth();
 
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [mfaStatus, setMfaStatus] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState('email'); // 'email' | 'phone'
-  const [email, setEmail] = useState(userProfile?.email || 'player@gamearn.com');
-  const [phone, setPhone] = useState(userProfile?.phone || '+234 801 234 5678');
+  const [email, setEmail] = useState(userProfile?.email || '');
+  const [phone, setPhone] = useState(userProfile?.phone || '');
   const [isVerifying, setIsVerifying] = useState(false);
-  const [otpCode, setOtpCode] = useState(['', '', '', '']);
-  const [verifiedMethod, setVerifiedMethod] = useState('email');
+  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
+  const [verifiedMethod, setVerifiedMethod] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
 
-  const handleToggle2FA = async (val) => {
-    setTwoFactorEnabled(val);
-    if (!val) {
-      setIsVerifying(false);
+  const friendlyError = (err) =>
+    err instanceof ApiError ? err.message : err?.message || 'Something went wrong. Please try again.';
+
+  const loadMfaStatus = async () => {
+    try {
+      const data = await authApi.mfaStatus();
+      const mfa = data?.mfa || null;
+      setMfaStatus(mfa);
+      const configured = !!(mfa && mfa.configured);
+      setTwoFactorEnabled(configured);
+      if (mfa) {
+        if (mfa.mfaEmail && !email) setEmail(mfa.mfaEmail);
+        if (mfa.mfaPhone && !phone) setPhone(mfa.mfaPhone);
+        if (mfa.mfaEmailVerified) setVerifiedMethod('email');
+        if (mfa.mfaPhoneVerified) setVerifiedMethod('phone');
+      }
+    } catch (err) {
+      // Backend unreachable — keep the toggle off and surface nothing blocking.
+      console.warn('Could not load MFA status:', err?.message || err);
     }
-    Alert.alert(
-      val ? '2FA Protection Enabled 🔒' : '2FA Protection Disabled ⚠️',
-      val
-        ? 'Please select Email or Phone number to verify your 2FA authentication method.'
-        : 'Two-factor authentication has been turned off for this account.'
-    );
   };
 
-  const handleSendOtp = (method) => {
+  useEffect(() => {
+    loadMfaStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleToggle2FA = async (val) => {
+    if (val) {
+      setTwoFactorEnabled(true);
+      return;
+    }
+    // Turning 2FA off requires a genuine backend call.
+    setLoading(true);
+    try {
+      await authApi.mfaDisable();
+      setTwoFactorEnabled(false);
+      setIsVerifying(false);
+      setVerifiedMethod(null);
+      setMfaStatus(null);
+      if (updateProfileData) {
+        try {
+          await updateProfileData({ twoFactorEnabled: false });
+        } catch (_) {
+          // non-blocking
+        }
+      }
+      Alert.alert('2FA Protection Disabled', 'Two-factor authentication has been turned off for this account.');
+    } catch (err) {
+      Alert.alert('Could not disable 2FA', friendlyError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendOtp = async (method) => {
     setSelectedMethod(method);
-    const destination = method === 'email' ? email : phone;
-    Alert.alert('Verification Code Sent 📲', `A 4-digit 2FA code was sent to ${destination}`);
-    setIsVerifying(true);
-    setOtpCode(['', '', '', '']);
+    setSendingOtp(true);
+    const destination = method === 'email' ? email.trim() : phone.trim();
+    if (!destination) {
+      setSendingOtp(false);
+      Alert.alert('Missing detail', 'Enter a valid email or phone number first.');
+      return;
+    }
+    try {
+      const data = await authApi.mfaEnroll(method, destination);
+      if (method === 'email') {
+        setOtpCode(['', '', '', '', '', '']);
+        setIsVerifying(true);
+        Alert.alert('Verification Code Sent', `A 6-digit code was sent to ${destination}.`);
+      } else {
+        // Phone factor is delivered by Firebase on the client. The backend has
+        // now recorded the enrollment; SMS requires the native SMS module.
+        setIsVerifying(false);
+        Alert.alert(
+          'SMS verification needs a development build',
+          'Your phone enrollment is recorded on the server, but sending the SMS code requires the native ' +
+            'Firebase SMS module.\n\nRebuild the app with `npx expo run:ios`, then return here to verify your ' +
+            'phone. You can enable Email 2FA right now instead.',
+        );
+      }
+    } catch (err) {
+      Alert.alert('Could not send code', friendlyError(err));
+    } finally {
+      setSendingOtp(false);
+    }
   };
 
   const handleVerifyOtp = async () => {
     const codeStr = otpCode.join('');
-    if (codeStr.length < 4) {
-      Alert.alert('Verification Error', 'Please enter the complete 4-digit verification code.');
+    if (codeStr.length < 6) {
+      Alert.alert('Verification Error', 'Please enter the complete 6-digit verification code.');
+      return;
+    }
+    if (selectedMethod !== 'email') {
+      Alert.alert('Unavailable', 'SMS verification requires the development build. Use the Email method.');
       return;
     }
     setLoading(true);
-    setTimeout(async () => {
-      setLoading(false);
+    try {
+      await authApi.mfaVerify({ factor: 'email', email: email.trim(), code: codeStr });
+      setVerifiedMethod('email');
       setIsVerifying(false);
-      setVerifiedMethod(selectedMethod);
+      setTwoFactorEnabled(true);
       if (updateProfileData) {
         try {
-          await updateProfileData({
-            twoFactorEnabled: true,
-            twoFactorMethod: selectedMethod,
-            email,
-            phone,
-          });
-        } catch (e) {
-          console.warn(e);
+          await updateProfileData({ twoFactorEnabled: true, twoFactorMethod: 'email', email: email.trim() });
+        } catch (_) {
+          // non-blocking
         }
       }
-      Alert.alert(
-        '2FA Verified Successfully! 🔒',
-        `Your 2FA has been activated and verified via ${selectedMethod === 'email' ? 'Email (' + email + ')' : 'Phone (' + phone + ')'}.`
-      );
-    }, 800);
+      loadMfaStatus();
+      Alert.alert('2FA Verified Successfully', `Your 2FA is active and verified via Email (${email.trim()}).`);
+    } catch (err) {
+      Alert.alert('Verification failed', friendlyError(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -200,6 +273,16 @@ export default function AccountSecurityScreen({ navigation }) {
                   )}
                 </View>
                 <Text style={[styles.methodValue, { color: theme.textSecondary }]}>{email}</Text>
+                <TextInput
+                  style={[styles.methodInput, { color: theme.textPrimary, borderColor: theme.cardBorderSubtle }]}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Enter your email"
+                  placeholderTextColor={theme.textSecondary}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
               </View>
               <View style={[styles.sendCodeBtn, { backgroundColor: theme.primary }]}>
                 <Send size={14} color="#FFFFFF" />
@@ -228,6 +311,14 @@ export default function AccountSecurityScreen({ navigation }) {
                   )}
                 </View>
                 <Text style={[styles.methodValue, { color: theme.textSecondary }]}>{phone}</Text>
+                <TextInput
+                  style={[styles.methodInput, { color: theme.textPrimary, borderColor: theme.cardBorderSubtle }]}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Enter your phone number"
+                  placeholderTextColor={theme.textSecondary}
+                  keyboardType="phone-pad"
+                />
               </View>
               <View style={[styles.sendCodeBtn, { backgroundColor: '#10B981' }]}>
                 <Send size={14} color="#FFFFFF" />
@@ -240,7 +331,7 @@ export default function AccountSecurityScreen({ navigation }) {
                 <View style={styles.otpCardHeader}>
                   <KeyRound size={22} color={theme.primary} style={{ marginRight: 8 }} />
                   <Text style={[styles.otpCardTitle, { color: theme.textPrimary }]}>
-                    Enter 4-Digit Code ({selectedMethod === 'email' ? 'Email' : 'SMS'})
+                    Enter 6-Digit Code ({selectedMethod === 'email' ? 'Email' : 'SMS'})
                   </Text>
                 </View>
 
@@ -267,9 +358,9 @@ export default function AccountSecurityScreen({ navigation }) {
                 </View>
 
                 <GAButton
-                  title="Verify & Activate 2FA 🔒"
+                  title={sendingOtp ? 'Sending code...' : 'Verify & Activate 2FA'}
                   onPress={handleVerifyOtp}
-                  loading={loading}
+                  loading={loading || sendingOtp}
                   variant="primary"
                   style={{ marginTop: 12 }}
                 />
@@ -488,6 +579,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  methodInput: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    width: '100%',
   },
   otpVerificationCard: {
     marginTop: 12,

@@ -47,11 +47,13 @@ export const auth = {
 
   deleteAccount: (confirmation) => apiPost('/auth/delete-account', { confirmation }),
 
-  mfaStatus: () => apiGet('/auth/mfa/status'),
+mfaStatus: () => apiGet('/auth/mfa/status'),
 
   mfaEnroll: (factor, value) => apiPost('/auth/mfa/enroll', { factor, ...(value ? { value } : {}) }),
 
   mfaVerify: (payload) => apiPost('/auth/mfa/verify', payload),
+
+  mfaDisable: () => apiPost('/auth/mfa/disable', {}),
 };
 
 // ── Wallet & payments ─────────────────────────────────────────────────────────
@@ -73,12 +75,16 @@ export const wallet = {
     return apiGet(`/wallet/transactions?${qs.toString()}`);
   },
 
-  verify: (txRef) => apiGet(`/pay/verify/${txRef}`),
+verify: (txRef) => apiGet(`/pay/verify/${txRef}`),
 
   banks: async () => {
     const res = await apiGet('/pay/banks');
     return Array.isArray(res) ? res : res?.data || [];
   },
+
+  // Claim the daily/in-game bonus coin grant (practice coins, not real money).
+  // Idempotent per claim per UTC day — duplicate claims are no-ops.
+  freeCoins: (claim = 'daily-bonus') => apiPost('/wallet/free-coins', { claim }),
 };
 
 // ── Premium ───────────────────────────────────────────────────────────────────
@@ -95,6 +101,24 @@ export const premium = {
 
 export const referral = {
   me: () => apiGet('/referral/me'),
+  // Records that an invite share was sent (capped at 50/day).
+  ping: () => apiPost('/referral/ping', {}),
+};
+
+// ── User settings ─────────────────────────────────────────────────────────────
+
+export const settings = {
+  get: () => apiGet('/settings/'),
+  patch: (patch) => apiPatch('/settings/', patch),
+};
+
+// ── Content (help/support) ────────────────────────────────────────────────────
+
+export const content = {
+  help: async () => {
+    const res = await apiGet('/content/help');
+    return res?.sections || res?.data?.sections || [];
+  },
 };
 
 // ── Matchmaking (REST queue) ──────────────────────────────────────────────────

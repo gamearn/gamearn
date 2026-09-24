@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, Alert } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, Text, Alert, ActivityIndicator } from 'react-native';
 import { LudoScreen } from '../../games/ludo/LudoScreen';
 import { useAuth } from '../../context/AuthContext';
 import { useOnlineMatch } from '../../games/useOnlineMatch';
+import { practice } from '../../services/api';
+import { ApiError } from '../../services/apiClient';
 
 const STATUS_LABEL = {
   joining: 'Connectingâ€¦',
@@ -36,13 +38,34 @@ export default function LudoGameScreen({ route, navigation }) {
     onExit: handleBack,
   });
 
-  const practice = mode === 'practice';
+  const isPractice = mode === 'practice';
+  const practiceSessionId = useRef(null);
+  const [practiceReady, setPracticeReady] = useState(isPractice);
 
   useEffect(() => {
-    if (practice) {
-      Alert.alert('Practice mode', 'Bot practice is free to play.');
-    }
-  }, [practice]);
+    if (!isPractice) return;
+    let cancelled = false;
+    setPracticeReady(false);
+    practice.ludo
+      .start({ playerCount: 2, diceCount: 1 })
+      .then((res) => {
+        if (cancelled) return;
+        practiceSessionId.current = res?.sessionId || null;
+        setPracticeReady(true);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        Alert.alert(
+          'Could not start practice',
+          err instanceof ApiError ? err.message : 'Practice is temporarily unavailable.',
+        );
+        handleBack();
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPractice]);
 
   useEffect(() => {
     if (!localWinBanner) return;
@@ -50,7 +73,7 @@ export default function LudoGameScreen({ route, navigation }) {
     return () => clearTimeout(t);
   }, [localWinBanner]);
 
-  const handleWin = (won = true) => {
+const handleWin = (won = true) => {
     setLocalWinBanner(won ? 'You win!' : 'Match over!');
     setTimeout(() => {
       navigation.navigate('GameResult', {
@@ -75,6 +98,12 @@ export default function LudoGameScreen({ route, navigation }) {
         onWin={handleWin}
         onBack={handleBack}
       />
+      {isPractice && (
+        <View style={styles.practiceHud} pointerEvents="none">
+          <Text style={styles.practiceTitle}>Ludo â€” Practice</Text>
+          <Text style={styles.practiceSub}>vs Gamearn Bot Â· FREE</Text>
+        </View>
+      )}
       {mode === 'multiplayer' && roomId && (
         <View style={styles.hud}>
           <View style={styles.hudRow}>
@@ -91,6 +120,12 @@ export default function LudoGameScreen({ route, navigation }) {
           <Text style={styles.winBannerText}>{localWinBanner}</Text>
         </View>
       )}
+      {isPractice && !practiceReady && (
+        <View style={styles.overlay}>
+          <ActivityIndicator size="large" color="#00E5FF" />
+          <Text style={styles.overlayText}>Starting practice gameâ€¦</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -99,6 +134,50 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0B113A',
+  },
+  practiceHud: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingTop: 48,
+    paddingBottom: 10,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(4, 48, 31, 0.85)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(16, 185, 129, 0.25)',
+  },
+  practiceTitle: {
+    color: '#34D399',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  practiceSub: {
+    color: '#A7F3D0',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(11, 17, 58, 0.92)',
+  },
+  overlayText: {
+    marginTop: 14,
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
   hud: {
     position: 'absolute',

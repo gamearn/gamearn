@@ -5,8 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
-  Alert,
   StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,29 +23,15 @@ export default function SellCoinsScreen({ navigation }) {
   const { userProfile } = useAuth();
   const { theme, isDark } = useTheme();
   const coinBalance = userProfile?.coins ?? 0;
-  const nairaValue = (coinBalance / 100).toFixed(2);
-  const cashableBalance = (coinBalance / 100).toFixed(2);
-
-  const [coinInput, setCoinInput] = useState('5000');
   const [loading, setLoading] = useState(false);
 
-  const parsedCoins = parseInt(coinInput, 10) || 0;
-  const receivedNaira = (parsedCoins / 100).toFixed(0);
-
   const handleSellCoins = () => {
-    if (parsedCoins < 100) {
-      Alert.alert('Minimum Amount', 'Minimum amount to convert is 100 coins (₦1.00).');
-      return;
-    }
-    if (parsedCoins > coinBalance) {
-      Alert.alert('Insufficient Coins', 'You do not have enough coins in your balance.');
-      return;
-    }
-
     setLoading(true);
+    // The wallet balance is the only cashable money (NGN). Practice coins are
+    // play-only, so this screen simply hands off to the real Withdraw flow.
     setTimeout(() => {
       setLoading(false);
-      navigation.navigate('Withdraw', { amount: receivedNaira });
+      navigation.navigate('Withdraw');
     }, 400);
   };
 
@@ -73,61 +57,35 @@ export default function SellCoinsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Top 2 Balance Cards Side-By-Side */}
+        {/* Coin Balance Card */}
         <View style={styles.topCardsRow}>
-          {/* Card 1: Coin Balance */}
           <View style={[styles.balanceCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }, styles.balanceCardCyan]}>
             <View style={styles.cardHeaderRow}>
               <Coins size={16} color={theme.primary} style={{ marginRight: 6 }} />
               <Text style={[styles.cardHeaderTitle, { color: theme.textSecondary }]}>Coin Balance</Text>
             </View>
             <Text style={[styles.bigNumTextCyan, { color: theme.primary }]}>{coinBalance.toLocaleString()}</Text>
-            <Text style={[styles.subValText, { color: theme.textMuted }]}>Value: ₦{Number(nairaValue).toLocaleString()}</Text>
+            <Text style={[styles.subValText, { color: theme.textMuted }]}>Practice coins for friendly games</Text>
           </View>
 
-          {/* Card 2: Cashable */}
           <View style={[styles.balanceCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
             <View style={styles.cardHeaderRow}>
               <Wallet size={16} color={theme.textSecondary} style={{ marginRight: 6 }} />
-              <Text style={[styles.cardHeaderTitle, { color: theme.textSecondary }]}>Cashable</Text>
+              <Text style={[styles.cardHeaderTitle, { color: theme.textSecondary }]}>Wallet (NGN)</Text>
             </View>
-            <Text style={[styles.bigNumTextWhite, { color: theme.textPrimary }]}>₦{Number(cashableBalance).toLocaleString()}</Text>
-            <Text style={[styles.subValText, { color: theme.textMuted }]}>Ready to withdraw</Text>
+            <Text style={[styles.bigNumTextWhite, { color: theme.textPrimary }]}>₦{Number(userProfile?.walletBalance ?? 0).toLocaleString()}</Text>
+            <Text style={[styles.subValText, { color: theme.textMuted }]}>Cash out this in Withdraw</Text>
           </View>
         </View>
 
-        {/* Section: Amount to Convert */}
-        <View style={styles.sectionWrap}>
-          <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Amount to Convert</Text>
-          <Text style={[styles.inputSubLabel, { color: theme.textSecondary }]}>Enter amount of coins</Text>
-
-          <View style={[styles.inputBox, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder }]}>
-            <TextInput
-              style={[styles.textInput, { color: theme.textPrimary }]}
-              value={coinInput}
-              onChangeText={setCoinInput}
-              keyboardType="number-pad"
-              placeholder="0"
-              placeholderTextColor={theme.textMuted}
-            />
-            <View style={[styles.coinsPill, { backgroundColor: isDark ? 'rgba(0, 229, 255, 0.1)' : 'rgba(0, 180, 216, 0.12)' }]}>
-              <Text style={[styles.coinsPillText, { color: theme.primary }]}>COINS</Text>
-              <Coins size={16} color={theme.primary} style={{ marginLeft: 4 }} />
-            </View>
-          </View>
-        </View>
-
-        {/* You Will Receive Box */}
-        <View style={styles.sectionWrap}>
-          <Text style={[styles.inputSubLabel, { color: theme.textSecondary }]}>You will receive</Text>
-          <View style={[styles.inputBox, styles.receiveBox, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder }]}>
-            <Text style={[styles.receiveAmountText, { color: theme.primary }]}>₦{Number(receivedNaira).toLocaleString()}</Text>
-            <View style={[styles.usdPill, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' }]}>
-              <Text style={[styles.usdPillText, { color: theme.textPrimary }]}>NGN</Text>
-              <Wallet size={16} color={theme.textPrimary} style={{ marginLeft: 4 }} />
-            </View>
-          </View>
-          <Text style={[styles.exchangeRateText, { color: theme.textMuted }]}>EXCHANGE RATE: 100 COINS = ₦1.00</Text>
+        {/* Honest note about practice coins vs cash */}
+        <View style={[styles.sectionWrap, styles.noteCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
+          <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Important</Text>
+          <Text style={[styles.destSub, { color: theme.textSecondary }]}>
+            Practice coins are earned from bonuses and friendly bot games — they are not real money and
+            cannot be converted to Naira. The money in your Wallet is cashable: use Withdraw to send it to
+            your Nigerian bank account.
+          </Text>
         </View>
 
         {/* Section: Withdrawal Destination */}
@@ -150,9 +108,9 @@ export default function SellCoinsScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Sell CTA */}
+        {/* CTA */}
         <GAButton
-          title="Continue to Withdraw 🚀"
+          title="Continue to Withdraw"
           onPress={handleSellCoins}
           loading={loading}
           variant="primary"
@@ -237,6 +195,11 @@ const styles = StyleSheet.create({
   },
   sectionWrap: {
     marginBottom: 22,
+  },
+  noteCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
   },
   sectionTitle: {
     color: '#FFFFFF',

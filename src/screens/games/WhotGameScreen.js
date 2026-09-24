@@ -24,13 +24,14 @@ export default function WhotGameScreen({ route, navigation }) {
   const myUid = userProfile?.uid || 'practice_anon';
   const selfName = userProfile?.displayName || userProfile?.username || 'You';
 
-  const socketRef = useRef(null);
+const socketRef = useRef(null);
   const activePracticeId = useRef(route.params?.practiceSessionId || null);
   const [remote, setRemote] = useState(null);
   const [phase, setPhase] = useState('local'); // joining | waiting | playing | game_over | local
   const [pendingMove, setPendingMove] = useState(false);
   const [result, setResult] = useState(null);
   const [banner, setBanner] = useState('');
+  const [incomingChats, setIncomingChats] = useState([]);
 
   const isRemote = mode === 'multiplayer' || mode === 'practice';
   const isPlaying = phase === 'playing';
@@ -91,8 +92,11 @@ export default function WhotGameScreen({ route, navigation }) {
       onOpponentDisconnected: (p) =>
         setBanner(`Opponent disconnected â€” ${p?.graceSeconds || 30}s to reconnect.`),
       onOpponentReconnected: () => setBanner(''),
-      onOpponentForfeited: (p) => {
+onOpponentForfeited: (p) => {
         setBanner(p?.reason === 'disconnect_timeout' ? 'Opponent forfeited. You win!' : 'Opponent left the match.');
+      },
+      onChatMessage: (msg) => {
+        setIncomingChats((prev) => [...prev, msg]);
       },
       onError: (msg) => {
         if (msg) Alert.alert('Game service', msg);
@@ -214,14 +218,16 @@ export default function WhotGameScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.gameArea}>
-        <WhotScreen
+<WhotScreen
           timer={timer}
           aiDifficulty={route.params?.aiDifficulty}
           isRemote={isRemote && phase !== 'local'}
           remote={remote}
           onRemoteMove={handleRemoteMove}
-          onRemoteGameOver={(winnerUid) => handleWin(winnerUid === myUid)}
+onRemoteGameOver={(winnerUid) => handleWin(winnerUid === myUid)}
           onWin={() => handleWin(true)}
+          onMessage={mode === 'multiplayer' && roomId ? (text) => socketRef.current?.sendChat(roomId, text) : null}
+          incomingChats={mode === 'multiplayer' ? incomingChats : []}
         />
       </View>
 

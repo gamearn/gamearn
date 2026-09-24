@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, Text, Alert, ActivityIndicator } from 'react-native';
 import { AyoScreen } from '../../games/ayo/AyoScreen';
 import { useAuth } from '../../context/AuthContext';
 import { useOnlineMatch } from '../../games/useOnlineMatch';
+import { practice } from '../../services/api';
+import { ApiError } from '../../services/apiClient';
 
 const STATUS_TEXT = {
   idle: '',
@@ -20,12 +22,39 @@ export default function AyoGameScreen({ route, navigation }) {
   const isMultiplayer = params.mode === 'multiplayer' && !!params.roomId;
   const isPractice = params.mode === 'practice';
   const timer = params.timer || '2m';
+  const practiceSessionId = useRef(null);
+  const [practiceReady, setPracticeReady] = useState(isPractice);
 
   const m = useOnlineMatch({
     roomId: isMultiplayer ? params.roomId : null,
     gameType: 'ayo',
     onExit: () => navigation.goBack(),
   });
+
+  useEffect(() => {
+    if (!isPractice) return;
+    let cancelled = false;
+    setPracticeReady(false);
+    practice.ayo
+      .start({ playerRating: 1200 })
+      .then((res) => {
+        if (cancelled) return;
+        practiceSessionId.current = res?.sessionId || null;
+        setPracticeReady(true);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        Alert.alert(
+          'Could not start practice',
+          err instanceof ApiError ? err.message : 'Practice is temporarily unavailable.',
+        );
+        navigation.goBack();
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPractice]);
 
   const [winBanner, setWinBanner] = useState(false);
 
@@ -62,8 +91,9 @@ export default function AyoGameScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       {isPractice ? (
-        <View style={styles.practiceBanner}>
-          <Text style={styles.practiceBannerText}>Practice for AyÃ² rolls out with Whot first</Text>
+        <View style={styles.practiceBar}>
+          <Text style={styles.practiceTitle}>AyÃ² á»ŒÌ€pá»Ìn â€” Practice</Text>
+          <Text style={styles.practiceSub}>vs Gamearn Bot Â· FREE</Text>
         </View>
       ) : null}
       {isMultiplayer ? (
@@ -77,6 +107,12 @@ export default function AyoGameScreen({ route, navigation }) {
       {winBanner && !isMultiplayer ? (
         <View style={styles.winBanner}>
           <Text style={styles.winBannerText}>You win!</Text>
+        </View>
+      ) : null}
+      {isPractice && !practiceReady ? (
+        <View style={styles.overlay}>
+          <ActivityIndicator size="large" color="#10B981" />
+          <Text style={styles.overlayText}>Starting practice gameâ€¦</Text>
         </View>
       ) : null}
       <AyoScreen
@@ -95,22 +131,47 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#03271d',
   },
-  practiceBanner: {
+  practiceBar: {
     alignSelf: 'center',
-    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
     marginHorizontal: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#F59E0B',
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderColor: '#10B981',
+    backgroundColor: '#04301f',
   },
-  practiceBannerText: {
-    color: '#F59E0B',
-    fontSize: 12,
+  practiceTitle: {
+    color: '#34D399',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  practiceSub: {
+    color: '#A7F3D0',
+    fontSize: 11,
     fontWeight: '700',
-    textAlign: 'center',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 30,
+    backgroundColor: 'rgba(3, 39, 29, 0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overlayText: {
+    marginTop: 16,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
   liveBar: {
     flexDirection: 'row',

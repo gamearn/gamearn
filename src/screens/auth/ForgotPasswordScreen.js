@@ -6,66 +6,36 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
-import { Mail, ArrowLeft, Lock, CheckCircle2, KeyRound } from 'lucide-react-native';
+import { Mail, ArrowLeft, CheckCircle2 } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
 import GAInput from '../../components/GAInput';
+import { resetPassword, friendlyAuthError } from '../../services/firebase';
 
 export default function ForgotPasswordScreen({ navigation }) {
-  const [step, setStep] = useState(1); // 1: Email, 2: OTP, 3: New Password, 4: Success
   const [email, setEmail] = useState('');
-  const [otpCode, setOtpCode] = useState(['', '', '', '']);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSendOtp = () => {
+  const handleSendReset = async () => {
     if (!email || !email.includes('@')) {
       setError('Please enter a valid email address');
       return;
     }
     setError('');
     setLoading(true);
-    setTimeout(() => {
+    try {
+      // Real Firebase password reset — sends an email with a reset link.
+      await resetPassword(email);
+      setSent(true);
+    } catch (err) {
+      setError(friendlyAuthError(err));
+    } finally {
       setLoading(false);
-      setStep(2);
-    }, 800);
-  };
-
-  const handleVerifyOtp = () => {
-    const codeStr = otpCode.join('');
-    if (codeStr.length < 4) {
-      setError('Please enter the 4-digit code sent to your email.');
-      return;
     }
-    setError('');
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setStep(3);
-    }, 800);
-  };
-
-  const handleResetPassword = () => {
-    if (!newPassword || newPassword.length < 8) {
-      setError('Password must be at least 8 characters long.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-    setError('');
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setStep(4);
-    }, 900);
   };
 
   return (
@@ -85,9 +55,7 @@ export default function ForgotPasswordScreen({ navigation }) {
       <View style={styles.topHeader}>
         <TouchableOpacity
           onPress={() => {
-            if (step > 1 && step < 4) {
-              setStep(step - 1);
-            } else if (navigation.canGoBack()) {
+            if (navigation.canGoBack()) {
               navigation.goBack();
             } else {
               navigation.navigate('Login');
@@ -115,19 +83,13 @@ export default function ForgotPasswordScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Dynamic Heading based on step */}
+        {/* Dynamic Heading */}
         <View style={styles.headingSection}>
-          <Text style={styles.title}>
-            {step === 1 && 'Reset Password'}
-            {step === 2 && 'OTP Verification'}
-            {step === 3 && 'New Password'}
-            {step === 4 && 'Password Reset'}
-          </Text>
+          <Text style={styles.title}>{sent ? 'Email Sent' : 'Reset Password'}</Text>
           <Text style={styles.subtitle}>
-            {step === 1 && 'Enter your registered email to receive password reset OTP code.'}
-            {step === 2 && `We sent a 4-digit code to ${email}`}
-            {step === 3 && 'Create a strong new password for your Gamearn account.'}
-            {step === 4 && 'Your password has been reset successfully! You can now log in.'}
+            {sent
+              ? `Check your inbox for a secure link to reset your password. We sent it to ${email}`
+              : 'Enter your registered email and we\u2019ll send you a secure password reset link.'}
           </Text>
         </View>
 
@@ -135,8 +97,25 @@ export default function ForgotPasswordScreen({ navigation }) {
         <View style={styles.formContainer}>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {/* STEP 1: Email Input */}
-          {step === 1 && (
+          {sent ? (
+            <View style={styles.successCard}>
+              <View style={styles.successCheckCircle}>
+                <CheckCircle2 size={36} color="#00E5FF" />
+              </View>
+              <Text style={styles.successTitle}>Reset Link Sent!</Text>
+              <Text style={styles.successMessage}>
+                Follow the link in your email to choose a new password, then sign in with your new
+                credentials.
+              </Text>
+              <GAButton
+                title="Log In"
+                onPress={() => navigation.navigate('Login')}
+                variant="primary"
+                showArrow={true}
+                style={{ width: '100%' }}
+              />
+            </View>
+          ) : (
             <View>
               <GAInput
                 label="Email Address"
@@ -144,113 +123,31 @@ export default function ForgotPasswordScreen({ navigation }) {
                 onChangeText={setEmail}
                 placeholder="name@example.com"
                 keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
                 leftIcon={<Mail size={20} color="#64748B" />}
               />
               <GAButton
-                title="Send Reset Code"
-                onPress={handleSendOtp}
+                title="Send Reset Link"
+                onPress={handleSendReset}
                 loading={loading}
                 variant="primary"
                 showArrow={true}
                 style={styles.btnSpacing}
-              />
-            </View>
-          )}
-
-          {/* STEP 2: OTP Verification */}
-          {step === 2 && (
-            <View style={{ alignItems: 'center' }}>
-              <View style={styles.otpRow}>
-                {otpCode.map((digit, idx) => (
-                  <TextInput
-                    key={idx}
-                    style={[styles.otpBox, digit ? styles.otpBoxFilled : null]}
-                    value={digit}
-                    onChangeText={(t) => {
-                      const updated = [...otpCode];
-                      updated[idx] = t.slice(-1);
-                      setOtpCode(updated);
-                    }}
-                    keyboardType="number-pad"
-                    maxLength={1}
-                    selectTextOnFocus
-                  />
-                ))}
-              </View>
-              <GAButton
-                title="Verify Code"
-                onPress={handleVerifyOtp}
-                loading={loading}
-                variant="primary"
-                showArrow={true}
-                style={styles.btnSpacing}
-              />
-            </View>
-          )}
-
-          {/* STEP 3: New Password Input */}
-          {step === 3 && (
-            <View>
-              <GAInput
-                label="New Password"
-                value={newPassword}
-                onChangeText={setNewPassword}
-                placeholder="Enter new password"
-                secureTextEntry={true}
-                leftIcon={<Lock size={20} color="#64748B" />}
-                subLabel="Must be at least 8 characters."
-              />
-              <GAInput
-                label="Confirm New Password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="Re-enter new password"
-                secureTextEntry={true}
-                leftIcon={<Lock size={20} color="#64748B" />}
-              />
-              <GAButton
-                title="Reset Password"
-                onPress={handleResetPassword}
-                loading={loading}
-                variant="primary"
-                showArrow={true}
-                style={styles.btnSpacing}
-              />
-            </View>
-          )}
-
-          {/* STEP 4: Success State */}
-          {step === 4 && (
-            <View style={styles.successCard}>
-              <View style={styles.successCheckCircle}>
-                <CheckCircle2 size={36} color="#00E5FF" />
-              </View>
-              <Text style={styles.successTitle}>Password Updated!</Text>
-              <Text style={styles.successMessage}>
-                Your account password has been updated. Please sign in with your new credentials.
-              </Text>
-              <GAButton
-                title="Log In Now"
-                onPress={() => navigation.navigate('Login')}
-                variant="primary"
-                showArrow={true}
-                style={{ width: '100%' }}
               />
             </View>
           )}
 
           {/* Footer Link */}
-          {step < 4 && (
-            <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Remember your password? </Text>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Login')}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.footerLink}>Log In</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          <View style={styles.footerRow}>
+            <Text style={styles.footerText}>Remember your password? </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Login')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.footerLink}>Log In</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Tagline Footer */}
           <View style={styles.bottomFooter}>
@@ -370,29 +267,6 @@ const styles = StyleSheet.create({
   btnSpacing: {
     marginTop: 8,
     marginBottom: 16,
-  },
-  otpRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 24,
-    width: '100%',
-  },
-  otpBox: {
-    width: 60,
-    height: 64,
-    borderRadius: 16,
-    backgroundColor: 'rgba(15, 25, 45, 0.75)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  otpBoxFilled: {
-    borderColor: '#00E5FF',
-    backgroundColor: 'rgba(0, 229, 255, 0.08)',
   },
   successCard: {
     backgroundColor: 'rgba(15, 25, 45, 0.75)',
