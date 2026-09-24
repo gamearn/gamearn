@@ -8,7 +8,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "dev": "expo start --web",
-    "postinstall": "node -e \"const p='node_modules/expo-modules-core/package.json'; try { const fs=require('fs'); const j=JSON.parse(fs.readFileSync(p)); if(j.main==='src/index.ts'){j.main='index.js'; fs.writeFileSync(p, JSON.stringify(j,null,2));} } catch(e){}\""
+    "postinstall": "patch-package && node -e \"const p='node_modules/expo-modules-core/package.json'; try { const fs=require('fs'); const j=JSON.parse(fs.readFileSync(p)); if(j.main==='src/index.ts'){j.main='index.js'; fs.writeFileSync(p, JSON.stringify(j,null,2));} } catch(e){}\""
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -39,7 +39,7 @@
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
     "react-native-get-random-values": "~1.11.0",
-    "react-native-google-mobile-ads": "^17.0.0",
+    "react-native-google-mobile-ads": "17.0.0",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
@@ -54,7 +54,8 @@
     "babel-preset-expo": "~54.0.0",
     "denodeify": "^1.2.1",
     "metro": "~0.81.0",
-    "metro-config": "~0.81.0"
+    "metro-config": "~0.81.0",
+    "patch-package": "^8.0.1"
   },
   "private": true
 }
