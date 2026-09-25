@@ -104,6 +104,10 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
     setSecondsRemaining(turnDuration);
   }, [gameState.activePlayer, turnDuration]);
 
+  const { updateProfileData, userProfile } = useAuth();
+  const mountStreakRecorded = useRef(false);
+  const gameOverStreakRecorded = useRef(false);
+
   useEffect(() => {
     setActiveMatch({
       gameId: 'ayo',
@@ -111,22 +115,33 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
       targetScreen: 'AyoGame',
       durationSecs: 120,
     });
+    if (!mountStreakRecorded.current) {
+      mountStreakRecorded.current = true;
+      recordGameStreak(updateProfileData, userProfile);
+    }
   }, []);
 
-  const { updateProfileData, userProfile } = useAuth();
-  const gameOverStreakRecorded = useRef(false);
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
 
   // AI Turn Handling & Game Over Streak
   useEffect(() => {
     if (gameState.gameStatus === 'game_over') {
       clearActiveMatch();
-      setDialogVisible(true);
       if (!gameOverStreakRecorded.current) {
         gameOverStreakRecorded.current = true;
         recordGameStreak(updateProfileData, userProfile);
-      }
-      if (gameState.winner === 1) {
-        onWin?.(500);
+        if (onWin) {
+          onWin(gameState.winner === 1);
+        } else {
+          setDialogVisible(true);
+        }
       }
       return;
     }
@@ -146,7 +161,7 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
 
       return () => clearTimeout(aiTimer);
     }
-  }, [gameState.activePlayer, gameState.gameStatus, updateProfileData, userProfile, gameState.winner, onWin, aiDifficulty]);
+  }, [gameState.activePlayer, gameState.gameStatus, gameState.winner, aiDifficulty]);
 
   function layout(event) {
     const { width, height } = event.nativeEvent.layout;
@@ -166,15 +181,15 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
   }
 
   function roll() {
-    if (timer.current) return;
+    if (timerRef.current) return;
     setRolling(true);
     let frames = 0;
-    timer.current = setInterval(() => {
+    timerRef.current = setInterval(() => {
       const result = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
       setDice(result);
       if (++frames === 9) {
-        clearInterval(timer.current);
-        timer.current = null;
+        clearInterval(timerRef.current);
+        timerRef.current = null;
         setRolling(false);
       }
     }, 90);
@@ -324,26 +339,8 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
         </View>
       </View>
 
-      {/* Game Over Victory Modal */}
-      <Modal visible={dialogVisible} transparent animationType="fade" onRequestClose={() => setDialogVisible(false)}>
-        <View style={styles.scrim}>
-          <View style={styles.dialog}>
-            <Text style={styles.title}>{gameState.winner === 1 ? '🏆 VICTORY!' : '💔 GAME OVER'}</Text>
-            <Text style={styles.body}>{gameState.statusMessage}</Text>
-            <Text style={[styles.body, { color: '#F59E0B', fontWeight: '800' }]}>
-              Final Score: You ({gameState.scores[0]}) - Oba ({gameState.scores[1]})
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
-              <Pressable style={[styles.button, { backgroundColor: 'rgba(255,255,255,0.15)', flex: 1, alignItems: 'center' }]} onPress={onBack || handleRestart}>
-                <Text style={[styles.buttonText, { color: '#FFF' }]}>🚪 Exit Game</Text>
-              </Pressable>
-              <Pressable style={[styles.button, { flex: 1, alignItems: 'center' }]} onPress={handleRestart}>
-                <Text style={styles.buttonText}>🎮 Play Again</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+
+
     </View>
   );
 }

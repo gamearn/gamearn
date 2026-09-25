@@ -59,12 +59,14 @@ export function CheckersScreen({
     winner: null,
   });
 
-  // Record daily streak when player finishes a game
-  const handleRecordStreak = React.useCallback(() => {
-    if (updateProfileData && userProfile) {
+  // Record daily streak when player starts game (on mount)
+  const mountStreakRecorded = React.useRef(false);
+  useEffect(() => {
+    if (!mountStreakRecorded.current && updateProfileData && userProfile) {
+      mountStreakRecorded.current = true;
       recordGameStreak(updateProfileData, userProfile);
     }
-  }, [updateProfileData, userProfile]);
+  }, []);
 
   // Sync external board prop if provided
   useEffect(() => {
@@ -99,10 +101,11 @@ export function CheckersScreen({
           const endResult = checkGameEnd(newBoard, playerSide);
           if (endResult.isOver) {
             setGameOver(endResult);
-            setDialog('gameover');
-            handleRecordStreak();
-            if (endResult.winner === playerSide && onWin) {
-              onWin(stake);
+            if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
+            if (onWin) {
+              onWin(endResult.winner === playerSide);
+            } else {
+              setDialog('gameover');
             }
           } else {
             setTurn(playerSide);
@@ -110,15 +113,18 @@ export function CheckersScreen({
         } else {
           // AI has no legal moves -> Player wins
           setGameOver({ isOver: true, winner: playerSide });
-          setDialog('gameover');
-          handleRecordStreak();
-          if (onWin) onWin(stake);
+          if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
+          if (onWin) {
+            onWin(true);
+          } else {
+            setDialog('gameover');
+          }
         }
         setIsAiThinking(false);
       }, 400);
       return () => clearTimeout(timer);
     }
-  }, [turn, vsAI, boardState, gameOver.isOver, dialog, aiSide, playerSide, activeDifficulty, handleRecordStreak, onWin, stake]);
+  }, [turn, vsAI, boardState, gameOver.isOver, dialog, aiSide, playerSide, activeDifficulty, onWin, stake]);
 
   function restartGame() {
     setBoardState(initialBoardState());
@@ -155,9 +161,10 @@ export function CheckersScreen({
         const endResult = checkGameEnd(nextBoard, nextTurn);
         if (endResult.isOver) {
           setGameOver(endResult);
-          setDialog('gameover');
-          if (endResult.winner === 'white' && onWin) {
-            onWin(stake);
+          if (onWin) {
+            onWin(endResult.winner === playerSide);
+          } else {
+            setDialog('gameover');
           }
         } else {
           setTurn(nextTurn);
@@ -315,8 +322,8 @@ export function CheckersScreen({
                       ? '#5eeaff60'
                       : '#5eeaff20'
                     : pressed
-                    ? '#8bdcff25'
-                    : 'transparent',
+                      ? '#8bdcff25'
+                      : 'transparent',
                 })}
               />
             );
@@ -339,99 +346,7 @@ export function CheckersScreen({
         </View>
       )}
 
-      {/* Interactive Modals */}
-      <Modal visible={dialog !== null} transparent animationType="fade" onRequestClose={() => setDialog(null)}>
-        <View style={styles.scrim}>
-          <View style={styles.dialog}>
-            <Text style={styles.heading}>
-              {dialog === 'gameover'
-                ? 'Game Over'
-                : dialog === 'signal'
-                ? 'Game Mode'
-                : dialog === 'back'
-                ? 'Exit Match'
-                : dialog
-                ? dialog.charAt(0).toUpperCase() + dialog.slice(1)
-                : ''}
-            </Text>
 
-            {dialog === 'settings' ? (
-              <>
-                <View style={styles.settingRow}>
-                  <Text style={styles.body}>Single Player (vs AI)</Text>
-                  <Switch value={vsAI} onValueChange={(val) => setVsAI(val)} />
-                </View>
-                <View style={styles.settingRow}>
-                  <Text style={styles.body}>Sound preference</Text>
-                  <Switch value={sound} onValueChange={toggleSound} />
-                </View>
-              </>
-            ) : dialog === 'gameover' ? (
-              <Text style={styles.body}>
-                {gameOver.winner === playerSide
-                  ? `🎉 VICTORY! You won ${Math.floor(stake * 1.9)} Coins!`
-                  : gameOver.winner === aiSide
-                  ? '👑 Oba Won the Match!'
-                  : '🤝 Game ended in a Draw!'}
-              </Text>
-            ) : dialog === 'surrender' ? (
-              <Text style={styles.body}>
-                Are you sure you want to surrender this match?
-              </Text>
-            ) : dialog === 'back' ? (
-              <Text style={styles.body}>Return to lobby?</Text>
-            ) : dialog === 'signal' ? (
-              <Text style={styles.body}>
-                Current Mode: {vsAI ? 'Player 1 (White) vs Computer AI (Black)' : '2-Player Local'}
-              </Text>
-            ) : (
-              <Text style={styles.body}>{notice || 'Select a piece to move.'}</Text>
-            )}
-
-            <View style={styles.buttons}>
-              {dialog === 'gameover' ? (
-                <Pressable style={styles.modalButton} onPress={restartGame}>
-                  <Text style={styles.buttonText}>Play Again</Text>
-                </Pressable>
-              ) : dialog === 'surrender' ? (
-                <>
-                  <Pressable style={styles.modalButton} onPress={() => setDialog(null)}>
-                    <Text style={styles.buttonText}>Cancel</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.modalButton}
-                    onPress={() => {
-                      setGameOver({ isOver: true, winner: 'black' });
-                      setDialog('gameover');
-                    }}
-                  >
-                    <Text style={styles.buttonText}>Surrender</Text>
-                  </Pressable>
-                </>
-              ) : dialog === 'back' ? (
-                <>
-                  <Pressable style={styles.modalButton} onPress={() => setDialog(null)}>
-                    <Text style={styles.buttonText}>Cancel</Text>
-                  </Pressable>
-                  <Pressable style={styles.modalButton} onPress={onBack ? onBack : () => setDialog(null)}>
-                    <Text style={styles.buttonText}>Exit</Text>
-                  </Pressable>
-                </>
-              ) : (
-                <Pressable
-                  style={styles.modalButton}
-                  onPress={() => {
-                    setDialog(null);
-                    setNotice('');
-                  }}
-                >
-                  <Text style={styles.buttonText}>Close</Text>
-                </Pressable>
-              )}
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }

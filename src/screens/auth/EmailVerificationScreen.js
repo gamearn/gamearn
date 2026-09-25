@@ -128,7 +128,7 @@ export default function EmailVerificationScreen({ route, navigation }) {
         <View style={styles.centerBlock}>
           <View style={styles.glowingBadge}>
             <Image
-              source={require('../../../assets/logos/logo_icon.png')}
+              source={require('../../../assets/logos/logo_dark.png')}
               style={styles.logoIcon}
               resizeMode="contain"
             />
@@ -252,9 +252,9 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   glowingBadge: {
-    width: 125,
-    height: 125,
-    borderRadius: 28,
+    width: 145,
+    height: 145,
+    borderRadius: 30,
     backgroundColor: '#0B132B',
     borderWidth: 2,
     borderColor: '#00E5FF',
@@ -263,9 +263,11 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 20,
     shadowColor: '#00E5FF',
+    shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.85,
     shadowRadius: 16,
     elevation: 10,
+    overflow: 'hidden',
   },
   logoIcon: {
     width: '100%',

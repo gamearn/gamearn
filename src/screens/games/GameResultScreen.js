@@ -20,15 +20,17 @@ import {
   ChevronRight,
   ArrowRight,
   Sparkles,
+  LogOut,
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { tournaments } from '../../services/api';
 import { naira } from '../../config/appConfig';
+import { clearActiveMatch } from '../../utils/activeMatch';
 
 export default function GameResultScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
-  const { userProfile, updateProfileData } = useAuth();
+  const { userProfile, updateProfileData, refreshProfile } = useAuth();
 
   const {
     isWinner = true,
@@ -46,15 +48,47 @@ export default function GameResultScreen({ route, navigation }) {
   const [availableTournaments, setAvailableTournaments] = useState([]);
   const [loadingTournaments, setLoadingTournaments] = useState(true);
 
-  // Live profile stats
-  const gamesPlayed = Number(userProfile?.gamesPlayed ?? 18);
-  const gamesWon = Number(userProfile?.gamesWon ?? userProfile?.wins ?? 12);
-  const gamesLost = Number(userProfile?.gamesLost ?? userProfile?.losses ?? 6);
-  const totalGames = gamesPlayed || (gamesWon + gamesLost) || 1;
-  const winRate = Math.round((gamesWon / totalGames) * 100);
+  const recordedRef = React.useRef(false);
 
-  const streakCount = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 2);
-  const currentGp = Number(userProfile?.gamePower ?? userProfile?.gp ?? 680);
+  useEffect(() => {
+    // Always clear active match session when game result screen mounts!
+    clearActiveMatch().catch(() => {});
+
+    if (recordedRef.current) return;
+    recordedRef.current = true;
+
+    if (updateProfileData && userProfile) {
+      const currentWins = Number(userProfile?.wins ?? userProfile?.gamesWon ?? 0);
+      const currentLosses = Number(userProfile?.losses ?? userProfile?.gamesLost ?? 0);
+      const currentPlayed = Number(userProfile?.gamesPlayed ?? (currentWins + currentLosses));
+
+      const newWins = isWinner ? currentWins + 1 : currentWins;
+      const newLosses = !isWinner ? currentLosses + 1 : currentLosses;
+      const newPlayed = Math.max(currentPlayed + 1, newWins + newLosses);
+
+      updateProfileData({
+        wins: newWins,
+        gamesWon: newWins,
+        losses: newLosses,
+        gamesLost: newLosses,
+        gamesPlayed: newPlayed,
+      }).catch(() => {});
+    }
+
+    if (refreshProfile) {
+      refreshProfile().catch(() => {});
+    }
+  }, []);
+
+  // Live profile stats fetched from real user profile data
+  const gamesWon = Number(userProfile?.gamesWon ?? userProfile?.wins ?? 0);
+  const gamesLost = Number(userProfile?.gamesLost ?? userProfile?.losses ?? 0);
+  const gamesPlayed = Number(userProfile?.gamesPlayed ?? (gamesWon + gamesLost));
+  const totalGames = gamesPlayed || (gamesWon + gamesLost) || 0;
+  const winRate = totalGames > 0 ? Math.round((gamesWon / totalGames) * 100) : 0;
+
+  const streakCount = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
+  const currentGp = Number(userProfile?.gamePower ?? userProfile?.gp ?? 0);
   const gpGained = isWinner ? 40 : 10;
   const nextGpMilestone = currentGp < 1000 ? 1000 : currentGp < 3000 ? 3000 : 5000;
 
@@ -116,8 +150,9 @@ export default function GameResultScreen({ route, navigation }) {
     navigation.navigate(targetScreen, { gameId, gameName, targetScreen, stake });
   };
 
-  const handleViewProgress = () => {
-    navigation.navigate('MainTabs', { screen: 'HomeTab' });
+  const handleExitGame = async () => {
+    await clearActiveMatch();
+    navigation.navigate('MainTabs');
   };
 
   const handleJoinTournament = (tourId) => {
@@ -308,11 +343,11 @@ export default function GameResultScreen({ route, navigation }) {
             <ActivityIndicator size="small" color="#00E5FF" style={{ padding: 10 }} />
           ) : activeUserTour ? (
             /* Scenario A: User IS in an active tournament */
-            <View style={{ gap: 8 }}>
+            <View style={{ gap: 6 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Trophy size={18} color="#F59E0B" />
-                  <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 15 }}>
+                  <Trophy size={16} color="#F59E0B" />
+                  <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>
                     Tournament Standing Impact
                   </Text>
                 </View>
@@ -321,37 +356,37 @@ export default function GameResultScreen({ route, navigation }) {
                 </View>
               </View>
 
-              <Text style={{ color: '#00E5FF', fontWeight: '800', fontSize: 14 }}>
+              <Text style={{ color: '#00E5FF', fontWeight: '800', fontSize: 12 }}>
                 {activeUserTour.name || activeUserTour.title || `${gameName} Championship`}
               </Text>
 
               <View style={styles.tourImpactRow}>
                 <View style={styles.impactBadge}>
-                  <Text style={{ color: '#10B981', fontWeight: '900', fontSize: 14 }}>
+                  <Text style={{ color: '#10B981', fontWeight: '900', fontSize: 11 }}>
                     {isWinner ? '🚀 Rank Up! #3 (+2 Pos)' : '📊 Standing Kept: #4'}
                   </Text>
                 </View>
-                <Text style={{ color: '#94A3B8', fontSize: 12 }}>
+                <Text style={{ color: '#94A3B8', fontSize: 11 }}>
                   Prize Pool: <Text style={{ color: '#F59E0B', fontWeight: '800' }}>{naira(activeUserTour.prizePool || 5000)}</Text>
                 </Text>
               </View>
             </View>
           ) : (
             /* Scenario B: User is NOT in a tournament for this game */
-            <View style={{ gap: 10 }}>
+            <View style={{ gap: 8 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Sparkles size={18} color="#00E5FF" />
-                  <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 15 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Sparkles size={16} color="#00E5FF" />
+                  <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>
                     Tournament Standing Preview
                   </Text>
                 </View>
-                <Text style={{ color: '#F59E0B', fontWeight: '800', fontSize: 12 }}>
+                <Text style={{ color: '#F59E0B', fontWeight: '800', fontSize: 11 }}>
                   🔥 Top Contender
                 </Text>
               </View>
 
-              <Text style={{ color: '#CBD5E1', fontSize: 13, lineHeight: 18 }}>
+              <Text style={{ color: '#CBD5E1', fontSize: 11, lineHeight: 16 }}>
                 Your match score of <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{myScore} pts</Text> would place you in <Text style={{ color: '#10B981', fontWeight: '900' }}>Rank #4 (Top 5)</Text> in active tournaments!
               </Text>
 
@@ -360,11 +395,11 @@ export default function GameResultScreen({ route, navigation }) {
                 onPress={() => handleJoinTournament(openTour?.id)}
                 style={styles.joinTourPromptBtn}
               >
-                <Trophy size={16} color="#070C1B" style={{ marginRight: 6 }} />
+                <Trophy size={14} color="#070C1B" style={{ marginRight: 5 }} />
                 <Text style={styles.joinTourPromptBtnText}>
                   {openTour ? `Join "${openTour.name || gameName}" Tournament` : 'Join Live Tournament 🏆'}
                 </Text>
-                <ArrowRight size={16} color="#070C1B" style={{ marginLeft: 6 }} />
+                <ArrowRight size={14} color="#070C1B" style={{ marginLeft: 5 }} />
               </TouchableOpacity>
             </View>
           )}
@@ -382,11 +417,11 @@ export default function GameResultScreen({ route, navigation }) {
 
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={handleViewProgress}
-          style={styles.viewProgressBtn}
+          onPress={handleExitGame}
+          style={styles.exitGameBtn}
         >
-          <Text style={styles.viewProgressBtnText}>View Progress</Text>
-          <ChevronRight size={20} color="#FFFFFF" />
+          <LogOut size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.exitGameBtnText}>Exit Game</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -712,7 +747,7 @@ const styles = StyleSheet.create({
   joinTourPromptBtnText: {
     color: '#070C1B',
     fontWeight: '900',
-    fontSize: 13,
+    fontSize: 11,
   },
   playAgainBtn: {
     flexDirection: 'row',
@@ -734,20 +769,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginRight: 4,
   },
-  viewProgressBtn: {
+  exitGameBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(239, 68, 68, 0.18)',
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.6)',
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: 15,
+    marginBottom: 16,
   },
-  viewProgressBtnText: {
+  exitGameBtnText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
-    marginRight: 4,
+    letterSpacing: 0.5,
   },
 });

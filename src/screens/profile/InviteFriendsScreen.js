@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -51,11 +51,13 @@ export default function InviteFriendsScreen({ navigation }) {
     return `${cleanName}88`;
   }, [userProfile?.referralCode, userProfile?.uid, userProfile?.id, userName]);
 
+  const referralUpdatedRef = useRef(false);
   useEffect(() => {
-    if (referralCode && !userProfile?.referralCode && updateProfileData) {
+    if (referralCode && !userProfile?.referralCode && updateProfileData && !referralUpdatedRef.current) {
+      referralUpdatedRef.current = true;
       updateProfileData({ referralCode });
     }
-  }, [referralCode, userProfile?.referralCode, updateProfileData]);
+  }, [referralCode, userProfile?.referralCode]);
 
   const referralLink = `https://gamearn.app/invite/${referralCode}`;
 

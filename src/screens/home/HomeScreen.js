@@ -111,6 +111,7 @@ export default function HomeScreen({ navigation }) {
   const [storageError, setStorageError] = useState('');
   const [backendWallet, setBackendWallet] = useState(null);
   const [featuredTournament, setFeaturedTournament] = useState(null);
+  const [myTournaments, setMyTournaments] = useState([]);
   const [homeDataLoading, setHomeDataLoading] = useState(true);
   const pendingWrites = useRef(Promise.resolve());
   const mounted = useRef(true);
@@ -136,18 +137,32 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     let active = true;
-    Promise.allSettled([wallet.get(), tournaments.list()]).then(([walletResult, tournamentResult]) => {
-      if (!active) return;
-      if (walletResult.status === 'fulfilled') setBackendWallet(walletResult.value);
-      if (tournamentResult.status === 'fulfilled') {
-        const list = Array.isArray(tournamentResult.value)
-          ? tournamentResult.value
-          : tournamentResult.value?.tournaments || tournamentResult.value?.data || [];
-        setFeaturedTournament(list.find((item) => ['open', 'live', 'registration_open'].includes(String(item.status).toLowerCase())) || null);
+    Promise.allSettled([wallet.get(), tournaments.list(), tournaments.my()]).then(
+      ([walletResult, tournamentResult, myTournamentsResult]) => {
+        if (!active) return;
+        if (walletResult.status === 'fulfilled') setBackendWallet(walletResult.value);
+        if (tournamentResult.status === 'fulfilled') {
+          const list = Array.isArray(tournamentResult.value)
+            ? tournamentResult.value
+            : tournamentResult.value?.tournaments || tournamentResult.value?.data || [];
+          setFeaturedTournament(
+            list.find((item) =>
+              ['open', 'live', 'registration_open'].includes(String(item.status).toLowerCase())
+            ) || null
+          );
+        }
+        if (myTournamentsResult.status === 'fulfilled') {
+          const myList = Array.isArray(myTournamentsResult.value)
+            ? myTournamentsResult.value
+            : myTournamentsResult.value?.tournaments || myTournamentsResult.value?.data || [];
+          setMyTournaments(myList);
+        }
+        setHomeDataLoading(false);
       }
-      setHomeDataLoading(false);
-    });
-    return () => { active = false; };
+    );
+    return () => {
+      active = false;
+    };
   }, []);
 
   // The backend returns `balance` in naira. Keep accounting kobo out of the UI.
@@ -230,9 +245,7 @@ export default function HomeScreen({ navigation }) {
           <View style={{ marginLeft: 15 * scale }}>
             {txt(displayName, 20, s.medium)}
             <View style={[s.inline, { flexWrap: 'wrap', gap: 6 * scale }]}>
-              <View style={s.dot} />
-              {txt('Active Member', 14, s.cyan)}
-              <View style={{ backgroundColor: '#F59E0B22', paddingHorizontal: 6 * scale, paddingVertical: 2 * scale, borderRadius: 6 * scale, borderWidth: 1, borderColor: '#F59E0B66' }}>
+                                          <View style={{ backgroundColor: '#F59E0B22', paddingHorizontal: 6 * scale, paddingVertical: 2 * scale, borderRadius: 6 * scale, borderWidth: 1, borderColor: '#F59E0B66' }}>
                 <Text style={{ color: '#F59E0B', fontSize: 11 * scale, fontWeight: '900' }}>⚡ {userProfile?.gpText || '0 GP'}</Text>
               </View>
               <View style={{ backgroundColor: '#3B82F622', paddingHorizontal: 6 * scale, paddingVertical: 2 * scale, borderRadius: 6 * scale, borderWidth: 1, borderColor: '#3B82F666' }}>
@@ -278,6 +291,11 @@ export default function HomeScreen({ navigation }) {
     if (homeDataLoading) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>Loading live tournaments...</Text>;
     if (!featuredTournament) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>No live tournaments right now.</Text>;
     const tournament = featuredTournament;
+    const isJoined = Boolean(
+      tournament?.id &&
+      myTournaments.some((t) => String(t.id || t.tournamentId) === String(tournament.id))
+    );
+
     return (
       <LinearGradient colors={['#172019', '#170b19', '#001b30']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.tournament}>
         <Art name="tournament" width={320 * scale} height={168 * scale} style={s.trophyArt} />
@@ -296,7 +314,13 @@ export default function HomeScreen({ navigation }) {
             {txt('Prize Pool', 13, s.muted)}
             {txt(tournament.prizePool ? `₦${Number(tournament.prizePool).toLocaleString()}` : 'Prize pool unavailable', 25, [s.bold, s.cyan])}
           </View>
-          <GradientButton title={state.joined ? 'Joined âœ“' : 'Join Now'} onPress={() => navigation.navigate('LiveTournament')} style={{ width: 148 * scale }} compact scale={scale} />
+          <GradientButton
+            title={isJoined ? 'Joined' : 'Join Now'}
+            onPress={() => navigation.navigate(isJoined ? 'LiveTournament' : 'TournamentDetails', { tournamentId: tournament.id })}
+            style={{ width: 148 * scale }}
+            compact
+            scale={scale}
+          />
         </View>
       </LinearGradient>
     );
@@ -794,18 +818,18 @@ function makeStyles(k, theme, isDark) {
     plus: { width: 35, height: 35, borderRadius: 18, backgroundColor: isDark ? '#00baf2' : '#00B4D8', alignItems: 'center', justifyContent: 'center', marginLeft: 5 },
     streakSummary: { paddingHorizontal: 8, backgroundColor: isDark ? '#001522' : '#FFFFFF' },
     activeBadge: { marginLeft: 10, borderRadius: 15, backgroundColor: GREEN, paddingHorizontal: 12, height: 26, flexDirection: 'row', alignItems: 'center', gap: 3 },
-    streak: { borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#087f94' : 'rgba(0, 0, 0, 0.08)', paddingHorizontal: 16, paddingTop: 7, height: 122, backgroundColor: isDark ? 'transparent' : '#FFFFFF' },
+    streak: { borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#087f94' : 'rgba(0, 0, 0, 0.08)', paddingHorizontal: 16, paddingTop: 7, height: 140, backgroundColor: isDark ? 'transparent' : '#FFFFFF', overflow: 'visible' },
     sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    milestoneScroller: { marginTop: 11, flex: 1 },
-    milestones: { flexGrow: 1 },
-    milestoneTrack: { flexDirection: 'row', alignItems: 'flex-start', minWidth: 5 * 45 + 79, position: 'relative' },
-    track: { position: 'absolute', top: 16, left: 17, right: 78, height: 4, backgroundColor: isDark ? '#3c455e' : '#CBD5E1' },
+    milestoneScroller: { marginTop: 8, flex: 1, overflow: 'visible' },
+    milestones: { flexGrow: 1, overflow: 'visible' },
+    milestoneTrack: { flexDirection: 'row', alignItems: 'flex-start', minWidth: 5 * 45 + 79, position: 'relative', paddingTop: 16, overflow: 'visible' },
+    track: { position: 'absolute', top: 32, left: 17, right: 78, height: 4, backgroundColor: isDark ? '#3c455e' : '#CBD5E1' },
     milestone: { width: 37, alignItems: 'center' },
     milestoneCircle: { width: 33, height: 33, borderRadius: 17, borderWidth: 2, borderColor: isDark ? '#64778f' : '#94A3B8', backgroundColor: isDark ? '#142035' : '#E2E8F0', alignItems: 'center', justifyContent: 'center' },
     done: { backgroundColor: '#07872f', borderColor: '#33ff3e', shadowColor: GREEN, shadowRadius: 8, shadowOpacity: 0.9, shadowOffset: { width: 0, height: 0 } },
     gold: { backgroundColor: '#a86a00', borderColor: '#ffe537', shadowColor: '#ffb500', shadowRadius: 7, shadowOpacity: 0.85, shadowOffset: { width: 0, height: 0 } },
-    reward: { width: 79, height: 68, borderRadius: 9, borderWidth: 1, borderColor: isDark ? '#946d39' : 'rgba(0,0,0,0.1)', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 3, backgroundColor: isDark ? '#07162b' : '#F1F5F9', marginTop: 5 },
-    gift: { position: 'absolute', top: -34 },
+    reward: { width: 79, height: 68, borderRadius: 9, borderWidth: 1, borderColor: isDark ? '#946d39' : 'rgba(0,0,0,0.1)', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 3, backgroundColor: isDark ? '#07162b' : '#F1F5F9', marginTop: 5, overflow: 'visible' },
+    gift: { position: 'absolute', top: -22 },
     playStrip: { marginTop: 9, marginBottom: 9, height: 49, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', borderRadius: 10, backgroundColor: isDark ? '#09152f' : 'rgba(0, 180, 216, 0.12)' },
     tournament: { height: 187, borderRadius: 13, borderWidth: 1, borderColor: isDark ? '#ac7427' : 'rgba(0, 0, 0, 0.1)', overflow: 'hidden', paddingHorizontal: 21, paddingVertical: 9 },
     trophyArt: { position: 'absolute', right: 0, top: 0 },

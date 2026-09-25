@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Image,
   Modal,
@@ -145,9 +145,12 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
     }, 1300);
 
     return () => clearTimeout(timer);
-  }, [isRemote, gameState.activePlayerIndex, gameState.gameStatus, gameState.discardPile.length, aiDifficulty, userProfile]);
+  }, [isRemote, gameState.activePlayerIndex, gameState.gameStatus, gameState.discardPile.length, aiDifficulty]);
 
-  // Open Game Over dialog when game finishes
+  const { updateProfileData, userProfile } = useAuth();
+  const mountStreakRecorded = useRef(false);
+  const gameOverHandled = useRef(false);
+
   useEffect(() => {
     setActiveMatch({
       gameId: 'whot',
@@ -155,24 +158,30 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
       targetScreen: 'WhotGame',
       durationSecs: 120,
     });
+    if (!mountStreakRecorded.current) {
+      mountStreakRecorded.current = true;
+      recordGameStreak(updateProfileData, userProfile);
+    }
   }, []);
-
-  const { updateProfileData, userProfile } = useAuth();
 
   useEffect(() => {
     if (gameState.gameStatus === 'game_over') {
       clearActiveMatch();
-      recordGameStreak(updateProfileData, userProfile);
-      if (isRemote) {
-        onRemoteGameOver?.(gameState.winner);
-        return;
-      }
-      setDialog('game_over');
-      if (gameState.winner?.id === 0) {
-        onWin?.(500);
+      if (!gameOverHandled.current) {
+        gameOverHandled.current = true;
+        recordGameStreak(updateProfileData, userProfile);
+        if (isRemote) {
+          onRemoteGameOver?.(gameState.winner);
+          return;
+        }
+        if (onWin) {
+          onWin(gameState.winner?.id === 0);
+        } else {
+          setDialog('game_over');
+        }
       }
     }
-  }, [gameState.gameStatus, gameState.winner, isRemote, onWin, onRemoteGameOver, updateProfileData, userProfile]);
+  }, [gameState.gameStatus, gameState.winner, isRemote]);
 
 
   function layout(e) {
@@ -632,23 +641,6 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
                 <Pressable style={[styles.button, { backgroundColor: '#00d653', marginTop: 16 }]} onPress={handleClaimBonus}>
                   <Text style={[styles.buttonText, { color: '#fff' }]}>Claim 500 Bonus Coins Now</Text>
                 </Pressable>
-              </>
-            ) : dialog === 'game_over' ? (
-              <>
-                <Text style={styles.title}>{gameState.winner?.id === 0 ? '🏆 VICTORY!' : '💔 GAME OVER'}</Text>
-                <Text style={styles.body}>
-                  {gameState.winner?.id === 0
-                    ? 'Congratulations! You emptied your hand first and won the match!'
-                    : `${gameState.winner?.name} won the match!`}
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-                  <Pressable style={[styles.button, { backgroundColor: 'rgba(255,255,255,0.15)', flex: 1, alignItems: 'center' }]} onPress={onBack || handleRestart}>
-                    <Text style={[styles.buttonText, { color: '#fff' }]}>🚪 Exit Game</Text>
-                  </Pressable>
-                  <Pressable style={[styles.button, { backgroundColor: '#7042ff', flex: 1, alignItems: 'center' }]} onPress={handleRestart}>
-                    <Text style={[styles.buttonText, { color: '#fff' }]}>🎮 Play Again</Text>
-                  </Pressable>
-                </View>
               </>
             ) : null}
 

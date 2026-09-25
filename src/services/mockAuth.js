@@ -33,7 +33,15 @@ export const getSavedUser = async () => {
 
 export const saveSavedUser = async (user) => {
   try {
+    if (!user) return user;
     await AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+    if (user.email) {
+      const emailKey = user.email.toLowerCase();
+      const rawDb = await AsyncStorage.getItem(STORAGE_KEY_USERS);
+      const db = rawDb ? JSON.parse(rawDb) : {};
+      db[emailKey] = { ...db[emailKey], ...user };
+      await AsyncStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(db));
+    }
     return user;
   } catch (e) {
     console.error('Error saving user:', e);
@@ -51,8 +59,28 @@ export const clearSavedUser = async () => {
 
 export const loginWithEmail = async (email, password) => {
   let existingUser = await getSavedUser();
+  const emailKey = (email || '').toLowerCase();
+  
+  if (!existingUser || (existingUser.email && existingUser.email.toLowerCase() !== emailKey)) {
+    try {
+      const rawDb = await AsyncStorage.getItem(STORAGE_KEY_USERS);
+      const db = rawDb ? JSON.parse(rawDb) : {};
+      if (db[emailKey]) {
+        existingUser = db[emailKey];
+      } else {
+        existingUser = null;
+      }
+    } catch (e) {}
+  }
+
   if (!existingUser) {
-    existingUser = { ...DEFAULT_USER, email, username: email.split('@')[0] };
+    existingUser = {
+      ...DEFAULT_USER,
+      email,
+      username: email.split('@')[0],
+      streak: 1,
+      lastStreakDate: new Date().toISOString().split('T')[0],
+    };
   } else {
     existingUser = { ...existingUser, email };
   }
@@ -66,6 +94,8 @@ export const registerWithEmail = async (email, password, username) => {
     uid: 'user_' + Date.now(),
     email,
     username: username || email.split('@')[0],
+    streak: 1,
+    lastStreakDate: new Date().toISOString().split('T')[0],
     createdAt: new Date().toISOString(),
   };
   await saveSavedUser(newUser);

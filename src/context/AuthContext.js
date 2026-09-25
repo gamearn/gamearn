@@ -30,36 +30,102 @@ import {
 import { auth as authApi, wallet } from '../services/api';
 import { ApiError } from '../services/apiClient';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const AuthContext = createContext();
 
 import { calculateGamePower, formatGP, calculateValuePoints, formatVP } from '../utils/gamePower';
 
-function profileFromMe(me) {
-  const gamesPlayed = me?.stats?.gamesPlayed ?? me?.gamesPlayed ?? 0;
-  const wins = me?.stats?.wins ?? me?.wins ?? 0;
-  const losses = me?.stats?.losses ?? me?.losses ?? 0;
+async function getCachedProfile(uid) {
+  if (!uid) return null;
+  try {
+    const raw = await AsyncStorage.getItem(`@gamearn_profile_${uid}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function saveCachedProfile(uid, profile) {
+  if (!uid || !profile) return;
+  try {
+    await AsyncStorage.setItem(`@gamearn_profile_${uid}`, JSON.stringify(profile));
+  } catch (e) {
+    console.warn('Could not save cached profile:', e);
+  }
+}
+
+function profileFromMe(me, cached) {
+  const gamesPlayed = Math.max(
+    Number(me?.stats?.gamesPlayed ?? me?.gamesPlayed ?? 0),
+    Number(cached?.gamesPlayed ?? 0)
+  );
+  const wins = Math.max(
+    Number(me?.stats?.wins ?? me?.wins ?? 0),
+    Number(cached?.wins ?? 0)
+  );
+  const losses = Math.max(
+    Number(me?.stats?.losses ?? me?.losses ?? 0),
+    Number(cached?.losses ?? 0)
+  );
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const lastDateStr = me?.lastStreakDate || me?.lastPlayedDate || me?.lastCheckInDate || cached?.lastStreakDate || cached?.lastPlayedDate || cached?.lastCheckInDate;
+
+  let baseStreak = Number(me?.streak ?? me?.currentStreak ?? me?.stats?.streak ?? cached?.streak ?? cached?.currentStreak ?? (gamesPlayed > 0 ? 1 : 0));
+
+  let updatedStreak = baseStreak;
+  let newLastStreakDate = lastDateStr || todayStr;
+
+  if (lastDateStr) {
+    const d1 = new Date(lastDateStr.split('T')[0] + 'T00:00:00Z');
+    const d2 = new Date(todayStr + 'T00:00:00Z');
+    const diffDays = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 1) {
+      // Logged in on the NEXT DAY! Automatically increment streak (+1)
+      updatedStreak = baseStreak > 0 ? baseStreak + 1 : 1;
+      newLastStreakDate = todayStr;
+    } else if (diffDays === 0) {
+      // Same day login: maintain current streak (at least 1 if active)
+      updatedStreak = Math.max(1, baseStreak);
+    } else if (diffDays > 1) {
+      // Missed 2+ days: restart streak at 1 for today's login
+      updatedStreak = 1;
+      newLastStreakDate = todayStr;
+    }
+  } else {
+    updatedStreak = Math.max(1, baseStreak);
+    newLastStreakDate = todayStr;
+  }
+
   const gp = calculateGamePower(gamesPlayed, wins, losses);
   const vp = calculateValuePoints(me?.wallet?.balance ?? me?.walletBalance ?? 0, gamesPlayed, wins);
 
-  const username = me?.username || me?.name || me?.displayName || me?.email?.split('@')[0] || 'Gamer';
-  const displayName = me?.displayName || me?.username || me?.name || 'Gamer';
-  const name = me?.name || me?.username || me?.displayName || 'Gamer';
+  const username = me?.username || me?.name || me?.displayName || cached?.username || me?.email?.split('@')[0] || 'Gamer';
+  const displayName = me?.displayName || me?.username || me?.name || cached?.displayName || 'Gamer';
+  const name = me?.name || me?.username || me?.displayName || cached?.name || 'Gamer';
 
   return {
+    ...cached,
     ...me,
-    // Convenience fields consumed by existing screens.
     username,
     displayName,
     name,
-    avatar: me?.avatar || me?.avatarUrl || me?.photoURL || '',
-    bio: me?.bio || '',
-    phone: me?.phoneNumber || me?.phone || '',
-    walletBalance: me?.wallet?.balance ?? me?.walletBalance ?? 0,
-    coins: me?.wallet?.balance ?? me?.coins ?? 0,
-    isPremium: !!(me?.premium?.isPremium || me?.isPremium),
+    avatar: me?.avatar || me?.avatarUrl || me?.photoURL || cached?.avatar || '',
+    bio: me?.bio || cached?.bio || '',
+    phone: me?.phoneNumber || me?.phone || cached?.phone || '',
+    walletBalance: me?.wallet?.balance ?? me?.walletBalance ?? cached?.walletBalance ?? 0,
+    coins: me?.wallet?.balance ?? me?.coins ?? cached?.coins ?? 0,
+    isPremium: !!(me?.premium?.isPremium || me?.isPremium || cached?.isPremium),
     gamesPlayed,
     wins,
     losses,
+    streak: updatedStreak,
+    currentStreak: updatedStreak,
+    lastStreakDate: newLastStreakDate,
+    lastPlayedDate: newLastStreakDate,
+    lastCheckInDate: newLastStreakDate,
     gamePower: gp,
     gpText: formatGP(gp),
     valuePoints: vp,
@@ -106,21 +172,31 @@ export const AuthProvider = ({ children }) => {
   const getPendingProfile = () => pendingProfile.current;
 
   const loadBackendProfile = useCallback(async (fbUser) => {
+    const uid = fbUser?.uid || 'user_demo_123';
+    const cached = await getCachedProfile(uid);
     try {
       // login updates last_login and returns profile + wallet; me() is the
       // richer endpoint. login first so the backend tracks the session.
       await authApi.login({});
       const me = await authApi.me();
       const isAdmin = await isAdminUser();
-      setUserProfile(profileFromMe({ ...me, isAdmin }));
+      const profile = profileFromMe({ ...me, isAdmin, uid }, cached);
+      setUserProfile(profile);
+      if (uid) await saveCachedProfile(uid, profile);
       setBackendReady(true);
       return me;
     } catch (err) {
       if (err instanceof ApiError && err.statusCode === 404) {
-        // Registered in Firebase but not in the backend yet Ã¢â€ â€™ onboarding.
+        // Registered in Firebase but not in the backend yet → onboarding.
         setUserProfile(null);
         setBackendReady(false);
         return null;
+      }
+      if (cached) {
+        const profile = profileFromMe(cached, cached);
+        setUserProfile(profile);
+        setBackendReady(true);
+        return profile;
       }
       setUserProfile(null);
       setBackendReady(false);
@@ -286,7 +362,7 @@ export const AuthProvider = ({ children }) => {
     return me;
   }, [user, loadBackendProfile]);
 
-  const updateProfileData = async (updates) => {
+  const updateProfileData = useCallback(async (updates) => {
     const displayName = updates.displayName || updates.username || updates.name;
     try {
       if (backendReady && authApi && authApi.updateProfile) {
@@ -312,12 +388,14 @@ export const AuthProvider = ({ children }) => {
         avatar: updates.avatar || prev?.avatar,
         bio: updates.bio !== undefined ? updates.bio : prev?.bio,
       };
-      updated = profileFromMe(merged);
+      updated = profileFromMe(merged, prev);
+      const uid = user?.uid || prev?.uid || 'user_demo_123';
+      if (uid) saveCachedProfile(uid, updated);
       return updated;
     });
 
     return updated;
-  };
+  }, [backendReady, authApi]);
 
   const signOut = async () => {
     await signOutFirebase();

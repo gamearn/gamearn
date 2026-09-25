@@ -68,6 +68,17 @@ function Die({ value, size, selected, used, onPress, index }) {
   }[value] || [[1, 1]];
 
   const isRedDot = value === 1;
+  const faceSize = Math.max(1, size - 4);
+  const dotSize = isRedDot ? faceSize * 0.28 : faceSize * 0.18;
+  const margin = faceSize * 0.13;
+  const centerPos = (faceSize - dotSize) / 2;
+  const endPos = faceSize - margin - dotSize;
+
+  const getPos = (gridVal) => {
+    if (gridVal === 0) return margin;
+    if (gridVal === 1) return centerPos;
+    return endPos;
+  };
 
   return (
     <Button
@@ -114,13 +125,13 @@ function Die({ value, size, selected, used, onPress, index }) {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          width: size - 3,
-          height: size - 3,
+          width: faceSize,
+          height: faceSize,
           borderRadius: size * 0.2,
           borderWidth: selected ? 3 : 1.5,
           borderColor: selected ? '#f59e0b' : '#cbd5e1',
-          justifyContent: 'center',
-          alignItems: 'center',
+          position: 'relative',
+          overflow: 'hidden',
           elevation: 8,
           shadowColor: '#000',
           shadowOffset: { width: 3, height: 4 },
@@ -130,50 +141,57 @@ function Die({ value, size, selected, used, onPress, index }) {
       >
         {/* Top Gloss Reflection Highlight */}
         <View
+          pointerEvents="none"
           style={{
             position: 'absolute',
             top: 2,
-            left: 6,
-            right: 6,
-            height: size * 0.18,
-            borderRadius: size * 0.1,
-            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+            left: 4,
+            right: 4,
+            height: faceSize * 0.16,
+            borderRadius: faceSize * 0.08,
+            backgroundColor: 'rgba(255, 255, 255, 0.45)',
+            zIndex: 1,
           }}
         />
 
         {/* 3D Inset Pip Dots */}
-        {dots.map(([x, y], i) => (
-          <View
-            key={i}
-            style={{
-              position: 'absolute',
-              left: size * (0.16 + x * 0.26),
-              top: size * (0.16 + y * 0.26),
-              width: isRedDot ? size * 0.24 : size * 0.16,
-              height: isRedDot ? size * 0.24 : size * 0.16,
-              borderRadius: size * 0.12,
-              backgroundColor: isRedDot ? '#dc2626' : '#0f172a',
-              borderWidth: 1,
-              borderColor: isRedDot ? '#991b1b' : '#334155',
-              elevation: 2,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.5,
-            }}
-          >
-            {/* Dot 3D Highlight */}
+        {dots.map(([gx, gy], i) => {
+          const posX = getPos(gx);
+          const posY = getPos(gy);
+          return (
             <View
+              key={i}
               style={{
-                width: size * 0.05,
-                height: size * 0.05,
-                borderRadius: size * 0.03,
-                backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                marginTop: 1,
-                marginLeft: 1,
+                position: 'absolute',
+                left: posX,
+                top: posY,
+                width: dotSize,
+                height: dotSize,
+                borderRadius: dotSize / 2,
+                backgroundColor: isRedDot ? '#dc2626' : '#0f172a',
+                borderWidth: 1,
+                borderColor: isRedDot ? '#991b1b' : '#334155',
+                zIndex: 2,
+                elevation: 2,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.5,
               }}
-            />
-          </View>
-        ))}
+            >
+              {/* Dot 3D Highlight */}
+              <View
+                style={{
+                  width: dotSize * 0.28,
+                  height: dotSize * 0.28,
+                  borderRadius: dotSize * 0.14,
+                  backgroundColor: 'rgba(255, 255, 255, 0.65)',
+                  marginTop: dotSize * 0.12,
+                  marginLeft: dotSize * 0.12,
+                }}
+              />
+            </View>
+          );
+        })}
       </LinearGradient>
     </Button>
   );
@@ -270,6 +288,9 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
     };
   }, []);
 
+  const { updateProfileData, userProfile } = useAuth();
+  const mountStreakRecorded = useRef(false);
+
   useEffect(() => {
     setActiveMatch({
       gameId: 'ludo',
@@ -277,9 +298,11 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
       targetScreen: 'LudoGame',
       durationSecs: 120,
     });
+    if (!mountStreakRecorded.current) {
+      mountStreakRecorded.current = true;
+      recordGameStreak(updateProfileData, userProfile);
+    }
   }, []);
-
-  const { updateProfileData, userProfile } = useAuth();
 
   useEffect(() => {
     if (state.phase === 'won') {
@@ -287,10 +310,10 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
       if (!wonReported.current) {
         wonReported.current = true;
         recordGameStreak(updateProfileData, userProfile);
-        if (onWin) onWin(stake);
+        if (onWin) onWin(state.winner === 0);
       }
     }
-  }, [state.phase, onWin, stake, updateProfileData, userProfile]);
+  }, [state.phase]);
 
   // Automatic AI Bot (Oba) Turn Controller & Dice Rolling
   useEffect(() => {

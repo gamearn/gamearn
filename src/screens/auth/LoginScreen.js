@@ -86,9 +86,9 @@ export default function LoginScreen({ navigation }) {
         <View style={styles.logoSection}>
           <View style={styles.glowingBadge}>
             <Image
-              source={require('../../../assets/logos/logo_icon.png')}
+              source={require('../../../assets/logos/logo_dark.png')}
               style={styles.logoIcon}
-              resizeMode="contain"
+              resizeMode="cover"
             />
           </View>
         </View>
@@ -228,15 +228,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   glowingBadge: {
-    width: 125,
-    height: 125,
-    borderRadius: 28,
+    width: 165,
+    height: 165,
+    borderRadius: 34,
     backgroundColor: '#0B132B',
     borderWidth: 2,
     borderColor: '#00E5FF',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 10,
+    overflow: 'hidden',
     shadowColor: '#00E5FF',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.85,

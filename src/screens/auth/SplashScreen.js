@@ -90,7 +90,7 @@ export default function SplashScreen({ navigation }) {
         <View style={styles.centerBadgeWrapper}>
           <View style={styles.glowingAppBadge}>
             <Image
-              source={require('../../../assets/logos/logo_icon.png')}
+              source={require('../../../assets/logos/logo_dark.png')}
               style={styles.logoIconImage}
               resizeMode="contain"
             />
@@ -189,10 +189,10 @@ const styles = StyleSheet.create({
     height: '100%',
     ...(Platform.OS === 'web'
       ? {
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
       : {}),
   },
   overlay: {
@@ -222,9 +222,9 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
   glowingAppBadge: {
-    width: 125,
-    height: 125,
-    borderRadius: 28,
+    width: 145,
+    height: 145,
+    borderRadius: 30,
     backgroundColor: '#0B132B',
     borderWidth: 2,
     borderColor: '#00E5FF',
@@ -239,8 +239,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   logoIconImage: {
-    width: '90%',
-    height: '90%',
+    width: '100%',
+    height: '100%',
   },
   heroSection: {
     alignItems: 'center',
