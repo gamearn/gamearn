@@ -18,8 +18,23 @@ module.exports = function withFixFirebaseIOS(config) {
           contents = `use_modular_headers!\n` + contents;
         }
 
-        // 2. Remove any invalid linkage overrides if present
-        contents = contents.replace(/use_frameworks!\s*:linkage\s*=>\s*:dynamic/, 'use_frameworks! :linkage => :static');
+        // 2. Inject post_install settings for non-modular includes & iOS 15.1 target
+        const postInstallSnippet = `
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+      end
+    end
+`;
+        if (contents.includes('post_install do |installer|')) {
+          if (!contents.includes('CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES')) {
+            contents = contents.replace(
+              'post_install do |installer|',
+              `post_install do |installer|${postInstallSnippet}`
+            );
+          }
+        }
 
         fs.writeFileSync(podfilePath, contents, 'utf8');
       }
