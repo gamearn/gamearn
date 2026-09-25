@@ -37,8 +37,9 @@ const socketRef = useRef(null);
   const isPlaying = phase === 'playing';
   const opponentName = opponent?.displayName || 'Opponent';
 
-  const handleServerResult = (p) => {
+const handleServerResult = (p) => {
     const won = !!p?.winner && p.winner === myUid;
+    const opp = (Array.isArray(p?.players) ? p.players : []).filter((x) => x.uid !== myUid)[0];
     setResult(p);
     setPhase('game_over');
     setBanner(won ? 'You won this match!' : p?.winnerDisplayName ? `${p.winnerDisplayName} won.` : 'Match over.');
@@ -50,10 +51,10 @@ const socketRef = useRef(null);
         isWinner: won,
         myScore: p?.myScore || (won ? 72 : 52),
         opponentScore: p?.opponentScore || (won ? 48 : 66),
-        opponentName: p?.winnerDisplayName || opponentName || 'Opponent',
-        opponentAvatar: p?.opponentAvatar || null,
+        opponentName: opp?.displayName || p?.winnerDisplayName || opponentName || 'Opponent',
+        opponentAvatar: opp?.avatar || p?.opponentAvatar || null,
         gameId: 'whot',
-        gameName: 'Wọ́t Game',
+        gameName: 'Wọńt Game',
         targetScreen: 'WhotGame',
         stake: stake,
       });
@@ -120,7 +121,7 @@ onOpponentForfeited: (p) => {
     let cancelled = false;
     setPhase('joining');
     practice.whot
-      .start({ startCards: 6, playerRating: 1200 })
+      .start({ startCards: 6, playerRating: 1200, seats: 4 })
       .then((res) => {
         if (cancelled) return;
         activePracticeId.current = res?.sessionId || null;
@@ -159,13 +160,13 @@ onOpponentForfeited: (p) => {
         if (res?.gameOver) {
           const won = res.winner === myUid;
           setPhase('game_over');
-          setBanner(won ? 'Practice complete — you emptied your hand first!' : 'Practice complete — Gamearn Bot won.');
+          setBanner(won ? 'Practice complete — you emptied your hand first!' : 'Practice complete — an Oba bot emptied its hand first.');
           setTimeout(() => {
             navigation.navigate('GameResult', {
               isWinner: won,
               myScore: won ? 72 : 46,
               opponentScore: won ? 46 : 66,
-              opponentName: 'Gamearn Bot 🤖',
+              opponentName: 'Oba Bots 🤖',
               gameId: 'whot',
               gameName: 'Wọ́t Game',
               targetScreen: 'WhotGame',
@@ -224,7 +225,8 @@ onOpponentForfeited: (p) => {
           isRemote={isRemote && phase !== 'local'}
           remote={remote}
           onRemoteMove={handleRemoteMove}
-onRemoteGameOver={(winnerUid) => handleWin(winnerUid === myUid)}
+          onBack={handleBack}
+          onRemoteGameOver={(winnerUid) => handleWin(winnerUid === myUid)}
           onWin={() => handleWin(true)}
           onMessage={mode === 'multiplayer' && roomId ? (text) => socketRef.current?.sendChat(roomId, text) : null}
           incomingChats={mode === 'multiplayer' ? incomingChats : []}

@@ -5,6 +5,7 @@ import GAButton from '../../components/GAButton';
 import GAInput from '../../components/GAInput';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { consumeInviteCode } from '../../utils/inviteLink';
 
 const GAMES = [
   { id: 'whot', name: 'Whot', icon: '🎴' },
@@ -20,7 +21,7 @@ export default function ProfileSetupScreen({ navigation }) {
   const [username, setUsername] = useState(pending.displayName || '');
   const [phone, setPhone] = useState(pending.phoneNumber || '');
   const [phoneCode, setPhoneCode] = useState('+234');
-  const [referralCode, setReferralCode] = useState('');
+  const [referralCode, setReferralCode] = useState(consumeInviteCode() || '');
   const [favGame, setFavGame] = useState('whot');
   const [loading, setLoading] = useState(false);
 

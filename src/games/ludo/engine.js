@@ -1,7 +1,7 @@
 // Reference-board variant: 13x13 grid, 44 outer squares, two dice.
 const COLORS = ['#e61c24', '#00b843', '#ffcc00', '#0085ff'];
 const NAMES = ['You', 'Oba 1 👑', 'Oba 2 👑', 'Oba 3 👑'];
-const ORDER = [0, 1, 2, 3]; // clockwise: red (top-left), green (top-right), yellow (bottom-right), blue (bottom-left)
+const ORDER = [0, 1, 3, 2]; // clockwise: red (top-left), green (top-right), blue (bottom-right), yellow (bottom-left)
 const TRACK = [
   [5,0],[6,0],[7,0],[7,1],[7,2],[7,3],[7,4],
   [8,5],[9,5],[10,5],[11,5],[12,5],[12,6],[12,7],
@@ -10,8 +10,8 @@ const TRACK = [
   [4,7],[3,7],[2,7],[1,7],[0,7],[0,6],[0,5],
   [1,5],[2,5],[3,5],[4,5],[5,4],[5,3],[5,2],[5,1],
 ];
-const START = [43, 10, 21, 32];
-const SAFE = new Set([43, 10, 21, 32, 1, 12, 23, 34]);
+const START = [1, 12, 34, 23];
+const SAFE = new Set([1, 10, 12, 21, 23, 32, 34, 43]);
 const FINISH = 47;
 function fresh(now = Date.now(), timerMs = 120000) {
   return { tokens: Array.from({length:4}, () => [-1,-1,-1,-1]), turn:0,
@@ -21,12 +21,12 @@ function fresh(now = Date.now(), timerMs = 120000) {
 function globalIndex(player, progress) { return (START[player] + progress) % 44; }
 function coordinate(player, token, progress) {
   if (progress < 0) {
-    const origin = [[0,0],[8,0],[8,8],[0,8]][player];
+    const origin = [[0,0],[8,0],[0,8],[8,8]][player];
     return [origin[0] + (token % 2 ? 3.4 : 1.6), origin[1] + (token > 1 ? 3.4 : 1.6)];
   }
   if (progress < 43) return TRACK[globalIndex(player, progress)].map(v => v + .5);
   const step = progress - 43;
-  const homes = [[6,1+step],[11-step,6],[6,11-step],[1+step,6]];
+  const homes = [[6,1+step],[11-step,6],[1+step,6],[6,11-step]];
   return progress === FINISH ? [6.5,6.5] : homes[player].map(v => v + .5);
 }
 function legal(state, dieIndex = state.selected) {

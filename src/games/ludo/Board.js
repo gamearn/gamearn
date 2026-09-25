@@ -34,8 +34,8 @@ export default function Board({ size, state, onMove }) {
   const YARDS = [
     { p: 0, x: 0, y: 0, color: '#e61c24', light: '#ffffff', tokenColor: '#e61c24' }, // Red (Top-Left)
     { p: 1, x: 8, y: 0, color: '#00b843', light: '#ffffff', tokenColor: '#00b843' }, // Green (Top-Right)
-    { p: 2, x: 8, y: 8, color: '#ffcc00', light: '#ffffff', tokenColor: '#ffcc00' }, // Yellow (Bottom-Right)
-    { p: 3, x: 0, y: 8, color: '#0085ff', light: '#ffffff', tokenColor: '#0085ff' }, // Blue (Bottom-Left)
+    { p: 2, x: 0, y: 8, color: '#ffcc00', light: '#ffffff', tokenColor: '#ffcc00' }, // Yellow (Bottom-Left)
+    { p: 3, x: 8, y: 8, color: '#0085ff', light: '#ffffff', tokenColor: '#0085ff' }, // Blue (Bottom-Right)
   ];
 
   return (
@@ -81,17 +81,11 @@ export default function Board({ size, state, onMove }) {
             let fillColor = '#ffffff';
             let strokeColor = '#2b3954';
 
-            // Colored Home Pathways leading to center
-            if (x === 6 && y > 0 && y < 5) fillColor = COLORS[0]; // Red pathway (Top, from Red House)
-            if (y === 6 && x > 7 && x < 12) fillColor = COLORS[1]; // Green pathway (Right, from Green House)
-            if (x === 6 && y > 7 && y < 12) fillColor = COLORS[2]; // Yellow pathway (Bottom, from Yellow House)
-            if (y === 6 && x > 0 && x < 5) fillColor = COLORS[3]; // Blue pathway (Left, from Blue House)
-
-            // Starting Entry Cells (matching Ludo rules)
-            if (x === 5 && y === 1) fillColor = COLORS[0]; // Red Start
-            if (x === 11 && y === 5) fillColor = COLORS[1]; // Green Start
-            if (x === 7 && y === 11) fillColor = COLORS[2]; // Yellow Start
-            if (x === 1 && y === 7) fillColor = COLORS[3]; // Blue Start
+            // Colored Home Pathways leading to center (reference layout)
+            if (x === 6 && y < 5) fillColor = COLORS[0]; // Red pathway (Top, from Red House)
+            if (y === 6 && x > 7) fillColor = COLORS[1]; // Green pathway (Right, from Green House)
+            if (y === 6 && x < 5) fillColor = COLORS[2]; // Yellow pathway (Left, from Yellow House)
+            if (x === 6 && y > 7) fillColor = COLORS[3]; // Blue pathway (Bottom, from Blue House)
 
             return (
               <Rect
@@ -112,8 +106,8 @@ export default function Board({ size, state, onMove }) {
         {/* Center Triangles */}
         <Polygon points="5,5 8,5 6.5,6.5" fill={COLORS[0]} stroke="#1e293b" strokeWidth="0.04" />
         <Polygon points="8,5 8,8 6.5,6.5" fill={COLORS[1]} stroke="#1e293b" strokeWidth="0.04" />
-        <Polygon points="5,8 8,8 6.5,6.5" fill={COLORS[2]} stroke="#1e293b" strokeWidth="0.04" />
-        <Polygon points="5,5 5,8 6.5,6.5" fill={COLORS[3]} stroke="#1e293b" strokeWidth="0.04" />
+        <Polygon points="5,8 8,8 6.5,6.5" fill={COLORS[3]} stroke="#1e293b" strokeWidth="0.04" />
+        <Polygon points="5,5 5,8 6.5,6.5" fill={COLORS[2]} stroke="#1e293b" strokeWidth="0.04" />
 
         {/* Star Safe Haven Symbols */}
         {[[6.5, 0.5], [12.5, 6.5], [6.5, 12.5], [0.5, 6.5]].map(([x, y], i) => (

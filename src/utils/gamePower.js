@@ -30,17 +30,15 @@ export function formatGP(gpValue) {
   return `${val} GP`;
 }
 
-export function calculateValuePoints(coins = 0, played = 0, wins = 0) {
-  const c = Math.max(0, Number(coins) || 0);
-  const p = Math.max(0, Number(played) || 0);
-  const w = Math.max(0, Number(wins) || 0);
+export function calculateValuePoints(naira = 0, _played = 0, _wins = 0) {
+  const n = Math.max(0, Number(naira) || 0);
 
-  if (c === 0 && p === 0 && w === 0) {
-    return 0; // 0 VP when player has 0 balance and 0 games
+  if (n <= 0) {
+    return 0; // 0 VP when balance is 0
   }
 
-  const baseVP = Math.round(c * 0.1 + w * 20 + p * 5);
-  return Math.max(0, baseVP);
+  // 1 VP = N50 per product spec. VP is the wallet value denominated in N50 units.
+  return Math.floor(n / 50);
 }
 
 export function formatVP(vpValue) {

@@ -43,6 +43,41 @@ import {
   appStoreLink,
 } from '../../config/appConfig';
 
+const PING_RATE = 0.05;
+const PING_TYPE_MAP = {
+  'Daily Streak': 'streak',
+  'Challenge Match': 'challenge',
+  'Tournament': 'tournament',
+};
+
+// Normalize the backend referral object into the shape the member cards render.
+const toUiRef = (r) => ({
+  id: r.uid,
+  uid: r.uid,
+  name: r.displayName || 'Referee',
+  username: r.displayName || 'referee',
+  handle: r.phone || `@${(r.displayName || 'player').toLowerCase()}`,
+  avatar: null,
+  status: r.status,
+  isActiveToday: r.status === 'active',
+  statusLabel: r.status === 'active' ? 'Active' : 'Inactive',
+  totalEarned: Math.round((r.totalCommissionKobo || 0) / PING_RATE),
+  yourCommission: r.totalCommissionKobo || 0,
+  activityNote: r.status === 'active' ? (r.streak ? `Streak ${r.streak}` : 'Active') : 'No recent activity',
+  lastEarnedAt: r.lastEarnedAt,
+  history: r.lastEarnedAt
+    ? [
+        {
+          id: `h_${r.uid}`,
+          source: 'Referral earnings',
+          date: r.lastEarnedAt,
+          commission: r.totalCommissionKobo || 0,
+          amount: Math.round((r.totalCommissionKobo || 0) / PING_RATE),
+        },
+      ]
+    : [],
+});
+
 export default function InviteFriendsScreen({ navigation }) {
   const { userProfile, updateProfileData } = useAuth();
   const { theme, isDark } = useTheme();
@@ -82,6 +117,7 @@ const uid = String(userProfile?.uid || userProfile?.id || '').trim();
   };
 
   const [referrals, setReferrals] = useState([]);
+  const [totalCommissionKobo, setTotalCommissionKobo] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -90,9 +126,12 @@ const uid = String(userProfile?.uid || userProfile?.id || '').trim();
         const res = await referral.me();
         if (isMounted && res) {
           if (res.data?.referralCode) setServerCode(res.data.referralCode);
-          const list = res.data?.referrals || res.referrals || res.data || userProfile?.referredUsers || [];
+          if (typeof res.data?.totalCommissionKobo === 'number') setTotalCommissionKobo(res.data.totalCommissionKobo);
+          const list = res.data?.referrals || res.referrals || [];
           if (Array.isArray(list)) {
-            setReferrals(list);
+            setReferrals(list.map(toUiRef));
+          } else if (Array.isArray(res.data)) {
+            setReferrals(res.data.map(toUiRef));
           }
         }
       } catch {
@@ -141,12 +180,16 @@ const uid = String(userProfile?.uid || userProfile?.id || '').trim();
 
   const handleSendPing = async (refItem, pingType) => {
     setActivePingModal(null);
+    const targetUid = refItem?.uid || refItem?.id;
+    if (!targetUid) {
+      Alert.alert('Ping Failed', 'This referee is not linked to your account yet.');
+      return;
+    }
     try {
-      // Real backend trigger — records the invite ping (capped server-side).
-      await referral.ping();
+      await referral.ping({ refereeUids: [targetUid], type: PING_TYPE_MAP[pingType] || 'streak' });
       Alert.alert(
         'Ping Sent',
-        `Sent a ${pingType} reminder for ${refItem ? refItem.name || refItem.username || refItem.handle : 'your squad'}. They will get a push notification.`
+        `Sent a ${pingType} reminder for ${refItem.name || refItem.username || 'your squad'}. They will get a push notification.`
       );
     } catch (err) {
       Alert.alert('Ping Failed', err?.message || 'Could not send ping. Please try again.');
@@ -158,10 +201,20 @@ const uid = String(userProfile?.uid || userProfile?.id || '').trim();
       Alert.alert('Squad Ping', 'You currently have no active referrals to ping. Share your invite code to build your squad!');
       return;
     }
+    const uids = referrals.map((r) => r.uid || r.id).filter(Boolean);
+    if (uids.length === 0) {
+      Alert.alert('Squad Ping', 'No linked referees to ping yet.');
+      return;
+    }
     try {
-      await referral.ping();
-      Alert.alert('Squad Ping', `Sent activity reminders to ${referrals.length} squad member(s)!`);
+      const res = await referral.ping({ refereeUids: uids, type: 'streak' });
+      const sent = res?.data?.sent || uids.length;
+      Alert.alert('Squad Ping', `Sent activity reminders to ${sent} squad member(s)!`);
     } catch (err) {
+      if (err?.message?.includes('limit')) {
+        Alert.alert('Daily Limit', 'You have reached the daily ping limit of 50. Try again tomorrow.');
+        return;
+      }
       Alert.alert('Ping Failed', err?.message || 'Could not send pings. Please try again.');
     }
   };
@@ -169,7 +222,7 @@ const uid = String(userProfile?.uid || userProfile?.id || '').trim();
   const activeCount = referrals.filter((r) => r.status === 'active' || r.isActiveToday).length;
   const riskCount = referrals.filter((r) => r.status === 'risk').length;
   const inactiveCount = referrals.filter((r) => r.status === 'inactive' || (!r.status && !r.isActiveToday)).length;
-  const totalEarnings = userProfile?.referralEarnings ?? userProfile?.referralBalance ?? referrals.reduce((sum, r) => sum + (r.yourCommission || 0), 0);
+  const totalEarnings = totalCommissionKobo || referrals.reduce((sum, r) => sum + (r.yourCommission || 0), 0);
   const todayEarnings = referrals.reduce((sum, r) => sum + (r.todayCommission || 0), 0);
 
   const filteredReferrals = referrals.filter((item) => {

@@ -243,6 +243,11 @@ export default function CreateTournamentScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
           </View>
+          <Text style={[styles.typeHint]}>
+            {tourType === 'Win Tournament'
+              ? 'Ranks entrants by wins in this game over the tournament window. Ties settle by most games played.'
+              : 'Ranks entrants by total matches played across all games over the tournament window. Ties settle by most wins.'}
+          </Text>
         </View>
 
         {/* 5. Number of Players (Max) */}
@@ -435,6 +440,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+  },
+  typeHint: {
+    color: '#8AA0B4',
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 8,
   },
   createSubmitBtn: {
     backgroundColor: '#FF5500',

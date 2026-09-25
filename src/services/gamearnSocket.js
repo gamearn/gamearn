@@ -56,6 +56,8 @@ export class GamearnSocket {
     });
 
     this._bind('match_found', 'onMatchFound');
+    this._bind('challenge_created', 'onChallengeCreated');
+    this._bind('challenge_accepted', 'onChallengeAccepted');
     this._bind('match_started', 'onMatchStarted');
     this._bind('match_aborted', 'onMatchAborted');
     this._bind('move_made', 'onMoveMade');

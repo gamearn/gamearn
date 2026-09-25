@@ -29,6 +29,7 @@ import {
 } from '../services/firebase';
 import { auth as authApi, wallet } from '../services/api';
 import { ApiError } from '../services/apiClient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AuthContext = createContext();
 
@@ -38,8 +39,9 @@ function profileFromMe(me) {
   const gamesPlayed = me?.stats?.gamesPlayed ?? me?.gamesPlayed ?? 0;
   const wins = me?.stats?.wins ?? me?.wins ?? 0;
   const losses = me?.stats?.losses ?? me?.losses ?? 0;
-  const gp = calculateGamePower(gamesPlayed, wins, losses);
-  const vp = calculateValuePoints(me?.wallet?.balance ?? me?.walletBalance ?? 0, gamesPlayed, wins);
+  const rawNaira = me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? 0;
+  const gp = me?.gamePower ?? calculateGamePower(gamesPlayed, wins, losses);
+  const vp = Number.isFinite(me?.valuePoints) ? me.valuePoints : Number.isFinite(me?.vp) ? me.vp : calculateValuePoints(rawNaira, gamesPlayed, wins);
 
   const username = me?.username || me?.name || me?.displayName || me?.email?.split('@')[0] || 'Gamer';
   const displayName = me?.displayName || me?.username || me?.name || 'Gamer';
@@ -78,6 +80,33 @@ async function isAdminUser() {
   }
 }
 
+const PROFILE_CACHE_KEY = 'gamearn.backendProfile.v1';
+
+async function readCachedProfile() {
+  try {
+    const raw = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCachedProfile(me) {
+  try {
+    await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(me));
+  } catch (err) {
+    console.log('Notice: Could not cache profile:', err?.message || err);
+  }
+}
+
+async function clearCachedProfile() {
+  try {
+    await AsyncStorage.removeItem(PROFILE_CACHE_KEY);
+  } catch {
+    // Cache clearing is best-effort.
+  }
+}
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -112,6 +141,7 @@ export const AuthProvider = ({ children }) => {
       await authApi.login({});
       const me = await authApi.me();
       const isAdmin = await isAdminUser();
+      await writeCachedProfile({ ...me, isAdmin });
       setUserProfile(profileFromMe({ ...me, isAdmin }));
       setBackendReady(true);
       return me;
@@ -120,7 +150,16 @@ export const AuthProvider = ({ children }) => {
         // Registered in Firebase but not in the backend yet Ã¢â€ â€™ onboarding.
         setUserProfile(null);
         setBackendReady(false);
+        await clearCachedProfile();
         return null;
+      }
+      // Backend blip or network error: fall back to the last known profile
+      // instead of dropping a returning user into onboarding.
+      const cached = await readCachedProfile();
+      if (cached) {
+        setUserProfile(profileFromMe(cached));
+        setBackendReady(true);
+        return cached;
       }
       setUserProfile(null);
       setBackendReady(false);

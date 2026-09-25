@@ -8,6 +8,9 @@ import {
   TouchableOpacity,
   StatusBar,
   Alert,
+  Modal,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -21,15 +24,21 @@ import {
   HelpCircle,
   LogOut,
   ChevronRight,
+  Trash2,
+  X,
 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { auth } from '../../services/api';
 
 export default function SettingsScreen({ navigation }) {
   const { theme, isDark, toggleTheme } = useTheme();
   const { signOut } = useAuth();
 
   const [emailAlerts, setEmailAlerts] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deleteText, setDeleteText] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to log out of Gamearn?', [
@@ -43,6 +52,29 @@ export default function SettingsScreen({ navigation }) {
         },
       },
     ]);
+  };
+
+  const openDeleteModal = () => {
+    setDeleteText('');
+    setDeleteModal(true);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteText.trim() !== 'DELETE') {
+      Alert.alert('Confirmation required', 'Type DELETE to confirm account deletion.');
+      return;
+    }
+    setDeleting(true);
+    try {
+      await auth.deleteAccount('DELETE');
+      setDeleteModal(false);
+      await signOut();
+      navigation.reset({ index: 0, routes: [{ name: 'Landing' }] });
+    } catch (err) {
+      Alert.alert('Delete failed', err?.message || 'Could not delete your account.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -199,9 +231,65 @@ export default function SettingsScreen({ navigation }) {
           <Text style={[styles.logoutBtnText, { color: theme.textMuted }]}>Logout</Text>
         </TouchableOpacity>
 
+        {/* Delete Account */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={openDeleteModal}
+          style={[styles.logoutBtn, { marginBottom: 0 }]}
+        >
+          <Trash2 size={18} color={theme.danger || '#FF6B6B'} style={{ marginRight: 8 }} />
+          <Text style={[styles.logoutBtnText, { color: theme.danger || '#FF6B6B' }]}>Delete Account</Text>
+        </TouchableOpacity>
+
         {/* Footer Version */}
         <Text style={[styles.versionText, { color: theme.textMuted }]}>GAMEARN Premium v2.4.1</Text>
       </ScrollView>
+
+      {/* Delete Account Confirmation */}
+      <Modal visible={deleteModal} transparent animationType="fade" onRequestClose={() => setDeleteModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Delete Account</Text>
+              <TouchableOpacity onPress={() => setDeleteModal(false)} disabled={deleting}>
+                <X size={20} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.modalBody, { color: theme.textSecondary }]}>
+              This permanently removes your profile, wallet, game history, ratings and tournament
+              entries across Gamearn. It cannot be undone. Type DELETE to continue.
+            </Text>
+            <TextInput
+              value={deleteText}
+              onChangeText={setDeleteText}
+              placeholder="Type DELETE"
+              placeholderTextColor={theme.textMuted}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              editable={!deleting}
+              style={[
+                styles.modalInput,
+                { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.textPrimary },
+              ]}
+            />
+            <TouchableOpacity
+              activeOpacity={0.85}
+              disabled={deleting || deleteText.trim() !== 'DELETE'}
+              onPress={handleDeleteAccount}
+              style={[
+                styles.deleteConfirmBtn,
+                (deleting || deleteText.trim() !== 'DELETE') && { opacity: 0.45 },
+              ]}
+            >
+              {deleting ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.deleteConfirmText}>Permanently Delete</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -295,5 +383,53 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginBottom: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    gap: 12,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  modalBody: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  deleteConfirmBtn: {
+    backgroundColor: '#DC2626',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
   },
 });

@@ -65,7 +65,7 @@ export function Portrait({ index, scale }) {
   );
 }
 
-export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, isRemote = false, remote = null, onRemoteMove, onRemoteGameOver, aiDifficulty = 'auto', incomingChats = [] }) {
+export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, onBack = null, isRemote = false, remote = null, onRemoteMove, onRemoteGameOver, aiDifficulty = 'auto', incomingChats = [] }) {
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
   const [gameState, setGameState] = useState(() => createInitialState(timer));
   const [selected, setSelected] = useState(null);

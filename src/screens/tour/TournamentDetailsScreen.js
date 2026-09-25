@@ -55,9 +55,24 @@ export default function TournamentDetailsScreen({ route, navigation }) {
   const fallbackTitle = route.params?.title || 'Dráfù Grandmaster Championship';
 
   const [tour, setTour] = useState(null);
+  const [standings, setStandings] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
+
+  useEffect(() => {
+    if (!tourId) return;
+    let active = true;
+    tournaments
+      .standings(tourId)
+      .then((res) => {
+        if (active) setStandings(res?.data || res || null);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [tourId]);
 
   const myUid = userProfile?.uid;
   const stillLoading = !tour;
@@ -314,6 +329,44 @@ export default function TournamentDetailsScreen({ route, navigation }) {
             Tournament auto-starts once players are ready. You'll be notified before each round.
           </Text>
         </View>
+
+        {standings?.ranked?.length ? (
+          <View style={styles.standingsCard}>
+            <View style={styles.standingsHeader}>
+              <View style={styles.inlineRow}>
+                <Trophy size={16} color="#F59E0B" style={{ marginRight: 6 }} />
+                <Text style={styles.standingsTitle}>Standings</Text>
+              </View>
+              {standings.topWinners != null && (
+                <Text style={styles.standingsSub}>Top {standings.topWinners} pay</Text>
+              )}
+            </View>
+            <View style={styles.standingsHeadRow}>
+              <Text style={[styles.standingsHeadText, styles.posHead]}>POS</Text>
+              <Text style={[styles.standingsHeadText, { flex: 1 }]}>PLAYER</Text>
+              <Text style={[styles.standingsHeadText, styles.winsHead]}>WINS</Text>
+              <Text style={[styles.standingsHeadText, styles.playsHead]}>PLAYS</Text>
+            </View>
+            {standings.ranked.map((row, idx) => {
+              const isMe = String(row.uid || row.user_id || row.id) === String(myUid);
+              return (
+                <View key={row.uid || row.user_id || row.id || idx} style={[styles.standingsRow, isMe && styles.myStandingsRow]}>
+                  <Text style={[styles.posCell, isMe && { color: '#00E5FF' }]}>{idx + 1}.</Text>
+                  <Text
+                    style={[styles.standingsName, { color: isMe ? '#00E5FF' : '#E2E8F0' }, { fontWeight: isMe ? '900' : '600' }]}
+                    numberOfLines={1}
+                  >
+                    {row.display_name || 'Player'}
+                    {row.is_bot ? '  (Oba)' : ''}
+                    {isMe ? '  You' : ''}
+                  </Text>
+                  <Text style={styles.winsCell}>{row.wins || 0}</Text>
+                  <Text style={styles.playsCell}>{row.plays || 0}</Text>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
 
         <View style={styles.circleChartContainer}>
           <Svg width={size} height={size}>
@@ -620,5 +673,90 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '800',
+  },
+  standingsCard: {
+    backgroundColor: 'rgba(15, 25, 45, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 20,
+  },
+  standingsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  standingsTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  standingsSub: {
+    color: '#F59E0B',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  standingsHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 4,
+  },
+  standingsHeadText: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  posHead: {
+    width: 34,
+  },
+  winsHead: {
+    width: 48,
+  },
+  playsHead: {
+    width: 52,
+  },
+  standingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  myStandingsRow: {
+    backgroundColor: 'rgba(0, 229, 255, 0.08)',
+    borderBottomColor: 'rgba(0, 229, 255, 0.2)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+  },
+  posCell: {
+    width: 34,
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  standingsName: {
+    flex: 1,
+    fontSize: 14,
+  },
+  winsCell: {
+    width: 48,
+    color: '#10B981',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  playsCell: {
+    width: 52,
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });

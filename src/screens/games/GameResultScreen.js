@@ -45,6 +45,8 @@ export default function GameResultScreen({ route, navigation }) {
   const [myTournaments, setMyTournaments] = useState([]);
   const [availableTournaments, setAvailableTournaments] = useState([]);
   const [loadingTournaments, setLoadingTournaments] = useState(true);
+  const [activeStandings, setActiveStandings] = useState(null);
+  const [previewStandings, setPreviewStandings] = useState(null);
 
   // Live profile stats
   const gamesPlayed = Number(userProfile?.gamesPlayed ?? 18);
@@ -97,7 +99,7 @@ export default function GameResultScreen({ route, navigation }) {
   }, [gameId]);
 
   // Check if player is part of an active tournament for this game
-  const activeUserTour = myTournaments.find(
+  const [activeUserTour] = myTournaments.filter(
     (t) =>
       String(t.gameType).toLowerCase() === String(gameId).toLowerCase() &&
       ['registration_open', 'in_progress', 'live', 'pending', 'scheduled'].includes(
@@ -106,11 +108,51 @@ export default function GameResultScreen({ route, navigation }) {
   );
 
   // Check available open tournament for prompt
-  const openTour = availableTournaments.find(
+  const [openTour] = availableTournaments.filter(
     (t) =>
       String(t.gameType).toLowerCase() === String(gameId).toLowerCase() &&
-      ['registration_open', 'open', 'scheduled', 'live'].includes(String(t.status).toLowerCase())
+      ['registration_open', 'open', 'scheduled', 'live', 'in_progress'].includes(String(t.status).toLowerCase())
   );
+
+  // Pull live standings for the player's active tournament (or the preview target)
+  useEffect(() => {
+    let active = true;
+    const targetId = activeUserTour?.id;
+    if (!targetId) return undefined;
+    tournaments
+      .standings(targetId)
+      .then((res) => {
+        if (active) setActiveStandings(res?.data || res || null);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [activeUserTour?.id]);
+
+  useEffect(() => {
+    let active = true;
+    const targetId = openTour?.id;
+    if (!targetId) return undefined;
+    tournaments
+      .standings(targetId)
+      .then((res) => {
+        if (active) setPreviewStandings(res?.data || res || null);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [openTour?.id]);
+
+  const currentRank = (() => {
+    if (!activeStandings?.ranked?.length) return null;
+    const idx = activeStandings.ranked.findIndex((row) => String(row.uid || row.user_id || row.id) === String(userProfile?.uid));
+    return idx >= 0 ? idx + 1 : null;
+  })();
+
+  const currentPoolKobo = activeStandings?.poolKobo ?? activeUserTour?.prizePoolKobo ?? null;
+  const previewPoolKobo = previewStandings?.poolKobo ?? openTour?.prizePoolKobo ?? null;
 
   const handlePlayAgain = () => {
     navigation.navigate(targetScreen, { gameId, gameName, targetScreen, stake });
@@ -328,12 +370,24 @@ export default function GameResultScreen({ route, navigation }) {
               <View style={styles.tourImpactRow}>
                 <View style={styles.impactBadge}>
                   <Text style={{ color: '#10B981', fontWeight: '900', fontSize: 14 }}>
-                    {isWinner ? '🚀 Rank Up! #3 (+2 Pos)' : '📊 Standing Kept: #4'}
+                    {currentRank != null
+                      ? isWinner
+                        ? `🚀 Rank Up to #${currentRank}`
+                        : `Current Standings: #${currentRank}`
+                      : isWinner
+                      ? '🚀 Win recorded — standings updating'
+                      : 'Standings updating…'}
                   </Text>
                 </View>
-                <Text style={{ color: '#94A3B8', fontSize: 12 }}>
-                  Prize Pool: <Text style={{ color: '#F59E0B', fontWeight: '800' }}>{naira(activeUserTour.prizePool || 5000)}</Text>
+                <Text style={{ color: '#94A3B8', fontSize: 12 }}>{activeUserTour.currentParticipants || 0} players · Wins/plays ranked</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ color: '#F59E0B', fontWeight: '800', fontSize: 13 }}>
+                  Prize Pool: {naira(activeUserTour.prizePool || currentPoolKobo || 0)}
                 </Text>
+                {activeStandings?.topWinners != null && (
+                  <Text style={{ color: '#94A3B8', fontSize: 12 }}>Top {activeStandings.topWinners} pay</Text>
+                )}
               </View>
             </View>
           ) : (
@@ -352,8 +406,26 @@ export default function GameResultScreen({ route, navigation }) {
               </View>
 
               <Text style={{ color: '#CBD5E1', fontSize: 13, lineHeight: 18 }}>
-                Your match score of <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{myScore} pts</Text> would place you in <Text style={{ color: '#10B981', fontWeight: '900' }}>Rank #4 (Top 5)</Text> in active tournaments!
+                {previewStandings?.ranked?.length ? (
+                  <>
+                    The leader has{' '}
+                    <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{previewStandings.ranked[0].wins || 0} wins</Text>{' '}
+                    with{' '}
+                    <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{previewStandings.ranked[0].plays || 0}</Text>{' '}
+                    plays. A win like this moves you up the ladder — join before registration closes.
+                  </>
+                ) : (
+                  <>
+                    Your match score of <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{myScore} pts</Text>{' '}
+                    is exactly what a winning run looks like. Join a tournament to convert it into prize money.
+                  </>
+                )}
               </Text>
+              {previewPoolKobo != null && (
+                <Text style={{ color: '#F59E0B', fontWeight: '800', fontSize: 13 }}>
+                  Pool to play for: {naira(openTour?.prizePool || previewPoolKobo || 0)}
+                </Text>
+              )}
 
               <TouchableOpacity
                 activeOpacity={0.85}
