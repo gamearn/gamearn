@@ -22,10 +22,14 @@ import {
   signInWithGoogleIdToken,
   signInWithFacebookToken,
   signInWithAppleToken,
+  sendPhoneCode,
+  confirmPhoneCode,
+  normalizePhoneToE164,
   signOutFirebase,
   friendlyAuthError,
   getCurrentUser,
   reloadCurrentUser,
+  isNativeAuthAvailable,
 } from '../services/firebase';
 import { auth as authApi, wallet } from '../services/api';
 import { ApiError } from '../services/apiClient';
@@ -212,6 +216,24 @@ export const AuthProvider = ({ children }) => {
 
   const signIn = (email, password) => runLogin(() => loginEmailPassword(email, password));
 
+  // Phone sign-in state: the confirmation from sendPhoneCode is kept until the
+  // user submits the SMS code (or requests a new one).
+  const phoneConfirmation = React.useRef(null);
+
+  const sendPhoneOtp = async (phone) => {
+    const normalized = normalizePhoneToE164(phone);
+    if (!normalized) throw new Error('Enter a valid Nigerian phone number (e.g. 0801 234 5678).');
+    const confirmation = await sendPhoneCode(normalized);
+    phoneConfirmation.current = confirmation;
+    return { verificationId: confirmation.verificationId, phone: normalized };
+  };
+
+  const verifyPhoneOtp = (code) => runLogin(async () => {
+    const confirmation = phoneConfirmation.current;
+    if (!confirmation) throw new Error('Request a code first.');
+    return confirmPhoneCode(confirmation, code);
+  });
+
   const signUp = async (email, password, displayName = null, phoneNumber = null) => {
     if (activeLogin.current) return null;
     activeLogin.current = true;
@@ -383,6 +405,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user, userProfile, loading, backendReady, authError,
     signIn, signUp, signUpWithGoogle, signUpWithFacebook, signUpWithApple,
+    sendPhoneOtp, verifyPhoneOtp, isNativeAuthAvailable,
     backendRegister, getPendingProfile, sendEmailOtp, verifyEmailOtp,
     signOut, updateProfileData, refreshProfile, refreshWallet,
   };

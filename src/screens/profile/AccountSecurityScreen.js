@@ -29,6 +29,12 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { auth as authApi } from '../../services/api';
 import { ApiError } from '../../services/apiClient';
+import {
+  normalizePhoneToE164,
+  sendPhoneCode,
+  confirmPhoneCode,
+  getIdToken,
+} from '../../services/firebase';
 import GAButton from '../../components/GAButton';
 
 export default function AccountSecurityScreen({ navigation }) {
@@ -45,6 +51,8 @@ export default function AccountSecurityScreen({ navigation }) {
   const [verifiedMethod, setVerifiedMethod] = useState(null);
   const [loading, setLoading] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState(null);
+  const [pendingPhone, setPendingPhone] = useState('');
 
   const friendlyError = (err) =>
     err instanceof ApiError ? err.message : err?.message || 'Something went wrong. Please try again.';
@@ -117,15 +125,27 @@ export default function AccountSecurityScreen({ navigation }) {
         setIsVerifying(true);
         Alert.alert('Verification Code Sent', `A 6-digit code was sent to ${destination}.`);
       } else {
-        // Phone factor is delivered by Firebase on the client. The backend has
-        // now recorded the enrollment; SMS requires the native SMS module.
-        setIsVerifying(false);
-        Alert.alert(
-          'SMS verification needs a development build',
-          'Your phone enrollment is recorded on the server, but sending the SMS code requires the native ' +
-            'Firebase SMS module.\n\nRebuild the app with `npx expo run:ios`, then return here to verify your ' +
-            'phone. You can enable Email 2FA right now instead.',
-        );
+        // Phone factor: SMS is delivered by Firebase on the client (native
+        // module). The backend recorded the enrollment; now send the code.
+        const e164 = normalizePhoneToE164(phone);
+        if (!e164) {
+          setSendingOtp(false);
+          Alert.alert('Missing detail', 'Enter a valid Nigerian phone number (e.g. 0803 123 4567).');
+          return;
+        }
+        try {
+          const confirmation = await sendPhoneCode(e164);
+          setPendingConfirmation(confirmation);
+          setPendingPhone(e164);
+          setOtpCode(['', '', '', '', '', '']);
+          setIsVerifying(true);
+          Alert.alert('SMS Code Sent', `A 6-digit code was sent to ${e164}.`);
+        } catch (smsErr) {
+          Alert.alert(
+            'Could not send SMS code',
+            smsErr?.message || 'SMS verification is unavailable on this build.',
+          );
+        }
       }
     } catch (err) {
       Alert.alert('Could not send code', friendlyError(err));
@@ -140,8 +160,34 @@ export default function AccountSecurityScreen({ navigation }) {
       Alert.alert('Verification Error', 'Please enter the complete 6-digit verification code.');
       return;
     }
-    if (selectedMethod !== 'email') {
-      Alert.alert('Unavailable', 'SMS verification requires the development build. Use the Email method.');
+    if (selectedMethod === 'phone') {
+      if (!pendingConfirmation) {
+        Alert.alert('Unavailable', 'Request an SMS code first.');
+        return;
+      }
+      setLoading(true);
+      try {
+        await confirmPhoneCode(pendingConfirmation, codeStr);
+        const idToken = await getIdToken();
+        if (!idToken) throw new Error('No active Firebase session.');
+        await authApi.mfaVerify({ factor: 'phone', phone: pendingPhone, idToken });
+        setVerifiedMethod('phone');
+        setIsVerifying(false);
+        setTwoFactorEnabled(true);
+        if (updateProfileData) {
+          try {
+            await updateProfileData({ twoFactorEnabled: true, twoFactorMethod: 'phone', phone: pendingPhone });
+          } catch (_) {
+            // non-blocking
+          }
+        }
+        loadMfaStatus();
+        Alert.alert('2FA Verified Successfully', `Your 2FA is active and verified via SMS (${pendingPhone}).`);
+      } catch (err) {
+        Alert.alert('Verification failed', friendlyError(err));
+      } finally {
+        setLoading(false);
+      }
       return;
     }
     setLoading(true);
