@@ -56,7 +56,8 @@ platform :ios do
       export_options: { provisioningProfiles: { bundle_id => profile }, signingStyle: 'manual' },
       output_directory: File.join(root, 'build', 'ios'),
       output_name: "gamearn-#{ENV.fetch('BUILD_NUMBER')}.ipa",
-      buildlog_path: File.join(root, 'build', 'logs')
+      buildlog_path: File.join(root, 'build', 'logs'),
+      xcargs: "DEVELOPMENT_TEAM=#{team_id}"
     )
     if ENV['UPLOAD_TESTFLIGHT'] == 'true'
       upload_to_app_store(
