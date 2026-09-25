@@ -1,14 +1,15 @@
 import React, { useEffect, useReducer, useRef, useState } from 'react';
 import { AppState, Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Board from './Board';
 import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 import { useAuth } from '../../context/AuthContext';
 import { recordGameStreak } from '../../utils/recordGameStreak';
 import { getAiDifficulty } from '../../utils/aiDifficulty';
+import { wallet } from '../../services/api';
 const { COLORS, NAMES, FINISH, SAFE, globalIndex, fresh, legal, reduce } = require('./engine');
 const PHOTO = require('./assets/reference.jpg');
 const BONUS_KEY = '@ludo-reference/bonus-v1';
@@ -288,7 +289,7 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
     };
   }, []);
 
-  const { updateProfileData, userProfile } = useAuth();
+  const { updateProfileData, userProfile, refreshProfile } = useAuth();
   const mountStreakRecorded = useRef(false);
 
   useEffect(() => {
@@ -428,13 +429,26 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
   const claim = async () => {
     if (!bonus || Date.now() < bonus.next || bonusLock.current) return;
     bonusLock.current = true;
-    const next = { coins: bonus.coins + 100, next: Date.now() + 86400000 };
     try {
-      await AsyncStorage.setItem(BONUS_KEY, JSON.stringify(next));
-      setBonus(next);
-      Alert.alert('Bonus claimed', '100 local practice coins added.');
-    } catch {
-      setStorageError('Could not save the bonus. Please try again.');
+      // Real backend grant — idempotent per claim per UTC day.
+      if (userProfile?.id || userProfile?.uid) {
+        const res = await wallet.freeCoins('ludo-bonus');
+        const next = { coins: res?.coins ?? bonus.coins + 100, next: Date.now() + 86400000 };
+        setBonus(next);
+        if (res?.granted) {
+          Alert.alert('Bonus claimed', `${res.amountKobo != null ? res.amountKobo / 100 : 100} practice coins added to your account.`);
+          if (refreshProfile) refreshProfile().catch(() => { });
+        } else {
+          Alert.alert('Already claimed', 'You already claimed the Ludo bonus today. Come back tomorrow!');
+        }
+      } else {
+        // Offline / signed-out fallback: local only.
+        const next = { coins: (bonus?.coins ?? 0) + 100, next: Date.now() + 86400000 };
+        setBonus(next);
+        Alert.alert('Bonus claimed', '100 local practice coins added.');
+      }
+    } catch (err) {
+      setStorageError('Could not claim the bonus. Please try again.');
     } finally {
       bonusLock.current = false;
     }
@@ -553,7 +567,7 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
         <>
           <Text style={ui.title}>Daily Bonus</Text>
           <Text style={ui.body}>
-            Practice coins: {bonus?.coins ?? 0}{'\n'}
+            Practice coins: {userProfile?.coins ?? bonus?.coins ?? 0}{'\n'}
             Next bonus: {bonus ? clock((bonus.next - Date.now()) / 1000, true) : 'Loading…'}{'\n'}
             Claim 100 local practice coins every 24 hours. These have no cash value.
           </Text>

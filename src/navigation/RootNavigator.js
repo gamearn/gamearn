@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import SplashScreen from '../screens/auth/SplashScreen';
 import LandingScreen from '../screens/auth/LandingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
+import PhoneLoginScreen from '../screens/auth/PhoneLoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ProfileSetupScreen from '../screens/auth/ProfileSetupScreen';
@@ -16,6 +17,7 @@ import WhotSetupScreen from '../screens/games/WhotSetupScreen';
 import LudoSetupScreen from '../screens/games/LudoSetupScreen';
 import GameSectionScreen from '../screens/games/GameSectionScreen';
 import BuyCoinsScreen from '../screens/wallet/BuyCoinsScreen';
+import PaymentScreen from '../screens/wallet/PaymentScreen';
 import WithdrawScreen from '../screens/wallet/WithdrawScreen';
 import DailyStreakScreen from '../screens/profile/DailyStreakScreen';
 import SettingsScreen from '../screens/profile/SettingsScreen';
@@ -31,6 +33,7 @@ import PrivacySecurityScreen from '../screens/profile/PrivacySecurityScreen';
 import GameSetupScreen from '../screens/games/GameSetupScreen';
 import TournamentResultsScreen from '../screens/tour/TournamentResultsScreen';
 import TournamentPendingScreen from '../screens/tour/TournamentPendingScreen';
+import ChallengeHubScreen from '../screens/challenge/ChallengeHubScreen';
 
 import EmailVerificationScreen from '../screens/auth/EmailVerificationScreen';
 import ProfileCreationScreen from '../screens/auth/ProfileCreationScreen';
@@ -52,6 +55,7 @@ export default function RootNavigator() {
       <Stack.Screen name="Splash" component={SplashScreen} />
       <Stack.Screen name="Landing" component={LandingScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
       <Stack.Screen name="ProfileCreation" component={ProfileCreationScreen} />
@@ -60,6 +64,7 @@ export default function RootNavigator() {
       <Stack.Screen name="MainTabs" component={TabNavigator} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="GameLobby" component={GameLobbyScreen} />
+      <Stack.Screen name="ChallengeHub" component={ChallengeHubScreen} />
       <Stack.Screen name="WhotGame" component={WhotGameScreen} />
       <Stack.Screen name="LudoGame" component={LudoGameScreen} />
       <Stack.Screen name="AyoGame" component={AyoGameScreen} />
@@ -69,6 +74,7 @@ export default function RootNavigator() {
       <Stack.Screen name="GameSetup" component={GameSetupScreen} />
       <Stack.Screen name="GameSection" component={GameSectionScreen} />
       <Stack.Screen name="BuyCoins" component={BuyCoinsScreen} />
+      <Stack.Screen name="Payment" component={PaymentScreen} />
       <Stack.Screen name="SellCoins" component={SellCoinsScreen} />
       <Stack.Screen name="Withdraw" component={WithdrawScreen} />
       <Stack.Screen name="DailyStreak" component={DailyStreakScreen} />

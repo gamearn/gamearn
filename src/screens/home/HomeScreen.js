@@ -24,7 +24,7 @@ import { reference, regions } from './art';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import ActiveMatchBanner from '../../components/ActiveMatchBanner';
-import { wallet, tournaments } from '../../services/api';
+import { settings as settingsApi, wallet, tournaments } from '../../services/api';
 const { INITIAL_STATE, reducer, parseAmount, money, localDay, leaderboard } = require('./model');
 
 const STORAGE_KEY = '@adebayo-dashboard/v1';
@@ -164,6 +164,31 @@ export default function HomeScreen({ navigation }) {
       active = false;
     };
   }, []);
+
+  // Load server-side preferences (sound/notifications) once and merge them in.
+  useEffect(() => {
+    if (!userProfile) return;
+    let active = true;
+    Promise.allSettled([settingsApi.get()]).then(([res]) => {
+      if (!active || res.status !== 'fulfilled') return;
+      const prefs = res.value?.data ?? res.value ?? {};
+      if (typeof prefs.sound === 'boolean') dispatch({ type: 'SETTING', key: 'sound', value: prefs.sound });
+      if (typeof prefs.notifications === 'boolean') dispatch({ type: 'SETTING', key: 'notifications', value: prefs.notifications });
+    });
+    return () => { active = false; };
+  }, [userProfile?.uid]);
+
+  const changeSetting = (key, value) => {
+    dispatch({ type: 'SETTING', key, value });
+    if (userProfile) {
+      settingsApi
+        .patch({ [key]: value })
+        .catch(() => {
+          dispatch({ type: 'SETTING', key, value: !value });
+          if (mounted.current) Alert.alert('Sync failed', 'Your preference could not be saved to your account.');
+        });
+    }
+  };
 
   // The backend returns `balance` in naira. Keep accounting kobo out of the UI.
   const walletBalanceNaira = Number(backendWallet?.balance ?? userProfile?.walletBalance ?? 0);
@@ -545,14 +570,6 @@ export default function HomeScreen({ navigation }) {
         return (
           <>
             <Text style={ui.heading}>Notifications</Text>
-            <View style={ui.notice}>
-              <Text style={ui.label}>{'\uD83C\uDFC6 Tournament is live'}</Text>
-              <Text style={ui.body}>Ayo á»Œpá»Ìn Grandmaster Tournament is open for registration.</Text>
-            </View>
-            <View style={ui.notice}>
-              <Text style={ui.label}>{'\uD83D\uDD25 Keep your streak going'}</Text>
-              <Text style={ui.body}>You're on a {state.streak} day streak. Complete today's daily challenge to try the streak interaction.</Text>
-            </View>
             <Text style={ui.caption}>No new notifications</Text>
           </>
         );
@@ -569,13 +586,13 @@ export default function HomeScreen({ navigation }) {
                 <Switch
                   accessibilityLabel={label}
                   value={state.settings[key]}
-                  onValueChange={(value) => dispatch({ type: 'SETTING', key, value })}
+                  onValueChange={(value) => changeSetting(key, value)}
                   trackColor={{ false: '#394657', true: '#008fae' }}
                   thumbColor={state.settings[key] ? CYAN : '#cad2df'}
                 />
               </View>
             ))}
-            <Text style={ui.body}>Preferences are saved on this device. Push delivery and game audio must be connected to your app's notification and audio services.</Text>
+            <Text style={ui.body}>Preferences are synced to your account when you are signed in.</Text>
           </>
         );
       case 'profile':

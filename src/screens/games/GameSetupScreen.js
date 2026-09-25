@@ -30,7 +30,6 @@ export default function GameSetupScreen({ route, navigation }) {
   const [playerColor, setPlayerColor] = useState('white'); // For Checkers/Draft: 'white' or 'black'
   const [cardCount, setCardCount] = useState(6); // For WHOT: 3 to 8
   const [enableSpecialCards, setEnableSpecialCards] = useState(true); // For WHOT special cards
-  const [aiDifficulty, setAiDifficulty] = useState('auto'); // 'auto', 'easy', 'medium', 'hard'
 
   const currentGp = Number(userProfile?.gamePower ?? userProfile?.gp ?? 0);
   const calculatedDifficulty = getAiDifficulty(userProfile, 'auto');
@@ -48,7 +47,7 @@ export default function GameSetupScreen({ route, navigation }) {
       playerColor,
       cardCount,
       enableSpecialCards,
-      aiDifficulty,
+      aiDifficulty: 'auto',
       gameName,
       targetScreen,
       entryFee,

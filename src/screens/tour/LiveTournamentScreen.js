@@ -10,15 +10,19 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Users, DollarSign } from 'lucide-react-native';
+import { ArrowLeft, Users, DollarSign, Trophy } from 'lucide-react-native';
 import { tournaments } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { naira } from '../../config/appConfig';
 
 export default function LiveTournamentScreen({ navigation, route }) {
   const tourId = route.params?.tourId;
   const fallbackTitle = route.params?.title || 'Dráfù Grandmaster Championship';
+  const { userProfile } = useAuth();
+  const myUid = userProfile?.uid;
 
   const [tour, setTour] = useState(null);
+  const [standings, setStandings] = useState(null);
   const [loading, setLoading] = useState(!!tourId);
   const [error, setError] = useState('');
 
@@ -30,11 +34,22 @@ export default function LiveTournamentScreen({ navigation, route }) {
     try {
       const data = await tournaments.get(tourId);
       setTour(data);
+      standingsLoad();
       setError('');
     } catch (err) {
       setError(err?.message || 'Could not load the tournament.');
     } finally {
       setLoading(false);
+    }
+  }, [tourId]);
+
+  const standingsLoad = useCallback(async () => {
+    if (!tourId) return;
+    try {
+      const res = await tournaments.standings(tourId);
+      setStandings(res?.data || res || null);
+    } catch (err) {
+      console.log('Error loading standings:', err?.message || err);
     }
   }, [tourId]);
 
@@ -75,8 +90,6 @@ export default function LiveTournamentScreen({ navigation, route }) {
   const rounds = Object.keys(bracketByRound)
     .map(Number)
     .sort((a, b) => a - b);
-
-  const participants = tour?.participants || [];
 
   if (loading) {
     return (
@@ -225,18 +238,51 @@ export default function LiveTournamentScreen({ navigation, route }) {
           )}
         </View>
 
-        {/* Participants Section */}
+        {/* Standings Section — ranked by wins then plays */}
         <View style={[styles.leaderboardCard, styles.playersSection]}>
-          <Text style={styles.lbTitle}>PARTICIPANTS ({participants.length})</Text>
+          <View style={styles.lbHeaderRow}>
+            <Text style={styles.lbTitle}>LIVE STANDINGS</Text>
+            {standings?.poolKobo != null && (
+              <Text style={styles.standingsPool}>POOL {naira(standings.poolKobo)}</Text>
+            )}
+          </View>
 
-          {participants.length === 0 ? (
-            <Text style={styles.emptyText}>No participants yet.</Text>
+          {!standings?.ranked?.length ? (
+            <Text style={styles.emptyText}>Standings update as games are played.</Text>
           ) : (
-            participants.slice(0, 10).map((p, idx) => (
-              <View key={p.uid || idx} style={styles.participantRow}>
-                <Text style={styles.participantName}>{p.display_name || 'Player'}</Text>
+            <>
+              <View style={styles.standingsHeadRow}>
+                <Text style={[styles.standingsHeadText, styles.posHead]}>POS</Text>
+                <Text style={[styles.standingsHeadText, { flex: 1 }]}>PLAYER</Text>
+                <Text style={[styles.standingsHeadText, styles.winsHead]}>WINS</Text>
+                <Text style={[styles.standingsHeadText, styles.playsHead]}>PLAYS</Text>
               </View>
-            ))
+              {standings.ranked.map((row, idx) => {
+                const isMe = String(row.uid || row.user_id || row.id) === String(myUid);
+                return (
+                  <View
+                    key={row.uid || row.user_id || row.id || idx}
+                    style={[styles.standingsRow, isMe && styles.myStandingsRow]}
+                  >
+                    <Text style={[styles.posCell, isMe && { color: '#00E5FF' }]}>{idx + 1}.</Text>
+                    <Text
+                      style={[
+                        styles.standingsName,
+                        { color: isMe ? '#00E5FF' : '#E2E8F0' },
+                        { fontWeight: isMe ? '900' : '600' },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {row.display_name || 'Player'}
+                      {row.is_bot ? '  (Oba)' : ''}
+                      {isMe ? '  You' : ''}
+                    </Text>
+                    <Text style={styles.winsCell}>{row.wins || 0}</Text>
+                    <Text style={styles.playsCell}>{row.plays || 0}</Text>
+                  </View>
+                );
+              })}
+            </>
           )}
         </View>
       </ScrollView>
@@ -463,5 +509,71 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
+  },
+  standingsPool: {
+    color: '#F59E0B',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  standingsHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 4,
+  },
+  standingsHeadText: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  posHead: {
+    width: 34,
+  },
+  winsHead: {
+    width: 48,
+  },
+  playsHead: {
+    width: 52,
+  },
+  standingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  myStandingsRow: {
+    backgroundColor: 'rgba(0, 229, 255, 0.08)',
+    borderBottomColor: 'rgba(0, 229, 255, 0.2)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+  },
+  posCell: {
+    width: 34,
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  standingsName: {
+    flex: 1,
+    fontSize: 14,
+  },
+  winsCell: {
+    width: 48,
+    color: '#10B981',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  playsCell: {
+    width: 52,
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });

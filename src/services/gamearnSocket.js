@@ -56,6 +56,8 @@ export class GamearnSocket {
     });
 
     this._bind('match_found', 'onMatchFound');
+    this._bind('challenge_created', 'onChallengeCreated');
+    this._bind('challenge_accepted', 'onChallengeAccepted');
     this._bind('match_started', 'onMatchStarted');
     this._bind('match_aborted', 'onMatchAborted');
     this._bind('move_made', 'onMoveMade');
@@ -70,6 +72,8 @@ export class GamearnSocket {
     this._bind('rematch_accepted', 'onRematchAccepted');
     this._bind('opponent_ready', 'onOpponentReady');
     this._bind('game_error', 'onGameError');
+    this._bind('chat_message', 'onChatMessage');
+    this._bind('chat_typing', 'onChatTyping');
   }
 
   _bind(serverEvent, handlerKey) {
@@ -116,6 +120,18 @@ export class GamearnSocket {
 
   signalReady() {
     this.connected && this.socket.emit('player_ready', {});
+  }
+
+  sendChat(roomId, message, onSuccess) {
+    if (!this.connected) return;
+    this.socket.emit('chat_message', { roomId, message }, (response) => {
+      const err = this._ackError(response);
+      if (err) {
+        this._emit('onError', err);
+        return;
+      }
+      onSuccess?.(response?.data);
+    });
   }
 
   requestRematch() {

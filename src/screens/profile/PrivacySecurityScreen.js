@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,17 +7,49 @@ import {
   Switch,
   TouchableOpacity,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 import { ArrowLeft, Shield, RefreshCw } from 'lucide-react-native';
 
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { settings as settingsApi } from '../../services/api';
 
 export default function PrivacySecurityScreen({ navigation }) {
   const { theme, isDark } = useTheme();
+  const { userProfile } = useAuth();
   const [dataSharing, setDataSharing] = useState(false);
   const [locationServices, setLocationServices] = useState(false);
+
+  useEffect(() => {
+    if (!userProfile) return;
+    let active = true;
+    settingsApi
+      .get()
+      .then((res) => {
+        if (!active) return;
+        const prefs = res?.data ?? res ?? {};
+        if (typeof prefs.dataSharing === 'boolean') setDataSharing(prefs.dataSharing);
+        if (typeof prefs.locationServices === 'boolean') setLocationServices(prefs.locationServices);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [userProfile?.uid]);
+
+  const changeSetting = (key, value) => {
+    if (key === 'dataSharing') setDataSharing(value);
+    else setLocationServices(value);
+    if (!userProfile) return;
+    settingsApi
+      .patch({ [key]: value })
+      .catch(() => {
+        if (key === 'dataSharing') setDataSharing(!value);
+        else setLocationServices(!value);
+        Alert.alert('Sync failed', 'Your preference could not be saved to your account.');
+      });
+  };
 
   return (
     <View style={[styles.screenRoot, { backgroundColor: theme.bg }]}>
@@ -70,7 +102,7 @@ export default function PrivacySecurityScreen({ navigation }) {
               </View>
               <Switch
                 value={dataSharing}
-                onValueChange={setDataSharing}
+                onValueChange={(value) => changeSetting('dataSharing', value)}
                 trackColor={{ false: '#334155', true: '#0284C7' }}
                 thumbColor={dataSharing ? theme.primary : '#94A3B8'}
               />
@@ -84,7 +116,7 @@ export default function PrivacySecurityScreen({ navigation }) {
               </View>
               <Switch
                 value={locationServices}
-                onValueChange={setLocationServices}
+                onValueChange={(value) => changeSetting('locationServices', value)}
                 trackColor={{ false: '#334155', true: '#0284C7' }}
                 thumbColor={locationServices ? theme.primary : '#94A3B8'}
               />

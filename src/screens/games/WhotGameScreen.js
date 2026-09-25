@@ -24,20 +24,22 @@ export default function WhotGameScreen({ route, navigation }) {
   const myUid = userProfile?.uid || 'practice_anon';
   const selfName = userProfile?.displayName || userProfile?.username || 'You';
 
-  const socketRef = useRef(null);
+const socketRef = useRef(null);
   const activePracticeId = useRef(route.params?.practiceSessionId || null);
   const [remote, setRemote] = useState(null);
   const [phase, setPhase] = useState('local'); // joining | waiting | playing | game_over | local
   const [pendingMove, setPendingMove] = useState(false);
   const [result, setResult] = useState(null);
   const [banner, setBanner] = useState('');
+  const [incomingChats, setIncomingChats] = useState([]);
 
   const isRemote = mode === 'multiplayer' || mode === 'practice';
   const isPlaying = phase === 'playing';
   const opponentName = opponent?.displayName || 'Opponent';
 
-  const handleServerResult = (p) => {
+const handleServerResult = (p) => {
     const won = !!p?.winner && p.winner === myUid;
+    const opp = (Array.isArray(p?.players) ? p.players : []).filter((x) => x.uid !== myUid)[0];
     setResult(p);
     setPhase('game_over');
     setBanner(won ? 'You won this match!' : p?.winnerDisplayName ? `${p.winnerDisplayName} won.` : 'Match over.');
@@ -49,10 +51,10 @@ export default function WhotGameScreen({ route, navigation }) {
         isWinner: won,
         myScore: p?.myScore || (won ? 72 : 52),
         opponentScore: p?.opponentScore || (won ? 48 : 66),
-        opponentName: p?.winnerDisplayName || opponentName || 'Opponent',
-        opponentAvatar: p?.opponentAvatar || null,
+        opponentName: opp?.displayName || p?.winnerDisplayName || opponentName || 'Opponent',
+        opponentAvatar: opp?.avatar || p?.opponentAvatar || null,
         gameId: 'whot',
-        gameName: 'Wọ́t Game',
+        gameName: 'Wọńt Game',
         targetScreen: 'WhotGame',
         stake: stake,
       });
@@ -91,8 +93,11 @@ export default function WhotGameScreen({ route, navigation }) {
       onOpponentDisconnected: (p) =>
         setBanner(`Opponent disconnected â€” ${p?.graceSeconds || 30}s to reconnect.`),
       onOpponentReconnected: () => setBanner(''),
-      onOpponentForfeited: (p) => {
+onOpponentForfeited: (p) => {
         setBanner(p?.reason === 'disconnect_timeout' ? 'Opponent forfeited. You win!' : 'Opponent left the match.');
+      },
+      onChatMessage: (msg) => {
+        setIncomingChats((prev) => [...prev, msg]);
       },
       onError: (msg) => {
         if (msg) Alert.alert('Game service', msg);
@@ -116,7 +121,7 @@ export default function WhotGameScreen({ route, navigation }) {
     let cancelled = false;
     setPhase('joining');
     practice.whot
-      .start({ startCards: 6, playerRating: 1200 })
+      .start({ startCards: 6, playerRating: 1200, seats: 4 })
       .then((res) => {
         if (cancelled) return;
         activePracticeId.current = res?.sessionId || null;
@@ -155,13 +160,13 @@ export default function WhotGameScreen({ route, navigation }) {
         if (res?.gameOver) {
           const won = res.winner === myUid;
           setPhase('game_over');
-          setBanner(won ? 'Practice complete — you emptied your hand first!' : 'Practice complete — Gamearn Bot won.');
+          setBanner(won ? 'Practice complete — you emptied your hand first!' : 'Practice complete — an Oba bot emptied its hand first.');
           setTimeout(() => {
             navigation.navigate('GameResult', {
               isWinner: won,
               myScore: won ? 72 : 46,
               opponentScore: won ? 46 : 66,
-              opponentName: 'Gamearn Bot 🤖',
+              opponentName: 'Oba Bots 🤖',
               gameId: 'whot',
               gameName: 'Wọ́t Game',
               targetScreen: 'WhotGame',
@@ -214,14 +219,17 @@ export default function WhotGameScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.gameArea}>
-        <WhotScreen
+<WhotScreen
           timer={timer}
           aiDifficulty={route.params?.aiDifficulty}
           isRemote={isRemote && phase !== 'local'}
           remote={remote}
           onRemoteMove={handleRemoteMove}
+          onBack={handleBack}
           onRemoteGameOver={(winnerUid) => handleWin(winnerUid === myUid)}
           onWin={() => handleWin(true)}
+          onMessage={mode === 'multiplayer' && roomId ? (text) => socketRef.current?.sendChat(roomId, text) : null}
+          incomingChats={mode === 'multiplayer' ? incomingChats : []}
         />
       </View>
 

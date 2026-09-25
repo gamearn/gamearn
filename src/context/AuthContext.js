@@ -22,22 +22,23 @@ import {
   signInWithGoogleIdToken,
   signInWithFacebookToken,
   signInWithAppleToken,
+  sendPhoneCode,
+  confirmPhoneCode,
+  normalizePhoneToE164,
   signOutFirebase,
   friendlyAuthError,
   getCurrentUser,
   reloadCurrentUser,
+  isNativeAuthAvailable,
 } from '../services/firebase';
 import { auth as authApi, wallet } from '../services/api';
 import { ApiError } from '../services/apiClient';
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { calculateGamePower, formatGP, calculateValuePoints, formatVP } from '../utils/gamePower';
 
 const AuthContext = createContext();
 
-import { calculateGamePower, formatGP, calculateValuePoints, formatVP } from '../utils/gamePower';
-
 async function getCachedProfile(uid) {
-  if (!uid) return null;
   try {
     const raw = await AsyncStorage.getItem(`@gamearn_profile_${uid}`);
     return raw ? JSON.parse(raw) : null;
@@ -99,8 +100,9 @@ function profileFromMe(me, cached) {
     newLastStreakDate = todayStr;
   }
 
-  const gp = calculateGamePower(gamesPlayed, wins, losses);
-  const vp = calculateValuePoints(me?.wallet?.balance ?? me?.walletBalance ?? 0, gamesPlayed, wins);
+  const rawNaira = me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? cached?.walletBalance ?? 0;
+  const gp = me?.gamePower ?? calculateGamePower(gamesPlayed, wins, losses);
+  const vp = Number.isFinite(me?.valuePoints) ? me.valuePoints : Number.isFinite(me?.vp) ? me.vp : calculateValuePoints(rawNaira, gamesPlayed, wins);
 
   const username = me?.username || me?.name || me?.displayName || cached?.username || me?.email?.split('@')[0] || 'Gamer';
   const displayName = me?.displayName || me?.username || me?.name || cached?.displayName || 'Gamer';
@@ -115,8 +117,8 @@ function profileFromMe(me, cached) {
     avatar: me?.avatar || me?.avatarUrl || me?.photoURL || cached?.avatar || '',
     bio: me?.bio || cached?.bio || '',
     phone: me?.phoneNumber || me?.phone || cached?.phone || '',
-    walletBalance: me?.wallet?.balance ?? me?.walletBalance ?? cached?.walletBalance ?? 0,
-    coins: me?.wallet?.balance ?? me?.coins ?? cached?.coins ?? 0,
+    walletBalance: rawNaira,
+    coins: rawNaira,
     isPremium: !!(me?.premium?.isPremium || me?.isPremium || cached?.isPremium),
     gamesPlayed,
     wins,
@@ -141,6 +143,33 @@ async function isAdminUser() {
     return claims?.admin === true;
   } catch {
     return false;
+  }
+}
+
+const PROFILE_CACHE_KEY = 'gamearn.backendProfile.v1';
+
+async function readCachedProfile() {
+  try {
+    const raw = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCachedProfile(me) {
+  try {
+    await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(me));
+  } catch (err) {
+    console.log('Notice: Could not cache profile:', err?.message || err);
+  }
+}
+
+async function clearCachedProfile() {
+  try {
+    await AsyncStorage.removeItem(PROFILE_CACHE_KEY);
+  } catch {
+    // Cache clearing is best-effort.
   }
 }
 
@@ -180,9 +209,9 @@ export const AuthProvider = ({ children }) => {
       await authApi.login({});
       const me = await authApi.me();
       const isAdmin = await isAdminUser();
-      const profile = profileFromMe({ ...me, isAdmin, uid }, cached);
+      await writeCachedProfile({ ...me, isAdmin });
+      const profile = profileFromMe({ ...me, isAdmin });
       setUserProfile(profile);
-      if (uid) await saveCachedProfile(uid, profile);
       setBackendReady(true);
       return me;
     } catch (err) {
@@ -190,13 +219,16 @@ export const AuthProvider = ({ children }) => {
         // Registered in Firebase but not in the backend yet → onboarding.
         setUserProfile(null);
         setBackendReady(false);
+        await clearCachedProfile();
         return null;
       }
+      // Backend blip or network error: fall back to the last known profile
+      // instead of dropping a returning user into onboarding.
+      const cached = await readCachedProfile();
       if (cached) {
-        const profile = profileFromMe(cached, cached);
-        setUserProfile(profile);
+        setUserProfile(profileFromMe(cached));
         setBackendReady(true);
-        return profile;
+        return cached;
       }
       setUserProfile(null);
       setBackendReady(false);
@@ -248,6 +280,24 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signIn = (email, password) => runLogin(() => loginEmailPassword(email, password));
+
+  // Phone sign-in state: the confirmation from sendPhoneCode is kept until the
+  // user submits the SMS code (or requests a new one).
+  const phoneConfirmation = React.useRef(null);
+
+  const sendPhoneOtp = async (phone) => {
+    const normalized = normalizePhoneToE164(phone);
+    if (!normalized) throw new Error('Enter a valid Nigerian phone number (e.g. 0801 234 5678).');
+    const confirmation = await sendPhoneCode(normalized);
+    phoneConfirmation.current = confirmation;
+    return { verificationId: confirmation.verificationId, phone: normalized };
+  };
+
+  const verifyPhoneOtp = (code) => runLogin(async () => {
+    const confirmation = phoneConfirmation.current;
+    if (!confirmation) throw new Error('Request a code first.');
+    return confirmPhoneCode(confirmation, code);
+  });
 
   const signUp = async (email, password, displayName = null, phoneNumber = null) => {
     if (activeLogin.current) return null;
@@ -370,6 +420,11 @@ export const AuthProvider = ({ children }) => {
           ...(displayName ? { displayName } : {}),
           ...(updates.avatar ? { avatarUrl: updates.avatar } : {}),
           ...(updates.bio !== undefined ? { bio: updates.bio } : {}),
+          ...(updates.streak !== undefined ? { streak: updates.streak } : {}),
+          ...(updates.gamesPlayed !== undefined ? { gamesPlayed: updates.gamesPlayed } : {}),
+          ...(updates.lastStreakDate !== undefined ? { lastStreakDate: updates.lastStreakDate } : {}),
+          ...(updates.lastCheckInDate !== undefined ? { lastCheckInDate: updates.lastCheckInDate } : {}),
+          ...(updates.lastPlayedDate !== undefined ? { lastPlayedDate: updates.lastPlayedDate } : {}),
         });
       }
     } catch (err) {
@@ -389,8 +444,7 @@ export const AuthProvider = ({ children }) => {
         bio: updates.bio !== undefined ? updates.bio : prev?.bio,
       };
       updated = profileFromMe(merged, prev);
-      const uid = user?.uid || prev?.uid || 'user_demo_123';
-      if (uid) saveCachedProfile(uid, updated);
+      writeCachedProfile(updated);
       return updated;
     });
 
@@ -409,7 +463,6 @@ export const AuthProvider = ({ children }) => {
     setUserProfile((prev) => ({
       ...(prev || {}),
       walletBalance: w.balance,
-      coins: w.balance,
     }));
     return w;
   }, []);
@@ -418,6 +471,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user, userProfile, loading, backendReady, authError,
     signIn, signUp, signUpWithGoogle, signUpWithFacebook, signUpWithApple,
+    sendPhoneOtp, verifyPhoneOtp, isNativeAuthAvailable,
     backendRegister, getPendingProfile, sendEmailOtp, verifyEmailOtp,
     signOut, updateProfileData, refreshProfile, refreshWallet,
   };

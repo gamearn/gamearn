@@ -130,6 +130,15 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.forgotText}>Forgot Password?</Text>
           </TouchableOpacity>
 
+          {/* Phone sign-in */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('PhoneLogin')}
+            style={styles.phoneBtn}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.phoneText}>Sign in with phone (SMS code)</Text>
+          </TouchableOpacity>
+
           {/* Log In CTA Button */}
           <GAButton
             title="Log In"
@@ -281,6 +290,17 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     color: '#00E5FF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  phoneBtn: {
+    alignSelf: 'center',
+    marginBottom: 18,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  phoneText: {
+    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '600',
   },

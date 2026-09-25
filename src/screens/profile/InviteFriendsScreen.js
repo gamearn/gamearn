@@ -13,6 +13,7 @@ import {
   Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Clipboard from 'expo-clipboard';
 import {
   ArrowLeft,
   Copy,
@@ -35,21 +36,64 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { referral } from '../../services/api';
+import {
+  referralUniversalLink,
+  referralDeepLink,
+  playStoreLink,
+  appStoreLink,
+} from '../../config/appConfig';
+
+const PING_RATE = 0.05;
+const PING_TYPE_MAP = {
+  'Daily Streak': 'streak',
+  'Challenge Match': 'challenge',
+  'Tournament': 'tournament',
+};
+
+// Normalize the backend referral object into the shape the member cards render.
+const toUiRef = (r) => ({
+  id: r.uid,
+  uid: r.uid,
+  name: r.displayName || 'Referee',
+  username: r.displayName || 'referee',
+  handle: r.phone || `@${(r.displayName || 'player').toLowerCase()}`,
+  avatar: null,
+  status: r.status,
+  isActiveToday: r.status === 'active',
+  statusLabel: r.status === 'active' ? 'Active' : 'Inactive',
+  totalEarned: Math.round((r.totalCommissionKobo || 0) / PING_RATE),
+  yourCommission: r.totalCommissionKobo || 0,
+  activityNote: r.status === 'active' ? (r.streak ? `Streak ${r.streak}` : 'Active') : 'No recent activity',
+  lastEarnedAt: r.lastEarnedAt,
+  history: r.lastEarnedAt
+    ? [
+        {
+          id: `h_${r.uid}`,
+          source: 'Referral earnings',
+          date: r.lastEarnedAt,
+          commission: r.totalCommissionKobo || 0,
+          amount: Math.round((r.totalCommissionKobo || 0) / PING_RATE),
+        },
+      ]
+    : [],
+});
 
 export default function InviteFriendsScreen({ navigation }) {
   const { userProfile, updateProfileData } = useAuth();
   const { theme, isDark } = useTheme();
 
   const userName = userProfile?.username || userProfile?.fullName || userProfile?.name || 'Gamer';
+  const [serverCode, setServerCode] = useState(null);
   const referralCode = useMemo(() => {
+    if (serverCode) return serverCode;
     if (userProfile?.referralCode) return userProfile.referralCode;
-    const uid = String(userProfile?.uid || userProfile?.id || '').trim();
+const uid = String(userProfile?.uid || userProfile?.id || '').trim();
     if (uid && uid.length >= 6) {
       return uid.substring(0, 8).toUpperCase();
     }
     const cleanName = (userName || 'GAMER').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6) || 'GAMER';
     return `${cleanName}88`;
-  }, [userProfile?.referralCode, userProfile?.uid, userProfile?.id, userName]);
+  }, [serverCode, userProfile?.referralCode, userProfile?.uid, userProfile?.id, userName]);
 
   const referralUpdatedRef = useRef(false);
   useEffect(() => {
@@ -59,7 +103,7 @@ export default function InviteFriendsScreen({ navigation }) {
     }
   }, [referralCode, userProfile?.referralCode]);
 
-  const referralLink = `https://gamearn.app/invite/${referralCode}`;
+  const referralLink = referralUniversalLink(referralCode);
 
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'active', 'risk', 'inactive'
@@ -75,6 +119,7 @@ export default function InviteFriendsScreen({ navigation }) {
   };
 
   const [referrals, setReferrals] = useState([]);
+  const [totalCommissionKobo, setTotalCommissionKobo] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -82,9 +127,13 @@ export default function InviteFriendsScreen({ navigation }) {
       try {
         const res = await referral.me();
         if (isMounted && res) {
-          const list = res.data?.referrals || res.referrals || res.data || userProfile?.referredUsers || [];
+          if (res.data?.referralCode) setServerCode(res.data.referralCode);
+          if (typeof res.data?.totalCommissionKobo === 'number') setTotalCommissionKobo(res.data.totalCommissionKobo);
+          const list = res.data?.referrals || res.referrals || [];
           if (Array.isArray(list)) {
-            setReferrals(list);
+            setReferrals(list.map(toUiRef));
+          } else if (Array.isArray(res.data)) {
+            setReferrals(res.data.map(toUiRef));
           }
         }
       } catch {
@@ -98,46 +147,84 @@ export default function InviteFriendsScreen({ navigation }) {
     };
   }, [userProfile]);
 
-  const handleCopyCode = () => {
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-    Alert.alert('Referral Code Copied! 🚀', `Code "${referralCode}" copied to clipboard.`);
+  const handleCopyCode = async () => {
+    try {
+      // Real clipboard write via expo-clipboard.
+      await Clipboard.setStringAsync(referralCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      Alert.alert('Referral Code Copied', `Code "${referralCode}" saved to your clipboard.`);
+    } catch {
+      Alert.alert('Copy Failed', 'Could not write to the clipboard. Please try again.');
+    }
   };
 
   const handleShareInvite = async () => {
+    const message =
+      `Join me on Gamearn — play Whot, Ludo, Ayo & Draughts with friends and earn together! ` +
+      `Use my invite code ${referralCode} to get free bonus coins: ${referralLink}\n\n` +
+      `Haven't installed the app yet? Grab it here: ${playStoreLink(referralCode)}`;
     try {
-      await Share.share({
-        message: `Join me on Gamearn and play Whot, Ludo, Ayo & Draughts! Use my referral code ${referralCode} to get free bonus coins: ${referralLink}`,
-      });
+      await Share.share({ message });
     } catch {
       Alert.alert('Share', `Invite Link: ${referralLink}`);
     }
   };
 
-  const handleSendPing = (refItem, pingType) => {
-    setActivePingModal(null);
-    Alert.alert(
-      'Ping Sent! 📲',
-      `Sent a ${pingType} reminder ping to ${refItem ? refItem.name || refItem.username || refItem.handle : 'all squad members'}. They will receive a push notification!`
-    );
+  const handleCopyLink = async () => {
+    try {
+      await Clipboard.setStringAsync(referralLink);
+      Alert.alert('Invite Link Copied', `Link saved to your clipboard:\n${referralLink}`);
+    } catch {
+      Alert.alert('Copy Failed', 'Could not write to the clipboard. Please try again.');
+    }
   };
 
-  const handlePingAll = () => {
-    if (referrals.length === 0) {
-      Alert.alert('Squad Ping 📣', 'You currently have no active referrals to ping. Share your invite code to build your squad!');
+  const handleSendPing = async (refItem, pingType) => {
+    setActivePingModal(null);
+    const targetUid = refItem?.uid || refItem?.id;
+    if (!targetUid) {
+      Alert.alert('Ping Failed', 'This referee is not linked to your account yet.');
       return;
     }
-    Alert.alert(
-      'Bulk Ping Squad 📣',
-      `Sent activity reminder pings to ${referrals.length} squad member(s)!`,
-      [{ text: 'Great!', style: 'default' }]
-    );
+    try {
+      await referral.ping({ refereeUids: [targetUid], type: PING_TYPE_MAP[pingType] || 'streak' });
+      Alert.alert(
+        'Ping Sent',
+        `Sent a ${pingType} reminder for ${refItem.name || refItem.username || 'your squad'}. They will get a push notification.`
+      );
+    } catch (err) {
+      Alert.alert('Ping Failed', err?.message || 'Could not send ping. Please try again.');
+    }
+  };
+
+  const handlePingAll = async () => {
+    if (referrals.length === 0) {
+      Alert.alert('Squad Ping', 'You currently have no active referrals to ping. Share your invite code to build your squad!');
+      return;
+    }
+    const uids = referrals.map((r) => r.uid || r.id).filter(Boolean);
+    if (uids.length === 0) {
+      Alert.alert('Squad Ping', 'No linked referees to ping yet.');
+      return;
+    }
+    try {
+      const res = await referral.ping({ refereeUids: uids, type: 'streak' });
+      const sent = res?.data?.sent || uids.length;
+      Alert.alert('Squad Ping', `Sent activity reminders to ${sent} squad member(s)!`);
+    } catch (err) {
+      if (err?.message?.includes('limit')) {
+        Alert.alert('Daily Limit', 'You have reached the daily ping limit of 50. Try again tomorrow.');
+        return;
+      }
+      Alert.alert('Ping Failed', err?.message || 'Could not send pings. Please try again.');
+    }
   };
 
   const activeCount = referrals.filter((r) => r.status === 'active' || r.isActiveToday).length;
   const riskCount = referrals.filter((r) => r.status === 'risk').length;
   const inactiveCount = referrals.filter((r) => r.status === 'inactive' || (!r.status && !r.isActiveToday)).length;
-  const totalEarnings = userProfile?.referralEarnings ?? userProfile?.referralBalance ?? referrals.reduce((sum, r) => sum + (r.yourCommission || 0), 0);
+  const totalEarnings = totalCommissionKobo || referrals.reduce((sum, r) => sum + (r.yourCommission || 0), 0);
   const todayEarnings = referrals.reduce((sum, r) => sum + (r.todayCommission || 0), 0);
 
   const filteredReferrals = referrals.filter((item) => {
@@ -522,7 +609,7 @@ export default function InviteFriendsScreen({ navigation }) {
             </View>
 
             <Text style={styles.qrLinkText}>{referralLink}</Text>
-            <TouchableOpacity onPress={handleCopyCode} style={styles.modalPrimaryBtn}>
+            <TouchableOpacity onPress={handleCopyLink} style={styles.modalPrimaryBtn}>
               <Text style={styles.modalPrimaryBtnText}>Copy Link</Text>
             </TouchableOpacity>
           </View>

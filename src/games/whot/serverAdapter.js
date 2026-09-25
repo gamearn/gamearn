@@ -62,18 +62,28 @@ function buildEngineState(view, meta = {}) {
   const finished = view.status === 'completed' || !!view.winner;
   const topCard = view.topCard ? serverCardToEngine(view.topCard) : null;
 
+  const activePlayerIndex =
+    view.currentPlayerIndex == null
+      ? 0
+      : view.selfIndex != null && view.currentPlayerIndex === view.selfIndex
+        ? 0
+        : Array.isArray(view.seatByIndex)
+          ? view.seatByIndex[view.currentPlayerIndex] ?? 1
+          : 1;
+
   let statusMessage = view.statusMessage;
   if (!statusMessage) {
+    const activeName = activePlayerIndex === 0 ? 'You' : players[activePlayerIndex]?.name;
     statusMessage = finished
       ? 'Game over'
-      : view.selfIndex != null && view.currentPlayerIndex === view.selfIndex
+      : activePlayerIndex === 0
         ? 'Your turn! Select a card to play or pick from the pile.'
-        : `${players[1].name} is playing…`;
+        : `${activeName || 'Opponent'} is playing…`;
   }
 
   return {
     players,
-    activePlayerIndex: view.selfIndex != null && view.currentPlayerIndex === view.selfIndex ? 0 : 1,
+    activePlayerIndex,
     drawPile: Array.from({ length: view.deckSize || 0 }),
     discardPile: topCard ? [topCard] : [],
     requestedShape: view.pendingShape || null,
@@ -95,14 +105,25 @@ function buildEngineState(view, meta = {}) {
 export function practiceSnapshotToEngine(data, opts = {}) {
   const selfUid = opts.selfUid || 'practice_anon';
   const selfName = opts.selfName || 'You';
+  const others = Array.isArray(data.players)
+    ? data.players.filter((p) => p.uid !== selfUid)
+    : [];
+  const opponents = others.length
+    ? others.map((p) => ({
+        handSize: p.handSize || 0,
+        name: p.displayName || 'Player',
+      }))
+    : [{ handSize: data.botCardCount || 0, name: 'Gamearn Bot' }];
+  const opponentName = opponents[0]?.name || 'Gamearn Bot';
   return buildEngineState(
     {
       self: data.playerHand || [],
-      opponents: [{ handSize: data.botCardCount || 0, name: 'Gamearn Bot' }],
+      opponents,
       topCard: data.topCard,
       pendingShape: data.pendingShape || null,
       currentPlayerIndex: data.currentPlayerIndex ?? 0,
       selfIndex: 0,
+      seatByIndex: [0, 1, 2, 3],
       deckSize: data.deckSize || 0,
       status: data.status || (data.gameOver ? 'completed' : 'playing'),
       winner: data.winner || null,
@@ -110,7 +131,7 @@ export function practiceSnapshotToEngine(data, opts = {}) {
       selfName,
       statusMessage: opts.statusMessage,
     },
-    { opponentName: 'Gamearn Bot' },
+    { opponentName },
   );
 }
 

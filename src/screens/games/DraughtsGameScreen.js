@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { CheckersScreen } from '../../games/checkers/CheckersScreen';
 import {
   applyMove,
@@ -11,11 +11,15 @@ import {
 import { useOnlineMatch } from '../../games/useOnlineMatch';
 import { useAuth } from '../../context/AuthContext';
 import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
+import { practice } from '../../services/api';
+import { ApiError } from '../../services/apiClient';
 
 export default function DraughtsGameScreen({ route, navigation }) {
   const { mode = 'local', roomId, aiDifficulty = 'auto' } = route.params || {};
   const stake = route.params?.stake || 250;
   const timer = route.params?.timer || '2m';
+
+  const { userProfile } = useAuth();
 
   const isMultiplayer = mode === 'multiplayer' && !!roomId;
   const isPractice = mode === 'practice';
@@ -38,12 +42,33 @@ export default function DraughtsGameScreen({ route, navigation }) {
   const boardMirror = useRef(initialBoardState());
   const selectedRef = useRef(null);
   const turnRef = useRef('white');
+  const practiceSessionId = useRef(null);
+  const [practiceReady, setPracticeReady] = useState(isPractice);
   const [localResult, setLocalResult] = useState('');
 
   useEffect(() => {
-    if (isPractice) {
-      Alert.alert('Practice', 'Practice for DrÃ¡fÃ¹ rolls out with Whot first');
-    }
+    if (!isPractice) return;
+    let cancelled = false;
+    setPracticeReady(false);
+    practice.draughts
+      .start({ playerRating: 1200 })
+      .then((res) => {
+        if (cancelled) return;
+        practiceSessionId.current = res?.sessionId || null;
+        setPracticeReady(true);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        Alert.alert(
+          'Could not start practice',
+          err instanceof ApiError ? err.message : 'Practice is temporarily unavailable.',
+        );
+        navigation.goBack();
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPractice]);
 
   const relayIfMove = (index) => {
@@ -160,8 +185,15 @@ export default function DraughtsGameScreen({ route, navigation }) {
       {(isPractice || localResult !== '') && (
         <View style={styles.noticeBanner} pointerEvents="none">
           <Text style={styles.noticeText}>
-            {isPractice ? 'Practice for DrÃ¡fÃ¹ rolls out with Whot first' : localResult}
+            {isPractice ? (practiceReady ? 'Practice vs Gamearn Bot' : 'Starting practice\u2026') : localResult}
           </Text>
+        </View>
+      )}
+
+      {isPractice && !practiceReady && (
+        <View style={styles.overlay}>
+          <ActivityIndicator size="large" color="#00E5FF" />
+          <Text style={styles.overlayText}>Starting practice game\u2026</Text>
         </View>
       )}
     </View>
@@ -239,5 +271,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     textAlign: 'center',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(6, 16, 25, 0.9)',
+  },
+  overlayText: {
+    marginTop: 14,
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

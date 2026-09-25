@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { Swords, Settings, ArrowLeft, Wallet, Cpu, Sliders } from 'lucide-react-native';
+import { Swords, Settings, ArrowLeft, Wallet, Cpu } from 'lucide-react-native';
 import BrandLogo from '../../components/BrandLogo';
 import GAButton from '../../components/GAButton';
 import GACard from '../../components/GACard';
@@ -9,7 +9,6 @@ import { useAuth } from '../../context/AuthContext';
 import { matchmaking } from '../../services/api';
 import { GamearnSocket } from '../../services/gamearnSocket';
 import { ENTRY_FEES, koboToN, naira } from '../../config/appConfig';
-import { getAiDifficulty } from '../../utils/aiDifficulty';
 
 const TIERS = [
   { key: 'beginner', label: 'Beginner' },
@@ -23,7 +22,7 @@ export default function GameLobbyScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
   const { userProfile } = useAuth();
 
-  const { gameId = 'whot', gameName = 'Whot Naija', targetScreen = 'WhotGame' } = route.params || {};
+  const { gameId = 'whot', gameName = 'Whot Naija', targetScreen = 'WhotGame', setupTarget = 'GameSetup' } = route.params || {};
   const gameType = GAME_TYPE[gameId] || GAME_TYPE.whot;
   const tiers = ENTRY_FEES[gameType] || ENTRY_FEES.whot;
 
@@ -31,27 +30,6 @@ export default function GameLobbyScreen({ route, navigation }) {
   const [isSearching, setIsSearching] = useState(false);
   const [queueLen, setQueueLen] = useState(0);
   const sockRef = useRef(null);
-
-  // Custom Match Setup Inline State
-  const [selectedTimer, setSelectedTimer] = useState('2m');
-  const [aiDifficulty, setAiDifficulty] = useState('auto');
-  const [tokenCount, setTokenCount] = useState(4);
-  const [playerColor, setPlayerColor] = useState('white');
-  const [cardCount, setCardCount] = useState(6);
-  const [enableSpecialCards, setEnableSpecialCards] = useState(true);
-
-  const isLudo = targetScreen === 'LudoGame' || gameName.toLowerCase().includes('ludo');
-  const isDraft = targetScreen === 'DraughtsGame' || gameName.toLowerCase().includes('dráfù') || gameName.toLowerCase().includes('draft') || gameName.toLowerCase().includes('checkers');
-  const isWhot = targetScreen === 'WhotGame' || gameName.toLowerCase().includes('whot');
-
-  const currentGp = Number(userProfile?.gamePower ?? userProfile?.gp ?? 0);
-  const calculatedDifficulty = getAiDifficulty(userProfile, 'auto');
-  const difficultyBadgeLabel =
-    calculatedDifficulty === 'easy'
-      ? '🟢 Easy'
-      : calculatedDifficulty === 'medium'
-      ? '🟡 Medium'
-      : '🔴 Hard';
 
   const selectedFee = tiers[selectedTier] || tiers.beginner;
   const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.coins ?? 0);
@@ -85,12 +63,6 @@ export default function GameLobbyScreen({ route, navigation }) {
       entryFee: p.entryFee,
       prizePool: p.prizePool,
       opponent: p.opponent,
-      timer: selectedTimer,
-      aiDifficulty,
-      tokenCount,
-      playerColor,
-      cardCount,
-      enableSpecialCards,
     });
   };
 
@@ -101,14 +73,6 @@ export default function GameLobbyScreen({ route, navigation }) {
         entryFee: fee,
         rated: true,
         playerCount: 2,
-        options: {
-          timer: selectedTimer,
-          aiDifficulty,
-          tokenCount,
-          playerColor,
-          cardCount,
-          enableSpecialCards,
-        },
       });
       if (res?.status === 'already_in_room' && res.roomId) {
         navigateToMatch({ roomId: res.roomId, entryFee: fee, prizePool: 0, opponent: null });
@@ -125,12 +89,6 @@ export default function GameLobbyScreen({ route, navigation }) {
     navigation.navigate(targetScreen, {
       stake: selectedFee,
       vsOba: true,
-      timer: selectedTimer,
-      aiDifficulty,
-      tokenCount,
-      playerColor,
-      cardCount,
-      enableSpecialCards,
     });
   };
 
@@ -184,7 +142,13 @@ export default function GameLobbyScreen({ route, navigation }) {
   };
 
   const openSetup = () => {
-    navigation.navigate(setupTarget, { gameType, gameName, targetScreen });
+    navigation.navigate(setupTarget, {
+      gameType,
+      gameName,
+      targetScreen,
+      entryFee: naira(koboToN(selectedFee)),
+      rank: userProfile?.gpText || '0 GP',
+    });
   };
 
   const openDeposit = () => {
@@ -218,186 +182,21 @@ export default function GameLobbyScreen({ route, navigation }) {
         <Text style={[styles.walletAction, { color: theme.accent }]}>Top up</Text>
       </TouchableOpacity>
 
-      {/* Inline Custom Match Setup Card */}
-      <View
+      {/* Custom setup link */}
+      <TouchableOpacity
+        onPress={openSetup}
         style={[
-          styles.setupInlineCard,
+          styles.setupRow,
           {
             backgroundColor: isDark ? 'rgba(15, 23, 42, 0.75)' : 'rgba(255, 255, 255, 0.9)',
             borderColor: 'rgba(0, 229, 255, 0.3)',
           },
         ]}
       >
-        <View style={styles.setupInlineHeader}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Sliders size={20} color="#00E5FF" />
-            <Text style={[styles.setupInlineTitle, { color: theme.textPrimary }]}>
-              Custom Match Setup
-            </Text>
-          </View>
-          <Text style={{ color: '#00E5FF', fontWeight: '800', fontSize: 12 }}>{gameName}</Text>
-        </View>
-
-        {/* Turn Timer */}
-        <View style={styles.settingBlock}>
-          <View style={styles.settingHeaderRow}>
-            <Text style={[styles.settingLabel, { color: theme.textPrimary }]}>Turn Timer</Text>
-            <Text style={styles.selectedTimerValue}>{selectedTimer === '2m' ? '2 min' : selectedTimer}</Text>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-            {['30s', '1m', '2m', '3m'].map((t) => {
-              const isSelected = selectedTimer === t;
-              return (
-                <TouchableOpacity
-                  key={t}
-                  onPress={() => setSelectedTimer(t)}
-                  style={[
-                    styles.optionPill,
-                    {
-                      backgroundColor: isSelected ? '#00E5FF' : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                      borderColor: isSelected ? '#00E5FF' : isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
-                    },
-                  ]}
-                >
-                  <Text style={{ color: isSelected ? '#070C1B' : theme.textPrimary, fontWeight: '900', fontSize: 13 }}>
-                    {t}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-
-
-        {/* Ludo specific setup */}
-        {isLudo && (
-          <View style={styles.settingBlock}>
-            <View style={styles.settingHeaderRow}>
-              <Text style={[styles.settingLabel, { color: theme.textPrimary }]}>Tokens per Player</Text>
-              <Text style={styles.selectedTimerValue}>{tokenCount} Token{tokenCount > 1 ? 's' : ''}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-              {[1, 2, 3, 4].map((num) => {
-                const isSelected = tokenCount === num;
-                return (
-                  <TouchableOpacity
-                    key={num}
-                    onPress={() => setTokenCount(num)}
-                    style={[
-                      styles.optionPill,
-                      {
-                        flex: 1,
-                        backgroundColor: isSelected ? '#00E5FF' : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                        borderColor: isSelected ? '#00E5FF' : isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
-                      },
-                    ]}
-                  >
-                    <Text style={{ color: isSelected ? '#070C1B' : theme.textPrimary, fontWeight: '900', fontSize: 13 }}>
-                      {num} {num === 4 ? '(Default)' : ''}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        {/* Draft/Checkers specific setup */}
-        {isDraft && (
-          <View style={styles.settingBlock}>
-            <View style={styles.settingHeaderRow}>
-              <Text style={[styles.settingLabel, { color: theme.textPrimary }]}>Your Piece Color</Text>
-              <Text style={styles.selectedTimerValue}>{playerColor === 'white' ? '⚪ White' : '⚫ Black'}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-              <TouchableOpacity
-                onPress={() => setPlayerColor('white')}
-                style={[
-                  styles.optionPill,
-                  {
-                    flex: 1,
-                    backgroundColor: playerColor === 'white' ? '#00E5FF' : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                    borderColor: playerColor === 'white' ? '#00E5FF' : isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
-                  },
-                ]}
-              >
-                <Text style={{ color: playerColor === 'white' ? '#070C1B' : theme.textPrimary, fontWeight: '900', fontSize: 13 }}>
-                  ⚪ Play White
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setPlayerColor('black')}
-                style={[
-                  styles.optionPill,
-                  {
-                    flex: 1,
-                    backgroundColor: playerColor === 'black' ? '#F59E0B' : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                    borderColor: playerColor === 'black' ? '#F59E0B' : isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
-                  },
-                ]}
-              >
-                <Text style={{ color: playerColor === 'black' ? '#070C1B' : theme.textPrimary, fontWeight: '900', fontSize: 13 }}>
-                  ⚫ Play Black
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* WHOT specific setup */}
-        {isWhot && (
-          <View style={styles.settingBlock}>
-            <View style={styles.settingHeaderRow}>
-              <Text style={[styles.settingLabel, { color: theme.textPrimary }]}>Starting Cards Count</Text>
-              <Text style={styles.selectedTimerValue}>{cardCount} Cards</Text>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-              {[3, 4, 5, 6, 7, 8].map((num) => {
-                const isSelected = cardCount === num;
-                return (
-                  <TouchableOpacity
-                    key={num}
-                    onPress={() => setCardCount(num)}
-                    style={[
-                      styles.optionPill,
-                      {
-                        backgroundColor: isSelected ? '#00E5FF' : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                        borderColor: isSelected ? '#00E5FF' : isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
-                      },
-                    ]}
-                  >
-                    <Text style={{ color: isSelected ? '#070C1B' : theme.textPrimary, fontWeight: '900', fontSize: 13 }}>
-                      {num} {num === 6 ? '(Standard)' : ''}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <TouchableOpacity
-              onPress={() => setEnableSpecialCards(!enableSpecialCards)}
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginTop: 12,
-                padding: 12,
-                borderRadius: 12,
-                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-                borderWidth: 1,
-                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
-              }}
-            >
-              <Text style={{ color: theme.textPrimary, fontWeight: '700', fontSize: 13 }}>
-                Special Cards (1,2,5,8,14,20)
-              </Text>
-              <Text style={{ color: enableSpecialCards ? '#10B981' : '#EF4444', fontWeight: '900', fontSize: 13 }}>
-                {enableSpecialCards ? 'ON' : 'OFF'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
+        <Settings size={18} color="#00E5FF" />
+        <Text style={[styles.setupRowText, { color: theme.textPrimary }]}>Custom setup (turn timer, pieces, cards)</Text>
+        <Text style={{ color: '#00E5FF', fontWeight: '900' }}>›</Text>
+      </TouchableOpacity>
 
       <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Entry Tier</Text>
 
@@ -457,10 +256,18 @@ export default function GameLobbyScreen({ route, navigation }) {
         style={{ marginTop: 20 }}
       />
 
+      <GAButton
+        title="Create Challenge"
+        onPress={() => navigation.navigate('ChallengeHub', { gameType, gameName, targetScreen })}
+        icon={<Swords size={20} color="#FFF" />}
+        style={{ marginTop: 12 }}
+      />
+
       {!isSearching ? (
         <GAButton
-          title="Create Challenge"
+          title="Quick Match"
           onPress={startMatchmaking}
+          variant="outline"
           icon={<Swords size={20} color="#FFF" />}
           style={{ marginTop: 12 }}
         />
@@ -523,49 +330,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  setupInlineCard: {
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1.5,
+  setupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
     marginBottom: 24,
   },
-  setupInlineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 229, 255, 0.15)',
-  },
-  setupInlineTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  settingBlock: {
-    marginBottom: 16,
-  },
-  settingHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  settingLabel: {
+  setupRowText: {
+    flex: 1,
     fontSize: 14,
     fontWeight: '700',
-  },
-  selectedTimerValue: {
-    color: '#00E5FF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  optionPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   sectionTitle: {
     fontSize: 16,

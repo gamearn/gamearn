@@ -286,7 +286,7 @@ export function CheckersScreen({
     setSize(Math.min(width, height));
   }
 
-  const validDests = validMoves.map((m) => m.to);
+  const validDests = hintMove ? validMoves.map((m) => m.to) : [];
 
   return (
     <View style={styles.root} onLayout={layout}>

@@ -32,8 +32,13 @@ export default function DailyStreakScreen({ navigation }) {
 
   const streakDays = userProfile?.streak ?? 0;
   const lastStreakDate = userProfile?.lastStreakDate || null;
+  const lastCheckInDate = userProfile?.lastCheckInDate || null;
+  const lastPlayedDate = userProfile?.lastPlayedDate || null;
   const todayStr = new Date().toISOString().split('T')[0];
-  const isClaimedToday = lastStreakDate === todayStr;
+  // A check-in and a played game share the same "today" marker so neither can
+  // double-count the streak.
+  const isClaimedToday = lastStreakDate === todayStr || lastCheckInDate === todayStr;
+  const touchedToday = lastCheckInDate === todayStr || lastPlayedDate === todayStr;
   const isActive = streakDays > 0;
 
   // Next milestone calculation
@@ -48,10 +53,13 @@ export default function DailyStreakScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const nextStreak = streakDays + 1;
+      // If a game already advanced the streak today, claiming only marks the
+      // day as checked-in without bumping it a second time.
+      const nextStreak = touchedToday ? streakDays : streakDays + 1;
       await updateProfileData({
         streak: nextStreak,
         lastStreakDate: todayStr,
+        lastCheckInDate: todayStr,
       });
       Alert.alert(
         'Daily Streak Active! 🔥',
@@ -79,6 +87,7 @@ export default function DailyStreakScreen({ navigation }) {
               await updateProfileData({
                 streak: 0,
                 lastStreakDate: null,
+                lastCheckInDate: null,
               });
               Alert.alert('Streak Reset', 'Daily streak is now 0 days and INACTIVE in RED.');
             } catch (e) {

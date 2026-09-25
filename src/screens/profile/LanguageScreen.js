@@ -19,6 +19,7 @@ import {
   Globe,
 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { settings } from '../../services/api';
 
 // Comprehensive Database of World Languages (Native scripts & English names)
 const INITIAL_WORLD_LANGUAGES = [
@@ -128,6 +129,27 @@ export default function LanguageScreen({ navigation }) {
   const [languages, setLanguages] = useState(INITIAL_WORLD_LANGUAGES);
   const [loadingApi, setLoadingApi] = useState(false);
 
+  // Hydrate the saved language preference from the server on mount.
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await settings.get();
+        if (mounted && res) {
+          const saved = res.language || res.settings?.language || res.data?.language || res.data?.settings?.language;
+          if (saved && typeof saved === 'string' && saved.length && saved.length <= 20) {
+            setSelectedLang(saved);
+          }
+        }
+      } catch {
+        // Server unavailable — keep default.
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // Fetch Live Languages from API on Component Mount
   useEffect(() => {
     const fetchApiLanguages = async () => {
@@ -172,9 +194,20 @@ export default function LanguageScreen({ navigation }) {
     );
   });
 
-  const handleSelect = (id, name) => {
+  const handleSelect = async (id, name) => {
+    const previous = selectedLang;
     setSelectedLang(id);
-    Alert.alert('Language Updated 🌐', `App language changed to ${name}.`);
+    try {
+      await settings.patch({ language: id });
+    } catch (err) {
+      setSelectedLang(previous);
+      Alert.alert(
+        'Could Not Save Language',
+        err?.message || 'Your language preference could not be saved. Please try again.'
+      );
+      return;
+    }
+    Alert.alert('Language Saved', `App language preference saved as ${name}.`);
   };
 
   return (

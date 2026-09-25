@@ -31,6 +31,7 @@ import { engineCardToServer } from './serverAdapter';
 import { useAuth } from '../../context/AuthContext';
 import { recordGameStreak } from '../../utils/recordGameStreak';
 import { getAiDifficulty } from '../../utils/aiDifficulty';
+import { wallet } from '../../services/api';
 
 export function Portrait({ index, scale }) {
   const c = PORTRAITS[index];
@@ -64,13 +65,14 @@ export function Portrait({ index, scale }) {
   );
 }
 
-export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, isRemote = false, remote = null, onRemoteMove, onRemoteGameOver, aiDifficulty = 'auto' }) {
+export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, onBack = null, isRemote = false, remote = null, onRemoteMove, onRemoteGameOver, aiDifficulty = 'auto', incomingChats = [] }) {
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
   const [gameState, setGameState] = useState(() => createInitialState(timer));
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [pendingWhotCardId, setPendingWhotCardId] = useState(null);
   const [draft, setDraft] = useState('');
+  const knownChatIds = useRef(new Set());
 
   // Remote (server-authoritative) mode: every turn/law/effect comes from the
   // backend. Rehydrate the local render tree wholesale on each new snapshot;
@@ -147,7 +149,7 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
     return () => clearTimeout(timer);
   }, [isRemote, gameState.activePlayerIndex, gameState.gameStatus, gameState.discardPile.length, aiDifficulty]);
 
-  const { updateProfileData, userProfile } = useAuth();
+  const { updateProfileData, userProfile, refreshProfile } = useAuth();
   const mountStreakRecorded = useRef(false);
   const gameOverHandled = useRef(false);
 
@@ -163,7 +165,6 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
       recordGameStreak(updateProfileData, userProfile);
     }
   }, []);
-
   useEffect(() => {
     if (gameState.gameStatus === 'game_over') {
       clearActiveMatch();
@@ -352,6 +353,14 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
     const text = draft.trim();
     if (!text) return;
 
+    // Real multiplayer/practice rooms are server-authoritative: send the
+    // message through the backend socket, which relays it to the room.
+    if (isRemote && typeof onMessage === 'function') {
+      onMessage(text);
+      setDraft('');
+      return;
+    }
+
     const newMsg = {
       id: String(Date.now()),
       sender: 'You',
@@ -382,6 +391,28 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
     }, 1500);
   }
 
+  // Append incoming room chat (multiplayer) deduplicated by server message id.
+  useEffect(() => {
+    let changed = false;
+    for (const chat of incomingChats || []) {
+      const id = chat?.id;
+      if (!id || knownChatIds.current.has(id)) continue;
+      knownChatIds.current.add(id);
+      const name = chat?.displayName || 'Opponent';
+      setGameState((prev) => {
+        if (prev.messages.some((m) => m.id === id)) return prev;
+        return {
+          ...prev,
+          messages: [
+            ...prev.messages,
+            { id, sender: name, text: chat?.text || '', isUser: false },
+          ],
+        };
+      });
+      changed = true;
+    }
+  }, [incomingChats]);
+
   // Restart Game
   function handleRestart() {
     setGameState(createInitialState());
@@ -391,13 +422,41 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, i
 
   // Claim Daily Bonus
   function handleClaimBonus() {
+    setGameState((prev) => ({ ...prev, dailyBonusSeconds: 86400 }));
+    setDialog(null);
+
+    if (userProfile?.id || userProfile?.uid) {
+      // Real backend grant — idempotent per claim per UTC day.
+      wallet
+        .freeCoins('whot-bonus')
+        .then((res) => {
+          const amount = res?.amountKobo != null ? res.amountKobo / 100 : 500;
+          if (res?.granted) {
+            setGameState((prev) => ({
+              ...prev,
+              coinBalance: prev.coinBalance + amount,
+              statusMessage: `${amount} bonus coins claimed.`,
+            }));
+            if (refreshProfile) refreshProfile().catch(() => {});
+          } else {
+            setGameState((prev) => ({
+              ...prev,
+              statusMessage: 'Already claimed today — come back tomorrow.',
+            }));
+          }
+        })
+        .catch(() => {
+          setGameState((prev) => ({ ...prev, statusMessage: 'Could not claim the bonus.' }));
+        });
+      return;
+    }
+
+    // Offline / signed-out fallback: local only.
     setGameState((prev) => ({
       ...prev,
       coinBalance: prev.coinBalance + 500,
-      dailyBonusSeconds: 86400,
-      statusMessage: "🎁 +500 Daily Bonus coins claimed!",
+      statusMessage: '500 local bonus coins claimed.',
     }));
-    setDialog(null);
   }
 
   // Calculate Centers for User Hand Cards

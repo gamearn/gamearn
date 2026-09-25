@@ -47,11 +47,13 @@ export const auth = {
 
   deleteAccount: (confirmation) => apiPost('/auth/delete-account', { confirmation }),
 
-  mfaStatus: () => apiGet('/auth/mfa/status'),
+mfaStatus: () => apiGet('/auth/mfa/status'),
 
   mfaEnroll: (factor, value) => apiPost('/auth/mfa/enroll', { factor, ...(value ? { value } : {}) }),
 
   mfaVerify: (payload) => apiPost('/auth/mfa/verify', payload),
+
+  mfaDisable: () => apiPost('/auth/mfa/disable', {}),
 };
 
 // ── Wallet & payments ─────────────────────────────────────────────────────────
@@ -73,12 +75,16 @@ export const wallet = {
     return apiGet(`/wallet/transactions?${qs.toString()}`);
   },
 
-  verify: (txRef) => apiGet(`/pay/verify/${txRef}`),
+verify: (txRef) => apiGet(`/pay/verify/${txRef}`),
 
   banks: async () => {
     const res = await apiGet('/pay/banks');
     return Array.isArray(res) ? res : res?.data || [];
   },
+
+  // Claim the daily/in-game bonus coin grant (practice coins, not real money).
+  // Idempotent per claim per UTC day — duplicate claims are no-ops.
+  freeCoins: (claim = 'daily-bonus') => apiPost('/wallet/free-coins', { claim }),
 };
 
 // ── Premium ───────────────────────────────────────────────────────────────────
@@ -95,6 +101,24 @@ export const premium = {
 
 export const referral = {
   me: () => apiGet('/referral/me'),
+  // Sends real referral pings: { refereeUids: string[], type: 'streak' | 'challenge' | 'tournament' }.
+  ping: ({ refereeUids = [], type = 'streak' } = {}) => apiPost('/referral/ping', { refereeUids, type }),
+};
+
+// ── User settings ─────────────────────────────────────────────────────────────
+
+export const settings = {
+  get: () => apiGet('/settings/'),
+  patch: (patch) => apiPatch('/settings/', patch),
+};
+
+// ── Content (help/support) ────────────────────────────────────────────────────
+
+export const content = {
+  help: async () => {
+    const res = await apiGet('/content/help');
+    return res?.sections || res?.data?.sections || [];
+  },
 };
 
 // ── Matchmaking (REST queue) ──────────────────────────────────────────────────
@@ -107,6 +131,25 @@ export const matchmaking = {
 
   status: (gameType) =>
     apiGet(gameType ? `/matchmaking/status?gameType=${gameType}` : '/matchmaking/status'),
+};
+
+// ── Challenges (async, create now / accept later) ────────────────────────────
+
+export const challenges = {
+  // Create an open challenge. entryFeeKobo is in kobo (e.g. 10000 = N100).
+  // No fee is deducted until the match actually starts (both players joined).
+  create: ({ gameType, entryFeeKobo, options = {} }) =>
+    apiPost('/challenges', { gameType, entryFeeKobo, options }),
+
+  // Open challenges from other players (accept ready).
+  list: (gameType) =>
+    apiGet(gameType ? `/challenges?gameType=${gameType}` : '/challenges'),
+
+  // Challenges I created or accepted — rejoin accepted rooms / cancel open ones.
+  my: () => apiGet('/challenges/my'),
+
+  accept: (id) => apiPost(`/challenges/${id}/accept`, {}),
+  cancel: (id) => apiPost(`/challenges/${id}/cancel`, {}),
 };
 
 // ── Tournaments ───────────────────────────────────────────────────────────────
@@ -128,6 +171,8 @@ export const tournaments = {
   my: () => apiGet('/tournaments/my'),
 
   get: (id) => apiGet(`/tournaments/${id}`),
+
+  standings: (id) => apiGet(`/tournaments/${id}/standings`),
 
   register: (id) => apiPost(`/tournaments/${id}/register`, {}),
 };

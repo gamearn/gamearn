@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   StatusBar,
-  Linking,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Coins, Sprout, Trees, Mountain, Medal } from 'lucide-react-native';
@@ -16,103 +16,63 @@ import { useTheme } from '../../context/ThemeContext';
 import { wallet } from '../../services/api';
 import { ApiError } from '../../services/apiClient';
 
-// 1 coin = 1 kobo, so each pack maps cleanly to a naira price.
+// 1 coin = 1 kobo, so ₦1 buys 100 coins.
+const COINS_PER_NAIRA = 100;
+
+// Quick-pick presets that load the amount field (₦ amounts).
 const PACKAGES = [
-  {
-    id: 'starter',
-    name: 'Starter Pack',
-    coins: 10000,
-    price: 100,
-    icon: Sprout,
-    popular: false,
-  },
-  {
-    id: 'pro',
-    name: 'Pro Pack',
-    coins: 50000,
-    price: 500,
-    icon: Trees,
-    popular: true,
-    badgeText: 'BEST VALUE',
-  },
-  {
-    id: 'elite',
-    name: 'Elite Pack',
-    coins: 150000,
-    price: 1500,
-    icon: Mountain,
-    popular: false,
-  },
-  {
-    id: 'champion',
-    name: 'Champion Pack',
-    coins: 500000,
-    price: 5000,
-    icon: Medal,
-    popular: false,
-  },
+  { id: 'starter', name: 'Starter', price: 100, icon: Sprout },
+  { id: 'pro', name: 'Pro', price: 500, icon: Trees, popular: true, badgeText: 'BEST VALUE' },
+  { id: 'elite', name: 'Elite', price: 1500, icon: Mountain },
+  { id: 'champion', name: 'Champion', price: 5000, icon: Medal },
 ];
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const MIN_AMOUNT = 100;
+const MAX_AMOUNT = 1000000;
+
+function parseAmount(raw) {
+  const n = Number(String(raw || '').replace(/,/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
 
 export default function BuyCoinsScreen({ navigation }) {
-  const { userProfile, refreshWallet } = useAuth();
+  const { userProfile } = useAuth();
   const { theme, isDark } = useTheme();
   const currentCoins = userProfile?.coins ?? 0;
-  const [loadingId, setLoadingId] = useState(null);
-  const cancelled = useRef(false);
+  const [amountText, setAmountText] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const verifyPaid = async (txRef) => {
-    for (let i = 0; i < 8; i += 1) {
-      await sleep(4000);
-      if (cancelled.current) return false;
-      try {
-        const res = await wallet.verify(txRef);
-        if (res.status !== 'pending') {
-          await refreshWallet();
-          return res.status === 'completed' || res.status === 'successful';
-        }
-      } catch {
-        // keep polling; the row may not be local yet
-      }
-    }
-    return false;
-  };
+  const amount = parseAmount(amountText);
+  const coins = Math.floor(amount * COINS_PER_NAIRA);
+  const amountValid = amount >= MIN_AMOUNT && amount <= MAX_AMOUNT;
 
-  const handleBuyPack = async (pkg) => {
-    setLoadingId(pkg.id);
-    cancelled.current = false;
+  const preview = useMemo(() => {
+    if (!amountText || amount === 0) return null;
+    return {
+      naira: amount,
+      coins,
+      valid: amountValid,
+    };
+  }, [amountText, amount, coins, amountValid]);
+
+  const handleStartPayment = async () => {
+    if (!amountValid) return;
+    setLoading(true);
     try {
-      const res = await wallet.topup({ amount: pkg.price, paymentMethod: 'card' });
+      const res = await wallet.topup({ amount, paymentMethod: 'card' });
       if (!res.paymentLink) {
         throw new ApiError({ code: 'PAY_LINK_MISSING', message: 'Payment link unavailable.' });
       }
-
-      Alert.alert(
-        'Payment',
-        `Continue on the payment page to add ₦${pkg.price.toLocaleString()} (${pkg.coins.toLocaleString()} coins) to your wallet.`,
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-            onPress: () => { cancelled.current = true; },
-          },
-          { text: 'Continue', onPress: () => Linking.openURL(res.paymentLink) },
-        ],
-      );
-
-      const paid = await verifyPaid(res.txRef);
-      if (!paid) return;
-      await refreshWallet();
-      Alert.alert(
-        'Payment Confirmed 🎉',
-        `${pkg.coins.toLocaleString()} coins were added to your wallet.`,
-      );
+      navigation.navigate('Payment', {
+        txRef: res.txRef,
+        paymentLink: res.paymentLink,
+        amount: res.amount ?? amount,
+        coins,
+      });
     } catch (e) {
-      cancelled.current = true;
       Alert.alert('Payment Failed', e?.message || 'Could not start the payment. Please try again.');
     } finally {
-      setLoadingId(null);
+      setLoading(false);
     }
   };
 
@@ -155,52 +115,72 @@ export default function BuyCoinsScreen({ navigation }) {
           </View>
         </LinearGradient>
 
-        {/* Section Header */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Select a Coin Pack</Text>
-          <Text style={[styles.limitedOffersText, { color: theme.primary }]}>LIMITED OFFERS</Text>
+        {/* Custom Amount Input */}
+        <View style={[styles.amountCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
+          <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>ENTER AMOUNT IN NAIRA</Text>
+          <View style={[styles.amountInputRow, { borderColor: amountValid || !amountText ? theme.cardBorderSubtle : '#EF4444' }]}>
+            <Text style={[styles.amountPrefix, { color: theme.textSecondary }]}>₦</Text>
+            <TextInput
+              value={amountText}
+              onChangeText={setAmountText}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={theme.textSecondary}
+              style={[styles.amountInput, { color: theme.textPrimary }]}
+            />
+          </View>
+
+          {preview ? (
+            <View style={styles.liveWorthRow}>
+              <Coins size={18} color="#FF5500" />
+              <Text style={[styles.liveWorthText, { color: preview.valid ? theme.textPrimary : '#EF4444' }]}>
+                {preview.valid ? `You get ${preview.coins.toLocaleString()} coins` : 'Minimum ₦100, maximum ₦1,000,000'}
+              </Text>
+            </View>
+          ) : (
+            <Text style={[styles.liveWorthHint, { color: theme.textSecondary }]}>
+              1 coin = 1 kobo (₦1 buys 100 coins). Live worth shows as you type.
+            </Text>
+          )}
         </View>
 
-        {/* Coin Packs Grid */}
-        <View style={styles.grid}>
+        {/* Quick-pick presets */}
+        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Quick Picks</Text>
+        <View style={styles.chipRow}>
           {PACKAGES.map((pkg) => {
             const IconComponent = pkg.icon;
-            const isLoading = loadingId === pkg.id;
-
+            const active = amount === pkg.price;
             return (
-              <View key={pkg.id} style={styles.cardWrap}>
-                {pkg.popular && (
-                  <View style={styles.bestValueBadge}>
-                    <Text style={styles.bestValueText}>{pkg.badgeText}</Text>
-                  </View>
-                )}
-
-                <View style={[styles.packCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }, pkg.popular && { borderColor: theme.primary }]}>
-                  {/* Square Icon Container */}
-                  <View style={[styles.iconSquare, { backgroundColor: isDark ? 'rgba(0, 229, 255, 0.06)' : 'rgba(0, 180, 216, 0.08)', borderColor: theme.cardBorderSubtle }]}>
-                    <IconComponent size={38} color="#FF5500" />
-                  </View>
-
-                  {/* Pack Title & Coins */}
-                  <Text style={[styles.packName, { color: theme.textPrimary }]}>{pkg.name}</Text>
-                  <Text style={[styles.coinsAmountText, { color: theme.primary }]}>{pkg.coins.toLocaleString()} Coins</Text>
-
-                  {/* Orange Price CTA */}
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() => handleBuyPack(pkg)}
-                    disabled={isLoading}
-                    style={styles.priceBtn}
-                  >
-                    <Text style={styles.priceBtnText}>
-                      {isLoading ? 'Processing...' : `₦${pkg.price.toLocaleString()}`}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+              <TouchableOpacity
+                key={pkg.id}
+                activeOpacity={0.85}
+                onPress={() => setAmountText(String(pkg.price))}
+                style={[
+                  styles.chip,
+                  { backgroundColor: theme.cardBg, borderColor: active ? '#FF5500' : theme.cardBorderSubtle },
+                ]}
+              >
+                <IconComponent size={16} color="#FF5500" />
+                <Text style={[styles.chipName, { color: theme.textPrimary }]}>{pkg.name}</Text>
+                <Text style={[styles.chipPrice, { color: active ? '#FF5500' : theme.primary }]}>₦{pkg.price.toLocaleString()}</Text>
+                {pkg.popular && <Text style={styles.chipBadge}>{pkg.badgeText}</Text>}
+              </TouchableOpacity>
             );
           })}
         </View>
+
+        {/* Continue CTA */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleStartPayment}
+          disabled={!amountValid || loading}
+          style={[styles.continueBtn, { opacity: amountValid && !loading ? 1 : 0.5, backgroundColor: '#FF5500' }]}
+        >
+          <Coins size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Text style={styles.continueBtnText}>
+            {loading ? 'Processing...' : preview && preview.valid ? `Buy ${preview.coins.toLocaleString()} Coins for ₦${preview.naira.toLocaleString()}` : 'Enter an amount to continue'}
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -269,96 +249,108 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+  amountCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 18,
+    marginBottom: 20,
   },
-  sectionTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  limitedOffersText: {
-    color: '#00E5FF',
+  sectionLabel: {
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1,
+    marginBottom: 10,
   },
-  grid: {
+  amountInputRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 20,
-  },
-  cardWrap: {
-    width: '48%',
-    position: 'relative',
-  },
-  bestValueBadge: {
-    position: 'absolute',
-    top: -10,
-    right: 12,
-    backgroundColor: '#FF5500',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    zIndex: 10,
-  },
-  bestValueText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  packCard: {
-    backgroundColor: 'rgba(15, 25, 45, 0.75)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 20,
-    padding: 16,
-    alignItems: 'stretch',
-  },
-  packCardPopular: {
-    borderColor: '#00E5FF',
-  },
-  iconSquare: {
-    height: 110,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 229, 255, 0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 229, 255, 0.15)',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
   },
-  packName: {
+  amountPrefix: {
+    fontSize: 24,
+    fontWeight: '900',
+    marginRight: 6,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 26,
+    fontWeight: '900',
+    paddingVertical: 12,
+  },
+  liveWorthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 8,
+  },
+  liveWorthText: {
+    fontSize: 15,
+    fontWeight: '800',
+    flex: 1,
+  },
+  liveWorthHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  sectionTitle: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '900',
-    marginBottom: 4,
+    marginBottom: 12,
   },
-  coinsAmountText: {
-    color: '#00E5FF',
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 16,
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 24,
   },
-  priceBtn: {
-    backgroundColor: '#FF5500',
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
     borderRadius: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  chipName: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  chipPrice: {
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  chipBadge: {
+    position: 'absolute',
+    top: -8,
+    right: 8,
+    backgroundColor: '#FF5500',
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '900',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    overflow: 'hidden',
+  },
+  continueBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 16,
+    paddingVertical: 16,
     shadowColor: '#FF5500',
     shadowOpacity: 0.4,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 6,
   },
-  priceBtnText: {
+  continueBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '900',
   },
 });
