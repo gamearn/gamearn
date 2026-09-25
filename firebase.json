@@ -1,7 +1,4 @@
 {
-  "react-native": {
-    "ios_use_spm": false
-  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
