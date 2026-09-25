@@ -16,7 +16,7 @@ import {
   getAyoAiMove,
   sowAyoSeeds,
 } from './ayoGameEngine';
-import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
+import { setActiveMatch, clearActiveMatch, getActiveMatch, updateActiveMatchState } from '../../utils/activeMatch';
 import { useAuth } from '../../context/AuthContext';
 import { recordGameStreak } from '../../utils/recordGameStreak';
 import { getAiDifficulty } from '../../utils/aiDifficulty';
@@ -109,16 +109,25 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
   const gameOverStreakRecorded = useRef(false);
 
   useEffect(() => {
-    setActiveMatch({
-      gameId: 'ayo',
-      gameName: 'Ayò Ọ̀pọ́n',
-      targetScreen: 'AyoGame',
-      durationSecs: 120,
+    let alive = true;
+    getActiveMatch().then((match) => {
+      if (alive && match?.gameId === 'ayo' && match?.savedState && match.savedState.gameStatus !== 'game_over') {
+        setGameState(match.savedState);
+      } else {
+        setActiveMatch({
+          gameId: 'ayo',
+          gameName: 'Ayò Ọ̀pọ́n',
+          targetScreen: 'AyoGame',
+          durationSecs: 120,
+        });
+      }
     });
+
     if (!mountStreakRecorded.current) {
       mountStreakRecorded.current = true;
       recordGameStreak(updateProfileData, userProfile);
     }
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {
@@ -144,6 +153,9 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
         }
       }
       return;
+    }
+    if (gameState) {
+      updateActiveMatchState('ayo', gameState);
     }
 
     if (gameState.activePlayer === 2) {

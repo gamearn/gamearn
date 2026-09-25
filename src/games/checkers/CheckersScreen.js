@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { recordGameStreak } from '../../utils/recordGameStreak';
 import { getAiDifficulty } from '../../utils/aiDifficulty';
+import { setActiveMatch, clearActiveMatch, getActiveMatch, updateActiveMatchState } from '../../utils/activeMatch';
 
 function parseTimerSec(timerStr) {
   if (!timerStr) return 120;
@@ -59,14 +60,42 @@ export function CheckersScreen({
     winner: null,
   });
 
-  // Record daily streak when player starts game (on mount)
+  // Record daily streak & restore active match session on mount
   const mountStreakRecorded = React.useRef(false);
   useEffect(() => {
+    let alive = true;
+    getActiveMatch().then((match) => {
+      if (alive && match?.gameId === 'checkers' && match?.savedState && !match.savedState?.isOver) {
+        const s = match.savedState;
+        if (s.boardState) setBoardState(s.boardState);
+        if (s.turn) setTurn(s.turn);
+        if (s.history) setHistory(s.history);
+        if (s.seconds !== undefined) setSeconds(s.seconds);
+      } else {
+        setActiveMatch({
+          gameId: 'checkers',
+          gameName: 'Checkers / Draughts',
+          targetScreen: 'DraughtsGame',
+          durationSecs: 120,
+        });
+      }
+    });
+
     if (!mountStreakRecorded.current && updateProfileData && userProfile) {
       mountStreakRecorded.current = true;
       recordGameStreak(updateProfileData, userProfile);
     }
+    return () => { alive = false; };
   }, []);
+
+  // Persist ongoing state changes to active match session
+  useEffect(() => {
+    if (gameOver.isOver) {
+      clearActiveMatch();
+    } else if (boardState) {
+      updateActiveMatchState('checkers', { boardState, turn, history, seconds });
+    }
+  }, [boardState, turn, history, seconds, gameOver.isOver]);
 
   // Sync external board prop if provided
   useEffect(() => {

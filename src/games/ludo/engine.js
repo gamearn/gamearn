@@ -81,6 +81,12 @@ function reduce(state, action) {
   const now = action.now ?? Date.now();
   const tMs = state?.timerMs || action.timerMs || 120000;
   if (action.type === 'RESET') return fresh(now, tMs);
+  if (action.type === 'RESTORE') {
+    return {
+      ...action.savedState,
+      deadline: now + (action.savedState?.timerMs || tMs),
+    };
+  }
   if (action.type === 'UNDO') {
     if (!state.history.length) return state;
     const previous = state.history[state.history.length-1];

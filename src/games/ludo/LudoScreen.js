@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Board from './Board';
-import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
+import { setActiveMatch, clearActiveMatch, getActiveMatch, updateActiveMatchState } from '../../utils/activeMatch';
 import { useAuth } from '../../context/AuthContext';
 import { recordGameStreak } from '../../utils/recordGameStreak';
 import { getAiDifficulty } from '../../utils/aiDifficulty';
@@ -293,16 +293,24 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
   const mountStreakRecorded = useRef(false);
 
   useEffect(() => {
-    setActiveMatch({
-      gameId: 'ludo',
-      gameName: 'Lúùdò Game',
-      targetScreen: 'LudoGame',
-      durationSecs: 120,
+    let alive = true;
+    getActiveMatch().then((match) => {
+      if (alive && match?.gameId === 'ludo' && match?.savedState && match.savedState.phase !== 'won') {
+        dispatch({ type: 'RESTORE', savedState: match.savedState });
+      } else {
+        setActiveMatch({
+          gameId: 'ludo',
+          gameName: 'Lúùdò Game',
+          targetScreen: 'LudoGame',
+          durationSecs: 120,
+        });
+      }
     });
     if (!mountStreakRecorded.current) {
       mountStreakRecorded.current = true;
       recordGameStreak(updateProfileData, userProfile);
     }
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {
@@ -313,8 +321,10 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
         recordGameStreak(updateProfileData, userProfile);
         if (onWin) onWin(state.winner === 0);
       }
+    } else if (state) {
+      updateActiveMatchState('ludo', state);
     }
-  }, [state.phase]);
+  }, [state]);
 
   // Automatic AI Bot (Oba) Turn Controller & Dice Rolling
   useEffect(() => {

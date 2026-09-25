@@ -26,7 +26,7 @@ import {
   reduceStateOnTurnTimeout,
   isValidMove,
 } from './whotGameEngine';
-import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
+import { setActiveMatch, clearActiveMatch, getActiveMatch, updateActiveMatchState } from '../../utils/activeMatch';
 import { engineCardToServer } from './serverAdapter';
 import { useAuth } from '../../context/AuthContext';
 import { recordGameStreak } from '../../utils/recordGameStreak';
@@ -154,17 +154,27 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, o
   const gameOverHandled = useRef(false);
 
   useEffect(() => {
-    setActiveMatch({
-      gameId: 'whot',
-      gameName: 'Wọ́t Game',
-      targetScreen: 'WhotGame',
-      durationSecs: 120,
+    let alive = true;
+    getActiveMatch().then((match) => {
+      if (alive && match?.gameId === 'whot' && match?.savedState && match.savedState.gameStatus !== 'game_over') {
+        setGameState(match.savedState);
+      } else {
+        setActiveMatch({
+          gameId: 'whot',
+          gameName: 'Wọ́t Game',
+          targetScreen: 'WhotGame',
+          durationSecs: 120,
+        });
+      }
     });
+
     if (!mountStreakRecorded.current) {
       mountStreakRecorded.current = true;
       recordGameStreak(updateProfileData, userProfile);
     }
+    return () => { alive = false; };
   }, []);
+
   useEffect(() => {
     if (gameState.gameStatus === 'game_over') {
       clearActiveMatch();
@@ -181,8 +191,10 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, o
           setDialog('game_over');
         }
       }
+    } else if (gameState) {
+      updateActiveMatchState('whot', gameState);
     }
-  }, [gameState.gameStatus, gameState.winner, isRemote]);
+  }, [gameState, isRemote]);
 
 
   function layout(e) {
