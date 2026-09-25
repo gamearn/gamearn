@@ -43,14 +43,6 @@
       "bundler": "metro"
     },
     "plugins": [
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "useFrameworks": "dynamic"
-          }
-        }
-      ],
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       "expo-asset",
