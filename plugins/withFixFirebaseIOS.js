@@ -10,15 +10,7 @@ module.exports = function withFixFirebaseIOS(config) {
       if (fs.existsSync(podfilePath)) {
         let contents = fs.readFileSync(podfilePath, 'utf8');
 
-        // 1. Inject $RNFirebaseDisableSPM = true and use_modular_headers! at the top
-        if (!contents.includes('$RNFirebaseDisableSPM')) {
-          contents = `$RNFirebaseDisableSPM = true\n` + contents;
-        }
-        if (!contents.includes('use_modular_headers!')) {
-          contents = `use_modular_headers!\n` + contents;
-        }
-
-        // 2. Inject post_install settings for non-modular includes & iOS 15.1 target
+        // Inject post_install settings for non-modular includes & iOS 15.1 target
         const postInstallSnippet = `
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
