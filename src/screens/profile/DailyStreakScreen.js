@@ -61,6 +61,7 @@ export default function DailyStreakScreen({ navigation }) {
         streak: nextStreak,
         lastStreakDate: todayStr,
         lastCheckInDate: todayStr,
+        lastStreakPersistedDate: todayStr,
       });
       Alert.alert(
         'Daily Streak Active! 🔥',

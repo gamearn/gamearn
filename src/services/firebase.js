@@ -37,8 +37,11 @@ const storage = getStorage(app);
 
 export { app };
 
-export const uploadProfileImage = async (uid, uri) => {
-  const response = await fetch(uri);
+export const uploadProfileImage = async (uidOrUri, optionalUri) => {
+  const imageUri = optionalUri || uidOrUri;
+  const uid = optionalUri ? uidOrUri : (auth?.currentUser?.uid || 'user_anon');
+  if (!imageUri) return null;
+  const response = await fetch(imageUri);
   const blob = await response.blob();
   const target = ref(storage, `profile-photos/${uid}/avatar-${Date.now()}.jpg`);
   await uploadBytes(target, blob, { contentType: blob.type || 'image/jpeg' });

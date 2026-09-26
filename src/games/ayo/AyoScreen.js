@@ -222,7 +222,7 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
 
   if (effectiveWidth > 0 && effectiveHeight > 0) {
     const availableWidth = effectiveWidth * 0.96;
-    const availableHeight = Math.max(100, effectiveHeight - 125);
+    const availableHeight = Math.max(100, effectiveHeight - 165);
     scale = Math.min(availableWidth / ART_WIDTH, availableHeight / ART_HEIGHT);
     width = ART_WIDTH * scale;
     height = ART_HEIGHT * scale;
@@ -267,7 +267,7 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
       </View>
 
       {scale > 0 && (
-        <View style={{ width, height, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width, height, alignItems: 'center', justifyContent: 'center', marginVertical: 2 }}>
           {/* Main SVG Board Artwork */}
           <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             <AyoArtwork
@@ -350,9 +350,6 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
           )}
         </View>
       </View>
-
-
-
     </View>
   );
 }
@@ -363,10 +360,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     backgroundColor: '#03271d',
     overflow: 'hidden',
-    paddingVertical: 8,
+    paddingVertical: 4,
     paddingHorizontal: 12,
   },
   navHeader: {
@@ -374,8 +371,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    marginTop: 20,
-    marginBottom: 4,
+    marginTop: 10,
+    marginBottom: 2,
     zIndex: 10,
   },
   iconBtn: {

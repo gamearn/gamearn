@@ -58,17 +58,18 @@ async function saveCachedProfile(uid, profile) {
 }
 
 function profileFromMe(me, cached) {
-  const gamesPlayed = Math.max(
-    Number(me?.stats?.gamesPlayed ?? me?.gamesPlayed ?? 0),
-    Number(cached?.gamesPlayed ?? 0)
-  );
   const wins = Math.max(
-    Number(me?.stats?.wins ?? me?.wins ?? 0),
-    Number(cached?.wins ?? 0)
+    Number(me?.stats?.wins ?? me?.wins ?? me?.gamesWon ?? 0),
+    Number(cached?.wins ?? cached?.gamesWon ?? 0)
   );
   const losses = Math.max(
-    Number(me?.stats?.losses ?? me?.losses ?? 0),
-    Number(cached?.losses ?? 0)
+    Number(me?.stats?.losses ?? me?.losses ?? me?.gamesLost ?? 0),
+    Number(cached?.losses ?? cached?.gamesLost ?? 0)
+  );
+  const gamesPlayed = Math.max(
+    Number(me?.stats?.gamesPlayed ?? me?.gamesPlayed ?? me?.stats?.games ?? 0),
+    Number(cached?.gamesPlayed ?? 0),
+    wins + losses
   );
 
   const todayStr = getLocalDateString();
@@ -78,6 +79,7 @@ function profileFromMe(me, cached) {
 
   let updatedStreak = baseStreak;
   let newLastStreakDate = lastDateStr ? String(lastDateStr).split('T')[0] : todayStr;
+  let lastStreakPersistedDate = me?.lastStreakPersistedDate || cached?.lastStreakPersistedDate || (me?.lastStreakDate === todayStr ? todayStr : null);
 
   if (lastDateStr) {
     const diffDays = getDayGap(lastDateStr, todayStr);
@@ -100,8 +102,19 @@ function profileFromMe(me, cached) {
   }
 
   const rawNaira = me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? cached?.walletBalance ?? 0;
-  const gp = me?.gamePower ?? calculateGamePower(gamesPlayed, wins, losses);
-  const vp = Number.isFinite(me?.valuePoints) ? me.valuePoints : Number.isFinite(me?.vp) ? me.vp : calculateValuePoints(rawNaira, gamesPlayed, wins);
+  const computedGp = calculateGamePower(gamesPlayed, wins, losses);
+  const gp = Math.max(
+    Number(me?.gamePower ?? me?.gp ?? 0),
+    Number(cached?.gamePower ?? cached?.gp ?? 0),
+    computedGp
+  );
+
+  const computedVp = calculateValuePoints(rawNaira, gamesPlayed, wins);
+  const vp = Math.max(
+    Number(me?.valuePoints ?? me?.vp ?? 0),
+    Number(cached?.valuePoints ?? cached?.vp ?? 0),
+    computedVp
+  );
 
   const username = me?.username || me?.name || me?.displayName || cached?.username || me?.email?.split('@')[0] || 'Gamer';
   const displayName = me?.displayName || me?.username || me?.name || cached?.displayName || 'Gamer';
@@ -121,15 +134,20 @@ function profileFromMe(me, cached) {
     isPremium: !!(me?.premium?.isPremium || me?.isPremium || cached?.isPremium),
     gamesPlayed,
     wins,
+    gamesWon: wins,
     losses,
+    gamesLost: losses,
     streak: updatedStreak,
     currentStreak: updatedStreak,
     lastStreakDate: newLastStreakDate,
     lastPlayedDate: newLastStreakDate,
     lastCheckInDate: newLastStreakDate,
+    lastStreakPersistedDate,
     gamePower: gp,
+    gp,
     gpText: formatGP(gp),
     valuePoints: vp,
+    vp,
     vpText: formatVP(vp),
   };
 }
@@ -212,6 +230,19 @@ export const AuthProvider = ({ children }) => {
       const profile = profileFromMe({ ...me, isAdmin });
       setUserProfile(profile);
       setBackendReady(true);
+
+      // Auto-sync backend streak if Day 2+ or new session today
+      const todayStr = getLocalDateString();
+      const lastBackendDate = me?.lastStreakDate || me?.lastPlayedDate || me?.lastCheckInDate;
+      if (!lastBackendDate || (lastBackendDate && String(lastBackendDate).split('T')[0] !== todayStr)) {
+        authApi.updateProfile({
+          streak: profile.streak,
+          lastStreakDate: todayStr,
+          lastCheckInDate: todayStr,
+          lastPlayedDate: todayStr,
+        }).catch(() => {});
+      }
+
       return me;
     } catch (err) {
       if (err instanceof ApiError && err.statusCode === 404) {
@@ -424,6 +455,14 @@ export const AuthProvider = ({ children }) => {
           ...(updates.lastStreakDate !== undefined ? { lastStreakDate: updates.lastStreakDate } : {}),
           ...(updates.lastCheckInDate !== undefined ? { lastCheckInDate: updates.lastCheckInDate } : {}),
           ...(updates.lastPlayedDate !== undefined ? { lastPlayedDate: updates.lastPlayedDate } : {}),
+          ...(updates.wins !== undefined ? { wins: updates.wins, gamesWon: updates.wins } : {}),
+          ...(updates.gamesWon !== undefined ? { wins: updates.gamesWon, gamesWon: updates.gamesWon } : {}),
+          ...(updates.losses !== undefined ? { losses: updates.losses, gamesLost: updates.losses } : {}),
+          ...(updates.gamesLost !== undefined ? { losses: updates.gamesLost, gamesLost: updates.gamesLost } : {}),
+          ...(updates.gamePower !== undefined ? { gamePower: updates.gamePower, gp: updates.gamePower } : {}),
+          ...(updates.gp !== undefined ? { gamePower: updates.gp, gp: updates.gp } : {}),
+          ...(updates.valuePoints !== undefined ? { valuePoints: updates.valuePoints, vp: updates.valuePoints } : {}),
+          ...(updates.vp !== undefined ? { valuePoints: updates.vp, vp: updates.vp } : {}),
         });
       }
     } catch (err) {
@@ -436,6 +475,7 @@ export const AuthProvider = ({ children }) => {
       const merged = {
         ...(prev || {}),
         ...updates,
+        lastStreakPersistedDate: updates.lastStreakPersistedDate || (updates.lastStreakDate === getLocalDateString() ? getLocalDateString() : prev?.lastStreakPersistedDate),
         username: updates.username || updates.name || updates.displayName || prev?.username,
         name: updates.name || updates.username || updates.displayName || prev?.name,
         displayName: displayName || prev?.displayName,

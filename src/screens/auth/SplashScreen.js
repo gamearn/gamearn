@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   },
   centerBadgeWrapper: {
     alignItems: 'center',
-    marginTop: 30,
+    marginTop: 65,
   },
   glowingAppBadge: {
     width: 145,

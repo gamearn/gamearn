@@ -251,6 +251,7 @@ const styles = StyleSheet.create({
   },
   logoSection: {
     alignItems: 'center',
+    marginTop: 15,
     marginBottom: 20,
   },
   glowingBadge: {

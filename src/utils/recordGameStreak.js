@@ -20,31 +20,30 @@ export function getDayGap(dateStr1, dateStr2) {
 export async function recordGameStreak(updateProfileData, userProfile) {
   if (typeof updateProfileData !== 'function') return;
   const todayStr = getLocalDateString();
-  const lastDate = userProfile?.lastCheckInDate || userProfile?.lastPlayedDate || userProfile?.lastStreakDate;
+  const persistedDate = userProfile?.lastStreakPersistedDate || userProfile?.lastBackendStreakDate;
+  const lastDate = persistedDate || userProfile?.lastStreakDate || userProfile?.lastCheckInDate || userProfile?.lastPlayedDate;
+
+  // If today's streak update was already persisted to backend and storage, skip duplicate call
+  if (persistedDate === todayStr) return;
 
   const currentStreak = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
   const currentWins = Number(userProfile?.wins ?? userProfile?.gamesWon ?? 0);
   const currentLosses = Number(userProfile?.losses ?? userProfile?.gamesLost ?? 0);
   const gamesPlayed = Math.max(Number(userProfile?.gamesPlayed ?? 0), currentWins + currentLosses);
 
-  let newStreak;
+  let newStreak = currentStreak;
   if (!lastDate) {
     newStreak = 1;
   } else {
     const gap = getDayGap(lastDate, todayStr);
-    if (gap === 0) {
-      newStreak = Math.max(1, currentStreak);
-    } else if (gap === 1) {
-      newStreak = currentStreak > 0 ? currentStreak + 1 : 1;
+    if (gap === 1) {
+      newStreak = currentStreak > 1 ? currentStreak : (currentStreak + 1);
     } else if (gap > 1) {
       newStreak = 1;
-    } else {
+    } else if (gap === 0) {
       newStreak = Math.max(1, currentStreak);
     }
   }
-
-  const lastDateClean = lastDate ? String(lastDate).split('T')[0] : null;
-  if (lastDateClean === todayStr && currentStreak > 0 && userProfile?.streak === newStreak) return;
 
   try {
     await updateProfileData({
@@ -54,9 +53,11 @@ export async function recordGameStreak(updateProfileData, userProfile) {
       lastCheckInDate: todayStr,
       lastStreakDate: todayStr,
       lastPlayedDate: todayStr,
+      lastStreakPersistedDate: todayStr,
     });
   } catch (err) {
     console.log('Notice: Could not record game streak:', err?.message || err);
   }
 }
+
 

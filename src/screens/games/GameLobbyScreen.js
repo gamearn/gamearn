@@ -31,6 +31,19 @@ export default function GameLobbyScreen({ route, navigation }) {
   const [queueLen, setQueueLen] = useState(0);
   const sockRef = useRef(null);
 
+  const [selectedTimer, setSelectedTimer] = useState('2m');
+  const [tokenCount, setTokenCount] = useState(4);
+  const [playerCount, setPlayerCount] = useState(4);
+  const [playerColor, setPlayerColor] = useState('white');
+  const [cardCount, setCardCount] = useState(6);
+  const [enableSpecialCards, setEnableSpecialCards] = useState(true);
+  const [seedCount, setSeedCount] = useState(4);
+
+  const isLudo = gameType === 'ludo' || targetScreen === 'LudoGame' || gameName.toLowerCase().includes('ludo');
+  const isDraft = gameType === 'draughts' || gameType === 'draft' || targetScreen === 'DraughtsGame' || gameName.toLowerCase().includes('draft') || gameName.toLowerCase().includes('dráfù');
+  const isWhot = gameType === 'whot' || targetScreen === 'WhotGame' || gameName.toLowerCase().includes('whot');
+  const isAyo = gameType === 'ayo' || targetScreen === 'AyoGame' || gameName.toLowerCase().includes('ayo');
+
   const selectedFee = tiers[selectedTier] || tiers.beginner;
   const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.coins ?? 0);
   const balanceKobo = Math.round(balanceNaira * 100);
@@ -63,6 +76,15 @@ export default function GameLobbyScreen({ route, navigation }) {
       entryFee: p.entryFee,
       prizePool: p.prizePool,
       opponent: p.opponent,
+      timer: selectedTimer,
+      tokenCount,
+      playerCount,
+      tokens: tokenCount,
+      players: playerCount,
+      playerColor,
+      cardCount,
+      enableSpecialCards,
+      seedCount,
     });
   };
 
@@ -89,6 +111,17 @@ export default function GameLobbyScreen({ route, navigation }) {
     navigation.navigate(targetScreen, {
       stake: selectedFee,
       vsOba: true,
+      timer: selectedTimer,
+      tokenCount,
+      playerCount,
+      tokens: tokenCount,
+      players: playerCount,
+      playerColor,
+      cardCount,
+      enableSpecialCards,
+      seedCount,
+      gameId,
+      gameName,
     });
   };
 
@@ -138,16 +171,18 @@ export default function GameLobbyScreen({ route, navigation }) {
       Alert.alert('Sign in required', 'Create an account to play practice games.');
       return;
     }
-    navigation.navigate(targetScreen, { mode: 'practice', gameId });
-  };
-
-  const openSetup = () => {
-    navigation.navigate(setupTarget, {
-      gameType,
-      gameName,
-      targetScreen,
-      entryFee: naira(koboToN(selectedFee)),
-      rank: userProfile?.gpText || '0 GP',
+    navigation.navigate(targetScreen, {
+      mode: 'practice',
+      gameId,
+      timer: selectedTimer,
+      tokenCount,
+      playerCount,
+      tokens: tokenCount,
+      players: playerCount,
+      playerColor,
+      cardCount,
+      enableSpecialCards,
+      seedCount,
     });
   };
 
@@ -169,7 +204,7 @@ export default function GameLobbyScreen({ route, navigation }) {
         <BrandLogo size={48} variant="icon" />
         <Text style={[styles.title, { color: theme.textPrimary }]}>{gameName}</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Select your stake and play vs Oba or create a challenge
+          Configure match settings below and play vs Oba or create a challenge
         </Text>
       </View>
 
@@ -182,21 +217,130 @@ export default function GameLobbyScreen({ route, navigation }) {
         <Text style={[styles.walletAction, { color: theme.accent }]}>Top up</Text>
       </TouchableOpacity>
 
-      {/* Custom setup link */}
-      <TouchableOpacity
-        onPress={openSetup}
-        style={[
-          styles.setupRow,
-          {
-            backgroundColor: isDark ? 'rgba(15, 23, 42, 0.75)' : 'rgba(255, 255, 255, 0.9)',
-            borderColor: 'rgba(0, 229, 255, 0.3)',
-          },
-        ]}
-      >
-        <Settings size={18} color="#00E5FF" />
-        <Text style={[styles.setupRowText, { color: theme.textPrimary }]}>Custom setup (turn timer, pieces, cards)</Text>
-        <Text style={{ color: '#00E5FF', fontWeight: '900' }}>›</Text>
-      </TouchableOpacity>
+      {/* INLINE CUSTOM SETUP CARD SECTION */}
+      <View style={styles.inlineSetupCard}>
+        <View style={styles.inlineSetupHeader}>
+          <Settings size={18} color="#00E5FF" />
+          <Text style={styles.inlineSetupTitle}>Match Settings</Text>
+        </View>
+
+        {/* Turn Timer Selector */}
+        <View style={styles.setupFieldBlock}>
+          <Text style={styles.setupFieldLabel}>Turn Timer: <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{selectedTimer === '2m' ? '2 min' : selectedTimer}</Text></Text>
+          <View style={styles.pillsRow}>
+            {['30s', '1m', '2m', '3m'].map((t) => (
+              <TouchableOpacity
+                key={t}
+                onPress={() => setSelectedTimer(t)}
+                style={[styles.pillBtn, selectedTimer === t && styles.pillBtnActiveCyan]}
+              >
+                <Text style={[styles.pillBtnText, selectedTimer === t && styles.pillBtnTextActive]}>{t}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Ludo Specific Inline Setup */}
+        {isLudo && (
+          <>
+            <View style={styles.setupFieldBlock}>
+              <Text style={styles.setupFieldLabel}>Players Selection: <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{playerCount} Players</Text></Text>
+              <View style={styles.pillsRow}>
+                {[2, 4].map((num) => (
+                  <TouchableOpacity
+                    key={num}
+                    onPress={() => setPlayerCount(num)}
+                    style={[styles.pillBtn, playerCount === num && styles.pillBtnActiveCyan, { flex: 1 }]}
+                  >
+                    <Text style={[styles.pillBtnText, playerCount === num && styles.pillBtnTextActive]}>👥 {num} Players</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.setupFieldBlock}>
+              <Text style={styles.setupFieldLabel}>Tokens per Player: <Text style={{ color: '#FFB800', fontWeight: '900' }}>{tokenCount} Token{tokenCount > 1 ? 's' : ''}</Text></Text>
+              <View style={styles.pillsRow}>
+                {[1, 2, 3, 4].map((num) => (
+                  <TouchableOpacity
+                    key={num}
+                    onPress={() => setTokenCount(num)}
+                    style={[styles.pillBtn, tokenCount === num && styles.pillBtnActiveYellow]}
+                  >
+                    <Text style={[styles.pillBtnText, tokenCount === num && styles.pillBtnTextActiveDark]}>{num}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* Draft Specific Inline Setup */}
+        {isDraft && (
+          <View style={styles.setupFieldBlock}>
+            <Text style={styles.setupFieldLabel}>Your Piece Color: <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{playerColor === 'white' ? '⚪ White (First)' : '⚫ Black (Second)'}</Text></Text>
+            <View style={styles.pillsRow}>
+              <TouchableOpacity
+                onPress={() => setPlayerColor('white')}
+                style={[styles.pillBtn, playerColor === 'white' && styles.pillBtnActiveCyan, { flex: 1 }]}
+              >
+                <Text style={[styles.pillBtnText, playerColor === 'white' && styles.pillBtnTextActive]}>⚪ White (First)</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setPlayerColor('black')}
+                style={[styles.pillBtn, playerColor === 'black' && styles.pillBtnActiveYellow, { flex: 1 }]}
+              >
+                <Text style={[styles.pillBtnText, playerColor === 'black' && styles.pillBtnTextActiveDark]}>⚫ Black (Second)</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Whot Specific Inline Setup */}
+        {isWhot && (
+          <View style={styles.setupFieldBlock}>
+            <Text style={styles.setupFieldLabel}>Starting Cards: <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{cardCount} Cards</Text></Text>
+            <View style={styles.pillsRow}>
+              {[3, 4, 5, 6, 7, 8].map((num) => (
+                <TouchableOpacity
+                  key={num}
+                  onPress={() => setCardCount(num)}
+                  style={[styles.pillBtn, cardCount === num && styles.pillBtnActiveCyan]}
+                >
+                  <Text style={[styles.pillBtnText, cardCount === num && styles.pillBtnTextActive]}>{num}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              onPress={() => setEnableSpecialCards(!enableSpecialCards)}
+              style={styles.toggleRow}
+            >
+              <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }}>Special Cards (1,2,5,8,14,20)</Text>
+              <Text style={{ color: enableSpecialCards ? '#10B981' : '#EF4444', fontWeight: '900', fontSize: 13 }}>
+                {enableSpecialCards ? 'ON ✓' : 'OFF ✕'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Ayo Specific Inline Setup */}
+        {isAyo && (
+          <View style={styles.setupFieldBlock}>
+            <Text style={styles.setupFieldLabel}>Seeds per Pit: <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{seedCount} Seeds</Text></Text>
+            <View style={styles.pillsRow}>
+              {[3, 4, 5].map((num) => (
+                <TouchableOpacity
+                  key={num}
+                  onPress={() => setSeedCount(num)}
+                  style={[styles.pillBtn, seedCount === num && styles.pillBtnActiveCyan, { flex: 1 }]}
+                >
+                  <Text style={[styles.pillBtnText, seedCount === num && styles.pillBtnTextActive]}>🌰 {num} Seeds</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+      </View>
 
       <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Entry Tier</Text>
 
@@ -422,5 +566,90 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(0, 229, 255, 0.2)',
+  },
+  inlineSetupCard: {
+    backgroundColor: 'rgba(15, 25, 45, 0.75)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 229, 255, 0.25)',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 24,
+    gap: 16,
+  },
+  inlineSetupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    paddingBottom: 10,
+  },
+  inlineSetupTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  setupFieldBlock: {
+    gap: 8,
+  },
+  setupFieldLabel: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  pillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  pillBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillBtnActiveCyan: {
+    backgroundColor: '#00E5FF',
+    borderColor: '#00E5FF',
+    shadowColor: '#00E5FF',
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  pillBtnActiveYellow: {
+    backgroundColor: '#FFB800',
+    borderColor: '#FFB800',
+    shadowColor: '#FFB800',
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  pillBtnText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  pillBtnTextActive: {
+    color: '#070C1B',
+    fontWeight: '900',
+  },
+  pillBtnTextActiveDark: {
+    color: '#070C1B',
+    fontWeight: '900',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
 });

@@ -35,7 +35,7 @@ export default function EditProfileScreen({ navigation }) {
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaType?.Images || 'images',
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -58,9 +58,10 @@ export default function EditProfileScreen({ navigation }) {
       let finalAvatarUri = selectedAvatar.uri;
       if (selectedAvatar.id === 'custom' && selectedAvatar.uri.startsWith('file')) {
         try {
-          finalAvatarUri = await uploadProfileImage(selectedAvatar.uri);
+          const userUid = userProfile?.uid || 'user';
+          finalAvatarUri = await uploadProfileImage(userUid, selectedAvatar.uri);
         } catch (uploadErr) {
-          console.log('Upload image notice:', uploadErr);
+          console.log('Upload image notice:', uploadErr?.message || uploadErr);
           finalAvatarUri = selectedAvatar.uri;
         }
       }

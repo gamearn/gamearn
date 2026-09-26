@@ -86,13 +86,9 @@ export default function GameResultScreen({ route, navigation }) {
         valuePoints: newVp,
         vp: newVp,
         vpText: formatVP(newVp),
-      }).catch(() => {});
+      }).catch((err) => console.log('Notice updating result stats:', err));
 
       recordGameStreak(updateProfileData, userProfile).catch(() => {});
-    }
-
-    if (refreshProfile) {
-      refreshProfile().catch(() => {});
     }
   }, []);
 

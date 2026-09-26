@@ -166,6 +166,51 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Match Records & Performance Card */}
+        {(() => {
+          const w = Number(userProfile?.gamesWon ?? userProfile?.wins ?? 0);
+          const l = Number(userProfile?.gamesLost ?? userProfile?.losses ?? 0);
+          const p = Number(userProfile?.gamesPlayed ?? (w + l));
+          const wr = p > 0 ? Math.round((w / p) * 100) : 0;
+          return (
+            <View
+              style={{
+                marginVertical: 8,
+                backgroundColor: theme.cardBg,
+                borderColor: theme.cardBorderSubtle,
+                borderWidth: 1,
+                borderRadius: 16,
+                padding: 14,
+              }}
+            >
+              <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '800', letterSpacing: 1, marginBottom: 10 }}>
+                MATCH PERFORMANCE
+              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ alignItems: 'center', flex: 1 }}>
+                  <Text style={{ color: theme.textPrimary, fontSize: 18, fontWeight: '900' }}>{p}</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', marginTop: 2 }}>PLAYED</Text>
+                </View>
+                <View style={{ width: 1, height: 24, backgroundColor: theme.inputBorder }} />
+                <View style={{ alignItems: 'center', flex: 1 }}>
+                  <Text style={{ color: '#10B981', fontSize: 18, fontWeight: '900' }}>{w}</Text>
+                  <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '700', marginTop: 2 }}>WON</Text>
+                </View>
+                <View style={{ width: 1, height: 24, backgroundColor: theme.inputBorder }} />
+                <View style={{ alignItems: 'center', flex: 1 }}>
+                  <Text style={{ color: '#EF4444', fontSize: 18, fontWeight: '900' }}>{l}</Text>
+                  <Text style={{ color: '#EF4444', fontSize: 10, fontWeight: '700', marginTop: 2 }}>LOST</Text>
+                </View>
+                <View style={{ width: 1, height: 24, backgroundColor: theme.inputBorder }} />
+                <View style={{ alignItems: 'center', flex: 1 }}>
+                  <Text style={{ color: '#00E5FF', fontSize: 18, fontWeight: '900' }}>{wr}%</Text>
+                  <Text style={{ color: '#00E5FF', fontSize: 10, fontWeight: '700', marginTop: 2 }}>WIN RATE</Text>
+                </View>
+              </View>
+            </View>
+          );
+        })()}
+
         {/* Referrals & 5% Commission Entry Banner */}
         <TouchableOpacity
           activeOpacity={0.88}
