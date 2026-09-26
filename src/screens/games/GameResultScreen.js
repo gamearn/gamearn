@@ -27,6 +27,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { tournaments } from '../../services/api';
 import { naira } from '../../config/appConfig';
 import { clearActiveMatch } from '../../utils/activeMatch';
+import { calculateGamePower, calculateValuePoints, formatGP, formatVP } from '../../utils/gamePower';
+import { recordGameStreak } from '../../utils/recordGameStreak';
 
 export default function GameResultScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
@@ -68,13 +70,25 @@ export default function GameResultScreen({ route, navigation }) {
       const newLosses = !isWinner ? currentLosses + 1 : currentLosses;
       const newPlayed = Math.max(currentPlayed + 1, newWins + newLosses);
 
+      const newGp = calculateGamePower(newPlayed, newWins, newLosses);
+      const userBalance = Number(userProfile?.walletBalance ?? userProfile?.balance ?? userProfile?.coins ?? 0);
+      const newVp = calculateValuePoints(userBalance, newPlayed, newWins);
+
       updateProfileData({
         wins: newWins,
         gamesWon: newWins,
         losses: newLosses,
         gamesLost: newLosses,
         gamesPlayed: newPlayed,
+        gamePower: newGp,
+        gp: newGp,
+        gpText: formatGP(newGp),
+        valuePoints: newVp,
+        vp: newVp,
+        vpText: formatVP(newVp),
       }).catch(() => {});
+
+      recordGameStreak(updateProfileData, userProfile).catch(() => {});
     }
 
     if (refreshProfile) {

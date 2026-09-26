@@ -35,6 +35,7 @@ import { auth as authApi, wallet } from '../services/api';
 import { ApiError } from '../services/apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calculateGamePower, formatGP, calculateValuePoints, formatVP } from '../utils/gamePower';
+import { getLocalDateString, getDayGap } from '../utils/recordGameStreak';
 
 const AuthContext = createContext();
 
@@ -70,18 +71,16 @@ function profileFromMe(me, cached) {
     Number(cached?.losses ?? 0)
   );
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   const lastDateStr = me?.lastStreakDate || me?.lastPlayedDate || me?.lastCheckInDate || cached?.lastStreakDate || cached?.lastPlayedDate || cached?.lastCheckInDate;
 
   let baseStreak = Number(me?.streak ?? me?.currentStreak ?? me?.stats?.streak ?? cached?.streak ?? cached?.currentStreak ?? (gamesPlayed > 0 ? 1 : 0));
 
   let updatedStreak = baseStreak;
-  let newLastStreakDate = lastDateStr || todayStr;
+  let newLastStreakDate = lastDateStr ? String(lastDateStr).split('T')[0] : todayStr;
 
   if (lastDateStr) {
-    const d1 = new Date(lastDateStr.split('T')[0] + 'T00:00:00Z');
-    const d2 = new Date(todayStr + 'T00:00:00Z');
-    const diffDays = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+    const diffDays = getDayGap(lastDateStr, todayStr);
 
     if (diffDays === 1) {
       // Logged in on the NEXT DAY! Automatically increment streak (+1)
@@ -90,7 +89,7 @@ function profileFromMe(me, cached) {
     } else if (diffDays === 0) {
       // Same day login: maintain current streak (at least 1 if active)
       updatedStreak = Math.max(1, baseStreak);
-    } else if (diffDays > 1) {
+    } else if (diffDays !== null && diffDays > 1) {
       // Missed 2+ days: restart streak at 1 for today's login
       updatedStreak = 1;
       newLastStreakDate = todayStr;

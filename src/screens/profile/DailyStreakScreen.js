@@ -24,6 +24,7 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import GAButton from '../../components/GAButton';
+import { getLocalDateString } from '../../utils/recordGameStreak';
 
 export default function DailyStreakScreen({ navigation }) {
   const { theme, isDark } = useTheme();
@@ -34,7 +35,7 @@ export default function DailyStreakScreen({ navigation }) {
   const lastStreakDate = userProfile?.lastStreakDate || null;
   const lastCheckInDate = userProfile?.lastCheckInDate || null;
   const lastPlayedDate = userProfile?.lastPlayedDate || null;
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   // A check-in and a played game share the same "today" marker so neither can
   // double-count the streak.
   const isClaimedToday = lastStreakDate === todayStr || lastCheckInDate === todayStr;

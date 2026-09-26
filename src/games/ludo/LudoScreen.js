@@ -58,7 +58,7 @@ function clock(seconds, hours = false) {
     : `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
 }
 
-function Die({ value, size, selected, used, onPress, index }) {
+function Die({ value, size, selected, used, onPress, index, rolling = false }) {
   const dots = {
     1: [[1, 1]],
     2: [[0, 0], [2, 2]],
@@ -70,8 +70,8 @@ function Die({ value, size, selected, used, onPress, index }) {
 
   const isRedDot = value === 1;
   const faceSize = Math.max(1, size - 4);
-  const dotSize = isRedDot ? faceSize * 0.28 : faceSize * 0.18;
-  const margin = faceSize * 0.13;
+  const dotSize = isRedDot ? faceSize * 0.3 : faceSize * 0.22;
+  const margin = faceSize * 0.12;
   const centerPos = (faceSize - dotSize) / 2;
   const endPos = faceSize - margin - dotSize;
 
@@ -80,6 +80,10 @@ function Die({ value, size, selected, used, onPress, index }) {
     if (gridVal === 1) return centerPos;
     return endPos;
   };
+
+  const rotAngle = rolling
+    ? (index ? '28deg' : '-28deg')
+    : (index ? '8deg' : '-8deg');
 
   return (
     <Button
@@ -90,7 +94,7 @@ function Die({ value, size, selected, used, onPress, index }) {
         width: size,
         height: size,
         position: 'relative',
-        transform: [{ rotate: index ? '10deg' : '-12deg' }],
+        transform: [{ rotate: rotAngle }, { scale: rolling ? 1.12 : 1 }],
       }}
     >
       {/* 3D Drop Shadow Base */}
@@ -102,8 +106,8 @@ function Die({ value, size, selected, used, onPress, index }) {
           width: size - 4,
           height: size - 4,
           borderRadius: size * 0.22,
-          backgroundColor: '#030712',
-          opacity: 0.6,
+          backgroundColor: '#000000',
+          opacity: 0.65,
         }}
       />
 
@@ -116,28 +120,28 @@ function Die({ value, size, selected, used, onPress, index }) {
           width: size - 2,
           height: size - 2,
           borderRadius: size * 0.22,
-          backgroundColor: selected ? '#d97706' : '#94a3b8',
+          backgroundColor: selected ? '#d97706' : '#64748b',
         }}
       />
 
       {/* 3D Main Front Face */}
       <LinearGradient
-        colors={selected ? ['#ffffff', '#fef08a', '#fde047'] : ['#ffffff', '#f8fafc', '#e2e8f0']}
+        colors={selected ? ['#ffffff', '#fff5c4', '#fde047'] : ['#ffffff', '#f1f5f9', '#cbd5e1']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
           width: faceSize,
           height: faceSize,
           borderRadius: size * 0.2,
-          borderWidth: selected ? 3 : 1.5,
-          borderColor: selected ? '#f59e0b' : '#cbd5e1',
+          borderWidth: selected ? 3.5 : 2,
+          borderColor: selected ? '#f59e0b' : '#94a3b8',
           position: 'relative',
           overflow: 'hidden',
-          elevation: 8,
+          elevation: 10,
           shadowColor: '#000',
           shadowOffset: { width: 3, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 5,
+          shadowOpacity: 0.4,
+          shadowRadius: 6,
         }}
       >
         {/* Top Gloss Reflection Highlight */}
@@ -148,9 +152,9 @@ function Die({ value, size, selected, used, onPress, index }) {
             top: 2,
             left: 4,
             right: 4,
-            height: faceSize * 0.16,
-            borderRadius: faceSize * 0.08,
-            backgroundColor: 'rgba(255, 255, 255, 0.45)',
+            height: faceSize * 0.18,
+            borderRadius: faceSize * 0.09,
+            backgroundColor: 'rgba(255, 255, 255, 0.65)',
             zIndex: 1,
           }}
         />
@@ -169,25 +173,25 @@ function Die({ value, size, selected, used, onPress, index }) {
                 width: dotSize,
                 height: dotSize,
                 borderRadius: dotSize / 2,
-                backgroundColor: isRedDot ? '#dc2626' : '#0f172a',
-                borderWidth: 1,
-                borderColor: isRedDot ? '#991b1b' : '#334155',
+                backgroundColor: isRedDot ? '#dc2626' : '#090d16',
+                borderWidth: 1.5,
+                borderColor: isRedDot ? '#991b1b' : '#000000',
                 zIndex: 2,
-                elevation: 2,
+                elevation: 3,
                 shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.5,
+                shadowOffset: { width: 0, height: 1.5 },
+                shadowOpacity: 0.6,
               }}
             >
-              {/* Dot 3D Highlight */}
+              {/* Dot 3D Reflection Spot */}
               <View
                 style={{
-                  width: dotSize * 0.28,
-                  height: dotSize * 0.28,
-                  borderRadius: dotSize * 0.14,
-                  backgroundColor: 'rgba(255, 255, 255, 0.65)',
-                  marginTop: dotSize * 0.12,
-                  marginLeft: dotSize * 0.12,
+                  width: dotSize * 0.32,
+                  height: dotSize * 0.32,
+                  borderRadius: dotSize * 0.16,
+                  backgroundColor: 'rgba(255, 255, 255, 0.75)',
+                  marginTop: dotSize * 0.1,
+                  marginLeft: dotSize * 0.1,
                 }}
               />
             </View>
@@ -689,22 +693,25 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
             </View>
             <Player p={2} x={30} y={967} w={385} />
             <Player p={3} x={838} y={967} w={386} reverse />
-            <View style={[rect(434, 962, 386, 137), ui.round, { borderRadius: 66 * k, borderWidth: 5 * k, flexDirection: 'row', justifyContent: 'space-evenly' }]}>
-              {ico('chevron-back', 55, '#1262ef')}
-              {state.dice.map((value, index) => (
-                <Die
-                  key={index}
-                  index={index}
-                  value={rollingDice ? animDice[index] : value}
-                  size={89 * k}
-                  selected={state.phase === 'move' && state.selected === index}
-                  used={state.phase === 'move' && !state.available.includes(index)}
-                  onPress={() => dispatch({ type: 'SELECT', index })}
-                />
-              ))}
-              {ico('chevron-forward', 55, '#1262ef')}
+            <View style={[rect(434, 952, 386, 126), ui.round, { borderRadius: 60 * k, borderWidth: 4 * k, flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', paddingHorizontal: 12 * k }]}>
+              {ico('chevron-back', 40, '#1262ef')}
+              <View style={{ flexDirection: 'row', gap: 24 * k, alignItems: 'center', justifyContent: 'center' }}>
+                {state.dice.map((value, index) => (
+                  <Die
+                    key={index}
+                    index={index}
+                    value={rollingDice ? animDice[index] : value}
+                    size={Math.max(36, 94 * k)}
+                    rolling={rollingDice}
+                    selected={state.phase === 'move' && state.selected === index}
+                    used={state.phase === 'move' && !state.available.includes(index)}
+                    onPress={() => dispatch({ type: 'SELECT', index })}
+                  />
+                ))}
+              </View>
+              {ico('chevron-forward', 40, '#1262ef')}
             </View>
-            <Button label="Undo last roll or move" onPress={() => dispatch({ type: 'UNDO' })} disabled={!state.history.length || state.turn !== 0} style={[rect(88, 1122, 271, 92), ui.round, { borderRadius: 46 * k, borderWidth: 5 * k, flexDirection: 'row', gap: 23 * k }]}>
+            <Button label="Undo last roll or move" onPress={() => dispatch({ type: 'UNDO' })} disabled={!state.history.length || state.turn !== 0} style={[rect(88, 1126, 271, 90), ui.round, { borderRadius: 46 * k, borderWidth: 5 * k, flexDirection: 'row', gap: 23 * k }]}>
               {ico('arrow-undo', 45, '#ffe52b')}
               {text('UNDO', 28)}
             </Button>
@@ -712,7 +719,7 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
               label={state.phase === 'won' ? 'Start new game' : rollingDice ? 'Rolling dice...' : state.turn !== 0 ? `${NAMES[state.turn]}'s Turn` : 'Roll both dice'}
               disabled={state.phase === 'move' || state.turn !== 0 || rollingDice}
               onPress={handleRollDice}
-              style={rect(435, 1118, 385, 98)}
+              style={rect(435, 1124, 385, 96)}
             >
               <LinearGradient colors={state.turn !== 0 ? ['#64748B', '#475569', '#334155'] : ['#fff147', '#ffc600', '#ffab00']} style={{ flex: 1, borderRadius: 50 * k, borderWidth: 5 * k, borderColor: state.turn !== 0 ? '#94A3B8' : '#ffe950', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24 * k }}>
                 {ico(rollingDice || state.turn !== 0 ? 'sync' : 'play', 48, state.turn !== 0 ? '#FFF' : '#402500')}

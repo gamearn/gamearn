@@ -82,10 +82,16 @@ export default function Board({ size, state, onMove }) {
             let strokeColor = '#2b3954';
 
             // Colored Home Pathways leading to center (reference layout)
-            if (x === 6 && y < 5) fillColor = COLORS[0]; // Red pathway (Top, from Red House)
-            if (y === 6 && x > 7) fillColor = COLORS[1]; // Green pathway (Right, from Green House)
-            if (y === 6 && x < 5) fillColor = COLORS[2]; // Yellow pathway (Left, from Yellow House)
-            if (x === 6 && y > 7) fillColor = COLORS[3]; // Blue pathway (Bottom, from Blue House)
+            if (x === 6 && y >= 1 && y <= 4) fillColor = COLORS[0]; // Red pathway (Top, from Red House)
+            if (y === 6 && x >= 8 && x <= 11) fillColor = COLORS[1]; // Green pathway (Right, from Green House)
+            if (y === 6 && x >= 1 && x <= 4) fillColor = COLORS[2]; // Yellow pathway (Left, from Yellow House)
+            if (x === 6 && y >= 8 && y <= 11) fillColor = COLORS[3]; // Blue pathway (Bottom, from Blue House)
+
+            // Colored Player Start Squares (where tokens enter the track)
+            if (x === 5 && y === 1) fillColor = COLORS[0]; // Red Start Square
+            if (x === 11 && y === 5) fillColor = COLORS[1]; // Green Start Square
+            if (x === 1 && y === 7) fillColor = COLORS[2]; // Yellow Start Square
+            if (x === 7 && y === 11) fillColor = COLORS[3]; // Blue Start Square
 
             return (
               <Rect
@@ -109,9 +115,18 @@ export default function Board({ size, state, onMove }) {
         <Polygon points="5,8 8,8 6.5,6.5" fill={COLORS[3]} stroke="#1e293b" strokeWidth="0.04" />
         <Polygon points="5,5 5,8 6.5,6.5" fill={COLORS[2]} stroke="#1e293b" strokeWidth="0.04" />
 
-        {/* Star Safe Haven Symbols */}
-        {[[6.5, 0.5], [12.5, 6.5], [6.5, 12.5], [0.5, 6.5]].map(([x, y], i) => (
-          <Polygon key={i} points={star(x, y, 0.34)} fill="#ffd700" />
+        {/* 8 Star Safe Haven Symbols (4 Start Squares + 4 Secondary Safe Squares) */}
+        {[
+          [5.5, 1.5],   // Red Start
+          [7.5, 3.5],   // Top Arm Safe
+          [11.5, 5.5],  // Green Start
+          [9.5, 7.5],   // Right Arm Safe
+          [7.5, 11.5],  // Blue Start
+          [5.5, 9.5],   // Bottom Arm Safe
+          [1.5, 7.5],   // Yellow Start
+          [3.5, 5.5],   // Left Arm Safe
+        ].map(([x, y], i) => (
+          <Polygon key={i} points={star(x, y, 0.34)} fill="#ffd700" stroke="#000000" strokeWidth="0.03" />
         ))}
 
         {/* Home Directional Indicators */}

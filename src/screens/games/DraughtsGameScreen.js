@@ -118,7 +118,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
         isWinner: won,
         myScore: won ? 12 : 6,
         opponentScore: won ? 4 : 12,
-        opponentName: m.opponent?.displayName || 'Dráfù Master 🤖',
+        opponentName: m.opponent?.displayName || 'Oba 👑',
         gameId: 'draft',
         gameName: 'Dráfù Game',
         targetScreen: 'DraughtsGame',

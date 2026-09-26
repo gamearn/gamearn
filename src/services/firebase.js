@@ -17,8 +17,11 @@ import {
   getAuth,
 } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { FIREBASE_CONFIG } from '../config/appConfig';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
+const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 const app = initializeApp(FIREBASE_CONFIG);
 
@@ -46,12 +49,12 @@ export const uploadProfileImage = async (uid, uri) => {
 // sign-in. Present only in the installed dev/standalone build; absent in
 // Expo Go, where the JS SDK above is used for every provider.
 const getNativeAuth = () => {
+    if (IS_EXPO_GO) return null;
     try {
         const mod = require('@react-native-firebase/auth');
         if (!mod || typeof mod.getAuth !== 'function') return null;
         return mod.getAuth();
     } catch (e) {
-        console.warn('[firebase] native auth init failed:', e && e.message);
         return null;
     }
 };

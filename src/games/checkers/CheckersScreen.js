@@ -116,6 +116,41 @@ export function CheckersScreen({
     return () => clearInterval(interval);
   }, [secondsRemaining, dialog, gameOver.isOver]);
 
+  // Handle timer expiration (turn timeout)
+  useEffect(() => {
+    if (seconds === 0 && !gameOver.isOver && dialog === null) {
+      if (turn === playerSide) {
+        setGameOver({ isOver: true, winner: aiSide });
+        if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
+        if (onWin) onWin(false);
+      } else {
+        setTurn(playerSide);
+      }
+    }
+  }, [seconds, gameOver.isOver, dialog, turn, playerSide, aiSide, onWin, updateProfileData, userProfile]);
+
+  // Check if player has 0 legal moves on their turn
+  useEffect(() => {
+    if (turn === playerSide && !gameOver.isOver && !isAiThinking && dialog === null) {
+      let hasMoves = false;
+      for (let i = 0; i < 64; i++) {
+        const p = boardState[i];
+        if (p && p.side === playerSide) {
+          const moves = getLegalMovesForSquare(boardState, playerSide, i);
+          if (moves.length > 0) {
+            hasMoves = true;
+            break;
+          }
+        }
+      }
+      if (!hasMoves) {
+        setGameOver({ isOver: true, winner: aiSide });
+        if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
+        if (onWin) onWin(false);
+      }
+    }
+  }, [turn, playerSide, aiSide, boardState, gameOver.isOver, isAiThinking, dialog, onWin, updateProfileData, userProfile]);
+
   // Computer AI turn trigger
   useEffect(() => {
     if (vsAI && turn === aiSide && !gameOver.isOver && dialog === null) {
@@ -375,7 +410,67 @@ export function CheckersScreen({
         </View>
       )}
 
+      <Modal visible={!!dialog} transparent animationType="fade" onRequestClose={() => setDialog(null)}>
+        <View style={styles.scrim}>
+          <View style={styles.dialog}>
+            {dialog === 'surrender' && (
+              <>
+                <Text style={styles.heading}>Surrender Match 🏳️</Text>
+                <Text style={styles.body}>Are you sure you want to surrender this match to Oba? This will be recorded as a loss.</Text>
+                <View style={styles.buttons}>
+                  <Pressable onPress={() => setDialog(null)} style={styles.modalButton}>
+                    <Text style={[styles.buttonText, { color: '#94A3B8' }]}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setDialog(null);
+                      setGameOver({ isOver: true, winner: aiSide });
+                      if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
+                      if (onWin) onWin(false);
+                    }}
+                    style={[styles.modalButton, { marginLeft: 12 }]}
+                  >
+                    <Text style={[styles.buttonText, { color: '#EF4444' }]}>Resign & Surrender</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
 
+            {dialog === 'back' && (
+              <>
+                <Text style={styles.heading}>Exit Match</Text>
+                <Text style={styles.body}>Do you want to leave the Draughts game board?</Text>
+                <View style={styles.buttons}>
+                  <Pressable onPress={() => setDialog(null)} style={styles.modalButton}>
+                    <Text style={[styles.buttonText, { color: '#94A3B8' }]}>Stay in Game</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setDialog(null);
+                      if (onBack) onBack();
+                    }}
+                    style={[styles.modalButton, { marginLeft: 12 }]}
+                  >
+                    <Text style={styles.buttonText}>Exit Game</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+
+            {(dialog === 'undo' || dialog === 'hint') && (
+              <>
+                <Text style={styles.heading}>{dialog === 'undo' ? 'Undo Move' : 'Move Hint'}</Text>
+                <Text style={styles.body}>{notice || 'No information available.'}</Text>
+                <View style={styles.buttons}>
+                  <Pressable onPress={() => setDialog(null)} style={styles.modalButton}>
+                    <Text style={styles.buttonText}>OK</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

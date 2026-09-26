@@ -37,8 +37,8 @@ export default function GameSetupScreen({ route, navigation }) {
     calculatedDifficulty === 'easy'
       ? '🟢 Easy'
       : calculatedDifficulty === 'medium'
-      ? '🟡 Medium'
-      : '🔴 Hard';
+        ? '🟡 Medium'
+        : '🔴 Hard';
 
   const handleStartGame = () => {
     navigation.navigate(targetScreen, {
@@ -101,10 +101,10 @@ export default function GameSetupScreen({ route, navigation }) {
                     selectedTimer === '30s'
                       ? '0%'
                       : selectedTimer === '1m'
-                      ? '33%'
-                      : selectedTimer === '2m'
-                      ? '66%'
-                      : '100%',
+                        ? '33%'
+                        : selectedTimer === '2m'
+                          ? '66%'
+                          : '100%',
                 },
               ]}
             />
