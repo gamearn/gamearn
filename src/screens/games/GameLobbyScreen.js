@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { Swords, Settings, ArrowLeft, Wallet, Cpu } from 'lucide-react-native';
 import BrandLogo from '../../components/BrandLogo';
 import GAButton from '../../components/GAButton';
@@ -8,13 +8,17 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { matchmaking } from '../../services/api';
 import { GamearnSocket } from '../../services/gamearnSocket';
-import { ENTRY_FEES, koboToN, naira } from '../../config/appConfig';
+import { coinsFromNaira, koboToN, naira, nairaToKobo } from '../../config/appConfig';
 
-const TIERS = [
-  { key: 'beginner', label: 'Beginner' },
-  { key: 'intermediate', label: 'Intermediate' },
-  { key: 'expert', label: 'Expert' },
-];
+// Custom stakes: backend caps entry fees at 500000 kobo.
+const MIN_AMOUNT_N = 50;
+const MAX_AMOUNT_N = 5000;
+const QUICK_AMOUNTS = [100, 500, 2000, 5000];
+
+function parseAmount(raw) {
+  const n = Number(String(raw || '').replace(/,/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
 
 const GAME_TYPE = { whot: 'whot', ludo: 'ludo', ayo: 'ayo', draft: 'draughts' };
 
@@ -24,9 +28,8 @@ export default function GameLobbyScreen({ route, navigation }) {
 
   const { gameId = 'whot', gameName = 'Whot Naija', targetScreen = 'WhotGame', setupTarget = 'GameSetup' } = route.params || {};
   const gameType = GAME_TYPE[gameId] || GAME_TYPE.whot;
-  const tiers = ENTRY_FEES[gameType] || ENTRY_FEES.whot;
 
-  const [selectedTier, setSelectedTier] = useState('beginner');
+  const [amountText, setAmountText] = useState('500');
   const [isSearching, setIsSearching] = useState(false);
   const [queueLen, setQueueLen] = useState(0);
   const sockRef = useRef(null);
@@ -44,7 +47,9 @@ export default function GameLobbyScreen({ route, navigation }) {
   const isWhot = gameType === 'whot' || targetScreen === 'WhotGame' || gameName.toLowerCase().includes('whot');
   const isAyo = gameType === 'ayo' || targetScreen === 'AyoGame' || gameName.toLowerCase().includes('ayo');
 
-  const selectedFee = tiers[selectedTier] || tiers.beginner;
+  const amountN = parseAmount(amountText);
+  const selectedFee = nairaToKobo(amountN);
+  const amountValid = amountN >= MIN_AMOUNT_N && amountN <= MAX_AMOUNT_N;
   const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.coins ?? 0);
   const balanceKobo = Math.round(balanceNaira * 100);
 
@@ -108,6 +113,10 @@ export default function GameLobbyScreen({ route, navigation }) {
   };
 
   const handlePlayVsOba = () => {
+    if (!amountValid) {
+      Alert.alert('Enter an amount', `Amount must be between ${naira(MIN_AMOUNT_N)} and ${naira(MAX_AMOUNT_N)}.`);
+      return;
+    }
     navigation.navigate(targetScreen, {
       stake: selectedFee,
       vsOba: true,
@@ -126,6 +135,10 @@ export default function GameLobbyScreen({ route, navigation }) {
   };
 
   const startMatchmaking = () => {
+    if (!amountValid) {
+      Alert.alert('Enter an amount', `Amount must be between ${naira(MIN_AMOUNT_N)} and ${naira(MAX_AMOUNT_N)}.`);
+      return;
+    }
     if (!userProfile) {
       Alert.alert('Sign in required', 'Create an account to play real matches.', [
         { text: 'OK', onPress: () => navigation.navigate('Login') },
@@ -162,7 +175,7 @@ export default function GameLobbyScreen({ route, navigation }) {
   };
 
   const cancelSearch = () => {
-    matchmaking.leave(gameType).catch(() => {});
+    matchmaking.leave(gameType).catch(() => { });
     cleanup();
   };
 
@@ -342,29 +355,39 @@ export default function GameLobbyScreen({ route, navigation }) {
         )}
       </View>
 
-      <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Entry Tier</Text>
+      <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Challenge Amount</Text>
 
-      <View style={styles.tierGrid}>
-        {TIERS.map((tier) => {
-          const fee = tiers[tier.key];
-          const selected = selectedTier === tier.key;
+      <View style={[styles.amountRow, { borderColor: amountValid ? theme.inputBorder : '#EF4444' }]}>
+        <Text style={[styles.amountPrefix, { color: theme.textSecondary }]}>₦</Text>
+        <TextInput
+          value={amountText}
+          onChangeText={setAmountText}
+          keyboardType="numeric"
+          placeholder={`${MIN_AMOUNT_N} - ${MAX_AMOUNT_N}`}
+          placeholderTextColor={theme.textSecondary}
+          style={[styles.amountInput, { color: theme.textPrimary }]}
+        />
+      </View>
+      <Text style={[styles.amountHint, { color: amountValid ? theme.textSecondary : '#EF4444' }]}>
+        {amountValid
+          ? `${naira(koboToN(selectedFee))} stake = ${coinsFromNaira(amountN).toLocaleString()} coins (1 coin = ₦50)`
+          : `Amount must be between ${naira(MIN_AMOUNT_N)} and ${naira(MAX_AMOUNT_N)}`}
+      </Text>
+      <View style={styles.quickRow}>
+        {QUICK_AMOUNTS.map((amt) => {
+          const active = amountN === amt;
           return (
             <TouchableOpacity
-              key={tier.key}
-              onPress={() => setSelectedTier(tier.key)}
+              key={amt}
+              onPress={() => setAmountText(String(amt))}
               style={[
-                styles.stakeCard,
-                {
-                  backgroundColor: selected ? theme.cardBg : theme.inputBg,
-                  borderColor: selected ? theme.primary : theme.inputBorder,
-                },
+                styles.quickChip,
+                { backgroundColor: active ? theme.cardBg : theme.inputBg, borderColor: active ? theme.primary : theme.inputBorder },
               ]}
             >
-              <Text style={[styles.tierName, { color: selected ? theme.accent : theme.textMuted }]}>
-                {tier.label}
+              <Text style={[styles.quickChipText, { color: active ? theme.accent : theme.textMuted }]}>
+                ₦{amt.toLocaleString()}
               </Text>
-              <Text style={[styles.tierAmount, { color: theme.textPrimary }]}>{naira(koboToN(fee))}</Text>
-              <Text style={[styles.tierFee, { color: theme.textSecondary }]}>{fee.toLocaleString()} coins</Text>
             </TouchableOpacity>
           );
         })}
@@ -380,11 +403,11 @@ export default function GameLobbyScreen({ route, navigation }) {
         </View>
         <View style={styles.summaryRow}>
           <Text style={{ color: theme.textSecondary }}>Entry Fee (escrowed):</Text>
-          <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>{naira(koboToN(selectedFee))}</Text>
+          <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>{amountValid ? naira(koboToN(selectedFee)) : '—'}</Text>
         </View>
         <View style={styles.summaryRow}>
           <Text style={{ color: theme.textSecondary }}>Winner takes (up to):</Text>
-          <Text style={{ color: theme.success, fontWeight: '800' }}>{naira(koboToN(Math.floor(selectedFee * 1.9)))}</Text>
+          <Text style={{ color: theme.success, fontWeight: '800' }}>{amountValid ? naira(koboToN(Math.floor(selectedFee * 1.9))) : '—'}</Text>
         </View>
         <Text style={[styles.note, { color: theme.textMuted }]}>
           Entry fees are debited only when a match starts. A 10% platform fee applies to prize payouts.
@@ -493,32 +516,44 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 14,
   },
-  tierGrid: {
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  amountPrefix: {
+    fontSize: 20,
+    fontWeight: '900',
+    marginRight: 6,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '800',
+    paddingVertical: 12,
+  },
+  amountHint: {
+    fontSize: 12,
+    marginBottom: 10,
+  },
+  quickRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 20,
+    gap: 8,
+    marginBottom: 16,
   },
-  stakeCard: {
-    width: '30%',
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 2,
-    alignItems: 'center',
-    gap: 4,
+  quickChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
   },
-  tierName: {
-    fontSize: 13,
+  quickChipText: {
     fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  tierAmount: {
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  tierFee: {
-    fontSize: 11,
+    fontSize: 13,
   },
   summaryCard: {
     gap: 10,

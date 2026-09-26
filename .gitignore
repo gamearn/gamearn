@@ -44,9 +44,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Firebase configuration files for Expo prebuild
-# !google-services.json
-# !GoogleService-Info.plist
+# Firebase configuration files for Expo prebuild - never commit these
+# CI injects them from GitHub secrets (GOOGLE_SERVICES_JSON / GOOGLE_SERVICE_INFO_PLIST)
+google-services.json
+GoogleService-Info.plist
 
 # Signing files
 android/key.properties

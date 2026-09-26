@@ -31,8 +31,15 @@ jobs:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-        run: node scripts/ci/require-env.cjs KEYSTORE_BASE64 STORE_PASSWORD KEY_PASSWORD KEY_ALIAS
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: node scripts/ci/require-env.cjs KEYSTORE_BASE64 STORE_PASSWORD KEY_PASSWORD KEY_ALIAS GOOGLE_SERVICES_JSON
       - run: npm ci
+      - name: Inject Firebase config
+        run: |
+          echo "$GOOGLE_SERVICES_JSON" | base64 --decode > google-services.json
+          test -s google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
       - name: Generate React Native Android project
         run: npx expo prebuild --platform android --no-install
       - name: Restore release keystore

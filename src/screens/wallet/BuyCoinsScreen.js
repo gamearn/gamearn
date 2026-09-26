@@ -14,20 +14,18 @@ import { ArrowLeft, Coins, Sprout, Trees, Mountain, Medal } from 'lucide-react-n
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { wallet } from '../../services/api';
+import { coinsFromNaira } from '../../config/appConfig';
 import { ApiError } from '../../services/apiClient';
-
-// 1 coin = 1 kobo, so ₦1 buys 100 coins.
-const COINS_PER_NAIRA = 100;
 
 // Quick-pick presets that load the amount field (₦ amounts).
 const PACKAGES = [
-  { id: 'starter', name: 'Starter', price: 100, icon: Sprout },
+  { id: 'starter', name: 'Starter', price: 50, icon: Sprout },
   { id: 'pro', name: 'Pro', price: 500, icon: Trees, popular: true, badgeText: 'BEST VALUE' },
   { id: 'elite', name: 'Elite', price: 1500, icon: Mountain },
   { id: 'champion', name: 'Champion', price: 5000, icon: Medal },
 ];
 
-const MIN_AMOUNT = 100;
+const MIN_AMOUNT = 50;
 const MAX_AMOUNT = 1000000;
 
 function parseAmount(raw) {
@@ -43,7 +41,7 @@ export default function BuyCoinsScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const amount = parseAmount(amountText);
-  const coins = Math.floor(amount * COINS_PER_NAIRA);
+  const coins = coinsFromNaira(amount);
   const amountValid = amount >= MIN_AMOUNT && amount <= MAX_AMOUNT;
 
   const preview = useMemo(() => {
@@ -134,12 +132,12 @@ export default function BuyCoinsScreen({ navigation }) {
             <View style={styles.liveWorthRow}>
               <Coins size={18} color="#FF5500" />
               <Text style={[styles.liveWorthText, { color: preview.valid ? theme.textPrimary : '#EF4444' }]}>
-                {preview.valid ? `You get ${preview.coins.toLocaleString()} coins` : 'Minimum ₦100, maximum ₦1,000,000'}
+                {preview.valid ? `You get ${preview.coins.toLocaleString()} coins` : 'Minimum ₦50, maximum ₦1,000,000'}
               </Text>
             </View>
           ) : (
             <Text style={[styles.liveWorthHint, { color: theme.textSecondary }]}>
-              1 coin = 1 kobo (₦1 buys 100 coins). Live worth shows as you type.
+              1 coin = ₦50. Live worth shows as you type.
             </Text>
           )}
         </View>
