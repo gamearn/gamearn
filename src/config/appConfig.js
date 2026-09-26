@@ -41,13 +41,11 @@ export const FACEBOOK_APP_ID = '1762055368454928';
 // TODO: REPLACE_WITH_YOUR_APPLE_TEAM_ID
 export const APPLE_TEAM_ID = '8D2897QPB3';
 
-// Entry fee tiers in kobo, matching matchmaking.js ENTRY_FEES.
-export const ENTRY_FEES = {
-  whot: { beginner: 10000, intermediate: 50000, expert: 200000 },
-  ludo: { beginner: 10000, intermediate: 50000, expert: 200000 },
-  ayo: { beginner: 5000, intermediate: 25000, expert: 100000 },
-  draughts: { beginner: 10000, intermediate: 50000, expert: 200000 },
-};
+// Coin purchase rate: 1 coin = ₦50. Challenge stakes are configured by the
+// player (custom amount) rather than preset tiers.
+export const NAIRA_PER_COIN = 50;
+export const coinsFromNaira = (n) => Math.max(0, Math.floor(Number(n || 0) / NAIRA_PER_COIN));
+export const coinsFromKobo = (k) => Math.max(0, Math.floor(Number(k || 0) / (100 * NAIRA_PER_COIN)));
 
 export const koboToN = (kobo) => (kobo / 100).toFixed(0);
 export const nairaToKobo = (naira) => Math.round(Number(naira) * 100);

@@ -31,6 +31,7 @@ function harness(options = {}) {
   const mocks={
     react:React,
     'react-native':{Platform:{OS:options.platform || 'android'}},
+    '@react-native-async-storage/async-storage':{getItem:async()=>null,setItem:async()=>{},removeItem:async()=>{}},
     'expo-constants':{executionEnvironment:'standalone'},
     'expo-auth-session/providers/google':{
       discovery:{},useAuthRequest:()=>[{clientId:'client',redirectUri:'com.gamearn:/oauthredirect',codeVerifier:'verifier'},null,async()=>response],
