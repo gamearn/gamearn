@@ -10,12 +10,10 @@ module.exports = function withFixFirebaseIOS(config) {
       if (fs.existsSync(podfilePath)) {
         let contents = fs.readFileSync(podfilePath, 'utf8');
 
-        // 1. Inject $RNFirebaseDisableSPM = true and use_modular_headers! at the top
+        // 1. react-native-firebase requires static frameworks; modular_headers is unsupported
+        const requiredHeader = '$RNFirebaseDisableSPM = true\n$RNFirebaseAsStaticFramework = true\nuse_frameworks! :linkage => :static\n';
         if (!contents.includes('$RNFirebaseDisableSPM')) {
-          contents = `$RNFirebaseDisableSPM = true\n` + contents;
-        }
-        if (!contents.includes('use_modular_headers!')) {
-          contents = `use_modular_headers!\n` + contents;
+          contents = requiredHeader + contents;
         }
 
         // 2. Inject post_install settings for non-modular includes & iOS 15.1 target
