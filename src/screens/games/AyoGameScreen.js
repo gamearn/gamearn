@@ -117,6 +117,7 @@ export default function AyoGameScreen({ route, navigation }) {
       ) : null}
       <AyoScreen
         timer={timer}
+        seedCount={params.seedCount || 4}
         aiDifficulty={params.aiDifficulty}
         onWin={handleWin}
         onBack={handleBack}

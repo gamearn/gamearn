@@ -130,14 +130,17 @@ function profileFromMe(me, cached) {
   }
 
   const rawNaira = me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? cached?.walletBalance ?? 0;
-  const computedGp = calculateGamePower(gamesPlayed, wins, losses);
-  const gp = Math.min(
-    100,
-    Math.max(
-      0,
-      computedGp > 0 ? computedGp : Number(me?.gamePower ?? me?.gp ?? cached?.gamePower ?? cached?.gp ?? 0)
-    )
-  );
+
+  // Stored GP preservation: prioritize explicitly saved gamePower/gp so it never resets on app restart
+  const storedGp = me?.gamePower !== undefined && me?.gamePower !== null ? Number(me.gamePower)
+                 : me?.gp !== undefined && me?.gp !== null ? Number(me.gp)
+                 : cached?.gamePower !== undefined && cached?.gamePower !== null ? Number(cached.gamePower)
+                 : cached?.gp !== undefined && cached?.gp !== null ? Number(cached.gp)
+                 : null;
+
+  const gp = storedGp !== null && !isNaN(storedGp)
+    ? Math.min(100, Math.max(0, storedGp))
+    : calculateGamePower(gamesPlayed, wins, losses);
 
   const computedVp = calculateValuePoints(rawNaira, gamesPlayed, wins);
   const vp = Math.max(
@@ -149,6 +152,8 @@ function profileFromMe(me, cached) {
   const username = me?.username || me?.name || me?.displayName || cached?.username || me?.email?.split('@')[0] || 'Gamer';
   const displayName = me?.displayName || me?.username || me?.name || cached?.displayName || 'Gamer';
   const name = me?.name || me?.username || me?.displayName || cached?.name || 'Gamer';
+
+  const gameStats = me?.gameStats || cached?.gameStats || {};
 
   return {
     ...cached,
@@ -179,6 +184,7 @@ function profileFromMe(me, cached) {
     valuePoints: vp,
     vp,
     vpText: formatVP(vp),
+    gameStats,
   };
 }
 
@@ -476,6 +482,7 @@ export const AuthProvider = ({ children }) => {
           ...(updates.gp !== undefined ? { gamePower: updates.gp, gp: updates.gp } : {}),
           ...(updates.valuePoints !== undefined ? { valuePoints: updates.valuePoints, vp: updates.valuePoints } : {}),
           ...(updates.vp !== undefined ? { valuePoints: updates.vp, vp: updates.vp } : {}),
+          ...(updates.gameStats !== undefined ? { gameStats: updates.gameStats } : {}),
         });
       }
     } catch (err) {

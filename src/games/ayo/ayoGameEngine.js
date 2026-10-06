@@ -1,92 +1,176 @@
-export function createAyoInitialState() {
-  // Standard Ayo Olopon: 12 pits, 4 seeds per pit (48 total)
+export function createAyoInitialState(seedCount = 4) {
+  const count = typeof seedCount === 'number' && seedCount > 0 ? seedCount : 4;
   return {
-    pits: [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
-    scores: [0, 0], // Index 0: Player 1 (You), Index 1: Player 2 (AI)
-    activePlayer: 1, // 1: You (bottom row: pits 6..11), 2: AI (top row: pits 0..5)
+    pits: Array(12).fill(count),
+    scores: [0, 0], // Index 0: Player 1 (You), Index 1: Player 2 (Oba)
+    activePlayer: 1, // 1: You (bottom row: pits 0..5), 2: Oba (top row: pits 6..11)
     gameStatus: 'playing',
     winner: null,
+    seedCount: count,
     statusMessage: 'Your turn! Tap one of your bottom pits (1–6) to sow seeds.',
   };
 }
 
-export function isValidAyoMove(state, pitIndex) {
-  if (state.gameStatus !== 'playing') return false;
-
-  const { activePlayer, pits } = state;
-  // Player 1 (You) owns pits 6..11
-  // Player 2 (AI) owns pits 0..5
-  if (activePlayer === 1 && (pitIndex < 6 || pitIndex > 11)) return false;
-  if (activePlayer === 2 && (pitIndex < 0 || pitIndex > 5)) return false;
-
-  return pits[pitIndex] > 0;
+function moveReachesOpponent(pits, pitIndex, oppRange) {
+  let hand = pits[pitIndex];
+  let curr = pitIndex;
+  while (hand > 0) {
+    curr = (curr + 1) % 12;
+    if (curr === pitIndex) continue;
+    if (oppRange.includes(curr)) return true;
+    hand--;
+  }
+  return false;
 }
 
-export function sowAyoSeeds(state, pitIndex) {
+export function isValidAyoMove(state, pitIndex) {
+  if (!state || state.gameStatus !== 'playing') return false;
+
+  const { activePlayer, pits } = state;
+  const isPlayer1 = activePlayer === 1;
+
+  // Player 1 owns bottom row (0..5)
+  // Player 2 owns top row (6..11)
+  if (isPlayer1 && (pitIndex < 0 || pitIndex > 5)) return false;
+  if (!isPlayer1 && (pitIndex < 6 || pitIndex > 11)) return false;
+
+  if (pits[pitIndex] <= 0) return false;
+
+  // Must-feed ("Je ki o je") check: if opponent has 0 seeds on board
+  const oppRange = isPlayer1 ? [6, 7, 8, 9, 10, 11] : [0, 1, 2, 3, 4, 5];
+  const oppTotalSeeds = oppRange.reduce((sum, idx) => sum + pits[idx], 0);
+
+  if (oppTotalSeeds === 0) {
+    const playerPits = isPlayer1 ? [0, 1, 2, 3, 4, 5] : [6, 7, 8, 9, 10, 11];
+    const feedingMoves = playerPits.filter((i) => pits[i] > 0 && moveReachesOpponent(pits, i, oppRange));
+
+    if (feedingMoves.length > 0) {
+      return moveReachesOpponent(pits, pitIndex, oppRange);
+    }
+  }
+
+  return true;
+}
+
+export function getAyoMoveSteps(state, pitIndex) {
   if (!isValidAyoMove(state, pitIndex)) {
     return {
-      ...state,
-      statusMessage: state.activePlayer === 1
-        ? 'Select a non-empty pit on your bottom row!'
-        : 'Wait for your turn!',
+      steps: [],
+      finalState: {
+        ...state,
+        statusMessage: state.activePlayer === 1
+          ? 'Select a valid pit on your row!'
+          : 'Wait for your turn!',
+      },
     };
   }
 
+  const steps = [];
   const pits = [...state.pits];
   const scores = [...state.scores];
   const player = state.activePlayer;
+  const seedCount = state.seedCount || 4;
+  const totalBoardSeeds = seedCount * 12;
+  const winningScore = Math.floor(totalBoardSeeds / 2) + 1;
 
   let hand = pits[pitIndex];
   pits[pitIndex] = 0;
 
+  const playerLabel = player === 1 ? 'You' : 'Oba';
+  const startPitNum = pitIndex < 6 ? pitIndex + 1 : 12 - pitIndex;
+
+  // Frame 0: Pick up seeds
+  steps.push({
+    pits: [...pits],
+    activePit: pitIndex,
+    seedsInHand: hand,
+    scores: [...scores],
+    message: `${playerLabel} picked ${hand} seed${hand > 1 ? 's' : ''} from pit ${startPitNum}`,
+    capturedPits: [],
+  });
+
   let curr = pitIndex;
+  const startingPit = pitIndex;
+
   while (hand > 0) {
     curr = (curr + 1) % 12;
-    // Skip original pit if hand was >= 12
-    if (curr === pitIndex) continue;
+    // 12-seed lap skip rule: skip starting pit if lap exceeds 11 seeds
+    if (curr === startingPit) continue;
+
     pits[curr]++;
     hand--;
+
+    const pitNumLabel = curr < 6 ? curr + 1 : 12 - curr;
+    steps.push({
+      pits: [...pits],
+      activePit: curr,
+      seedsInHand: hand,
+      scores: [...scores],
+      message: `Sowing into pit ${pitNumLabel}... (${hand} left)`,
+      capturedPits: [],
+    });
   }
 
-  // Capture logic
-  // Player 1 (You) captures on Opponent side (pits 0..5)
-  // Player 2 (AI) captures on Your side (pits 6..11)
-  let totalCaptured = 0;
-  let check = curr;
-  const isOpponentSide = (idx) => (player === 1 ? idx >= 0 && idx <= 5 : idx >= 6 && idx <= 11);
+  const lastPit = curr;
+  let check = lastPit;
+  const isOpponentPit = (idx) => (player === 1 ? idx >= 6 && idx <= 11 : idx >= 0 && idx <= 5);
 
-  while (isOpponentSide(check) && (pits[check] === 2 || pits[check] === 3)) {
+  let captureIndices = [];
+  let totalCaptured = 0;
+
+  while (isOpponentPit(check) && (pits[check] === 2 || pits[check] === 3)) {
+    captureIndices.push(check);
     totalCaptured += pits[check];
-    pits[check] = 0;
     check = (check - 1 + 12) % 12;
   }
 
-  scores[player - 1] += totalCaptured;
-
-  // Check Victory
-  let gameStatus = 'playing';
-  let winner = null;
-  let msg = `Player ${player === 1 ? '1 (You)' : '2 (AI)'} sowed pit ${pitIndex + 1}.`;
+  // Grand Slam Prohibition: cannot capture ALL opponent seeds
   if (totalCaptured > 0) {
-    msg += ` Captured ${totalCaptured} seed${totalCaptured > 1 ? 's' : ''}! 🎉`;
+    const oppRange = player === 1 ? [6, 7, 8, 9, 10, 11] : [0, 1, 2, 3, 4, 5];
+    const remainingOppSeeds = oppRange.reduce((sum, idx) => {
+      return sum + (captureIndices.includes(idx) ? 0 : pits[idx]);
+    }, 0);
+
+    if (remainingOppSeeds === 0) {
+      captureIndices = [];
+      totalCaptured = 0;
+    }
   }
 
-  if (scores[0] > 24) {
+  if (totalCaptured > 0) {
+    captureIndices.forEach((idx) => {
+      pits[idx] = 0;
+    });
+    scores[player - 1] += totalCaptured;
+
+    steps.push({
+      pits: [...pits],
+      activePit: lastPit,
+      seedsInHand: 0,
+      scores: [...scores],
+      message: `🎉 Packed ${totalCaptured} seed${totalCaptured > 1 ? 's' : ''}!`,
+      capturedPits: [...captureIndices],
+    });
+  }
+
+  let gameStatus = 'playing';
+  let winner = null;
+  let finalMsg = `${playerLabel} sowed pit ${startPitNum}.${totalCaptured > 0 ? ` Packed ${totalCaptured} seeds!` : ''}`;
+
+  if (scores[0] >= winningScore) {
     gameStatus = 'game_over';
     winner = 1;
-    msg = '🎉 Victory! You won Ayo Olopon with ' + scores[0] + ' seeds!';
-  } else if (scores[1] > 24) {
+    finalMsg = `🎉 Victory! You won Ayò with ${scores[0]} seeds!`;
+  } else if (scores[1] >= winningScore) {
     gameStatus = 'game_over';
     winner = 2;
-    msg = '💔 Game Over! Oba won with ' + scores[1] + ' seeds.';
+    finalMsg = `💔 Game Over! Oba won with ${scores[1]} seeds.`;
   } else {
-    // Check if remaining seeds on board are too few or next player has no valid moves
     const nextPlayer = player === 1 ? 2 : 1;
-    const nextPitsRange = nextPlayer === 1 ? [6, 7, 8, 9, 10, 11] : [0, 1, 2, 3, 4, 5];
+    const nextPitsRange = nextPlayer === 1 ? [0, 1, 2, 3, 4, 5] : [6, 7, 8, 9, 10, 11];
     const nextHasSeeds = nextPitsRange.some((idx) => pits[idx] > 0);
 
     if (!nextHasSeeds) {
-      // Collect remaining seeds for current player
       const remainingSeeds = pits.reduce((a, b) => a + b, 0);
       scores[player - 1] += remainingSeeds;
       for (let i = 0; i < 12; i++) pits[i] = 0;
@@ -94,41 +178,47 @@ export function sowAyoSeeds(state, pitIndex) {
       gameStatus = 'game_over';
       if (scores[0] > scores[1]) {
         winner = 1;
-        msg = `🎉 You won ${scores[0]} - ${scores[1]}!`;
+        finalMsg = `🎉 You won ${scores[0]} - ${scores[1]}!`;
       } else if (scores[1] > scores[0]) {
         winner = 2;
-        msg = `💔 Oba won ${scores[1]} - ${scores[0]}!`;
+        finalMsg = `💔 Oba won ${scores[1]} - ${scores[0]}!`;
       } else {
         winner = 'draw';
-        msg = `🤝 Game ended in a tie (${scores[0]} - ${scores[1]})!`;
+        finalMsg = `🤝 Game ended in a tie (${scores[0]} - ${scores[1]})!`;
       }
     }
   }
 
-  return {
+  const finalState = {
     ...state,
     pits,
     scores,
-    activePlayer: player === 1 ? 2 : 1,
+    activePlayer: gameStatus === 'game_over' ? state.activePlayer : (player === 1 ? 2 : 1),
     gameStatus,
     winner,
-    statusMessage: msg,
+    statusMessage: finalMsg,
+    seedCount,
   };
+
+  return { steps, finalState };
+}
+
+export function sowAyoSeeds(state, pitIndex) {
+  const { finalState } = getAyoMoveSteps(state, pitIndex);
+  return finalState;
 }
 
 export function getAyoAiMove(state, difficulty = 'medium') {
-  const validPits = [0, 1, 2, 3, 4, 5].filter((i) => state.pits[i] > 0);
+  const validPits = [6, 7, 8, 9, 10, 11].filter((i) => isValidAyoMove(state, i));
   if (validPits.length === 0) return null;
 
   if (difficulty === 'easy') {
-    // 45% chance to pick a random legal pit to play sub-optimally
     if (Math.random() < 0.45) {
       return validPits[Math.floor(Math.random() * validPits.length)];
     }
   }
 
   if (difficulty === 'hard') {
-    // 2-step lookahead minimax heuristic
     let bestPit = validPits[0];
     let maxNetScore = -999;
 
@@ -136,8 +226,7 @@ export function getAyoAiMove(state, difficulty = 'medium') {
       const testState = sowAyoSeeds(state, pitIdx);
       const scoreGained = testState.scores[1] - state.scores[1];
 
-      // Evaluate opponent's best response capture
-      const playerValidPits = [6, 7, 8, 9, 10, 11].filter((i) => testState.pits[i] > 0);
+      const playerValidPits = [0, 1, 2, 3, 4, 5].filter((i) => isValidAyoMove(testState, i));
       let oppMaxScore = 0;
       for (const oppPit of playerValidPits) {
         const oppState = sowAyoSeeds(testState, oppPit);
@@ -154,7 +243,7 @@ export function getAyoAiMove(state, difficulty = 'medium') {
     return bestPit;
   }
 
-  // Medium / Default (1-step greedy capture)
+  // Medium / Default
   let bestPit = validPits[0];
   let maxScore = -1;
 
@@ -169,3 +258,4 @@ export function getAyoAiMove(state, difficulty = 'medium') {
 
   return bestPit;
 }
+

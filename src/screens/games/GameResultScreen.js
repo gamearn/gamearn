@@ -70,7 +70,28 @@ export default function GameResultScreen({ route, navigation }) {
       const newLosses = !isWinner ? currentLosses + 1 : currentLosses;
       const newPlayed = Math.max(currentPlayed + 1, newWins + newLosses);
 
-      const newGp = calculateGamePower(newPlayed, newWins, newLosses);
+      // Per-Game stats calculation (e.g. Ludo: 4 games, Ayo: 3 games)
+      const existingGameStats = userProfile?.gameStats || {};
+      const currentThisGame = existingGameStats[gameId] || { gamesPlayed: 0, wins: 0, losses: 0 };
+
+      const thisGamePlayed = Number(currentThisGame.gamesPlayed || 0) + 1;
+      const thisGameWins = Number(currentThisGame.wins || 0) + (isWinner ? 1 : 0);
+      const thisGameLosses = Number(currentThisGame.losses || 0) + (!isWinner ? 1 : 0);
+
+      const updatedGameStats = {
+        ...existingGameStats,
+        [gameId]: {
+          gamesPlayed: thisGamePlayed,
+          wins: thisGameWins,
+          losses: thisGameLosses,
+        },
+      };
+
+      // Accumulate Game Power (GP) from existing stored GP, capped at 100 max
+      const currentGpVal = Number(userProfile?.gamePower ?? userProfile?.gp ?? 0);
+      const gpIncrement = isWinner ? 40 : 10;
+      const newGp = Math.min(100, Math.max(0, currentGpVal + gpIncrement));
+
       const userBalance = Number(userProfile?.walletBalance ?? userProfile?.balance ?? userProfile?.coins ?? 0);
       const newVp = calculateValuePoints(userBalance, newPlayed, newWins);
 
@@ -80,6 +101,7 @@ export default function GameResultScreen({ route, navigation }) {
         losses: newLosses,
         gamesLost: newLosses,
         gamesPlayed: newPlayed,
+        gameStats: updatedGameStats,
         gamePower: newGp,
         gp: newGp,
         gpText: formatGP(newGp),
@@ -88,16 +110,17 @@ export default function GameResultScreen({ route, navigation }) {
         vpText: formatVP(newVp),
       }).catch((err) => console.log('Notice updating result stats:', err));
 
-      recordGameStreak(updateProfileData, userProfile).catch(() => {});
+      // Record Win Streak: increments if isWinner=true, resets to 0 if isWinner=false
+      recordGameStreak(updateProfileData, userProfile, isWinner).catch(() => {});
     }
   }, []);
 
-  // Live profile stats fetched from real user profile data
-  const gamesWon = Number(userProfile?.gamesWon ?? userProfile?.wins ?? 0);
-  const gamesLost = Number(userProfile?.gamesLost ?? userProfile?.losses ?? 0);
-  const gamesPlayed = Number(userProfile?.gamesPlayed ?? (gamesWon + gamesLost));
-  const totalGames = gamesPlayed || (gamesWon + gamesLost) || 0;
-  const winRate = totalGames > 0 ? Math.round((gamesWon / totalGames) * 100) : 0;
+  // Per-game specific stats for display on this result screen
+  const currentGameStats = userProfile?.gameStats?.[gameId] || {};
+  const thisGamePlayed = Number(currentGameStats.gamesPlayed ?? (isWinner ? 1 : 1));
+  const thisGameWins = Number(currentGameStats.wins ?? (isWinner ? 1 : 0));
+  const thisGameLosses = Number(currentGameStats.losses ?? (isWinner ? 0 : 1));
+  const winRate = thisGamePlayed > 0 ? Math.round((thisGameWins / thisGamePlayed) * 100) : 0;
 
   const streakCount = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
   const currentGp = Number(userProfile?.gamePower ?? userProfile?.gp ?? 0);
@@ -298,24 +321,24 @@ export default function GameResultScreen({ route, navigation }) {
         </View>
 
 
-        {/* Overall Stats 4 Grid */}
+        {/* Per-Game Stats 4 Grid */}
         <View style={styles.statsGrid}>
           <View style={styles.statBox}>
             <Gamepad2 size={18} color="#00E5FF" style={{ marginBottom: 6 }} />
             <Text style={styles.statLabel}>Games Played</Text>
-            <Text style={styles.statValue}>{gamesPlayed}</Text>
+            <Text style={styles.statValue}>{thisGamePlayed}</Text>
           </View>
 
           <View style={styles.statBox}>
             <Trophy size={18} color="#F59E0B" style={{ marginBottom: 6 }} />
             <Text style={styles.statLabel}>Games Won</Text>
-            <Text style={styles.statValue}>{gamesWon}</Text>
+            <Text style={styles.statValue}>{thisGameWins}</Text>
           </View>
 
           <View style={styles.statBox}>
             <XCircle size={18} color="#EF4444" style={{ marginBottom: 6 }} />
             <Text style={styles.statLabel}>Games Lost</Text>
-            <Text style={styles.statValue}>{gamesLost}</Text>
+            <Text style={styles.statValue}>{thisGameLosses}</Text>
           </View>
 
           <View style={styles.statBox}>

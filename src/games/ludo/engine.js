@@ -98,7 +98,7 @@ function reduce(state, action) {
   if (action.type === 'TIMEOUT') {
     if (now < state.deadline) return state;
     const next = ORDER[(ORDER.indexOf(state.turn)+1)%4];
-    return {...state, turn:next, phase:'roll', available:[], extra:false, selected:0, hint:null, history:[], deadline:now+tMs, message:`Time expired. ${NAMES[next]} rolls next.`};
+    return {...state, turn:next, phase:'roll', available:[], extra:false, selected:0, hint:null, history:[], deadline:now+tMs, message:`⏱️ Time's up! Turn passed. ${NAMES[next]} rolls next.`};
   }
   if (action.type === 'SELECT') return state.available.includes(action.index) ? {...state, selected:action.index, hint:null} : state;
   if (action.type === 'HINT') {

@@ -10,11 +10,12 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { ArrowLeft, RotateCcw, Award } from 'lucide-react-native';
-import { ART_HEIGHT, ART_WIDTH, AyoArtwork, AyoGradients, PIT_X, PIT_Y } from './AyoArtwork';
+import { ART_HEIGHT, ART_WIDTH, AyoArtwork, AyoGradients, PITS_CONFIG } from './AyoArtwork';
 import {
   createAyoInitialState,
   getAyoAiMove,
-  sowAyoSeeds,
+  getAyoMoveSteps,
+  isValidAyoMove,
 } from './ayoGameEngine';
 import { setActiveMatch, clearActiveMatch, getActiveMatch, updateActiveMatchState } from '../../utils/activeMatch';
 import { useAuth } from '../../context/AuthContext';
@@ -79,26 +80,51 @@ function parseTimerSec(timerStr) {
   return 120;
 }
 
-export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficulty = 'auto' }) {
+export function AyoScreen({ timer = '2m', seedCount = 4, onWin, onBack, onHumanMove, aiDifficulty = 'auto' }) {
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
-  const [gameState, setGameState] = useState(createAyoInitialState);
+  const [gameState, setGameState] = useState(() => createAyoInitialState(seedCount));
   const [selected, setSelected] = useState(null);
-  const [dice, setDice] = useState([5, 3]);
-  const [rolling, setRolling] = useState(false);
+  const [activePit, setActivePit] = useState(null);
+  const [capturedPits, setCapturedPits] = useState([]);
+  const [isAnimating, setIsAnimating] = useState(false);
   const [dialogVisible, setDialogVisible] = useState(false);
-  const timerRef = useRef(null);
+
+  const gameStateRef = useRef(gameState);
+  const animTimerRef = useRef(null);
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
   const turnDuration = parseTimerSec(timer);
   const [secondsRemaining, setSecondsRemaining] = useState(turnDuration);
 
-  // Turn Countdown
+  // Turn Countdown & Timeout forfeit handling
   useEffect(() => {
-    if (gameState.gameStatus === 'game_over') return;
+    if (gameState.gameStatus === 'game_over' || isAnimating) return;
     const interval = setInterval(() => {
-      setSecondsRemaining((prev) => (prev > 0 ? prev - 1 : turnDuration));
+      setSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          // Timeout! Pass turn to opponent
+          setGameState((current) => {
+            if (current.gameStatus === 'game_over') return current;
+            const nextPlayer = current.activePlayer === 1 ? 2 : 1;
+            const msg = current.activePlayer === 1
+              ? "⏱️ Time's up! Turn passed to Oba."
+              : "⏱️ Oba timed out! Your turn.";
+            return {
+              ...current,
+              activePlayer: nextPlayer,
+              statusMessage: msg,
+            };
+          });
+          return turnDuration;
+        }
+        return prev - 1;
+      });
     }, 1000);
     return () => clearInterval(interval);
-  }, [gameState.gameStatus, turnDuration]);
+  }, [gameState.gameStatus, isAnimating, turnDuration]);
 
   useEffect(() => {
     setSecondsRemaining(turnDuration);
@@ -132,12 +158,53 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
+      if (animTimerRef.current) {
+        clearInterval(animTimerRef.current);
+        animTimerRef.current = null;
       }
     };
   }, []);
+
+  const executeAnimatedMove = (pitIndex) => {
+    if (isAnimating) return;
+    setIsAnimating(true);
+    setSelected(pitIndex);
+
+    const { steps, finalState } = getAyoMoveSteps(gameStateRef.current, pitIndex);
+    if (!steps || steps.length === 0) {
+      setGameState(finalState);
+      setIsAnimating(false);
+      setSelected(null);
+      return;
+    }
+
+    let stepIdx = 0;
+    animTimerRef.current = setInterval(() => {
+      if (stepIdx < steps.length) {
+        const step = steps[stepIdx];
+        setGameState((prev) => ({
+          ...prev,
+          pits: step.pits,
+          scores: step.scores,
+          statusMessage: step.message,
+        }));
+        setActivePit(step.activePit);
+        setCapturedPits(step.capturedPits || []);
+        stepIdx++;
+      } else {
+        clearInterval(animTimerRef.current);
+        animTimerRef.current = null;
+        setTimeout(() => {
+          setActivePit(null);
+          setCapturedPits([]);
+          setSelected(null);
+          setGameState(finalState);
+          gameStateRef.current = finalState;
+          setIsAnimating(false);
+        }, 350);
+      }
+    }, 240);
+  };
 
   // AI Turn Handling & Game Over Streak
   useEffect(() => {
@@ -158,22 +225,19 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
       updateActiveMatchState('ayo', gameState);
     }
 
-    if (gameState.activePlayer === 2) {
+    if (gameState.activePlayer === 2 && !isAnimating) {
       const activeDifficulty = getAiDifficulty(userProfile, aiDifficulty);
       const aiTimer = setTimeout(() => {
-        setGameState((prev) => {
-          if (prev.activePlayer !== 2 || prev.gameStatus === 'game_over') return prev;
-          const bestPit = getAyoAiMove(prev, activeDifficulty);
-          if (bestPit !== null) {
-            return sowAyoSeeds(prev, bestPit);
-          }
-          return prev;
-        });
-      }, 1100);
+        if (gameStateRef.current.activePlayer !== 2 || gameStateRef.current.gameStatus === 'game_over') return;
+        const bestPit = getAyoAiMove(gameStateRef.current, activeDifficulty);
+        if (bestPit !== null) {
+          executeAnimatedMove(bestPit);
+        }
+      }, 900);
 
       return () => clearTimeout(aiTimer);
     }
-  }, [gameState.activePlayer, gameState.gameStatus, gameState.winner, aiDifficulty]);
+  }, [gameState.activePlayer, gameState.gameStatus, isAnimating, aiDifficulty]);
 
   function layout(event) {
     const { width, height } = event.nativeEvent.layout;
@@ -181,35 +245,32 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
   }
 
   function handlePitPress(index) {
-    if (gameState.gameStatus === 'game_over') return;
+    if (isAnimating || gameState.gameStatus === 'game_over') return;
     if (gameState.activePlayer !== 1) {
       setGameState((prev) => ({ ...prev, statusMessage: "Wait for Oba's turn!" }));
       return;
     }
+    if (!isValidAyoMove(gameState, index)) {
+      setGameState((prev) => ({ ...prev, statusMessage: "Select a valid pit on your row!" }));
+      return;
+    }
 
     onHumanMove?.(index);
-    setSelected(index);
-    setGameState((prev) => sowAyoSeeds(prev, index));
-  }
-
-  function roll() {
-    if (timerRef.current) return;
-    setRolling(true);
-    let frames = 0;
-    timerRef.current = setInterval(() => {
-      const result = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
-      setDice(result);
-      if (++frames === 9) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-        setRolling(false);
-      }
-    }, 90);
+    executeAnimatedMove(index);
   }
 
   function handleRestart() {
-    setGameState(createAyoInitialState());
+    if (animTimerRef.current) {
+      clearInterval(animTimerRef.current);
+      animTimerRef.current = null;
+    }
+    const fresh = createAyoInitialState(seedCount);
+    setGameState(fresh);
+    gameStateRef.current = fresh;
     setSelected(null);
+    setActivePit(null);
+    setCapturedPits([]);
+    setIsAnimating(false);
     setDialogVisible(false);
   }
 
@@ -227,6 +288,8 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
     width = ART_WIDTH * scale;
     height = ART_HEIGHT * scale;
   }
+
+  const targetHalfSeeds = (gameState.seedCount || 4) * 6;
 
   return (
     <View onLayout={layout} style={styles.root}>
@@ -255,12 +318,12 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
           <View style={styles.playerInfo}>
             <Text style={styles.playerName}>Oba (Top Row)</Text>
             <Text style={styles.scoreText}>
-              Seeds Captured: <Text style={styles.scoreValue}>{gameState.scores[1]}</Text> / 24
+              Seeds Captured: <Text style={styles.scoreValue}>{gameState.scores[1]}</Text> / {targetHalfSeeds}
             </Text>
           </View>
           {gameState.activePlayer === 2 && (
             <View style={styles.turnBadge}>
-              <Text style={styles.turnText}>THINKING...</Text>
+              <Text style={styles.turnText}>{isAnimating ? 'SOWING...' : 'THINKING...'}</Text>
             </View>
           )}
         </View>
@@ -275,9 +338,9 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
               height={height}
               pits={gameState.pits}
               scores={gameState.scores}
-              dice={dice}
               selected={selected}
-              rolling={rolling}
+              activePit={activePit}
+              capturedPits={capturedPits}
             />
           </View>
 
@@ -291,45 +354,26 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
           </View>
 
           {/* Interactive Pit Touch Targets */}
-          {PIT_Y.map((y, row) => PIT_X.map((x, col) => {
-            const index = row * 6 + col;
-            return (
-              <Pressable
-                key={index}
-                accessibilityRole="button"
-                onPress={() => handlePitPress(index)}
-                style={({ pressed }) => ({
-                  position: 'absolute',
-                  left: (x - 79) * scale,
-                  top: (y - 79) * scale,
-                  width: 158 * scale,
-                  height: 158 * scale,
-                  borderRadius: 79 * scale,
-                  backgroundColor: pressed ? '#ffdc6644' : 'transparent',
-                  borderColor: selected === index ? '#F59E0B' : 'transparent',
-                  borderWidth: selected === index ? 3 * scale : 0,
-                  cursor: 'pointer',
-                })}
-              />
-            );
-          }))}
-
-          {/* Dice Tray Roller */}
-          <Pressable
-            accessibilityRole="button"
-            disabled={rolling}
-            onPress={roll}
-            style={({ pressed }) => ({
-              position: 'absolute',
-              left: 527 * scale,
-              top: 432 * scale,
-              width: 354 * scale,
-              height: 354 * scale,
-              borderRadius: 177 * scale,
-              backgroundColor: pressed ? '#ffdc6622' : 'transparent',
-              cursor: 'pointer',
-            })}
-          />
+          {PITS_CONFIG.map((pit) => (
+            <Pressable
+              key={pit.index}
+              accessibilityRole="button"
+              disabled={isAnimating || gameState.gameStatus === 'game_over' || gameState.activePlayer !== 1}
+              onPress={() => handlePitPress(pit.index)}
+              style={({ pressed }) => ({
+                position: 'absolute',
+                left: (pit.x - 79) * scale,
+                top: (pit.y - 79) * scale,
+                width: 158 * scale,
+                height: 158 * scale,
+                borderRadius: 79 * scale,
+                backgroundColor: pressed ? '#ffdc6644' : 'transparent',
+                borderColor: selected === pit.index ? '#F59E0B' : 'transparent',
+                borderWidth: selected === pit.index ? 3 * scale : 0,
+                cursor: 'pointer',
+              })}
+            />
+          ))}
         </View>
       )}
 
@@ -340,12 +384,12 @@ export function AyoScreen({ timer = '2m', onWin, onBack, onHumanMove, aiDifficul
           <View style={styles.playerInfo}>
             <Text style={styles.playerName}>You (Bottom Row)</Text>
             <Text style={styles.scoreText}>
-              Seeds Captured: <Text style={styles.scoreValue}>{gameState.scores[0]}</Text> / 24
+              Seeds Captured: <Text style={styles.scoreValue}>{gameState.scores[0]}</Text> / {targetHalfSeeds}
             </Text>
           </View>
           {gameState.activePlayer === 1 && (
             <View style={[styles.turnBadge, { backgroundColor: '#10B981' }]}>
-              <Text style={styles.turnText}>YOUR TURN</Text>
+              <Text style={styles.turnText}>{isAnimating ? 'SOWING...' : 'YOUR TURN'}</Text>
             </View>
           )}
         </View>

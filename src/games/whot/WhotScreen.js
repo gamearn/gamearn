@@ -109,11 +109,15 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, o
       setGameState((prev) => {
         const nextBonus = Math.max(0, prev.dailyBonusSeconds - 1);
         if (!isRemote && prev.secondsRemaining <= 1) {
-          // Timeout! Force turn progression
-          if (prev.activePlayerIndex === 0) {
-            // Human timed out: auto draw
-            return drawCard(prev, 0);
-          }
+          // Timeout! Forfeit turn & auto draw card
+          const drawn = drawCard(prev, prev.activePlayerIndex);
+          const pName = prev.players[prev.activePlayerIndex]?.name || 'Player';
+          return {
+            ...drawn,
+            statusMessage: `⏱️ Time's up! ${pName} lost turn and drew a card.`,
+            secondsRemaining: prev.turnTimerSeconds || 120,
+            dailyBonusSeconds: nextBonus,
+          };
         }
         return {
           ...prev,

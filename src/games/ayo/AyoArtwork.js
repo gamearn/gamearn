@@ -7,6 +7,23 @@ export const ART_HEIGHT = 1116;
 export const PIT_X = [292, 458, 623, 787, 952, 1117];
 export const PIT_Y = [327, 869];
 
+export const PITS_CONFIG = [
+  // Bottom Row (User / Player 1): left to right (pits 0..5, numbers 1-6)
+  { index: 0, x: 292, y: 869, number: 1, isOba: false },
+  { index: 1, x: 458, y: 869, number: 2, isOba: false },
+  { index: 2, x: 623, y: 869, number: 3, isOba: false },
+  { index: 3, x: 787, y: 869, number: 4, isOba: false },
+  { index: 4, x: 952, y: 869, number: 5, isOba: false },
+  { index: 5, x: 1117, y: 869, number: 6, isOba: false },
+  // Top Row (Oba / Player 2): left to right (pits 11..6, numbers 6-1)
+  { index: 11, x: 292, y: 327, number: 6, isOba: true },
+  { index: 10, x: 458, y: 327, number: 5, isOba: true },
+  { index: 9, x: 623, y: 327, number: 4, isOba: true },
+  { index: 8, x: 787, y: 327, number: 3, isOba: true },
+  { index: 7, x: 952, y: 327, number: 2, isOba: true },
+  { index: 6, x: 1117, y: 327, number: 1, isOba: true },
+];
+
 export const FONTS = {
   label: Platform.OS === 'ios' ? 'Avenir Next' : 'sans-serif-condensed',
   title: Platform.OS === 'ios' ? 'Avenir Next' : 'sans-serif',
@@ -26,7 +43,6 @@ export function AyoGradients() {
       <LinearGradient id="bowlRim" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#ffc174" /><Stop offset="0.24" stopColor="#c57830" /><Stop offset="0.65" stopColor="#71310d" /><Stop offset="1" stopColor="#d9883b" /></LinearGradient>
       <RadialGradient id="seed" cx="35%" cy="24%" r="85%"><Stop offset="0" stopColor="#fffef9" /><Stop offset="0.5" stopColor="#fffdf4" /><Stop offset="0.8" stopColor="#f1dfc6" /><Stop offset="1" stopColor="#c69f73" /></RadialGradient>
       <LinearGradient id="leaf" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#82b92c" /><Stop offset="0.55" stopColor="#418c28" /><Stop offset="1" stopColor="#10531e" /></LinearGradient>
-      <LinearGradient id="die" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#fffef8" /><Stop offset="1" stopColor="#f6e5bf" /></LinearGradient>
       <ClipPath id="inside"><Rect x="66" y="188" width="1277" height="824" rx="75" /></ClipPath>
       <ClipPath id="outer"><Rect x="22" y="134" width="1365" height="927" rx="139" /></ClipPath>
     </Defs>
@@ -151,12 +167,12 @@ const seedPositions = [
   [-2, -4, 10], [-12, 36, 50], [0, -35, 15],
 ];
 
-export function SeedPit({ x, y, count, number, selected, variation = 0 }) {
+export function SeedPit({ x, y, count, number, selected, active, captured, variation = 0 }) {
   return (
     <G transform={`translate(${x} ${y})`}>
       <Ellipse cy="9" rx="81" ry="83" fill="#220b01" opacity={0.7} />
-      <Circle r="79" fill="url(#bowlRim)" stroke="#4e2109" strokeWidth="4" />
-      <Circle r="77" fill="none" stroke="#efb164" strokeWidth="2" />
+      <Circle r="79" fill="url(#bowlRim)" stroke={active ? '#00E5FF' : captured ? '#FF3B30' : '#4e2109'} strokeWidth={active || captured ? 6 : 4} />
+      <Circle r="77" fill="none" stroke={active ? '#00E5FF' : captured ? '#FF6B6B' : '#efb164'} strokeWidth={active || captured ? 4 : 2} />
       <Circle cy="2" r="65" fill="url(#bowl)" />
       <Path d="M-53 37 Q0 98 54 37" fill="none" stroke="#bf6b26" strokeWidth="5" opacity={0.7} />
       <G transform={`rotate(${variation * 8})`}>
@@ -164,8 +180,10 @@ export function SeedPit({ x, y, count, number, selected, variation = 0 }) {
       </G>
       {count > 10 && <SvgText x="0" y="14" textAnchor="middle" fill="#fff6cd" stroke="#391806" strokeWidth="1" fontSize="32" fontWeight="bold">{count}</SvgText>}
       {selected && <Circle r="82" fill="none" stroke="#fff39a" strokeWidth="5" />}
+      {active && <Circle r="84" fill="none" stroke="#00E5FF" strokeWidth="4" opacity={0.9} />}
+      {captured && <Circle r="84" fill="none" stroke="#FF453A" strokeWidth="5" opacity={0.9} />}
       <Rect x="-43" y="79" width="86" height="43" rx="21" fill="#210d03" />
-      <Rect x="-40" y="78" width="80" height="38" rx="18" fill="url(#panel)" stroke="#f1c064" strokeWidth="2.5" />
+      <Rect x="-40" y="78" width="80" height="38" rx="18" fill="url(#panel)" stroke={active ? '#00E5FF' : '#f1c064'} strokeWidth={2.5} />
       <SvgText x="0" y="109" textAnchor="middle" fontFamily={FONTS.label} fontWeight="800" fontSize="32" fill="#fffdef">{number}</SvgText>
     </G>
   );
@@ -185,38 +203,7 @@ export function SideLettering({ x }) {
   );
 }
 
-export function Die({ x, y, value, angle }) {
-  const dots = [];
-  if (value % 2) dots.push([0, 0]);
-  if (value >= 2) dots.push([-23, -23], [23, 23]);
-  if (value >= 4) dots.push([-23, 23], [23, -23]);
-  if (value === 6) dots.push([-23, 0], [23, 0]);
-  return (
-    <G transform={`translate(${x} ${y}) rotate(${angle})`}>
-      <Rect x="-39" y="-25" width="89" height="94" rx="17" fill="#291000" opacity={0.5} />
-      <Rect x="-42" y="-33" width="84" height="87" rx="14" fill="#d4a86f" stroke="#f1cf9d" strokeWidth="2" />
-      <Rect x="-42" y="-43" width="84" height="85" rx="12" fill="url(#die)" stroke="#fffbed" strokeWidth="3" />
-      {dots.map(([cx, cy], i) => <Circle key={i} cx={cx} cy={cy} r="7.1" fill="#181813" />)}
-      <Path d="M-29 46 h9 M-29 50 h9 M19 46 h8 M19 50 h8" stroke="#442811" strokeWidth="2" strokeLinecap="round" />
-    </G>
-  );
-}
-
-export function DiceTray({ dice, rolling }) {
-  return (
-    <G transform="translate(704 609)">
-      <Circle cy="11" r="185" fill="#1d0901" opacity={0.8} />
-      <Circle r="177" fill="url(#bowlRim)" stroke="#341100" strokeWidth="7" />
-      <Circle cy="-1" r="174" fill="none" stroke="#f3b060" strokeWidth="5" />
-      <Circle r="157" fill="url(#bowl)" stroke="#ba652c" strokeWidth="5" />
-      {[115, 102, 89, 77, 66].map((r, i) => <Ellipse key={r} cx={i % 2 ? 8 : -5} cy={30} rx={r} ry={r * 0.68} fill="none" stroke={i % 2 ? '#b66a32' : '#592006'} strokeWidth="4" opacity={0.27} />)}
-      <Die x={-49} y={-8} value={dice[0]} angle={rolling ? 15 : -28} />
-      <Die x={44} y={6} value={dice[1]} angle={rolling ? -10 : 21} />
-    </G>
-  );
-}
-
-export function AyoArtwork({ width, height, pits, scores, dice, selected, rolling = false }) {
+export function AyoArtwork({ width, height, pits, scores, selected, activePit, capturedPits }) {
   return (
     <Svg width={width} height={height} viewBox="0 0 1409 1116">
       <AyoGradients />
@@ -229,13 +216,28 @@ export function AyoArtwork({ width, height, pits, scores, dice, selected, rollin
       {/* Bottom Panels: Player 1 (You) */}
       <ScorePanel x={67} y={757} player={1} score={scores[0]} label="YOU" />
       <ScorePanel x={1207} y={757} player={1} score={scores[0]} label="YOU" />
-      {PIT_Y.map((y, row) => PIT_X.map((x, col) => <SeedPit key={`${row}-${col}`} x={x} y={y} number={col + 1} count={pits[row * 6 + col] ?? 0} variation={(col + row) % 3 - 1} selected={selected === row * 6 + col} />))}
+
+      {/* Render all 12 Pits according to PITS_CONFIG */}
+      {PITS_CONFIG.map((pit) => (
+        <SeedPit
+          key={pit.index}
+          x={pit.x}
+          y={pit.y}
+          number={pit.number}
+          count={pits[pit.index] ?? 0}
+          variation={(pit.index % 3) - 1}
+          selected={selected === pit.index}
+          active={activePit === pit.index}
+          captured={capturedPits?.includes(pit.index)}
+        />
+      ))}
+
       <SideLettering x={94} />
       <SideLettering x={1110} />
       <Path d="M361 596 H491 M361 619 H491 M911 596 H1047 M911 619 H1047" stroke="#f2ac4f" strokeWidth="4" strokeLinecap="round" />
       <Leaf x={333} y={635} rotation={8} scale={0.57} />
       <Leaf x={1074} y={635} rotation={-8} scale={0.57} />
-      <DiceTray dice={dice} rolling={rolling} />
     </Svg>
   );
 }
+

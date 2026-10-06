@@ -116,18 +116,19 @@ export function CheckersScreen({
     return () => clearInterval(interval);
   }, [secondsRemaining, dialog, gameOver.isOver]);
 
-  // Handle timer expiration (turn timeout)
+  // Handle timer expiration (turn timeout - forfeit turn to opponent)
   useEffect(() => {
     if (seconds === 0 && !gameOver.isOver && dialog === null) {
       if (turn === playerSide) {
-        setGameOver({ isOver: true, winner: aiSide });
-        if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
-        if (onWin) onWin(false);
+        setTurn(aiSide);
+        setNotice("⏱️ Time's up! Your turn was passed to Oba.");
       } else {
         setTurn(playerSide);
+        setNotice("⏱️ Oba timed out! Your turn.");
       }
+      setSeconds(turnDuration);
     }
-  }, [seconds, gameOver.isOver, dialog, turn, playerSide, aiSide, onWin, updateProfileData, userProfile]);
+  }, [seconds, gameOver.isOver, dialog, turn, playerSide, aiSide, turnDuration]);
 
   // Check if player has 0 legal moves on their turn
   useEffect(() => {

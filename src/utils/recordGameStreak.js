@@ -17,37 +17,26 @@ export function getDayGap(dateStr1, dateStr2) {
   return Math.round((utc2 - utc1) / (1000 * 60 * 60 * 24));
 }
 
-export async function recordGameStreak(updateProfileData, userProfile) {
+export async function recordGameStreak(updateProfileData, userProfile, isWinner = null) {
   if (typeof updateProfileData !== 'function') return;
   const todayStr = getLocalDateString();
-  const persistedDate = userProfile?.lastStreakPersistedDate || userProfile?.lastBackendStreakDate;
-  const lastDate = persistedDate || userProfile?.lastStreakDate || userProfile?.lastCheckInDate || userProfile?.lastPlayedDate;
-
-  // If today's streak update was already persisted to backend and storage, skip duplicate call
-  if (persistedDate === todayStr) return;
-
   const currentStreak = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
-  const currentWins = Number(userProfile?.wins ?? userProfile?.gamesWon ?? 0);
-  const currentLosses = Number(userProfile?.losses ?? userProfile?.gamesLost ?? 0);
-  const gamesPlayed = Math.max(Number(userProfile?.gamesPlayed ?? 0), currentWins + currentLosses);
 
   let newStreak = currentStreak;
-  if (!lastDate) {
-    newStreak = 1;
+
+  if (isWinner === true) {
+    // Player won the match -> Increment win streak!
+    newStreak = currentStreak + 1;
+  } else if (isWinner === false) {
+    // Player lost the match -> Reset win streak to 0!
+    newStreak = 0;
   } else {
-    const gap = getDayGap(lastDate, todayStr);
-    if (gap === 1) {
-      newStreak = currentStreak > 0 ? currentStreak + 1 : 1;
-    } else if (gap > 1) {
-      newStreak = 1;
-    } else if (gap === 0) {
-      newStreak = Math.max(1, currentStreak);
-    }
+    // Match in progress or outcome unknown -> preserve existing streak
+    newStreak = currentStreak;
   }
 
   try {
     await updateProfileData({
-      gamesPlayed,
       streak: newStreak,
       currentStreak: newStreak,
       lastCheckInDate: todayStr,
@@ -56,61 +45,32 @@ export async function recordGameStreak(updateProfileData, userProfile) {
       lastStreakPersistedDate: todayStr,
     });
   } catch (err) {
-    console.log('Notice: Could not record game streak:', err?.message || err);
+    console.log('Notice: Could not record win streak:', err?.message || err);
   }
 }
 
 export function getStreakInfo(userProfile) {
   const streakCount = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
-  const todayStr = getLocalDateString();
-  const lastDate = userProfile?.lastStreakPersistedDate || userProfile?.lastStreakDate || userProfile?.lastPlayedDate || userProfile?.lastCheckInDate;
 
-  if (!lastDate) {
+  if (streakCount <= 0) {
     return {
-      dayText: 'Day 1',
-      statusText: 'At Risk',
-      isAtRisk: true,
-      isActive: false,
-      streakNumber: 1,
-      subText: 'Play a game today to start your streak!',
-    };
-  }
-
-  const gap = getDayGap(lastDate, todayStr);
-
-  if (gap === 0) {
-    // Played today!
-    const num = Math.max(1, streakCount);
-    return {
-      dayText: `Day ${num}`,
-      statusText: 'Active',
-      isAtRisk: false,
-      isActive: true,
-      streakNumber: num,
-      subText: 'Great! Today’s streak is active.',
-    };
-  } else if (gap === 1) {
-    // Played yesterday, hasn't played today yet -> AT RISK!
-    const num = Math.max(1, streakCount);
-    return {
-      dayText: `Day ${num}`,
-      statusText: 'At Risk',
-      isAtRisk: true,
-      isActive: false,
-      streakNumber: num,
-      subText: 'Play a game today to keep your streak!',
-    };
-  } else {
-    // Missed 2+ days -> Reset to Day 1, At Risk until played today
-    return {
-      dayText: 'Day 0',
-      statusText: 'At Risk',
+      dayText: '0 Wins',
+      statusText: 'No Streak',
       isAtRisk: true,
       isActive: false,
       streakNumber: 0,
-      subText: 'Streak at risk! Play a game today to start Day 1.',
+      subText: 'Win a game to start your win streak!',
     };
   }
+
+  return {
+    dayText: `${streakCount} ${streakCount === 1 ? 'Win' : 'Wins'}`,
+    statusText: 'Active Streak',
+    isAtRisk: false,
+    isActive: true,
+    streakNumber: streakCount,
+    subText: `🔥 ${streakCount} game win streak!`,
+  };
 }
 
 
