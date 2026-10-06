@@ -15,6 +15,7 @@ import { PlusCircle, Banknote, Trophy, ShoppingCart, Flame, ChevronRight, ArrowL
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { wallet, streak } from '../../services/api';
+import { getStreakInfo } from '../../utils/recordGameStreak';
 
 const CREDIT_TYPES = new Set(['deposit', 'prize', 'refund', 'tournament_prize']);
 
@@ -152,32 +153,35 @@ export default function WalletScreen({ navigation }) {
             </View>
           </View>
 
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('DailyStreak')}
-            style={[
-              styles.streakPillBtn,
-              {
-                backgroundColor: (userProfile?.streak ?? 0) > 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                borderColor: (userProfile?.streak ?? 0) > 0 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
-              },
-            ]}
-          >
-            <Flame
-              size={14}
-              color={(userProfile?.streak ?? 0) > 0 ? '#10B981' : '#EF4444'}
-              fill={(userProfile?.streak ?? 0) > 0 ? '#10B981' : 'none'}
-              style={{ marginRight: 6 }}
-            />
-            <Text
-              style={[
-                styles.streakPillText,
-                { color: (userProfile?.streak ?? 0) > 0 ? '#10B981' : '#EF4444' },
-              ]}
-            >
-              {(userProfile?.streak ?? 0) > 0 ? `${userProfile?.streak}-Day Streak Active` : 'Streak Inactive'}
-            </Text>
-          </TouchableOpacity>
+          {(() => {
+            const streakInfo = getStreakInfo(userProfile);
+            return (
+              <View
+                style={[
+                  styles.streakPillBtn,
+                  {
+                    backgroundColor: streakInfo.isActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                    borderColor: streakInfo.isActive ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)',
+                  },
+                ]}
+              >
+                <Flame
+                  size={14}
+                  color={streakInfo.isActive ? '#10B981' : '#F59E0B'}
+                  fill={streakInfo.isActive ? '#10B981' : 'none'}
+                  style={{ marginRight: 6 }}
+                />
+                <Text
+                  style={[
+                    styles.streakPillText,
+                    { color: streakInfo.isActive ? '#10B981' : '#F59E0B' },
+                  ]}
+                >
+                  {`${streakInfo.dayText} • ${streakInfo.statusText}`}
+                </Text>
+              </View>
+            );
+          })()}
         </View>
 
         {/* Tab Navigation */}

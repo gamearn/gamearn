@@ -23,8 +23,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { reference, regions } from './art';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import ActiveMatchBanner from '../../components/ActiveMatchBanner';
 import { settings as settingsApi, wallet, tournaments } from '../../services/api';
+import { getStreakInfo } from '../../utils/recordGameStreak';
+import { resolveAvatarSource } from '../../utils/avatarPresets';
 const { INITIAL_STATE, reducer, parseAmount, money, localDay, leaderboard } = require('./model');
 
 const STORAGE_KEY = '@adebayo-dashboard/v1';
@@ -261,11 +262,7 @@ export default function HomeScreen({ navigation }) {
       <View style={s.header}>
         <Tap label="Open your profile" onPress={() => navigation?.navigate('ProfileTab')} style={s.member}>
           <LinearGradient colors={[CYAN, '#146aff', '#ffbb00']} style={s.avatarRing}>
-            {avatarUri && avatarUri.startsWith('http') ? (
-              <Image source={{ uri: avatarUri }} style={[s.avatar, { width: 55 * scale, height: 55 * scale, borderRadius: (55 * scale) / 2 }]} />
-            ) : (
-              <View style={[s.avatar, s.avatarFallback]}><Text style={s.avatarInitial}>{initials}</Text></View>
-            )}
+            <Image source={resolveAvatarSource(avatarUri)} style={[s.avatar, { width: 55 * scale, height: 55 * scale, borderRadius: (55 * scale) / 2 }]} />
           </LinearGradient>
           <View style={{ marginLeft: 15 * scale }}>
             {txt(displayName, 20, s.medium)}
@@ -297,10 +294,6 @@ export default function HomeScreen({ navigation }) {
         <Tap label={`Open wallet, balance ${money(state.balance)}`} onPress={() => navigation?.navigate('WalletTab')} style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             {txt('Wallet Balance', 13, s.muted)}
-            <View style={{ flexDirection: 'row', gap: 6 * scale }}>
-              <Text style={{ color: '#F59E0B', fontSize: 11 * scale, fontWeight: '900' }}>{userProfile?.gpText || '0 GP'}</Text>
-              <Text style={{ color: '#60A5FA', fontSize: 11 * scale, fontWeight: '900' }}>{userProfile?.vpText || '0 VP'}</Text>
-            </View>
           </View>
           {txt(homeDataLoading ? 'Loading...' : formatNaira(walletBalanceNaira), 24, s.bold)}
           {txt('Live balance from wallet', 13, s.cyan)}
@@ -371,13 +364,13 @@ export default function HomeScreen({ navigation }) {
   }
 
   function Streak() {
-    const userStreak = userProfile?.streak ?? 0;
-    const isActive = userStreak > 0;
+    const streakInfo = getStreakInfo(userProfile);
+    const streakDays = streakInfo.streakNumber;
     return (
       <LinearGradient colors={['#002332', '#07122b', '#200732']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.streak}>
         <View style={s.sectionRow}>
           {txt('Streak Progress', 18, s.bold)}
-          {txt(isActive ? 'Reach 30 days to unlock your reward!' : 'Streak Inactive - Check in today!', 10, isActive ? s.muted : { color: '#EF4444' })}
+          {txt(streakInfo.isActive ? 'Great! Streak active for today.' : 'Play a game today to keep your streak!', 10, streakInfo.isActive ? s.cyan : { color: '#F59E0B' })}
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled style={s.milestoneScroller} contentContainerStyle={s.milestones}>
           <View style={s.milestoneTrack}>
@@ -386,19 +379,19 @@ export default function HomeScreen({ navigation }) {
             {[7, 14, 30, 50, 90].map((day) => {
               const done = streakDays >= day;
               return (
-                <Tap key={day} label={`${day} day milestone, ${done ? 'completed' : 'locked'}`} onPress={() => open('streak')} style={s.milestone}>
+                <View key={day} style={s.milestone}>
                   <View style={[s.milestoneCircle, done && s.done]}>
                     {icon(done ? 'checkmark' : 'lock-closed', 19, done ? '#fff' : '#d8e4ef')}
                   </View>
                   {txt(String(day), 13, { marginTop: 6 * scale, color: '#fff' })}
                   {txt('Days', 12, { color: '#ced6e8' })}
-                </Tap>
+                </View>
               );
             })}
-            <Tap label="90 day reward details" onPress={() => open('reward')} style={s.reward}>
+            <View style={s.reward}>
               <Art name="gift" width={48 * scale} height={55 * scale} style={s.gift} />
               {txt(`90-Day\nReward\n${streakDays >= 90 ? 'Unlocked' : 'Locked'}`, 12, { textAlign: 'center', lineHeight: 14 * scale })}
-            </Tap>
+            </View>
           </View>
         </ScrollView>
       </LinearGradient>
@@ -439,8 +432,7 @@ export default function HomeScreen({ navigation }) {
   }
 
   function Home() {
-    const userStreak = userProfile?.streak ?? 0;
-    const isActive = userStreak > 0;
+    const streakInfo = getStreakInfo(userProfile);
 
     return (
       <>
@@ -463,21 +455,20 @@ export default function HomeScreen({ navigation }) {
         </View>
         <View style={s.stats}>
           <WalletCard />
-          <Tap label={`${userStreak} day streak. View details`} onPress={() => navigation?.navigate('DailyStreak')} style={[s.card, s.streakSummary]}>
+          <View style={[s.card, s.streakSummary]}>
             <Art name="flame" width={47 * scale} height={62 * scale} />
             <View style={{ flex: 1, marginLeft: 6 * scale }}>
               <View style={s.inline}>
-                {txt(`${userStreak} Days`, 21, [s.bold, { color: isActive ? '#FFFFFF' : '#EF4444' }])}
-                <View style={[s.activeBadge, { backgroundColor: isActive ? '#10B981' : '#EF4444' }]}>
-                  {txt(isActive ? 'Active' : 'Inactive', 12, { color: '#FFFFFF', fontWeight: '800' })}
-                  {icon(isActive ? 'checkmark-circle' : 'close-circle', 13, '#FFFFFF')}
+                {txt(streakInfo.dayText, 21, [s.bold, { color: '#FFFFFF' }])}
+                <View style={[s.activeBadge, { backgroundColor: streakInfo.isActive ? '#10B981' : '#F59E0B' }]}>
+                  {txt(streakInfo.statusText, 12, { color: '#FFFFFF', fontWeight: '800' })}
+                  {icon(streakInfo.isActive ? 'checkmark-circle' : 'alert-circle', 13, '#FFFFFF')}
                 </View>
               </View>
-              {txt('Day Streak', 14, s.muted)}
-              {txt(isActive ? 'Great! Keep it going.' : 'Streak is inactive. Check in today!', 13, isActive ? s.cyan : { color: '#EF4444' })}
+              {txt('Daily Streak', 14, s.muted)}
+              {txt(streakInfo.subText, 12, streakInfo.isActive ? s.cyan : { color: '#F59E0B' })}
             </View>
-            {icon('chevron-forward', 18, '#e6e9ff')}
-          </Tap>
+          </View>
         </View>
         <Streak />
         <View style={s.playStrip}>

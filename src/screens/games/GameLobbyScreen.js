@@ -134,35 +134,23 @@ export default function GameLobbyScreen({ route, navigation }) {
     });
   };
 
-  const startMatchmaking = () => {
-    if (!amountValid) {
-      Alert.alert('Enter an amount', `Amount must be between ${naira(MIN_AMOUNT_N)} and ${naira(MAX_AMOUNT_N)}.`);
-      return;
-    }
+  const handleQuickMatch = () => {
     if (!userProfile) {
-      Alert.alert('Sign in required', 'Create an account to play real matches.', [
+      Alert.alert('Sign in required', 'Create an account to play quick matches.', [
         { text: 'OK', onPress: () => navigation.navigate('Login') },
       ]);
-      return;
-    }
-    if (balanceKobo < selectedFee) {
-      Alert.alert(
-        'Insufficient balance',
-        `This entry costs ${naira(koboToN(selectedFee))}. Your balance is ${naira(balanceNaira)}.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Buy Coins', onPress: () => navigation.navigate('BuyCoins') },
-        ],
-      );
       return;
     }
 
     setIsSearching(true);
     setQueueLen(0);
-    Alert.alert('⚔️ Challenge Created!', `All active players have been notified of your ${gameName} challenge broadcast! Searching for an opponent...`);
+    Alert.alert(
+      '⚡ Quick Match Broadcasted!',
+      `Notification sent to all online players to play a free ${gameName} match! Searching for an opponent...`
+    );
 
     const sock = new GamearnSocket({
-      onConnected: () => joinQueue(selectedFee),
+      onConnected: () => joinQueue(0),
       onMatchFound: navigateToMatch,
       onError: (msg) => {
         const m = msg || 'Game service is temporarily unavailable.';
@@ -172,6 +160,59 @@ export default function GameLobbyScreen({ route, navigation }) {
     });
     sockRef.current = sock;
     sock.connect();
+  };
+
+  const handleCreateChallenge = async () => {
+    if (!amountValid) {
+      Alert.alert('Enter an amount', `Amount must be between ${naira(MIN_AMOUNT_N)} and ${naira(MAX_AMOUNT_N)}.`);
+      return;
+    }
+    if (!userProfile) {
+      Alert.alert('Sign in required', 'Create an account to issue challenges.', [
+        { text: 'OK', onPress: () => navigation.navigate('Login') },
+      ]);
+      return;
+    }
+    if (balanceKobo < selectedFee) {
+      Alert.alert(
+        'Insufficient balance',
+        `This challenge costs ${naira(koboToN(selectedFee))}. Your balance is ${naira(balanceNaira)}.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Buy Coins', onPress: () => navigation.navigate('BuyCoins') },
+        ]
+      );
+      return;
+    }
+
+    try {
+      await challenges.create({
+        gameType,
+        entryFeeKobo: selectedFee,
+        options: {
+          timer: selectedTimer,
+          tokenCount,
+          playerCount,
+          playerColor,
+          cardCount,
+          enableSpecialCards,
+          seedCount,
+        },
+      });
+
+      Alert.alert(
+        '⚔️ Challenge Created!',
+        `Your ₦${naira(koboToN(selectedFee))} ${gameName} challenge has been published. All online players have been notified to join!`,
+        [
+          {
+            text: 'View My Challenges',
+            onPress: () => navigation.navigate('ChallengeHub', { gameType, tab: 'mine' }),
+          },
+        ]
+      );
+    } catch (err) {
+      Alert.alert('Create failed', err?.message || 'Could not create the challenge.');
+    }
   };
 
   const cancelSearch = () => {
@@ -407,10 +448,10 @@ export default function GameLobbyScreen({ route, navigation }) {
         </View>
         <View style={styles.summaryRow}>
           <Text style={{ color: theme.textSecondary }}>Winner takes (up to):</Text>
-          <Text style={{ color: theme.success, fontWeight: '800' }}>{amountValid ? naira(koboToN(Math.floor(selectedFee * 1.9))) : '—'}</Text>
+          <Text style={{ color: theme.success, fontWeight: '800' }}>{amountValid ? naira(koboToN(Math.floor(selectedFee * 1.6))) : '—'}</Text>
         </View>
         <Text style={[styles.note, { color: theme.textMuted }]}>
-          Entry fees are debited only when a match starts. A 10% platform fee applies to prize payouts.
+          Entry fees are debited only when a match starts. A 20% platform fee applies to prize payouts.
         </Text>
       </GACard>
 
@@ -425,15 +466,15 @@ export default function GameLobbyScreen({ route, navigation }) {
 
       <GAButton
         title="Create Challenge"
-        onPress={() => navigation.navigate('ChallengeHub', { gameType, gameName, targetScreen })}
+        onPress={handleCreateChallenge}
         icon={<Swords size={20} color="#FFF" />}
         style={{ marginTop: 12 }}
       />
 
       {!isSearching ? (
         <GAButton
-          title="Quick Match"
-          onPress={startMatchmaking}
+          title="Quick Match (Free Broadcast) ⚡"
+          onPress={handleQuickMatch}
           variant="outline"
           icon={<Swords size={20} color="#FFF" />}
           style={{ marginTop: 12 }}

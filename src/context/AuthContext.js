@@ -39,23 +39,51 @@ import { getLocalDateString, getDayGap } from '../utils/recordGameStreak';
 
 const AuthContext = createContext();
 
+const PROFILE_CACHE_KEY = 'gamearn.backendProfile.v1';
+
 async function getCachedProfile(uid) {
   try {
-    const raw = await AsyncStorage.getItem(`@gamearn_profile_${uid}`);
-    return raw ? JSON.parse(raw) : null;
+    if (uid) {
+      const rawUid = await AsyncStorage.getItem(`@gamearn_profile_${uid}`);
+      if (rawUid) return JSON.parse(rawUid);
+    }
+    const rawGlobal = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
+    return rawGlobal ? JSON.parse(rawGlobal) : null;
   } catch (e) {
     return null;
   }
 }
 
-async function saveCachedProfile(uid, profile) {
-  if (!uid || !profile) return;
+async function readCachedProfile(uid) {
+  return getCachedProfile(uid);
+}
+
+async function writeCachedProfile(me, uid) {
+  if (!me) return;
   try {
-    await AsyncStorage.setItem(`@gamearn_profile_${uid}`, JSON.stringify(profile));
-  } catch (e) {
-    console.warn('Could not save cached profile:', e);
+    const json = JSON.stringify(me);
+    await AsyncStorage.setItem(PROFILE_CACHE_KEY, json);
+    const targetUid = uid || me.uid || me.id || getCurrentUser()?.uid;
+    if (targetUid) {
+      await AsyncStorage.setItem(`@gamearn_profile_${targetUid}`, json);
+    }
+  } catch (err) {
+    console.log('Notice: Could not cache profile:', err?.message || err);
   }
 }
+
+async function clearCachedProfile(uid) {
+  try {
+    await AsyncStorage.removeItem(PROFILE_CACHE_KEY);
+    const targetUid = uid || getCurrentUser()?.uid;
+    if (targetUid) {
+      await AsyncStorage.removeItem(`@gamearn_profile_${targetUid}`);
+    }
+  } catch {
+    // Cache clearing is best-effort.
+  }
+}
+
 
 function profileFromMe(me, cached) {
   const wins = Math.max(
@@ -103,10 +131,12 @@ function profileFromMe(me, cached) {
 
   const rawNaira = me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? cached?.walletBalance ?? 0;
   const computedGp = calculateGamePower(gamesPlayed, wins, losses);
-  const gp = Math.max(
-    Number(me?.gamePower ?? me?.gp ?? 0),
-    Number(cached?.gamePower ?? cached?.gp ?? 0),
-    computedGp
+  const gp = Math.min(
+    100,
+    Math.max(
+      0,
+      computedGp > 0 ? computedGp : Number(me?.gamePower ?? me?.gp ?? cached?.gamePower ?? cached?.gp ?? 0)
+    )
   );
 
   const computedVp = calculateValuePoints(rawNaira, gamesPlayed, wins);
@@ -163,62 +193,23 @@ async function isAdminUser() {
   }
 }
 
-const PROFILE_CACHE_KEY = 'gamearn.backendProfile.v1';
-
-async function readCachedProfile() {
-  try {
-    const raw = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function writeCachedProfile(me) {
-  try {
-    await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(me));
-  } catch (err) {
-    console.log('Notice: Could not cache profile:', err?.message || err);
-  }
-}
-
-async function clearCachedProfile() {
-  try {
-    await AsyncStorage.removeItem(PROFILE_CACHE_KEY);
-  } catch {
-    // Cache clearing is best-effort.
-  }
-}
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [backendReady, setBackendReady] = useState(false);
-
-  const [authError, setAuthError] = useState('');
+  const [authError, setAuthError] = useState(null);
   const activeLogin = React.useRef(false);
-  const [googleRequest, , googlePrompt] = Google.useAuthRequest({
-    webClientId: GOOGLE_CLIENT_IDS.webClientId,
-    androidClientId: GOOGLE_CLIENT_IDS.androidClientId,
-    iosClientId: GOOGLE_CLIENT_IDS.iosClientId,
-    responseType: Platform.OS === 'web' ? ResponseType.IdToken : ResponseType.Code,
-    shouldAutoExchangeCode: false,
-    selectAccount: true,
-    ...(Platform.OS === 'ios' ? {
-      redirectUri: `com.googleusercontent.apps.${(GOOGLE_CLIENT_IDS.iosClientId || '').split('.apps.')[0]}:/oauthredirect`,
-    } : Platform.OS === 'android' ? {
-      redirectUri: `com.googleusercontent.apps.${(GOOGLE_CLIENT_IDS.androidClientId || '').split('.apps.')[0]}:/oauthredirect`,
-    } : {}),
+  const pendingProfile = React.useRef({});
+
+  const [googleRequest, , googlePrompt] = Google.useIdTokenAuthRequest({
+    clientId: GOOGLE_CLIENT_IDS.web,
+    iosClientId: GOOGLE_CLIENT_IDS.ios,
+    androidClientId: GOOGLE_CLIENT_IDS.android,
   });
 
-  // Onboarding details collected by RegisterScreen until the email is verified.
-  const pendingProfile = React.useRef({ displayName: null, phoneNumber: null });
-
-  const getPendingProfile = () => pendingProfile.current;
-
   const loadBackendProfile = useCallback(async (fbUser) => {
-    const uid = fbUser?.uid || 'user_demo_123';
+    const uid = fbUser?.uid || getCurrentUser()?.uid || 'user_demo_123';
     const cached = await getCachedProfile(uid);
     try {
       // login updates last_login and returns profile + wallet; me() is the
@@ -226,8 +217,8 @@ export const AuthProvider = ({ children }) => {
       await authApi.login({});
       const me = await authApi.me();
       const isAdmin = await isAdminUser();
-      await writeCachedProfile({ ...me, isAdmin });
-      const profile = profileFromMe({ ...me, isAdmin });
+      await writeCachedProfile({ ...me, isAdmin }, uid);
+      const profile = profileFromMe({ ...me, isAdmin }, cached);
       setUserProfile(profile);
       setBackendReady(true);
 
@@ -249,16 +240,29 @@ export const AuthProvider = ({ children }) => {
         // Registered in Firebase but not in the backend yet → onboarding.
         setUserProfile(null);
         setBackendReady(false);
-        await clearCachedProfile();
+        await clearCachedProfile(uid);
         return null;
       }
       // Backend blip or network error: fall back to the last known profile
       // instead of dropping a returning user into onboarding.
-      const cached = await readCachedProfile();
-      if (cached) {
-        setUserProfile(profileFromMe(cached));
+      const cachedProfile = await readCachedProfile(uid);
+      if (cachedProfile) {
+        const profile = profileFromMe(cachedProfile);
+        setUserProfile(profile);
         setBackendReady(true);
-        return cached;
+        return cachedProfile;
+      }
+      // If network error and fbUser exists (and not 404), fall back to basic profile derived from fbUser
+      if (fbUser) {
+        const fallback = profileFromMe({
+          uid: fbUser.uid,
+          email: fbUser.email,
+          displayName: fbUser.displayName || fbUser.email?.split('@')[0] || 'Gamer',
+        });
+        await writeCachedProfile(fallback, fbUser.uid);
+        setUserProfile(fallback);
+        setBackendReady(true);
+        return fallback;
       }
       setUserProfile(null);
       setBackendReady(false);
@@ -274,15 +278,22 @@ export const AuthProvider = ({ children }) => {
     try {
       if (fbUser) {
         await loadBackendProfile(fbUser);
-        if (getCurrentUser()?.uid === fbUser.uid) setUser(fbUser);
+        if (getCurrentUser()?.uid === fbUser.uid || auth?.currentUser?.uid === fbUser.uid) {
+          setUser(fbUser);
+        }
       } else {
         setUser(null);
         setUserProfile(null);
         setBackendReady(false);
       }
     } catch (error) {
+      console.warn('Backend profile load notice:', error?.message || error);
       setAuthError(friendlyAuthError(error));
-      setUser(null);
+      if (fbUser) {
+        setUser(fbUser);
+      } else {
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -432,7 +443,9 @@ export const AuthProvider = ({ children }) => {
     await authApi.register({ phoneNumber, displayName, referralCode });
     const me = await authApi.me();
     const isAdmin = await isAdminUser();
-    setUserProfile(profileFromMe({ ...me, isAdmin }));
+    const profile = profileFromMe({ ...me, isAdmin });
+    await writeCachedProfile({ ...me, isAdmin }, me?.uid || getCurrentUser()?.uid);
+    setUserProfile(profile);
     setBackendReady(true);
     return me;
   };
@@ -483,7 +496,7 @@ export const AuthProvider = ({ children }) => {
         bio: updates.bio !== undefined ? updates.bio : prev?.bio,
       };
       updated = profileFromMe(merged, prev);
-      writeCachedProfile(updated);
+      writeCachedProfile(updated, getCurrentUser()?.uid);
       return updated;
     });
 
@@ -491,6 +504,7 @@ export const AuthProvider = ({ children }) => {
   }, [backendReady, authApi]);
 
   const signOut = async () => {
+    await clearCachedProfile();
     await signOutFirebase();
     setUser(null);
     setUserProfile(null);

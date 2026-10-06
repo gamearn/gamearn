@@ -102,7 +102,7 @@ export default function GameResultScreen({ route, navigation }) {
   const streakCount = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
   const currentGp = Number(userProfile?.gamePower ?? userProfile?.gp ?? 0);
   const gpGained = isWinner ? 40 : 10;
-  const nextGpMilestone = currentGp < 1000 ? 1000 : currentGp < 3000 ? 3000 : 5000;
+  const nextGpMilestone = currentGp < 30 ? 30 : currentGp < 60 ? 60 : 100;
 
   // Streak node progress (1, 2, 3 wins)
   const streakStep = (streakCount % 3) || (streakCount > 0 ? 3 : 0);
@@ -297,42 +297,6 @@ export default function GameResultScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Win Streak Card */}
-        <View style={styles.cardContainer}>
-          <View style={styles.cardHeaderRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Text style={{ fontSize: 24 }}>🔥</Text>
-              <View>
-                <Text style={styles.cardTitle}>Win Streak</Text>
-                <Text style={styles.cardSub}>
-                  {streakStep} of 3 wins
-                </Text>
-              </View>
-            </View>
-
-            {/* Streak Nodes Track */}
-            <View style={styles.streakNodesTrack}>
-              <View style={[styles.nodeCircle, streakStep >= 1 && styles.nodeCircleActive]}>
-                {streakStep >= 1 && <Text style={styles.nodeCheck}>✓</Text>}
-              </View>
-              <View style={[styles.nodeLine, streakStep >= 2 && styles.nodeLineActive]} />
-              <View style={[styles.nodeCircle, streakStep >= 2 && styles.nodeCircleActive]}>
-                {streakStep >= 2 && <Text style={styles.nodeCheck}>✓</Text>}
-              </View>
-              <View style={[styles.nodeLine, streakStep >= 3 && styles.nodeLineActive]} />
-              <View style={[styles.nodeCircle, streakStep >= 3 && styles.nodeCircleActive]}>
-                {streakStep >= 3 && <Text style={styles.nodeCheck}>✓</Text>}
-              </View>
-            </View>
-
-            <View style={styles.rewardTag}>
-              <Text style={styles.rewardTagText}>
-                {winsNeededForReward > 0 ? `${winsNeededForReward} win to reward` : 'Reward Unlocked!'}
-              </Text>
-              <ChevronRight size={14} color="#60A5FA" />
-            </View>
-          </View>
-        </View>
 
         {/* Overall Stats 4 Grid */}
         <View style={styles.statsGrid}>

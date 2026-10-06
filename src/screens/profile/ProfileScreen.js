@@ -4,10 +4,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Flame, CheckCircle2, Search } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { getStreakInfo } from '../../utils/recordGameStreak';
+import { resolveAvatarSource } from '../../utils/avatarPresets';
 
 export default function ProfileScreen({ navigation }) {
   const { userProfile } = useAuth();
   const { theme, isDark } = useTheme();
+  const streakInfo = getStreakInfo(userProfile);
   const userName = userProfile?.username || userProfile?.fullName || userProfile?.name || 'Adebayo';
   const [searchQuery, setSearchQuery] = useState('');
   const friendsList = userProfile?.friends || [];
@@ -35,12 +38,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.heroCenterBlock}>
           <View style={styles.avatarWrap}>
             <Image
-              source={{
-                uri:
-                  (userProfile?.avatar && typeof userProfile.avatar === 'string' && userProfile.avatar.startsWith('http'))
-                    ? userProfile.avatar
-                    : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-              }}
+              source={resolveAvatarSource(userProfile?.avatar)}
               style={styles.avatarImg}
             />
             <View style={styles.onlineDot} />
@@ -85,42 +83,40 @@ export default function ProfileScreen({ navigation }) {
             <Text style={[styles.statSubLabel, { color: theme.textSecondary }]}>FOLLOWING</Text>
           </View>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('DailyStreak')}
+          <View
             style={[
               styles.statCardBox,
               {
                 backgroundColor: theme.cardBg,
-                borderColor: (userProfile?.streak ?? 0) > 0 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+                borderColor: streakInfo.isActive ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)',
               },
             ]}
           >
             <View style={styles.streakInlineRow}>
               <Flame
                 size={16}
-                color={(userProfile?.streak ?? 0) > 0 ? '#10B981' : '#EF4444'}
-                fill={(userProfile?.streak ?? 0) > 0 ? '#10B981' : 'none'}
-                style={{ marginRight: 2 }}
+                color={streakInfo.isActive ? '#10B981' : '#F59E0B'}
+                fill={streakInfo.isActive ? '#10B981' : 'none'}
+                style={{ marginRight: 4 }}
               />
               <Text
                 style={[
                   styles.streakBigVal,
-                  { color: (userProfile?.streak ?? 0) > 0 ? '#10B981' : '#EF4444' },
+                  { color: streakInfo.isActive ? '#10B981' : '#F59E0B', fontSize: 16 },
                 ]}
               >
-                {userProfile?.streak ?? 0}
+                {streakInfo.dayText}
               </Text>
             </View>
             <Text
               style={[
                 styles.streakSubLabel,
-                { color: (userProfile?.streak ?? 0) > 0 ? '#10B981' : '#EF4444' },
+                { color: streakInfo.isActive ? '#10B981' : '#F59E0B' },
               ]}
             >
-              {(userProfile?.streak ?? 0) > 0 ? 'ACTIVE STREAK' : 'INACTIVE'}
+              {streakInfo.statusText.toUpperCase()}
             </Text>
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* Game Power (GP) & Value Points (VP) Row */}

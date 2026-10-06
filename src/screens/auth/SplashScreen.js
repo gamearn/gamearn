@@ -16,6 +16,7 @@ export default function SplashScreen({ navigation }) {
   const { user, backendReady, loading } = useAuth();
   const [progress, setProgress] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const hasProceeded = useRef(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -32,23 +33,9 @@ export default function SplashScreen({ navigation }) {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    Animated.timing(progressAnim, {
-      toValue: progress,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-
-    if (progress === 100) {
-      const timeout = setTimeout(() => {
-        handleProceed();
-      }, 300);
-      return () => clearTimeout(timeout);
-    }
-  }, [progress, loading, user, backendReady]);
-
   const handleProceed = () => {
-    if (loading) return;
+    if (loading || hasProceeded.current) return;
+    hasProceeded.current = true;
     if (!user) {
       navigation.replace('Landing');
     } else if (!user.emailVerified && user.providerData?.some(p => p.providerId === 'password')) {
@@ -60,6 +47,21 @@ export default function SplashScreen({ navigation }) {
       navigation.replace('MainTabs');
     }
   };
+
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: progress,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+
+    if (progress === 100 && !loading) {
+      const timeout = setTimeout(() => {
+        handleProceed();
+      }, 300);
+      return () => clearTimeout(timeout);
+    }
+  }, [progress, loading, user, backendReady]);
 
   const barWidth = progressAnim.interpolate({
     inputRange: [0, 100],

@@ -133,25 +133,29 @@ export default function ChallengeHubScreen({ route, navigation }) {
       Alert.alert('Unsupported game', 'This challenge is for a game that is not available yet.');
       return;
     }
+    const prizePool = p.prizePool || Math.floor((p.entryFee || 0) * 1.6);
+    const opts = p.options || {};
     navigation.navigate(mapped.targetScreen, {
       mode: 'multiplayer',
       gameId: mapped.gameId,
       roomId: p.roomId,
       entryFee: p.entryFee,
-      prizePool: p.prizePool,
+      prizePool: prizePool,
       opponent: p.opponent,
-      timer: '2m',
-      aiDifficulty: 'auto',
-      tokenCount: 4,
-      playerColor: 'white',
-      cardCount: 6,
-      enableSpecialCards: true,
+      timer: opts.timer || '2m',
+      aiDifficulty: opts.aiDifficulty || 'auto',
+      tokenCount: opts.tokenCount || 4,
+      playerCount: opts.playerCount || 4,
+      playerColor: opts.playerColor || 'white',
+      cardCount: opts.cardCount || 6,
+      enableSpecialCards: opts.enableSpecialCards ?? true,
+      seedCount: opts.seedCount || 4,
     });
   };
 
   const acceptChallenge = async (ch) => {
     const fee = ch.entryFeeKobo ?? ch.entryFee * 100;
-    if (balanceKobo < fee) {
+    if (fee > 0 && balanceKobo < fee) {
       Alert.alert(
         'Insufficient balance',
         `This challenge costs ${naira(koboToN(fee))}. Your balance is ${naira(balanceNaira)}.`,
@@ -168,14 +172,13 @@ export default function ChallengeHubScreen({ route, navigation }) {
       const payload = res?.data ?? res;
       const room = payload?.room ?? payload;
       const matchPayload = payload?.payload ?? payload;
-      // Acceptor navigates straight into the room; the creator is notified via
-      // socket (online) or FCM push (offline) and rejoins from "My matches".
       joinRoom({
         gameType: matchPayload?.gameType ?? ch.gameType,
         roomId: matchPayload?.roomId ?? room?.roomId,
         entryFee: matchPayload?.entryFee ?? room?.entryFee,
         prizePool: matchPayload?.prizePool ?? room?.prizePool,
         opponent: matchPayload?.opponent ?? null,
+        options: ch.options,
       });
     } catch (err) {
       Alert.alert('Accept failed', err?.message || 'Could not accept the challenge.');
@@ -245,6 +248,17 @@ export default function ChallengeHubScreen({ route, navigation }) {
   const renderOpenItem = (ch) => {
     const fee = ch.entryFeeKobo ?? ch.entryFee * 100;
     const mapped = GAME_BY_TYPE[ch.gameType];
+    const isEnded = ['ended', 'completed', 'finished'].includes(String(ch.status).toLowerCase());
+    const isAccepted = ch.status === 'accepted';
+    const opts = ch.options || {};
+    const settingsSummary = [
+      opts.timer && `Timer: ${opts.timer}`,
+      opts.playerCount && `${opts.playerCount} Players`,
+      opts.tokenCount && `${opts.tokenCount} Tokens`,
+      opts.cardCount && `${opts.cardCount} Cards`,
+      opts.seedCount && `${opts.seedCount} Seeds`,
+    ].filter(Boolean).join(' • ');
+
     return (
       <View key={ch.id} style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.inputBorder }]}>
         <View style={styles.cardHeader}>
@@ -254,19 +268,34 @@ export default function ChallengeHubScreen({ route, navigation }) {
               {mapped?.name || ch.gameType}
             </Text>
           </View>
-          <Text style={[styles.cardAmount, { color: theme.primary }]}>{naira(koboToN(fee))}</Text>
+          <Text style={[styles.cardAmount, { color: theme.primary }]}>{fee === 0 ? 'FREE' : naira(koboToN(fee))}</Text>
         </View>
         <Text style={[styles.cardSub, { color: theme.textSecondary }]}>
-          {ch.creatorDisplayName || 'A player'} · {ch.gameType} · {coinsFromKobo(fee).toLocaleString()} coins
+          {ch.creatorDisplayName || 'A player'} · {ch.gameType} {fee > 0 ? `· ${coinsFromKobo(fee).toLocaleString()} coins` : ''}
         </Text>
-        <GAButton
-          title="Accept Challenge"
-          onPress={() => acceptChallenge(ch)}
-          loading={busyId === ch.id}
-          disabled={busyId !== null}
-          icon={<Check size={18} color="#FFF" />}
-          style={styles.cardBtn}
-        />
+        {!!settingsSummary && (
+          <Text style={[styles.cardSub, { color: '#00E5FF', fontWeight: '700', marginTop: 2 }]}>
+            ⚙️ {settingsSummary}
+          </Text>
+        )}
+        {isEnded ? (
+          <View style={styles.endedBanner}>
+            <Text style={styles.endedBannerText}>🔒 CHALLENGE ENDED</Text>
+          </View>
+        ) : isAccepted ? (
+          <View style={styles.acceptedBanner}>
+            <Text style={styles.acceptedBannerText}>⚔️ CHALLENGE ACCEPTED</Text>
+          </View>
+        ) : (
+          <GAButton
+            title="Accept Challenge"
+            onPress={() => acceptChallenge(ch)}
+            loading={busyId === ch.id}
+            disabled={busyId !== null}
+            icon={<Check size={18} color="#FFF" />}
+            style={styles.cardBtn}
+          />
+        )}
       </View>
     );
   };
@@ -276,12 +305,27 @@ export default function ChallengeHubScreen({ route, navigation }) {
     const mapped = GAME_BY_TYPE[ch.gameType];
     const isAccepted = ch.status === 'accepted';
     const isOpen = ch.status === 'open';
-    const label = isAccepted
-      ? `Accepted by ${ch.acceptedDisplayName || 'a player'}`.trim()
+    const isEnded = ['ended', 'completed', 'finished'].includes(String(ch.status).toLowerCase());
+
+    const label = isEnded
+      ? '🔒 Challenge Ended'
+      : isAccepted
+      ? `⚔️ Challenge Accepted by ${ch.acceptedDisplayName || 'a player'}`
       : isOpen
       ? 'Open — waiting for a challenger'
       : 'Cancelled';
-    const labelColor = isAccepted ? theme.success : isOpen ? theme.accent : theme.textMuted;
+
+    const labelColor = isEnded ? theme.textMuted : isAccepted ? theme.success : isOpen ? theme.accent : theme.textMuted;
+
+    const opts = ch.options || {};
+    const settingsSummary = [
+      opts.timer && `Timer: ${opts.timer}`,
+      opts.playerCount && `${opts.playerCount} Players`,
+      opts.tokenCount && `${opts.tokenCount} Tokens`,
+      opts.cardCount && `${opts.cardCount} Cards`,
+      opts.seedCount && `${opts.seedCount} Seeds`,
+    ].filter(Boolean).join(' • ');
+
     return (
       <View key={ch.id} style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.inputBorder }]}>
         <View style={styles.cardHeader}>
@@ -291,13 +335,18 @@ export default function ChallengeHubScreen({ route, navigation }) {
               {mapped?.name || ch.gameType}
             </Text>
           </View>
-          <Text style={[styles.cardAmount, { color: theme.primary }]}>{naira(koboToN(fee))}</Text>
+          <Text style={[styles.cardAmount, { color: theme.primary }]}>{fee === 0 ? 'FREE' : naira(koboToN(fee))}</Text>
         </View>
-        <Text style={[styles.cardSub, { color: labelColor }]}>{label}</Text>
+        <Text style={[styles.cardSub, { color: labelColor, fontWeight: '700' }]}>{label}</Text>
+        {!!settingsSummary && (
+          <Text style={[styles.cardSub, { color: '#00E5FF', fontWeight: '700', marginTop: 2 }]}>
+            ⚙️ {settingsSummary}
+          </Text>
+        )}
         <Text style={[styles.cardSub, { color: theme.textSecondary }]}>
           Created {new Date(ch.createdAt).toLocaleDateString()}
         </Text>
-        {isAccepted && ch.roomId && (
+        {isAccepted && ch.roomId && !isEnded && (
           <GAButton
             title="Join Match"
             onPress={() =>
@@ -305,8 +354,9 @@ export default function ChallengeHubScreen({ route, navigation }) {
                 gameType: ch.gameType,
                 roomId: ch.roomId,
                 entryFee: fee,
-                prizePool: Math.floor(fee * 1.9),
+                prizePool: Math.floor(fee * 1.6),
                 opponent: { displayName: ch.acceptedDisplayName || 'Your opponent' },
+                options: ch.options,
               })
             }
             icon={<Trophy size={18} color="#FFF" />}
@@ -434,13 +484,12 @@ export default function ChallengeHubScreen({ route, navigation }) {
           <View style={styles.summaryRow}>
             <Text style={{ color: theme.textSecondary }}>Winner takes (up to):</Text>
             <Text style={{ color: theme.success, fontWeight: '800' }}>
-              {amountValid || freeChallenge ? (selectedFee === 0 ? 'No prize' : naira(koboToN(Math.floor(selectedFee * 1.9)))) : '—'}
+              {amountValid || freeChallenge ? (selectedFee === 0 ? 'No prize' : naira(koboToN(Math.floor(selectedFee * 1.6)))) : '—'}
             </Text>
           </View>
           <Text style={[styles.note, { color: theme.textMuted }]}>
             Open challenges have no expiry. Every player is notified; your match
-            starts once an acceptor joins and you rejoin the room. Free challenges
-            have no prize pool.
+            starts once an acceptor joins and you rejoin the room. A 20% platform fee applies to prize payouts. Free challenges have no prize pool.
           </Text>
         </View>
 
@@ -745,5 +794,37 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  endedBanner: {
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+  },
+  endedBannerText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  acceptedBanner: {
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+    alignItems: 'center',
+  },
+  acceptedBannerText: {
+    color: '#10B981',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
 });

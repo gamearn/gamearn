@@ -37,7 +37,7 @@ export async function recordGameStreak(updateProfileData, userProfile) {
   } else {
     const gap = getDayGap(lastDate, todayStr);
     if (gap === 1) {
-      newStreak = currentStreak > 1 ? currentStreak : (currentStreak + 1);
+      newStreak = currentStreak > 0 ? currentStreak + 1 : 1;
     } else if (gap > 1) {
       newStreak = 1;
     } else if (gap === 0) {
@@ -59,5 +59,59 @@ export async function recordGameStreak(updateProfileData, userProfile) {
     console.log('Notice: Could not record game streak:', err?.message || err);
   }
 }
+
+export function getStreakInfo(userProfile) {
+  const streakCount = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
+  const todayStr = getLocalDateString();
+  const lastDate = userProfile?.lastStreakPersistedDate || userProfile?.lastStreakDate || userProfile?.lastPlayedDate || userProfile?.lastCheckInDate;
+
+  if (!lastDate) {
+    return {
+      dayText: 'Day 1',
+      statusText: 'At Risk',
+      isAtRisk: true,
+      isActive: false,
+      streakNumber: 1,
+      subText: 'Play a game today to start your streak!',
+    };
+  }
+
+  const gap = getDayGap(lastDate, todayStr);
+
+  if (gap === 0) {
+    // Played today!
+    const num = Math.max(1, streakCount);
+    return {
+      dayText: `Day ${num}`,
+      statusText: 'Active',
+      isAtRisk: false,
+      isActive: true,
+      streakNumber: num,
+      subText: 'Great! Today’s streak is active.',
+    };
+  } else if (gap === 1) {
+    // Played yesterday, hasn't played today yet -> AT RISK!
+    const num = Math.max(1, streakCount);
+    return {
+      dayText: `Day ${num}`,
+      statusText: 'At Risk',
+      isAtRisk: true,
+      isActive: false,
+      streakNumber: num,
+      subText: 'Play a game today to keep your streak!',
+    };
+  } else {
+    // Missed 2+ days -> Reset to Day 1, At Risk until played today
+    return {
+      dayText: 'Day 0',
+      statusText: 'At Risk',
+      isAtRisk: true,
+      isActive: false,
+      streakNumber: 0,
+      subText: 'Streak at risk! Play a game today to start Day 1.',
+    };
+  }
+}
+
 
 

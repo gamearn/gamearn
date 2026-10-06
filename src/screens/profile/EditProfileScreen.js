@@ -7,21 +7,19 @@ import GAButton from '../../components/GAButton';
 import { useAuth } from '../../context/AuthContext';
 import { uploadProfileImage } from '../../services/firebase';
 import { useTheme } from '../../context/ThemeContext';
-
-const AVATAR_PRESETS = [
-  { id: 'oba', label: 'OBA', uri: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200' },
-  { id: 'mage', label: 'MAGE', uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200' },
-  { id: 'cyber', label: 'CYBER', uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200' },
-  { id: 'queen', label: 'QUEEN', uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=200' },
-  { id: 'cyborg', label: 'CYBORG', uri: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200' },
-];
+import { AVATAR_PRESETS, resolveAvatarSource } from '../../utils/avatarPresets';
 
 export default function EditProfileScreen({ navigation }) {
   const { userProfile, updateProfileData } = useAuth();
   const { theme, isDark } = useTheme();
 
-  const currentAvatarUri = userProfile?.avatar || AVATAR_PRESETS[1].uri;
-  const initialAvatar = AVATAR_PRESETS.find((a) => a.uri === currentAvatarUri) || { id: 'current', label: 'CURRENT', uri: currentAvatarUri };
+  const currentAvatar = userProfile?.avatar || AVATAR_PRESETS[0].uri;
+  const initialAvatar = AVATAR_PRESETS.find((a) => a.uri === currentAvatar || a.id === currentAvatar) || {
+    id: 'current',
+    label: 'CURRENT',
+    uri: currentAvatar,
+    source: resolveAvatarSource(currentAvatar),
+  };
   const [selectedAvatar, setSelectedAvatar] = useState(initialAvatar);
   const [username, setUsername] = useState(userProfile?.username || userProfile?.name || userProfile?.displayName || '');
   const [bio, setBio] = useState(userProfile?.bio || '');
@@ -41,7 +39,8 @@ export default function EditProfileScreen({ navigation }) {
         quality: 0.8,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setSelectedAvatar({ id: 'custom', label: 'CUSTOM', uri: result.assets[0].uri });
+        const customUri = result.assets[0].uri;
+        setSelectedAvatar({ id: 'custom', label: 'CUSTOM', uri: customUri, source: { uri: customUri } });
       }
     } catch (err) {
       console.log('Pick avatar error:', err);
@@ -113,7 +112,7 @@ export default function EditProfileScreen({ navigation }) {
         {/* Hero Avatar Display */}
         <View style={styles.avatarCenterWrap}>
           <View style={styles.mainAvatarRing}>
-            <Image source={{ uri: selectedAvatar.uri }} style={styles.mainAvatarImg} />
+            <Image source={selectedAvatar.source || resolveAvatarSource(selectedAvatar.uri)} style={styles.mainAvatarImg} />
             <TouchableOpacity
               style={styles.cameraBadgeBtn}
               onPress={handlePickCustomAvatar}
@@ -137,7 +136,7 @@ export default function EditProfileScreen({ navigation }) {
           <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>Choose an Avatar</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.avatarsRow}>
             {AVATAR_PRESETS.map((item) => {
-              const isSelected = selectedAvatar.id === item.id;
+              const isSelected = selectedAvatar.id === item.id || selectedAvatar.uri === item.uri;
               return (
                 <TouchableOpacity
                   key={item.id}
@@ -146,7 +145,7 @@ export default function EditProfileScreen({ navigation }) {
                   activeOpacity={0.8}
                 >
                   <View style={[styles.avatarMiniRing, { borderColor: theme.cardBorderSubtle }, isSelected && styles.avatarMiniRingSelected]}>
-                    <Image source={{ uri: item.uri }} style={styles.avatarMiniImg} />
+                    <Image source={item.source || resolveAvatarSource(item.uri)} style={styles.avatarMiniImg} />
                   </View>
                   <Text style={[styles.avatarLabelText, { color: theme.textSecondary }, isSelected && styles.avatarLabelTextSelected]}>
                     {item.label}

@@ -26,7 +26,7 @@ export function calculateGamePower(played = 0, wins = 0, losses = 0) {
 }
 
 export function formatGP(gpValue) {
-  const val = typeof gpValue === 'number' && !isNaN(gpValue) ? gpValue : 0;
+  const val = typeof gpValue === 'number' && !isNaN(gpValue) ? Math.min(100, Math.max(0, Math.round(gpValue))) : 0;
   return `${val} GP`;
 }
 

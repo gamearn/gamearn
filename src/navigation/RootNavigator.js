@@ -19,7 +19,6 @@ import GameSectionScreen from '../screens/games/GameSectionScreen';
 import BuyCoinsScreen from '../screens/wallet/BuyCoinsScreen';
 import PaymentScreen from '../screens/wallet/PaymentScreen';
 import WithdrawScreen from '../screens/wallet/WithdrawScreen';
-import DailyStreakScreen from '../screens/profile/DailyStreakScreen';
 import SettingsScreen from '../screens/profile/SettingsScreen';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AccountSecurityScreen from '../screens/profile/AccountSecurityScreen';
@@ -77,7 +76,6 @@ export default function RootNavigator() {
       <Stack.Screen name="Payment" component={PaymentScreen} />
       <Stack.Screen name="SellCoins" component={SellCoinsScreen} />
       <Stack.Screen name="Withdraw" component={WithdrawScreen} />
-      <Stack.Screen name="DailyStreak" component={DailyStreakScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
       <Stack.Screen name="AccountSecurity" component={AccountSecurityScreen} />
