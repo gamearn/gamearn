@@ -45,11 +45,6 @@ export default function ProfileScreen({ navigation }) {
           </View>
 
           <Text style={[styles.userNameText, { color: theme.textPrimary }]}>{userName}</Text>
-
-          <View style={styles.proCompetitorBadge}>
-            <CheckCircle2 size={13} color="#FF5500" style={{ marginRight: 4 }} />
-            <Text style={[styles.proCompetitorText, { color: theme.textSecondary }]}>Pro League Competitor</Text>
-          </View>
         </View>
 
         {/* Action Buttons (Edit Profile & Wallet) */}

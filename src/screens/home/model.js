@@ -10,7 +10,8 @@ function localDay(date = new Date()) {
 }
 
 function previousDay(day) {
-  const [year, month, date] = day.split('-').map(Number);
+  const [year, month, date] = String(day || '').split('-').map(Number);
+  if (!year || !month || !date) return localDay();
   return localDay(new Date(year, month - 1, date - 1, 12));
 }
 

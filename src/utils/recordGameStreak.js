@@ -7,10 +7,13 @@ export function getLocalDateString(d = new Date()) {
 
 export function getDayGap(dateStr1, dateStr2) {
   if (!dateStr1 || !dateStr2) return null;
-  const s1 = String(dateStr1).split('T')[0];
-  const s2 = String(dateStr2).split('T')[0];
-  const [y1, m1, d1] = s1.split('-').map(Number);
-  const [y2, m2, d2] = s2.split('-').map(Number);
+  const s1 = String(dateStr1).split('T')[0] || '';
+  const s2 = String(dateStr2).split('T')[0] || '';
+  const parts1 = s1.split('-').map(Number);
+  const parts2 = s2.split('-').map(Number);
+  if (parts1.length < 3 || parts2.length < 3) return null;
+  const [y1, m1, d1] = parts1;
+  const [y2, m2, d2] = parts2;
   if (!y1 || !m1 || !d1 || !y2 || !m2 || !d2) return null;
   const utc1 = Date.UTC(y1, m1 - 1, d1);
   const utc2 = Date.UTC(y2, m2 - 1, d2);

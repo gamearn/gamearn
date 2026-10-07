@@ -40,7 +40,7 @@ const GAMES = [
 ];
 
 function Art({ name, width, height, style }) {
-  const [x, y, w, h] = regions[name];
+  const [x, y, w, h] = regions[name] || [0, 0, 100, 100];
   const factor = Math.max(width / w, height / h);
   return (
     <View accessible={false} pointerEvents="none" style={[{ width, height, overflow: 'hidden' }, style]}>

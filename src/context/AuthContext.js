@@ -103,30 +103,35 @@ function profileFromMe(me, cached) {
   const todayStr = getLocalDateString();
   const lastDateStr = me?.lastStreakDate || me?.lastPlayedDate || me?.lastCheckInDate || cached?.lastStreakDate || cached?.lastPlayedDate || cached?.lastCheckInDate;
 
-  let baseStreak = Number(me?.streak ?? me?.currentStreak ?? me?.stats?.streak ?? cached?.streak ?? cached?.currentStreak ?? (gamesPlayed > 0 ? 1 : 0));
+  let baseStreak = gamesPlayed > 0 ? Number(me?.streak ?? me?.currentStreak ?? me?.stats?.streak ?? cached?.streak ?? cached?.currentStreak ?? 1) : 0;
 
-  let updatedStreak = baseStreak;
-  let newLastStreakDate = lastDateStr ? String(lastDateStr).split('T')[0] : todayStr;
+  let updatedStreak = 0;
+  let newLastStreakDate = lastDateStr ? String(lastDateStr).split('T')[0] : null;
   let lastStreakPersistedDate = me?.lastStreakPersistedDate || cached?.lastStreakPersistedDate || (me?.lastStreakDate === todayStr ? todayStr : null);
 
-  if (lastDateStr) {
-    const diffDays = getDayGap(lastDateStr, todayStr);
+  if (gamesPlayed > 0) {
+    if (lastDateStr) {
+      const diffDays = getDayGap(lastDateStr, todayStr);
 
-    if (diffDays === 1) {
-      // Logged in on the NEXT DAY! Automatically increment streak (+1)
-      updatedStreak = baseStreak > 0 ? baseStreak + 1 : 1;
-      newLastStreakDate = todayStr;
-    } else if (diffDays === 0) {
-      // Same day login: maintain current streak (at least 1 if active)
+      if (diffDays === 1) {
+        // Logged in on the NEXT DAY! Automatically increment streak (+1)
+        updatedStreak = baseStreak > 0 ? baseStreak + 1 : 1;
+        newLastStreakDate = todayStr;
+      } else if (diffDays === 0) {
+        // Same day login: maintain current streak (at least 1 if active)
+        updatedStreak = Math.max(1, baseStreak);
+      } else if (diffDays !== null && diffDays > 1) {
+        // Missed 2+ days: restart streak at 1 for today's login
+        updatedStreak = 1;
+        newLastStreakDate = todayStr;
+      }
+    } else {
       updatedStreak = Math.max(1, baseStreak);
-    } else if (diffDays !== null && diffDays > 1) {
-      // Missed 2+ days: restart streak at 1 for today's login
-      updatedStreak = 1;
       newLastStreakDate = todayStr;
     }
   } else {
-    updatedStreak = Math.max(1, baseStreak);
-    newLastStreakDate = todayStr;
+    updatedStreak = 0;
+    newLastStreakDate = null;
   }
 
   const rawNaira = me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? cached?.walletBalance ?? 0;
@@ -236,7 +241,7 @@ export const AuthProvider = ({ children }) => {
       // Auto-sync backend streak if Day 2+ or new session today
       const todayStr = getLocalDateString();
       const lastBackendDate = me?.lastStreakDate || me?.lastPlayedDate || me?.lastCheckInDate;
-      if (!lastBackendDate || (lastBackendDate && String(lastBackendDate).split('T')[0] !== todayStr)) {
+      if (profile.gamesPlayed > 0 && (!lastBackendDate || (lastBackendDate && String(lastBackendDate).split('T')[0] !== todayStr))) {
         authApi.updateProfile({
           streak: profile.streak,
           lastStreakDate: todayStr,
