@@ -219,15 +219,18 @@ onOpponentForfeited: (p) => {
   return (
     <View style={styles.container}>
       <View style={styles.gameArea}>
-<WhotScreen
+        <WhotScreen
           timer={timer}
+          cardCount={route.params?.cardCount || 6}
+          playerCount={route.params?.playerCount || (route.params?.vsOba ? 2 : 2)}
+          vsOba={!!route.params?.vsOba}
           aiDifficulty={route.params?.aiDifficulty}
           isRemote={isRemote && phase !== 'local'}
           remote={remote}
           onRemoteMove={handleRemoteMove}
           onBack={handleBack}
           onRemoteGameOver={(winnerUid) => handleWin(winnerUid === myUid)}
-          onWin={() => handleWin(true)}
+          onWin={(humanWon) => handleWin(humanWon)}
           onMessage={mode === 'multiplayer' && roomId ? (text) => socketRef.current?.sendChat(roomId, text) : null}
           incomingChats={mode === 'multiplayer' ? incomingChats : []}
         />

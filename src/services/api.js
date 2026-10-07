@@ -177,6 +177,17 @@ export const tournaments = {
   register: (id) => apiPost(`/tournaments/${id}/register`, {}),
 };
 
+// ── Leaderboard ───────────────────────────────────────────────────────────────
+
+export const leaderboard = {
+  get: async (period = 'Daily', gameType = null) => {
+    const qs = new URLSearchParams({ period });
+    if (gameType) qs.set('gameType', gameType);
+    const res = await apiGet(`/leaderboard?${qs.toString()}`);
+    return res?.data || res || [];
+  },
+};
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 export const admin = {

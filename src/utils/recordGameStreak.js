@@ -17,61 +17,113 @@ export function getDayGap(dateStr1, dateStr2) {
   return Math.round((utc2 - utc1) / (1000 * 60 * 60 * 24));
 }
 
+/**
+ * Record match completion for both:
+ * 1. Daily Play Streak (playing games on consecutive calendar days)
+ * 2. Win Streak (consecutive match wins without a loss)
+ */
 export async function recordGameStreak(updateProfileData, userProfile, isWinner = null) {
   if (typeof updateProfileData !== 'function') return;
   const todayStr = getLocalDateString();
-  const currentStreak = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
 
-  let newStreak = currentStreak;
+  // 1. Daily Play Streak logic
+  const currentDailyStreak = Number(userProfile?.dailyPlayStreak ?? userProfile?.streak ?? userProfile?.currentStreak ?? 0);
+  const lastPlayedDate = userProfile?.lastPlayedDate || userProfile?.lastStreakDate || null;
 
-  if (isWinner === true) {
-    // Player won the match -> Increment win streak!
-    newStreak = currentStreak + 1;
-  } else if (isWinner === false) {
-    // Player lost the match -> Reset win streak to 0!
-    newStreak = 0;
+  let newDailyStreak = currentDailyStreak;
+  if (!lastPlayedDate) {
+    newDailyStreak = 1; // First day playing!
   } else {
-    // Match in progress or outcome unknown -> preserve existing streak
-    newStreak = currentStreak;
+    const gap = getDayGap(lastPlayedDate, todayStr);
+    if (gap === 0) {
+      newDailyStreak = Math.max(1, currentDailyStreak);
+    } else if (gap === 1) {
+      newDailyStreak = currentDailyStreak + 1;
+    } else if (gap > 1) {
+      newDailyStreak = 1;
+    }
+  }
+
+  // 2. Win Streak logic
+  const currentWinStreak = Number(userProfile?.winStreak ?? userProfile?.currentWinStreak ?? 0);
+  let newWinStreak = currentWinStreak;
+  if (isWinner === true) {
+    newWinStreak = currentWinStreak + 1;
+  } else if (isWinner === false) {
+    newWinStreak = 0;
   }
 
   try {
     await updateProfileData({
-      streak: newStreak,
-      currentStreak: newStreak,
-      lastCheckInDate: todayStr,
-      lastStreakDate: todayStr,
+      dailyPlayStreak: newDailyStreak,
+      streak: newDailyStreak,
+      currentStreak: newDailyStreak,
+      winStreak: newWinStreak,
+      currentWinStreak: newWinStreak,
       lastPlayedDate: todayStr,
-      lastStreakPersistedDate: todayStr,
+      lastStreakDate: todayStr,
+      lastCheckInDate: todayStr,
     });
   } catch (err) {
-    console.log('Notice: Could not record win streak:', err?.message || err);
+    console.log('Notice: Could not record game streak:', err?.message || err);
   }
 }
 
-export function getStreakInfo(userProfile) {
-  const streakCount = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
+/**
+ * Get Daily Play Streak info for Dashboard
+ */
+export function getDailyStreakInfo(userProfile) {
+  const streakCount = Number(userProfile?.dailyPlayStreak ?? userProfile?.streak ?? userProfile?.currentStreak ?? 0);
 
   if (streakCount <= 0) {
     return {
-      dayText: '0 Wins',
-      statusText: 'No Streak',
+      dayText: 'Day 0',
+      statusText: 'Daily Play',
       isAtRisk: true,
       isActive: false,
       streakNumber: 0,
-      subText: 'Win a game to start your win streak!',
+      subText: 'Play a game today to start your daily play streak!',
     };
   }
 
   return {
-    dayText: `${streakCount} ${streakCount === 1 ? 'Win' : 'Wins'}`,
-    statusText: 'Active Streak',
+    dayText: `Day ${streakCount}`,
+    statusText: 'Daily Play',
     isAtRisk: false,
     isActive: true,
     streakNumber: streakCount,
-    subText: `🔥 ${streakCount} game win streak!`,
+    subText: `🔥 ${streakCount}-day play streak active!`,
   };
 }
 
+/**
+ * Alias for getDailyStreakInfo
+ */
+export function getStreakInfo(userProfile) {
+  return getDailyStreakInfo(userProfile);
+}
 
+/**
+ * Get Win Streak info for Game Over screen
+ */
+export function getWinStreakInfo(userProfile) {
+  const winCount = Number(userProfile?.winStreak ?? userProfile?.currentWinStreak ?? 0);
 
+  if (winCount <= 0) {
+    return {
+      winText: '0 Wins',
+      statusText: 'Win Streak',
+      isActive: false,
+      winCount: 0,
+      subText: 'Win a match to start a win streak!',
+    };
+  }
+
+  return {
+    winText: `${winCount} ${winCount === 1 ? 'Win' : 'Wins'}`,
+    statusText: 'Win Streak',
+    isActive: true,
+    winCount,
+    subText: `🔥 ${winCount} win streak!`,
+  };
+}

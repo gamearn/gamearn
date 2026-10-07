@@ -448,7 +448,9 @@ export default function GameLobbyScreen({ route, navigation }) {
         </View>
         <View style={styles.summaryRow}>
           <Text style={{ color: theme.textSecondary }}>Winner takes (up to):</Text>
-          <Text style={{ color: theme.success, fontWeight: '800' }}>{amountValid ? naira(koboToN(Math.floor(selectedFee * 1.6))) : '—'}</Text>
+          <Text style={{ color: theme.success, fontWeight: '800' }}>
+            {amountValid ? naira(koboToN(Math.floor(selectedFee * (playerCount || 2) * 0.80))) : '—'}
+          </Text>
         </View>
         <Text style={[styles.note, { color: theme.textMuted }]}>
           Entry fees are debited only when a match starts. A 20% platform fee applies to prize payouts.

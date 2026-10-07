@@ -82,18 +82,18 @@ export default function InviteFriendsScreen({ navigation }) {
   const { userProfile, updateProfileData } = useAuth();
   const { theme, isDark } = useTheme();
 
-  const userName = userProfile?.username || userProfile?.fullName || userProfile?.name || 'Gamer';
+  const userName = userProfile?.username || userProfile?.displayName || userProfile?.name || 'gamer';
   const [serverCode, setServerCode] = useState(null);
   const referralCode = useMemo(() => {
-    if (serverCode) return serverCode;
-    if (userProfile?.referralCode) return userProfile.referralCode;
-const uid = String(userProfile?.uid || userProfile?.id || '').trim();
+    const raw = userProfile?.username || userProfile?.displayName || userProfile?.referralCode || serverCode || userName;
+    const clean = String(raw).toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (clean && clean.length >= 3) return clean;
+    const uid = String(userProfile?.uid || userProfile?.id || '').trim();
     if (uid && uid.length >= 6) {
-      return uid.substring(0, 8).toUpperCase();
+      return uid.substring(0, 8).toLowerCase().replace(/[^a-z0-9]/g, '');
     }
-    const cleanName = (userName || 'GAMER').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6) || 'GAMER';
-    return `${cleanName}88`;
-  }, [serverCode, userProfile?.referralCode, userProfile?.uid, userProfile?.id, userName]);
+    return 'gamer88';
+  }, [serverCode, userProfile?.referralCode, userProfile?.username, userProfile?.displayName, userProfile?.uid, userName]);
 
   const referralUpdatedRef = useRef(false);
   useEffect(() => {

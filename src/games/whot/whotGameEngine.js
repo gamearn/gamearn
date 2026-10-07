@@ -7,33 +7,51 @@ export const SHAPE_COLORS = {
   whot: '#ffcc00',
 };
 
+// Official Whot Card Point Values for Checkup Scoring
+export function getCardPoints(card) {
+  if (!card) return 0;
+  if (card.value === 20) return 20; // Whot 20 is 20 points
+  if (card.shape === 'star') return card.value * 2; // Star cards score DOUBLE points
+  return card.value; // Circles, Triangles, Crosses, Squares face value
+}
+
+export function calculateHandPoints(hand) {
+  return (hand || []).reduce((sum, c) => sum + getCardPoints(c), 0);
+}
+
 // Generate full standard Nigerian WHOT deck (54 cards)
 export function createDeck() {
   const deck = [];
   let cardId = 1;
 
-  // Circles: 1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14
+  // Circles: 1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14 (12 cards)
   const circles = [1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14];
   circles.forEach((val) => {
     deck.push({ id: `c_${cardId++}`, value: val, color: SHAPE_COLORS.circle, shape: 'circle' });
   });
 
-  // Triangles: 1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14
+  // Triangles: 1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14 (12 cards)
   const triangles = [1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14];
   triangles.forEach((val) => {
     deck.push({ id: `t_${cardId++}`, value: val, color: SHAPE_COLORS.triangle, shape: 'triangle' });
   });
 
-  // Crosses: 1, 2, 3, 5, 7, 10, 11, 13, 14
+  // Crosses: 1, 2, 3, 5, 7, 10, 11, 13, 14 (9 cards)
   const crosses = [1, 2, 3, 5, 7, 10, 11, 13, 14];
   crosses.forEach((val) => {
     deck.push({ id: `cr_${cardId++}`, value: val, color: SHAPE_COLORS.cross, shape: 'cross' });
   });
 
-  // Squares: 1, 2, 3, 5, 7, 10, 11, 13, 14
+  // Squares: 1, 2, 3, 5, 7, 10, 11, 13, 14 (9 cards)
   const squares = [1, 2, 3, 5, 7, 10, 11, 13, 14];
   squares.forEach((val) => {
     deck.push({ id: `sq_${cardId++}`, value: val, color: SHAPE_COLORS.square, shape: 'square' });
+  });
+
+  // Stars: 1, 2, 3, 4, 5, 7, 8 (7 cards)
+  const stars = [1, 2, 3, 4, 5, 7, 8];
+  stars.forEach((val) => {
+    deck.push({ id: `st_${cardId++}`, value: val, color: SHAPE_COLORS.star, shape: 'star' });
   });
 
   // WHOT Wild cards: 5 cards with value 20
@@ -58,19 +76,36 @@ export function parseTimerSec(timerStr) {
   return 120;
 }
 
-export function createInitialState(timer = '2m') {
+export function createInitialState(timer = '2m', cardCount = 6, playerCount = 2, vsOba = false) {
   const fullDeck = createDeck();
   const turnSecs = parseTimerSec(timer);
 
-  const players = [
-    { id: 0, name: 'You', hand: [], isAi: false, avatarIndex: 3 },
-    { id: 1, name: 'QueenBee 👑', hand: [], isAi: true, avatarIndex: 0 },
-    { id: 2, name: 'Oba 👑', hand: [], isAi: true, avatarIndex: 2 },
-    { id: 3, name: 'KingTee 👑', hand: [], isAi: true, avatarIndex: 1 },
-  ];
+  const numCardsPerPlayer = Math.min(8, Math.max(3, Number(cardCount) || 6));
+  const totalPlayers = vsOba ? 2 : Math.min(4, Math.max(2, Number(playerCount) || 2));
 
-  // Deal 6 cards to each player
-  for (let i = 0; i < 6; i++) {
+  let players = [];
+  if (totalPlayers === 2) {
+    players = [
+      { id: 0, name: 'You', hand: [], isAi: false, avatarIndex: 3 },
+      { id: 1, name: 'Oba 👑', hand: [], isAi: true, avatarIndex: 2 },
+    ];
+  } else if (totalPlayers === 3) {
+    players = [
+      { id: 0, name: 'You', hand: [], isAi: false, avatarIndex: 3 },
+      { id: 1, name: 'QueenBee 👑', hand: [], isAi: true, avatarIndex: 0 },
+      { id: 2, name: 'Oba 👑', hand: [], isAi: true, avatarIndex: 2 },
+    ];
+  } else {
+    players = [
+      { id: 0, name: 'You', hand: [], isAi: false, avatarIndex: 3 },
+      { id: 1, name: 'QueenBee 👑', hand: [], isAi: true, avatarIndex: 0 },
+      { id: 2, name: 'Oba 👑', hand: [], isAi: true, avatarIndex: 2 },
+      { id: 3, name: 'KingTee 👑', hand: [], isAi: true, avatarIndex: 1 },
+    ];
+  }
+
+  // Deal exact requested cards count (e.g. 6) to each player
+  for (let i = 0; i < numCardsPerPlayer; i++) {
     players.forEach((p) => {
       if (fullDeck.length > 0) {
         p.hand.push(fullDeck.pop());
@@ -86,6 +121,13 @@ export function createInitialState(timer = '2m') {
 
   const discardPile = fullDeck.splice(initialDiscardIndex, 1);
 
+  const initialMsgs = totalPlayers === 2
+    ? [{ id: '1', sender: 'Oba 👑', text: 'Good luck! May the best Whot master win!', isUser: false }]
+    : [
+        { id: '1', sender: 'QueenBee 👑', text: 'Good luck everyone! Let’s play WHOT!', isUser: false },
+        { id: '2', sender: 'KingTee 👑', text: 'Watch out for my Pick 2s! 😄', isUser: false },
+      ];
+
   return {
     players,
     activePlayerIndex: 0,
@@ -97,15 +139,12 @@ export function createInitialState(timer = '2m') {
     secondsRemaining: turnSecs,
     gameStatus: 'playing',
     winner: null,
-    statusMessage: 'Your turn! Select a card to play or draw from the pile.',
+    statusMessage: `Your turn! Hand: ${numCardsPerPlayer} cards. Match shape or number.`,
     coinBalance: 1250,
     dailyBonusSeconds: 8073,
     soundEnabled: true,
     pendingWhotSelection: false,
-    messages: [
-      { id: '1', sender: 'QueenBee 👑', text: 'Good luck everyone! Let’s play WHOT!', isUser: false },
-      { id: '2', sender: 'KingTee 👑', text: 'Watch out for my Pick 2s! 😄', isUser: false },
-    ],
+    messages: initialMsgs,
   };
 }
 
@@ -142,13 +181,28 @@ function ensureDrawPileHasCards(drawPile, discardPile) {
   return { drawPile: recycled, discardPile: [topCard] };
 }
 
-export function nextPlayerIndex(currentIndex, step = 1) {
-  return (currentIndex + step) % 4;
+export function nextPlayerIndex(currentIndex, step = 1, numPlayers = 4) {
+  return (currentIndex + step) % (numPlayers || 4);
+}
+
+export function evaluateCheckup(players) {
+  let minScore = Infinity;
+  let winner = players[0];
+  const scores = players.map((p) => {
+    const pts = calculateHandPoints(p.hand);
+    if (pts < minScore || (pts === minScore && p.hand.length < winner.hand.length)) {
+      minScore = pts;
+      winner = p;
+    }
+    return { player: p, pts };
+  });
+  return { winner, minScore, scores };
 }
 
 export function playCard(state, playerIndex, cardId, chosenShape) {
   if (state.gameStatus === 'game_over') return state;
 
+  const numPlayers = state.players.length;
   const player = state.players[playerIndex];
   const card = player.hand.find((c) => c.id === cardId);
   if (!card) return state;
@@ -166,7 +220,7 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
   const updatedPlayers = state.players.map((p, idx) => (idx === playerIndex ? { ...p, hand: updatedHand } : p));
   const updatedDiscard = [...state.discardPile, card];
 
-  // Check victory
+  // Check victory (Hand emptied!)
   if (updatedHand.length === 0) {
     const isHuman = playerIndex === 0;
     const bonusCoins = isHuman ? 500 : 0;
@@ -181,7 +235,7 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
     };
   }
 
-  let nextIdx = nextPlayerIndex(playerIndex);
+  let nextIdx = nextPlayerIndex(playerIndex, 1, numPlayers);
   let requestedShape = state.requestedShape;
   let pendingPenalty = state.pendingDrawPenalty;
   let msg = `${player.name} played ${card.value === 20 ? 'WHOT (20)' : `${card.value} ${card.shape}`}.`;
@@ -220,7 +274,7 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
     msg = `${player.name} played Pick Three! Next player must draw ${pendingPenalty.count} or counter.`;
   } else if (card.value === 8) {
     const skippedPlayer = state.players[nextIdx];
-    nextIdx = nextPlayerIndex(nextIdx);
+    nextIdx = nextPlayerIndex(nextIdx, 1, numPlayers);
     msg = `${player.name} played 8 (Suspension)! ${skippedPlayer.name}'s turn skipped.`;
   } else if (card.value === 14) {
     let currentDiscard = updatedDiscard;
@@ -266,6 +320,7 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
 export function drawCard(state, playerIndex) {
   if (state.gameStatus === 'game_over') return state;
 
+  const numPlayers = state.players.length;
   let { drawPile, discardPile } = ensureDrawPileHasCards(state.drawPile, state.discardPile);
   const player = state.players[playerIndex];
 
@@ -290,7 +345,24 @@ export function drawCard(state, playerIndex) {
     idx === playerIndex ? { ...p, hand: [...p.hand, ...drawnCards] } : p
   );
 
-  const nextIdx = nextPlayerIndex(playerIndex);
+  // Market exhausted (One Pile End) - Checkup Scoring
+  if (drawnCards.length === 0 && drawPile.length === 0) {
+    const { winner, minScore } = evaluateCheckup(updatedPlayers);
+    const isHumanWinner = winner.id === 0;
+    const bonusCoins = isHumanWinner ? 500 : 0;
+    return {
+      ...state,
+      players: updatedPlayers,
+      drawPile: [],
+      discardPile,
+      gameStatus: 'game_over',
+      winner,
+      coinBalance: state.coinBalance + bonusCoins,
+      statusMessage: `Market empty! Checkup: ${winner.name} won with lowest score (${minScore} pts)!`,
+    };
+  }
+
+  const nextIdx = nextPlayerIndex(playerIndex, 1, numPlayers);
   const msg = `${player.name} drew ${drawnCards.length} card${drawnCards.length > 1 ? 's' : ''}.`;
 
   return {
@@ -307,6 +379,8 @@ export function drawCard(state, playerIndex) {
 
 export function getAiMove(state, aiPlayerIndex, difficulty = 'medium') {
   const aiPlayer = state.players[aiPlayerIndex];
+  if (!aiPlayer) return { action: 'draw' };
+
   const topCard = state.discardPile[state.discardPile.length - 1];
 
   const validCards = aiPlayer.hand.filter((c) =>
@@ -318,7 +392,6 @@ export function getAiMove(state, aiPlayerIndex, difficulty = 'medium') {
   }
 
   if (difficulty === 'easy' && Math.random() < 0.45) {
-    // Pick any random legal card
     const randomCard = validCards[Math.floor(Math.random() * validCards.length)];
     if (randomCard.value === 20) {
       return { action: 'play', cardId: randomCard.id, shape: 'circle' };
@@ -327,7 +400,6 @@ export function getAiMove(state, aiPlayerIndex, difficulty = 'medium') {
   }
 
   if (difficulty === 'hard') {
-    // Prioritize special attack cards (2, 5, 14, 8, 1) or WHOT 20 strategically
     const attackCard = validCards.find((c) => [2, 5, 14, 8, 1].includes(c.value));
     const whotCard = validCards.find((c) => c.value === 20);
 
@@ -336,7 +408,7 @@ export function getAiMove(state, aiPlayerIndex, difficulty = 'medium') {
     }
 
     if (whotCard) {
-      const shapeCounts = { cross: 0, square: 0, circle: 0, triangle: 0 };
+      const shapeCounts = { cross: 0, square: 0, circle: 0, triangle: 0, star: 0 };
       aiPlayer.hand.forEach((c) => {
         if (c.shape !== 'whot') shapeCounts[c.shape] = (shapeCounts[c.shape] || 0) + 1;
       });
@@ -360,7 +432,7 @@ export function getAiMove(state, aiPlayerIndex, difficulty = 'medium') {
   const chosenCard = actionCard || validCards[0];
 
   if (whotCard && Math.random() > 0.3) {
-    const shapeCounts = { cross: 0, square: 0, circle: 0, triangle: 0, whot: 0 };
+    const shapeCounts = { cross: 0, square: 0, circle: 0, triangle: 0, star: 0, whot: 0 };
     aiPlayer.hand.forEach((c) => {
       if (c.shape !== 'whot') shapeCounts[c.shape]++;
     });

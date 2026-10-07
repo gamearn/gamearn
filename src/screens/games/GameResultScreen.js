@@ -28,7 +28,7 @@ import { tournaments } from '../../services/api';
 import { naira } from '../../config/appConfig';
 import { clearActiveMatch } from '../../utils/activeMatch';
 import { calculateGamePower, calculateValuePoints, formatGP, formatVP } from '../../utils/gamePower';
-import { recordGameStreak } from '../../utils/recordGameStreak';
+import { recordGameStreak, getWinStreakInfo } from '../../utils/recordGameStreak';
 
 export default function GameResultScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
@@ -347,6 +347,33 @@ export default function GameResultScreen({ route, navigation }) {
             <Text style={styles.statValue}>{winRate}%</Text>
           </View>
         </View>
+
+        {/* Match Win Streak Card */}
+        {(() => {
+          const winStreakInfo = getWinStreakInfo(userProfile);
+          return (
+            <View style={styles.cardContainer}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={[styles.gpShieldIcon, { backgroundColor: isWinner ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)' }]}>
+                    <Flame size={18} color={isWinner ? '#10B981' : '#EF4444'} fill={isWinner ? '#10B981' : 'none'} />
+                  </View>
+                  <View>
+                    <Text style={styles.cardTitle}>Match Win Streak</Text>
+                    <Text style={styles.cardSub}>
+                      {isWinner ? `${winStreakInfo.winCount} consecutive win${winStreakInfo.winCount === 1 ? '' : 's'}!` : 'Streak reset on loss'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={[styles.liveBadge, { backgroundColor: isWinner ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', borderColor: isWinner ? '#10B981' : '#EF4444' }]}>
+                  <Text style={[styles.liveBadgeText, { color: isWinner ? '#10B981' : '#EF4444' }]}>
+                    {isWinner ? `🔥 ${winStreakInfo.winCount} WIN STREAK` : 'RESET TO 0'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          );
+        })()}
 
         {/* Game Power (GP) Progress Bar */}
         <View style={styles.cardContainer}>

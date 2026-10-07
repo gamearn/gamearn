@@ -13,10 +13,10 @@ export const parseInviteCode = (url) => {
   try {
     const clean = decodeURIComponent(String(url));
     const m =
-      clean.match(/invite\/([0-9A-Za-z]{6,16})/) ||
-      clean.match(/[?&](?:code|ref|invite)(?:=|\/)([0-9A-Za-z]{6,16})/) ||
-      clean.match(/([0-9A-Za-z]{6,16})$/);
-    return m ? m[1].toUpperCase() : null;
+      clean.match(/invite\/([a-z0-9_]{3,32})/i) ||
+      clean.match(/[?&](?:code|ref|invite)(?:=|\/)([a-z0-9_]{3,32})/i) ||
+      clean.match(/([a-z0-9_]{3,32})$/i);
+    return m ? m[1].toLowerCase() : null;
   } catch {
     return null;
   }

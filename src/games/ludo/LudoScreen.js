@@ -27,10 +27,11 @@ const ART = {
 const RULES = `This local four-player variant follows the board in the picture: five-cell arms, a 44-square perimeter, and two dice.\n\n1. Turns run red → green → yellow → blue. Pass the device to the active player.\n\n2. Roll both dice. Select either unused die, then a highlighted token. Each die makes one move. A six brings a token out of its yard; the full six is consumed.\n\n3. A token travels 43 perimeter positions, then four private lane positions and the center. You need an exact roll to finish.\n\n4. Landing on opponents on an unsafe square sends all of those tokens back to their yards. Stars and starting squares are safe. Stacked tokens do not block movement.\n\n5. A roll containing a six earns one extra turn after both dice are used or no legal moves remain. Captures and finishes do not grant extra turns. There is no three-sixes penalty.\n\n6. If no die can move a token, the turn advances automatically. Get all four tokens to the center to win.\n\n7. Each turn lasts 2:45. Time expiring forfeits unused dice and extra turns. Menus and backgrounding pause the timer.\n\n8. Undo restores the previous roll or move; this is a local practice feature. Hint recommends a finish, capture, yard exit, or advanced token.\n\nThis is not the standard 15×15, single-die ruleset. Room 458721 and 4/4 identify the local table, not an online connection.`;
 
 function Art({ name, w, h }) {
-  const [x, y, cw, ch] = ART[name];
+  const coords = ART[name] || [0, 0, 100, 100];
+  const [x, y, cw, ch] = coords;
   const f = Math.max(w / cw, h / ch);
   return (
-    <View pointerEvents="none" style={{ width: w, height: h, overflow: 'hidden', borderRadius: name.startsWith('p') ? w / 2 : 0 }}>
+    <View pointerEvents="none" style={{ width: w, height: h, overflow: 'hidden', borderRadius: String(name || '').startsWith('p') ? w / 2 : 0 }}>
       <Image source={PHOTO} resizeMode="stretch" style={{ position: 'absolute', width: 1254 * f, height: 1254 * f, left: -x * f + (w - cw * f) / 2, top: -y * f + (h - ch * f) / 2 }} />
     </View>
   );
@@ -210,19 +211,19 @@ function parseTimerMs(timerStr) {
   return 120000;
 }
 
-export function LudoScreen({ onBack, stake = 250, timer = '2m', onWin, aiDifficulty = 'auto' }) {
+export function LudoScreen({ onBack, stake = 250, timer = '2m', onWin, aiDifficulty = 'auto', playerCount = 2, tokenCount = 4 }) {
   return (
     <SafeAreaProvider>
-      <Game onBack={onBack} stake={stake} timer={timer} onWin={onWin} aiDifficulty={aiDifficulty} />
+      <Game onBack={onBack} stake={stake} timer={timer} onWin={onWin} aiDifficulty={aiDifficulty} playerCount={playerCount} tokenCount={tokenCount} />
     </SafeAreaProvider>
   );
 }
 
-function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
+function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto', playerCount = 2, tokenCount = 4 }) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const timerMs = React.useMemo(() => parseTimerMs(timer), [timer]);
-  const [state, dispatch] = useReducer(reduce, undefined, () => fresh(Date.now(), timerMs));
+  const [state, dispatch] = useReducer(reduce, undefined, () => fresh(Date.now(), timerMs, playerCount, tokenCount));
   const [now, setNow] = useState(Date.now());
   const [modal, setModal] = useState(null);
   const [chat, setChat] = useState([]);
@@ -401,11 +402,11 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
             dispatch({ type: 'SELECT', index: best.die });
             setTimeout(() => {
               dispatch({ type: 'MOVE', token: best.token });
-            }, 500);
+            }, 800);
           } else {
             dispatch({ type: 'PASS_TURN' });
           }
-        }, 1000);
+        }, 1200);
 
         return () => clearTimeout(aiTimer);
       }
@@ -711,10 +712,32 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto' }) {
               </View>
               {ico('chevron-forward', 40, '#1262ef')}
             </View>
-            <Button label="Undo last roll or move" onPress={() => dispatch({ type: 'UNDO' })} disabled={!state.history.length || state.turn !== 0} style={[rect(88, 1126, 271, 90), ui.round, { borderRadius: 46 * k, borderWidth: 5 * k, flexDirection: 'row', gap: 23 * k }]}>
-              {ico('arrow-undo', 45, '#ffe52b')}
-              {text('UNDO', 28)}
-            </Button>
+            {(() => {
+              const undoElapsed = state.lastMoveTimestamp ? (now - state.lastMoveTimestamp) : null;
+              const undoTimeLeft = undoElapsed !== null ? Math.max(0, Math.ceil((10000 - undoElapsed) / 1000)) : 0;
+              const canUndo = Boolean(
+                state.history.length > 0 &&
+                state.turn === 0 &&
+                undoElapsed !== null &&
+                undoElapsed <= 10000
+              );
+              return (
+                <Button
+                  label="Undo last roll or move"
+                  onPress={() => dispatch({ type: 'UNDO' })}
+                  disabled={!canUndo}
+                  style={[
+                    rect(88, 1126, 271, 90),
+                    ui.round,
+                    { borderRadius: 46 * k, borderWidth: 5 * k, flexDirection: 'row', gap: 14 * k },
+                    !canUndo && { opacity: 0.4 },
+                  ]}
+                >
+                  {ico('arrow-undo', 40, canUndo ? '#ffe52b' : '#64748b')}
+                  {text(canUndo ? `UNDO (${undoTimeLeft}s)` : 'UNDO', 24, { color: canUndo ? '#fff' : '#94a3b8' })}
+                </Button>
+              );
+            })()}
             <Button
               label={state.phase === 'won' ? 'Start new game' : rollingDice ? 'Rolling dice...' : state.turn !== 0 ? `${NAMES[state.turn]}'s Turn` : 'Roll both dice'}
               disabled={state.phase === 'move' || state.turn !== 0 || rollingDice}

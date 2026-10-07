@@ -23,9 +23,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { reference, regions } from './art';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { settings as settingsApi, wallet, tournaments } from '../../services/api';
+import { settings as settingsApi, wallet, tournaments, leaderboard as leaderboardApi } from '../../services/api';
 import { getStreakInfo } from '../../utils/recordGameStreak';
 import { resolveAvatarSource } from '../../utils/avatarPresets';
+import ActiveMatchBanner from '../../components/ActiveMatchBanner';
 const { INITIAL_STATE, reducer, parseAmount, money, localDay, leaderboard } = require('./model');
 
 const STORAGE_KEY = '@adebayo-dashboard/v1';
@@ -114,6 +115,29 @@ export default function HomeScreen({ navigation }) {
   const [featuredTournament, setFeaturedTournament] = useState(null);
   const [myTournaments, setMyTournaments] = useState([]);
   const [homeDataLoading, setHomeDataLoading] = useState(true);
+  const [dbLeaderboardRows, setDbLeaderboardRows] = useState([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    setLeaderboardLoading(true);
+    leaderboardApi
+      .get(period)
+      .then((res) => {
+        if (!active) return;
+        const rowsList = Array.isArray(res) ? res : res?.data || [];
+        setDbLeaderboardRows(rowsList);
+      })
+      .catch(() => {
+        if (active) setDbLeaderboardRows([]);
+      })
+      .finally(() => {
+        if (active) setLeaderboardLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [period]);
   const pendingWrites = useRef(Promise.resolve());
   const mounted = useRef(true);
   const depositLock = useRef(false);
@@ -241,7 +265,10 @@ export default function HomeScreen({ navigation }) {
 
   const txt = (value, size = 18, style) => <Text style={[s.text, { fontSize: size * scale }, style]}>{value}</Text>;
   const icon = (iconName, size = 24, color = CYAN) => <Ionicons name={iconName} size={size * scale} color={color} />;
-  const rows = [];
+  const rows = useMemo(
+    () => leaderboard(dbLeaderboardRows, userProfile),
+    [dbLeaderboardRows, userProfile]
+  );
 
   const addFunds = () => {
     const parsed = parseAmount(amount);
@@ -411,8 +438,10 @@ export default function HomeScreen({ navigation }) {
             ))}
           </View>
         </View>
-        {rows.length === 0 ? (
-          <Text style={[s.muted, { marginTop: 12 * scale }]}>Leaderboard data unavailable.</Text>
+        {leaderboardLoading ? (
+          <ActivityIndicator color={CYAN} style={{ marginTop: 16 * scale }} />
+        ) : rows.length === 0 ? (
+          <Text style={[s.muted, { marginTop: 12 * scale }]}>No active database rankings for this period yet.</Text>
         ) : rows.map((player, index) => (
           <Tap key={player.id} label={`${index + 1}, ${player.name}, ${player.wins} wins, ${player.xp} XP`} onPress={() => open('player', player)} style={[s.leaderRow, index === 0 && s.firstRow]}>
             <View style={[s.rank, index < 3 && { borderColor: ['#eab51b', '#91a6b9', '#ff8a00'][index], backgroundColor: ['#8f6400', '#526b80', '#bf4004'][index] }]}>

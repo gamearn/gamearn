@@ -18,14 +18,10 @@ export default function ProfileSetupScreen({ navigation }) {
   const { theme } = useTheme();
   const { backendRegister, getPendingProfile } = useAuth();
   const pending = getPendingProfile() || {};
-  const [username, setUsername] = useState(pending.displayName || '');
-  const [phone, setPhone] = useState(pending.phoneNumber || '');
-  const [phoneCode, setPhoneCode] = useState('+234');
-  const [referralCode, setReferralCode] = useState(consumeInviteCode() || '');
-  const [favGame, setFavGame] = useState('whot');
-  const [loading, setLoading] = useState(false);
+  const sanitizeUsername = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
 
   const handleSave = async () => {
+    const cleanUsername = sanitizeUsername(username);
     if (!phone.trim()) {
       Alert.alert('Phone Number Required', 'We need your phone number to create your account.');
       return;
@@ -34,12 +30,19 @@ export default function ProfileSetupScreen({ navigation }) {
       Alert.alert('Invalid Phone Number', 'Enter a valid phone number, e.g. 0803 123 4567 or +234 803 123 4567.');
       return;
     }
+    if (!cleanUsername || cleanUsername.length < 3) {
+      Alert.alert(
+        'Invalid Username',
+        'Username must be at least 3 characters long and contain only lowercase letters (a-z) and numbers (0-9) with no spaces or special characters.'
+      );
+      return;
+    }
     setLoading(true);
     try {
       await backendRegister({
         phoneNumber: phone.trim(),
-        displayName: username.trim() || 'GameMaster',
-        ...(referralCode.trim() ? { referralCode: referralCode.trim() } : {}),
+        displayName: cleanUsername,
+        ...(referralCode.trim() ? { referralCode: referralCode.trim().toLowerCase() } : {}),
       });
       navigation.reset({
         index: 0,
@@ -91,10 +94,15 @@ export default function ProfileSetupScreen({ navigation }) {
         <GAInput
           label="Gamertag / Username"
           value={username}
-          onChangeText={setUsername}
-          placeholder="e.g. MasterGamer99"
+          onChangeText={(text) => setUsername(sanitizeUsername(text))}
+          placeholder="e.g. mastergamer99"
+          autoCapitalize="none"
+          autoCorrect={false}
           leftIcon={<User size={20} color={theme.textMuted} />}
         />
+        <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4 }}>
+          Only lowercase letters (a-z) and numbers (0-9) allowed. No spaces or special characters.
+        </Text>
       </View>
 
       <View style={styles.fieldWrap}>

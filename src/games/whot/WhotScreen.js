@@ -65,9 +65,27 @@ export function Portrait({ index, scale }) {
   );
 }
 
-export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, onBack = null, isRemote = false, remote = null, onRemoteMove, onRemoteGameOver, aiDifficulty = 'auto', incomingChats = [] }) {
+export function WhotScreen({
+  timer = '2m',
+  cardCount = 6,
+  playerCount = 2,
+  vsOba = false,
+  onAction,
+  onPlay,
+  onMessage,
+  onWin,
+  onBack = null,
+  isRemote = false,
+  remote = null,
+  onRemoteMove,
+  onRemoteGameOver,
+  aiDifficulty = 'auto',
+  incomingChats = [],
+}) {
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
-  const [gameState, setGameState] = useState(() => createInitialState(timer));
+  const [gameState, setGameState] = useState(() =>
+    createInitialState(timer, cardCount, vsOba ? 2 : (playerCount || 2), vsOba)
+  );
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [pendingWhotCardId, setPendingWhotCardId] = useState(null);
@@ -506,8 +524,13 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, o
             />
           </View>
 
-          {/* Character Portraits */}
-          {[0, 1, 2, 3].map((index) => (
+          {/* Character Portraits dynamically filtered by total players */}
+          {(gameState.players.length === 2
+            ? [2, 3]
+            : gameState.players.length === 3
+            ? [0, 2, 3]
+            : [0, 1, 2, 3]
+          ).map((index) => (
             <Portrait key={index} index={index} scale={scale} />
           ))}
 
@@ -521,11 +544,19 @@ export function WhotScreen({ timer = '2m', onAction, onPlay, onMessage, onWin, o
           </View>
 
           {/* Opponent Card Count Badges */}
-          {[
-            { x: 181, y: 548, n: gameState.players[1].hand.length }, // QueenBee
-            { x: 954, y: 548, n: gameState.players[3].hand.length }, // KingTee
-            { x: 459, y: 329, n: gameState.players[2].hand.length }, // AI Bot
-          ].map((b, idx) => (
+          {(gameState.players.length === 2
+            ? [{ x: 459, y: 329, n: gameState.players[1]?.hand?.length || 0 }]
+            : gameState.players.length === 3
+            ? [
+                { x: 181, y: 548, n: gameState.players[1]?.hand?.length || 0 },
+                { x: 459, y: 329, n: gameState.players[2]?.hand?.length || 0 },
+              ]
+            : [
+                { x: 181, y: 548, n: gameState.players[1]?.hand?.length || 0 },
+                { x: 954, y: 548, n: gameState.players[3]?.hand?.length || 0 },
+                { x: 459, y: 329, n: gameState.players[2]?.hand?.length || 0 },
+              ]
+          ).map((b, idx) => (
             <View
               key={idx}
               pointerEvents="none"

@@ -14,16 +14,20 @@ function star(cx, cy, r) {
 export default function Board({ size, state, onMove }) {
   const candidates = legal(state);
   const tokens = state.tokens.flatMap((team, p) =>
-    team.map((progress, t) => ({ p, t, progress, xy: coordinate(p, t, progress) }))
+    team.map((progress, t) => {
+      const coord = coordinate(p, t, progress);
+      const xy = Array.isArray(coord) && coord.length >= 2 ? coord : [6.5, 6.5];
+      return { p, t, progress, xy };
+    })
   );
   const groups = {};
   tokens.forEach((token) => {
-    const key = token.xy.join(',');
+    const key = Array.isArray(token.xy) ? token.xy.join(',') : '6.5,6.5';
     (groups[key] ||= []).push(token);
   });
   for (const group of Object.values(groups)) {
     group.forEach((token, i) => {
-      if (group.length > 1) {
+      if (group.length > 1 && Array.isArray(token.xy)) {
         const a = (i * Math.PI * 2) / group.length;
         token.xy = [token.xy[0] + Math.cos(a) * 0.22, token.xy[1] + Math.sin(a) * 0.22];
       }
@@ -37,6 +41,10 @@ export default function Board({ size, state, onMove }) {
     { p: 2, x: 0, y: 8, color: '#ffcc00', light: '#ffffff', tokenColor: '#ffcc00' }, // Yellow (Bottom-Left)
     { p: 3, x: 8, y: 8, color: '#0085ff', light: '#ffffff', tokenColor: '#0085ff' }, // Blue (Bottom-Right)
   ];
+
+  const visibleTokens = tokens.filter(
+    (t) => t.progress !== FINISH && Array.isArray(t.xy) && t.xy.length >= 2
+  );
 
   return (
     <View style={{ width: size, height: size, borderRadius: size * 0.04, overflow: 'hidden', backgroundColor: '#ffffff', elevation: 8 }}>
@@ -141,9 +149,10 @@ export default function Board({ size, state, onMove }) {
         <Polygon points="6.03,6.25 6.2,6.72 6.8,6.72 6.97,6.25 6.7,6.43 6.5,6.12 6.3,6.43" fill="#ffffff" />
 
         {/* Interactive Player Tokens */}
-        {tokens
-          .filter((t) => t.progress !== FINISH)
-          .map(({ p, t, xy: [x, y] }) => (
+        {visibleTokens.map(({ p, t, xy }) => {
+          const x = xy[0];
+          const y = xy[1];
+          return (
             <React.Fragment key={`${p}-${t}`}>
               {p === state.turn && candidates.includes(t) && (
                 <Circle
@@ -163,13 +172,15 @@ export default function Board({ size, state, onMove }) {
                 </SvgText>
               )}
             </React.Fragment>
-          ))}
+          );
+        })}
       </Svg>
 
       {/* Pressable Tokens Overlay */}
-      {tokens
-        .filter((t) => t.progress !== FINISH)
-        .map(({ p, t, xy: [x, y] }) => (
+      {visibleTokens.map(({ p, t, xy }) => {
+        const x = xy[0];
+        const y = xy[1];
+        return (
           <Pressable
             key={`${p}-${t}`}
             accessibilityRole="button"
@@ -185,7 +196,8 @@ export default function Board({ size, state, onMove }) {
               borderRadius: size,
             }}
           />
-        ))}
+        );
+      })}
     </View>
   );
 }

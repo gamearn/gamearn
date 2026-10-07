@@ -208,10 +208,15 @@ export const AuthProvider = ({ children }) => {
   const activeLogin = React.useRef(false);
   const pendingProfile = React.useRef({});
 
+  const getPendingProfile = useCallback(() => {
+    return pendingProfile.current || {};
+  }, []);
+
   const [googleRequest, , googlePrompt] = Google.useIdTokenAuthRequest({
-    clientId: GOOGLE_CLIENT_IDS.web,
-    iosClientId: GOOGLE_CLIENT_IDS.ios,
-    androidClientId: GOOGLE_CLIENT_IDS.android,
+    clientId: GOOGLE_CLIENT_IDS.webClientId || GOOGLE_CLIENT_IDS.web,
+    iosClientId: GOOGLE_CLIENT_IDS.iosClientId || GOOGLE_CLIENT_IDS.ios,
+    androidClientId: GOOGLE_CLIENT_IDS.androidClientId || GOOGLE_CLIENT_IDS.android,
+    webClientId: GOOGLE_CLIENT_IDS.webClientId || GOOGLE_CLIENT_IDS.web,
   });
 
   const loadBackendProfile = useCallback(async (fbUser) => {

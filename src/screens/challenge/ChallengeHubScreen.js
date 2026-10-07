@@ -484,7 +484,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
           <View style={styles.summaryRow}>
             <Text style={{ color: theme.textSecondary }}>Winner takes (up to):</Text>
             <Text style={{ color: theme.success, fontWeight: '800' }}>
-              {amountValid || freeChallenge ? (selectedFee === 0 ? 'No prize' : naira(koboToN(Math.floor(selectedFee * 1.6)))) : '—'}
+              {amountValid || freeChallenge ? (selectedFee === 0 ? 'No prize' : naira(koboToN(Math.floor(selectedFee * 2 * 0.80)))) : '—'}
             </Text>
           </View>
           <Text style={[styles.note, { color: theme.textMuted }]}>

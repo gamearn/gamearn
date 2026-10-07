@@ -95,6 +95,8 @@ const handleWin = (won = true) => {
         stake={stake}
         timer={timer}
         aiDifficulty={params.aiDifficulty}
+        playerCount={params.players || params.playerCount || 2}
+        tokenCount={params.tokens || params.tokenCount || 4}
         onWin={handleWin}
         onBack={handleBack}
       />

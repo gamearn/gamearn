@@ -21,15 +21,28 @@ import { AVATAR_PRESETS, resolveAvatarSource } from '../../utils/avatarPresets';
 export default function ProfileCreationScreen({ navigation }) {
   const { updateProfileData, userProfile } = useAuth();
   const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_PRESETS[0]);
-  const [username, setUsername] = useState(userProfile?.username || 'GamerOne');
+  const sanitizeUsername = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const [username, setUsername] = useState(sanitizeUsername(userProfile?.username || 'gamerone'));
   const [bio, setBio] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSave = async (isSkip = false) => {
+    const cleanUsername = sanitizeUsername(username);
+    if (!isSkip && (!cleanUsername || cleanUsername.length < 3)) {
+      Alert.alert(
+        'Invalid Username',
+        'Username must be at least 3 characters and contain only lowercase letters (a-z) and numbers (0-9) with no spaces or special characters.'
+      );
+      return;
+    }
     setLoading(true);
     try {
+      const finalUsername = cleanUsername || 'gamerone';
       await updateProfileData({
-        username: isSkip ? (username || 'GamerOne') : (username.trim() || 'GamerOne'),
+        username: finalUsername,
+        name: finalUsername,
+        displayName: finalUsername,
+        referralCode: finalUsername,
         avatar: selectedAvatar.uri,
         bio: isSkip ? '' : bio.trim(),
         profileCompleted: true,
@@ -125,19 +138,20 @@ export default function ProfileCreationScreen({ navigation }) {
             <TextInput
               style={styles.textInput}
               value={username}
-              onChangeText={setUsername}
-              placeholder="e.g. GamerOne"
+              onChangeText={(text) => setUsername(sanitizeUsername(text))}
+              placeholder="e.g. gamerone"
               placeholderTextColor="#64748B"
               autoCapitalize="none"
+              autoCorrect={false}
             />
-            {username.trim().length >= 3 && (
+            {username.length >= 3 && (
               <CheckCircle2 size={20} color="#10B981" style={{ marginLeft: 8 }} />
             )}
           </View>
-          {username.trim().length >= 3 ? (
-            <Text style={styles.availableText}>Username is available!</Text>
+          {username.length >= 3 ? (
+            <Text style={styles.availableText}>Username is valid!</Text>
           ) : (
-            <Text style={styles.hintText}>Enter 3+ characters for your gamer tag.</Text>
+            <Text style={styles.hintText}>Only lowercase letters (a-z) and numbers (0-9) allowed. No spaces or special characters.</Text>
           )}
         </View>
 

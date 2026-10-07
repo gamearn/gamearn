@@ -71,23 +71,52 @@ function restore(value) {
   };
 }
 
-const PLAYERS = [
-  { id: 'you', name: 'Adebayo', wins: 24, xp: 12450, avatar: 'adebayo' },
-  { id: 'pixel', name: 'PixelSlayer', wins: 19, xp: 11200, avatar: 'pixel' },
-  { id: 'nova', name: 'Nova_01', wins: 15, xp: 9840, avatar: 'nova' },
-  { id: 'shadow', name: 'ShadowKing', wins: 14, xp: 9800, avatar: 'shadow' },
-  { id: 'lunar', name: 'LunarNova', wins: 13, xp: 9000, avatar: 'shadow' },
-];
+function leaderboard(dbRows = [], userProfile = null) {
+  if (!Array.isArray(dbRows) || dbRows.length === 0) {
+    if (userProfile?.uid) {
+      return [
+        {
+          id: userProfile.uid,
+          name: `${userProfile.username || userProfile.fullName || userProfile.displayName || userProfile.name || 'You'} (You)`,
+          wins: Number(userProfile.wins || userProfile.gamesWon || 0),
+          xp: Number(userProfile.xp || userProfile.valuePoints * 10 || 0),
+          avatar: userProfile.avatar || 'adebayo',
+          isUser: true,
+          rank: 1,
+        }
+      ];
+    }
+    return [];
+  }
 
-function leaderboard(period, name) {
-  // Explicitly seeded examples, not network rankings.
-  const samples = {
-    Daily: [[24, 12450], [19, 11200], [15, 9840], [14, 9800], [13, 9000]],
-    Weekly: [[88, 48200], [95, 51400], [61, 36600], [72, 40300], [54, 32500]],
-    Monthly: [[270, 149000], [292, 158000], [315, 170000], [220, 126000], [205, 119000]],
-    Yearly: [[1810, 1012000], [1995, 1088000], [2100, 1140000], [2210, 1200000], [1780, 960000]],
-  };
-  return [];
+  const list = dbRows.map((row, index) => {
+    const isUser = Boolean(userProfile?.uid && (row.id === userProfile.uid || row.uid === userProfile.uid));
+    const name = row.name || row.displayName || 'Gamer';
+    return {
+      id: row.id || row.uid || `player_${index}`,
+      name: isUser ? `${name} (You)` : name,
+      wins: Number(row.wins || 0),
+      xp: Number(row.xp || 0),
+      avatar: row.avatar || 'adebayo',
+      isUser,
+      rank: index + 1,
+    };
+  });
+
+  const hasUserInList = userProfile?.uid && list.some((item) => item.isUser);
+  if (userProfile?.uid && !hasUserInList) {
+    list.push({
+      id: userProfile.uid,
+      name: `${userProfile.username || userProfile.fullName || userProfile.displayName || userProfile.name || 'You'} (You)`,
+      wins: Number(userProfile.wins || userProfile.gamesWon || 0),
+      xp: Number(userProfile.xp || userProfile.valuePoints * 10 || 0),
+      avatar: userProfile.avatar || 'adebayo',
+      isUser: true,
+      rank: list.length + 1,
+    });
+  }
+
+  return list;
 }
 
 module.exports = { INITIAL_STATE, reducer, restore, parseAmount, money, localDay, previousDay, leaderboard };

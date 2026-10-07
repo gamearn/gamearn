@@ -31,6 +31,12 @@ export const GOOGLE_CLIENT_IDS = {
     '600025492198-eo1a768ea7ffh7m398fqu0d99ohc034f.apps.googleusercontent.com',
   iosClientId:
     '600025492198-2g641acpvmhl1bm0m3f535kcodvhmt8k.apps.googleusercontent.com',
+  web:
+    '600025492198-dcnafmn9aoojtn1v983ntie0vt2musgn.apps.googleusercontent.com',
+  android:
+    '600025492198-eo1a768ea7ffh7m398fqu0d99ohc034f.apps.googleusercontent.com',
+  ios:
+    '600025492198-2g641acpvmhl1bm0m3f535kcodvhmt8k.apps.googleusercontent.com',
 };
 
 // Facebook OAuth — App ID from Meta Developer Portal (https://developers.facebook.com)

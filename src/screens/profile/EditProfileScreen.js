@@ -20,8 +20,9 @@ export default function EditProfileScreen({ navigation }) {
     uri: currentAvatar,
     source: resolveAvatarSource(currentAvatar),
   };
+  const sanitizeUsername = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
   const [selectedAvatar, setSelectedAvatar] = useState(initialAvatar);
-  const [username, setUsername] = useState(userProfile?.username || userProfile?.name || userProfile?.displayName || '');
+  const [username, setUsername] = useState(sanitizeUsername(userProfile?.username || userProfile?.name || userProfile?.displayName || ''));
   const [bio, setBio] = useState(userProfile?.bio || '');
   const [loading, setLoading] = useState(false);
 
@@ -48,8 +49,12 @@ export default function EditProfileScreen({ navigation }) {
   };
 
   const handleSaveChanges = async () => {
-    if (!username.trim()) {
-      Alert.alert('Validation Error', 'Please enter a valid username.');
+    const cleanUsername = sanitizeUsername(username);
+    if (!cleanUsername || cleanUsername.length < 3) {
+      Alert.alert(
+        'Validation Error',
+        'Username must be at least 3 characters long and contain only lowercase letters (a-z) and numbers (0-9) with no spaces or special characters.'
+      );
       return;
     }
     setLoading(true);
@@ -65,11 +70,11 @@ export default function EditProfileScreen({ navigation }) {
         }
       }
 
-      const newName = username.trim();
       await updateProfileData({
-        username: newName,
-        name: newName,
-        displayName: newName,
+        username: cleanUsername,
+        name: cleanUsername,
+        displayName: cleanUsername,
+        referralCode: cleanUsername,
         avatar: finalAvatarUri,
         bio: bio.trim(),
       });
@@ -163,19 +168,22 @@ export default function EditProfileScreen({ navigation }) {
             <TextInput
               style={[styles.textInput, { color: theme.textPrimary }]}
               value={username}
-              onChangeText={setUsername}
-              placeholder="e.g. GamerOne"
+              onChangeText={(text) => setUsername(sanitizeUsername(text))}
+              placeholder="e.g. gamerone"
               placeholderTextColor={theme.textMuted}
               autoCapitalize="none"
+              autoCorrect={false}
             />
-            {username.trim().length >= 3 && (
+            {username.length >= 3 && (
               <CheckCircle2 size={20} color="#10B981" style={{ marginLeft: 8 }} />
             )}
           </View>
-          {username.trim().length >= 3 ? (
-            <Text style={styles.availableText}>Username is available!</Text>
+          {username.length >= 3 ? (
+            <Text style={styles.availableText}>Username is valid!</Text>
           ) : (
-            <Text style={[styles.hintText, { color: theme.textMuted }]}>Enter 3+ characters for your gamer tag.</Text>
+            <Text style={[styles.hintText, { color: theme.textMuted }]}>
+              Only lowercase letters (a-z) and numbers (0-9) allowed. No spaces or special characters.
+            </Text>
           )}
         </View>
 
