@@ -39,6 +39,9 @@ import ProfileCreationScreen from '../screens/auth/ProfileCreationScreen';
 import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import SellCoinsScreen from '../screens/wallet/SellCoinsScreen';
 import GameResultScreen from '../screens/games/GameResultScreen';
+import ChangeEmailScreen from '../screens/profile/ChangeEmailScreen';
+import EditPhoneScreen from '../screens/profile/EditPhoneScreen';
+import ResetPasswordScreen from '../screens/profile/ResetPasswordScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -90,6 +93,9 @@ export default function RootNavigator() {
       <Stack.Screen name="TournamentResults" component={TournamentResultsScreen} />
       <Stack.Screen name="TournamentPending" component={TournamentPendingScreen} />
       <Stack.Screen name="GameResult" component={GameResultScreen} />
+      <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
+      <Stack.Screen name="EditPhone" component={EditPhoneScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
     </Stack.Navigator>
   );
 }

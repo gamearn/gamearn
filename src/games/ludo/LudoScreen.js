@@ -475,8 +475,9 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto', playerCount 
 
   function Player({ p, x, y, w, reverse = false }) {
     const color = COLORS[p];
+    const pName = p === 0 ? (userProfile?.fullName || userProfile?.username || NAMES[p]) : NAMES[p];
     return (
-      <Button label={`${NAMES[p]}${state.turn === p ? ', current player' : ''}`} onPress={() => show(`player${p}`)} style={rect(x, y, w, 140)}>
+      <Button label={`${pName}${state.turn === p ? ', current player' : ''}`} onPress={() => show(`player${p}`)} style={rect(x, y, w, 140)}>
         <LinearGradient
           colors={[color + 'cc', '#071454']}
           start={{ x: 0, y: 0 }}
@@ -498,7 +499,7 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto', playerCount 
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             {reverse && ico('trophy', 35, '#ffe126')}
-            {text(NAMES[p], 29)}
+            {text(pName, 29)}
             {!reverse && ico('trophy', 35, '#ffe126')}
           </View>
           <View style={{ height: 2 * k, backgroundColor: color + '66', marginVertical: 12 * k }} />

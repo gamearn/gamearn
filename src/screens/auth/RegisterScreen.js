@@ -10,7 +10,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { User, Mail, Lock, Check, ArrowLeft } from 'lucide-react-native';
+import { User, Mail, Lock, Check, ArrowLeft, Gift } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
 import GAInput from '../../components/GAInput';
 import { useAuth } from '../../context/AuthContext';
@@ -22,17 +22,23 @@ export default function RegisterScreen({ navigation }) {
   const [phone, setPhone] = useState('');
   const [phoneCode, setPhoneCode] = useState('+234');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleRegister = async () => {
-    if (!fullName || !email || !password) {
+    if (!fullName || !email || !password || !confirmPassword) {
       setError('Please fill in all required fields');
       return;
     }
     if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError('Password must be at least 8 characters long');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match. Please check and try again.');
       return;
     }
     if (!agreed) {
@@ -42,7 +48,7 @@ export default function RegisterScreen({ navigation }) {
     setError('');
     setLoading(true);
     try {
-      await signUp(email.trim(), password, fullName);
+      await signUp(email.trim(), password, fullName, phone, referralCode.trim());
       navigation.navigate('EmailVerification', { email: email.trim() });
     } catch (e) {
       setError(e.message || 'Registration failed.');
@@ -141,6 +147,25 @@ export default function RegisterScreen({ navigation }) {
             secureTextEntry={true}
             leftIcon={<Lock size={20} color="#64748B" />}
             subLabel="Use at least 8 characters."
+          />
+
+          <GAInput
+            label="Confirm Password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Re-enter your password"
+            secureTextEntry={true}
+            leftIcon={<Lock size={20} color="#64748B" />}
+          />
+
+          <GAInput
+            label="Referral Code (Optional)"
+            value={referralCode}
+            onChangeText={setReferralCode}
+            placeholder="e.g. GAMERN123 or johnny22"
+            autoCapitalize="none"
+            leftIcon={<Gift size={20} color="#64748B" />}
+            subLabel="Enter your friend's username or referral code."
           />
 
           {/* Checkbox Agreement */}

@@ -281,9 +281,8 @@ export default function HomeScreen({ navigation }) {
   };
 
   function Header() {
-    const displayName = userProfile?.username || userProfile?.fullName || state.name;
+    const fullName = userProfile?.displayName || userProfile?.fullName || userProfile?.name || state.name || 'Gamer';
     const avatarUri = userProfile?.avatar;
-    const initials = displayName.trim().slice(0, 1).toUpperCase() || '?';
 
     return (
       <View style={s.header}>
@@ -292,7 +291,7 @@ export default function HomeScreen({ navigation }) {
             <Image source={resolveAvatarSource(avatarUri)} style={[s.avatar, { width: 55 * scale, height: 55 * scale, borderRadius: (55 * scale) / 2 }]} />
           </LinearGradient>
           <View style={{ marginLeft: 15 * scale }}>
-            {txt(displayName, 20, s.medium)}
+            {txt(fullName, 20, s.medium)}
             <View style={[s.inline, { flexWrap: 'wrap', gap: 6 * scale }]}>
                                           <View style={{ backgroundColor: '#F59E0B22', paddingHorizontal: 6 * scale, paddingVertical: 2 * scale, borderRadius: 6 * scale, borderWidth: 1, borderColor: '#F59E0B66' }}>
                 <Text style={{ color: '#F59E0B', fontSize: 11 * scale, fontWeight: '900' }}>⚡ {userProfile?.gpText || '0 GP'}</Text>
@@ -443,17 +442,17 @@ export default function HomeScreen({ navigation }) {
         ) : rows.length === 0 ? (
           <Text style={[s.muted, { marginTop: 12 * scale }]}>No active database rankings for this period yet.</Text>
         ) : rows.map((player, index) => (
-          <Tap key={player.id} label={`${index + 1}, ${player.name}, ${player.wins} wins, ${player.xp} XP`} onPress={() => open('player', player)} style={[s.leaderRow, index === 0 && s.firstRow]}>
+          <Tap key={player.id} label={`${index + 1}, ${player.name}, ${player.wins} wins, ${player.gpText || `${player.gp || 0}% GP`}`} onPress={() => open('player', player)} style={[s.leaderRow, index === 0 && s.firstRow]}>
             <View style={[s.rank, index < 3 && { borderColor: ['#eab51b', '#91a6b9', '#ff8a00'][index], backgroundColor: ['#8f6400', '#526b80', '#bf4004'][index] }]}>
               {index < 3 && <View style={s.medalRibbon} />}
               {txt(String(index + 1), 17, index === 0 && { color: '#fff676' })}
             </View>
-            <Art name={player.avatar} width={32 * scale} height={32 * scale} style={s.smallAvatar} />
+            <Image source={resolveAvatarSource(player.avatar)} style={[s.smallAvatar, { width: 32 * scale, height: 32 * scale, borderRadius: (32 * scale) / 2 }]} />
             <View style={{ flex: 1 }}>
               {txt(player.name, 12)}
               {txt(`${player.wins} Wins`, 11, s.muted)}
             </View>
-            {txt(`${player.xp.toLocaleString('en-US')} XP`, 14, [s.bold, index === 0 && { color: '#ffe856' }])}
+            {txt(player.gpText || `${player.gp || 0}% GP`, 14, [s.bold, index === 0 && { color: '#ffe856' }])}
           </Tap>
         ))}
       </View>
@@ -572,7 +571,7 @@ export default function HomeScreen({ navigation }) {
           <Text style={ui.pageTitle}>{state.name}</Text>
           <Text style={ui.credit}>â— Active Member</Text>
           <Text style={ui.body}>
-            {state.streak} day streak Â· 24 wins Â· 12,450 XP
+            {streakDays} day streak · {userProfile?.wins || 0} wins · {userProfile?.gpText || '0 GP'}
           </Text>
         </View>
         <GradientButton title="Edit profile" onPress={() => open('profile')} />
@@ -772,12 +771,12 @@ export default function HomeScreen({ navigation }) {
       case 'player':
         return (
           <>
-            <Art name={sheet.data.avatar} width={72} height={72} style={{ borderRadius: 36, alignSelf: 'center' }} />
+            <Image source={resolveAvatarSource(sheet.data.avatar)} style={{ width: 72, height: 72, borderRadius: 36, alignSelf: 'center' }} />
             <Text style={ui.heading}>{sheet.data.name}</Text>
             <Text style={ui.body}>
               {period} leaderboard{'\n'}
               {sheet.data.wins} Wins{'\n'}
-              {sheet.data.xp.toLocaleString('en-US')} XP
+              {sheet.data.gpText || `${sheet.data.gp || 0}% GP`}
             </Text>
             <Text style={ui.caption}>Player profile</Text>
           </>

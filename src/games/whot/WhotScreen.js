@@ -33,8 +33,9 @@ import { recordGameStreak } from '../../utils/recordGameStreak';
 import { getAiDifficulty } from '../../utils/aiDifficulty';
 import { wallet } from '../../services/api';
 
-export function Portrait({ index, scale }) {
+export function Portrait({ index, scale, avatarUrl = null }) {
   const c = PORTRAITS[index];
+  if (!c) return null;
   return (
     <View
       pointerEvents="none"
@@ -48,19 +49,30 @@ export function Portrait({ index, scale }) {
         height: c.h * scale,
         borderRadius: (c.w * scale) / 2,
         overflow: 'hidden',
+        borderWidth: 2 * scale,
+        borderColor: '#7042ff',
+        backgroundColor: '#0a0e1a',
       }}
     >
-      <Image
-        source={require('../../../assets/portraits-source.png')}
-        resizeMode="stretch"
-        style={{
-          position: 'absolute',
-          left: -c.x * scale,
-          top: -c.y * scale,
-          width: 1024 * scale,
-          height: 1536 * scale,
-        }}
-      />
+      {avatarUrl ? (
+        <Image
+          source={typeof avatarUrl === 'string' ? { uri: avatarUrl } : avatarUrl}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+        />
+      ) : (
+        <Image
+          source={require('../../../assets/portraits-source.png')}
+          resizeMode="stretch"
+          style={{
+            position: 'absolute',
+            left: -c.x * scale,
+            top: -c.y * scale,
+            width: 1024 * scale,
+            height: 1536 * scale,
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -175,6 +187,37 @@ export function WhotScreen({
   const mountStreakRecorded = useRef(false);
   const gameOverHandled = useRef(false);
 
+  const [showFormationModal, setShowFormationModal] = useState(true);
+  const [formationCountdown, setFormationCountdown] = useState(7);
+
+  // Pre-game 7 seconds Countdown Modal Effect
+  useEffect(() => {
+    if (!showFormationModal) return;
+    const interval = setInterval(() => {
+      setFormationCountdown((prev) => {
+        if (prev <= 1) {
+          setShowFormationModal(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showFormationModal]);
+
+  // Sync human player name with userProfile
+  useEffect(() => {
+    if (!userProfile) return;
+    const displayName = userProfile?.fullName || userProfile?.username || 'You';
+    setGameState((prev) => {
+      if (!prev?.players?.[0]) return prev;
+      if (prev.players[0].name === displayName) return prev;
+      const copy = [...prev.players];
+      copy[0] = { ...copy[0], name: displayName };
+      return { ...prev, players: copy };
+    });
+  }, [userProfile]);
+
   useEffect(() => {
     let alive = true;
     getActiveMatch().then((match) => {
@@ -218,7 +261,6 @@ export function WhotScreen({
     }
   }, [gameState, isRemote]);
 
-
   function layout(e) {
     const { width, height } = e.nativeEvent.layout;
     setBounds({ width, height });
@@ -237,7 +279,6 @@ export function WhotScreen({
     if (isRemote) {
       setSelected(null);
       if (card.value === 20) {
-        // Server requires a declared shape for WHOT (20).
         setPendingWhotCardId(card.id);
         setDialog('whot_picker');
         return;
@@ -255,7 +296,6 @@ export function WhotScreen({
     }
 
     if (card.value === 20) {
-      // Open shape selection picker for WHOT card
       setPendingWhotCardId(card.id);
       setDialog('whot_picker');
       return;
@@ -387,8 +427,6 @@ export function WhotScreen({
     const text = draft.trim();
     if (!text) return;
 
-    // Real multiplayer/practice rooms are server-authoritative: send the
-    // message through the backend socket, which relays it to the room.
     if (isRemote && typeof onMessage === 'function') {
       onMessage(text);
       setDraft('');
@@ -397,7 +435,7 @@ export function WhotScreen({
 
     const newMsg = {
       id: String(Date.now()),
-      sender: 'You',
+      sender: userProfile?.fullName || userProfile?.username || 'You',
       text,
       isUser: true,
     };
@@ -409,7 +447,6 @@ export function WhotScreen({
     setDraft('');
     onMessage?.(text);
 
-    // Random AI bot response after 1.5s
     setTimeout(() => {
       const botNames = ['QueenBee', 'Oba', 'KingTee'];
       const randomBot = botNames[Math.floor(Math.random() * botNames.length)];
@@ -425,7 +462,6 @@ export function WhotScreen({
     }, 1500);
   }
 
-  // Append incoming room chat (multiplayer) deduplicated by server message id.
   useEffect(() => {
     let changed = false;
     for (const chat of incomingChats || []) {
@@ -449,9 +485,11 @@ export function WhotScreen({
 
   // Restart Game
   function handleRestart() {
-    setGameState(createInitialState());
+    setGameState(createInitialState(timer, cardCount, vsOba ? 2 : (playerCount || 2), vsOba));
     setSelected(null);
     setDialog(null);
+    setFormationCountdown(7);
+    setShowFormationModal(true);
   }
 
   // Claim Daily Bonus
@@ -460,7 +498,6 @@ export function WhotScreen({
     setDialog(null);
 
     if (userProfile?.id || userProfile?.uid) {
-      // Real backend grant — idempotent per claim per UTC day.
       wallet
         .freeCoins('whot-bonus')
         .then((res) => {
@@ -485,7 +522,6 @@ export function WhotScreen({
       return;
     }
 
-    // Offline / signed-out fallback: local only.
     setGameState((prev) => ({
       ...prev,
       coinBalance: prev.coinBalance + 500,
@@ -493,7 +529,6 @@ export function WhotScreen({
     }));
   }
 
-  // Calculate Centers for User Hand Cards
   const centers = getCardCenters(humanHand.length);
   const bonusHours = String(Math.floor(gameState.dailyBonusSeconds / 3600)).padStart(2, '0');
   const bonusMins = String(Math.floor((gameState.dailyBonusSeconds % 3600) / 60)).padStart(2, '0');
@@ -521,17 +556,36 @@ export function WhotScreen({
               statusText={gameState.statusMessage}
               undoSecondsLeft={undoSecondsLeft}
               canUndo={canUndo}
+              players={gameState.players}
+              userProfile={userProfile}
             />
           </View>
 
           {/* Character Portraits dynamically filtered by total players */}
           {(gameState.players.length === 2
-            ? [2, 3]
+            ? [
+                { portraitIndex: 2, player: gameState.players[1] },
+                { portraitIndex: 3, player: gameState.players[0] },
+              ]
             : gameState.players.length === 3
-            ? [0, 2, 3]
-            : [0, 1, 2, 3]
-          ).map((index) => (
-            <Portrait key={index} index={index} scale={scale} />
+            ? [
+                { portraitIndex: 0, player: gameState.players[1] },
+                { portraitIndex: 2, player: gameState.players[2] },
+                { portraitIndex: 3, player: gameState.players[0] },
+              ]
+            : [
+                { portraitIndex: 0, player: gameState.players[1] },
+                { portraitIndex: 1, player: gameState.players[3] },
+                { portraitIndex: 2, player: gameState.players[2] },
+                { portraitIndex: 3, player: gameState.players[0] },
+              ]
+          ).map(({ portraitIndex, player }) => (
+            <Portrait
+              key={portraitIndex}
+              index={portraitIndex}
+              scale={scale}
+              avatarUrl={player?.id === 0 ? (userProfile?.avatar || userProfile?.photoURL || player?.avatar) : player?.avatar}
+            />
           ))}
 
           {/* Status Message Banner Overlay */}
@@ -752,6 +806,75 @@ export function WhotScreen({
 
             <Pressable accessibilityRole="button" style={[styles.button, { marginTop: 12 }]} onPress={() => setDialog(null)}>
               <Text style={styles.buttonText}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Pre-Game Whot Formation & Rules Modal */}
+      <Modal
+        visible={showFormationModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFormationModal(false)}
+      >
+        <View style={styles.scrim}>
+          <View style={[styles.dialog, { borderColor: '#00E5FF', maxWidth: 440, padding: 20 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <Text style={{ fontSize: 20, fontWeight: '900', color: '#FFFFFF' }}>
+                ⚔️ Match Formation
+              </Text>
+              <View style={{ backgroundColor: 'rgba(0, 229, 255, 0.15)', borderColor: '#00E5FF', borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 }}>
+                <Text style={{ color: '#00E5FF', fontWeight: '800', fontSize: 13 }}>
+                  ⏱️ Starts in {formationCountdown}s
+                </Text>
+              </View>
+            </View>
+
+            <Text style={{ fontSize: 13, color: '#94A3B8', marginBottom: 14 }}>
+              Get ready! Review turn order formation and card controls:
+            </Text>
+
+            {/* Turn Order Formation */}
+            <View style={{ backgroundColor: 'rgba(0, 0, 0, 0.35)', borderRadius: 14, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: '#70DDFF', textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 }}>
+                Turn Order ({gameState.players.length} Players)
+              </Text>
+              {gameState.players.map((p, idx) => {
+                const medals = ['🥇 1st Turn', '🥈 2nd Turn', '🥉 3rd Turn', '🎖️ 4th Turn'];
+                const displayName = p.id === 0 ? (userProfile?.fullName || userProfile?.username || p.name || 'You') : p.name;
+                const isUser = p.id === 0;
+                return (
+                  <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: idx < gameState.players.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: isUser ? '#FFD700' : '#E2E8F0' }}>
+                      {medals[idx] || `${idx + 1}th Turn`}
+                    </Text>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: isUser ? '#00E5FF' : '#FFFFFF' }}>
+                      {displayName} {isUser ? '(You)' : ''}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Double Tap Instruction Notice */}
+            <View style={{ backgroundColor: 'rgba(255, 153, 0, 0.12)', borderRadius: 14, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: '#FF9900' }}>
+              <Text style={{ fontSize: 13, fontWeight: '900', color: '#FFB703', marginBottom: 4 }}>
+                💡 Important Rule Notice:
+              </Text>
+              <Text style={{ fontSize: 13, color: '#FFE6A7', lineHeight: 18 }}>
+                • <Text style={{ fontWeight: '800', color: '#FFF' }}>Tap your card TWICE</Text> to play it onto the table (1st tap selects, 2nd tap plays).{'\n'}
+                • Match the shape or value with the top card on the pile!
+              </Text>
+            </View>
+
+            <Pressable
+              style={[styles.button, { backgroundColor: '#00E5FF', width: '100%', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12 }]}
+              onPress={() => setShowFormationModal(false)}
+            >
+              <Text style={{ color: '#0A0E1A', fontWeight: '900', fontSize: 15 }}>
+                Get Ready & Start Now ({formationCountdown}s)
+              </Text>
             </Pressable>
           </View>
         </View>

@@ -26,6 +26,8 @@ import {
   ChevronRight,
   Trash2,
   X,
+  Smartphone,
+  KeyRound,
 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -111,6 +113,51 @@ export default function SettingsScreen({ navigation }) {
               <View style={{ flex: 1, marginLeft: 14 }}>
                 <Text style={[styles.menuItemTitle, { color: theme.textPrimary }]}>Account Security</Text>
                 <Text style={[styles.menuItemSub, { color: theme.textSecondary }]}>Password, 2FA and sessions</Text>
+              </View>
+              <ChevronRight size={18} color={theme.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('ChangeEmail')}
+              style={styles.menuRow}
+            >
+              <View style={[styles.iconSquare, { backgroundColor: 'rgba(0, 229, 255, 0.12)' }]}>
+                <Mail size={20} color="#00E5FF" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={[styles.menuItemTitle, { color: theme.textPrimary }]}>Change Email Address</Text>
+                <Text style={[styles.menuItemSub, { color: theme.textSecondary }]}>Update account email address</Text>
+              </View>
+              <ChevronRight size={18} color={theme.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('EditPhone')}
+              style={styles.menuRow}
+            >
+              <View style={[styles.iconSquare, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
+                <Smartphone size={20} color="#10B981" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={[styles.menuItemTitle, { color: theme.textPrimary }]}>Edit Phone Number</Text>
+                <Text style={[styles.menuItemSub, { color: theme.textSecondary }]}>Update SMS & 2FA phone number</Text>
+              </View>
+              <ChevronRight size={18} color={theme.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('ResetPassword')}
+              style={styles.menuRow}
+            >
+              <View style={[styles.iconSquare, { backgroundColor: 'rgba(255, 85, 0, 0.12)' }]}>
+                <KeyRound size={20} color="#FF5500" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={[styles.menuItemTitle, { color: theme.textPrimary }]}>Reset Password</Text>
+                <Text style={[styles.menuItemSub, { color: theme.textSecondary }]}>Send password reset link</Text>
               </View>
               <ChevronRight size={18} color={theme.textMuted} />
             </TouchableOpacity>

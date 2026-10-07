@@ -5,6 +5,7 @@ import { ArrowLeft, Wallet, Flame, Users, Play, Trophy } from 'lucide-react-nati
 import { useAuth } from '../../context/AuthContext';
 import { wallet, tournaments, leaderboard as leaderboardApi } from '../../services/api';
 import { leaderboard } from '../home/model';
+import { resolveAvatarSource } from '../../utils/avatarPresets';
 
 const GAMES = {
   ludo: { title: 'Ludo', sub: 'Race your tokens home.', image: require('../../../assets/games/ludo_3d.jpg'), target: 'LudoGame' },
@@ -127,12 +128,13 @@ export default function GameSectionScreen({ route, navigation }) {
                 <View style={[styles.rankBadge, idx === 0 && { backgroundColor: '#F59E0B' }]}>
                   <Text style={{ color: idx === 0 ? '#070C1B' : '#FFF', fontWeight: '900', fontSize: 13 }}>#{idx + 1}</Text>
                 </View>
+                <Image source={resolveAvatarSource(player.avatar)} style={{ width: 32, height: 32, borderRadius: 16, marginLeft: 10 }} />
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 14 }}>{player.name}</Text>
                   <Text style={{ color: '#94A3B8', fontSize: 11 }}>{player.wins} Wins · Live</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: '#00E5FF', fontWeight: '900', fontSize: 14 }}>{player.xp.toLocaleString()} XP</Text>
+                  <Text style={{ color: '#00E5FF', fontWeight: '900', fontSize: 14 }}>{player.gpText || `${player.gp || 0}% GP`}</Text>
                 </View>
               </View>
             ))

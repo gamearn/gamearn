@@ -76,9 +76,11 @@ export async function recordGameStreak(updateProfileData, userProfile, isWinner 
  * Get Daily Play Streak info for Dashboard
  */
 export function getDailyStreakInfo(userProfile) {
-  const streakCount = Number(userProfile?.dailyPlayStreak ?? userProfile?.streak ?? userProfile?.currentStreak ?? 0);
+  const gamesPlayed = Number(userProfile?.gamesPlayed ?? userProfile?.stats?.gamesPlayed ?? (Number(userProfile?.wins || 0) + Number(userProfile?.losses || 0)));
+  const rawStreak = Number(userProfile?.dailyPlayStreak ?? userProfile?.streak ?? userProfile?.currentStreak ?? 0);
+  const streakCount = gamesPlayed === 0 ? 0 : rawStreak;
 
-  if (streakCount <= 0) {
+  if (streakCount <= 0 || gamesPlayed === 0) {
     return {
       dayText: 'Day 0',
       statusText: 'Daily Play',

@@ -340,8 +340,21 @@ export function Artwork({
   statusText,
   undoSecondsLeft = 0,
   canUndo = false,
+  players = [],
+  userProfile = null,
 }) {
   const centers = getCardCenters(hand.length);
+  const totalPlayers = players.length || 2;
+  const isTwoPlayer = totalPlayers === 2;
+  const isThreePlayer = totalPlayers === 3;
+  const isFourPlayer = totalPlayers >= 4;
+
+  const topPlayerIndex = isTwoPlayer ? 1 : 2;
+  const topPlayer = players[topPlayerIndex] || { name: 'Oba' };
+  const leftPlayer = players[1] || { name: 'QueenBee' };
+  const rightPlayer = players[3] || { name: 'KingTee' };
+
+  const humanName = userProfile?.fullName || userProfile?.username || players[0]?.name || 'You';
 
   return (
     <Svg width={width} height={height} viewBox="0 0 1024 1536">
@@ -375,15 +388,16 @@ export function Artwork({
         sec
       </T>
 
-      <Panel x={410} y={253} w={272} h={91} stroke={activePlayerIndex === 2 ? '#57faff' : '#7435ff'} />
-      <T x="493" y="290" fontFamily={FONT} fontSize="26" fontWeight="800" fill="#fff">
-        ♟ Oba
+      {/* Top Player Panel */}
+      <Panel x={410} y={253} w={272} h={91} stroke={activePlayerIndex === topPlayerIndex ? '#57faff' : '#7435ff'} />
+      <T x="493" y="290" fontFamily={FONT} fontSize="24" fontWeight="800" fill="#fff">
+        ♟ {topPlayer.name}
       </T>
-      <T x="493" y="323" fontFamily={FONT} fontSize="23" fill={activePlayerIndex === 2 ? '#00e5ff' : '#00d5ff'}>
-        {activePlayerIndex === 2 ? 'Playing...' : 'Waiting'}
+      <T x="493" y="323" fontFamily={FONT} fontSize="22" fill={activePlayerIndex === topPlayerIndex ? '#00e5ff' : '#00d5ff'}>
+        {activePlayerIndex === topPlayerIndex ? 'Playing...' : 'Waiting'}
       </T>
       {[616, 635, 653].map((x) => (
-        <Circle key={x} cx={x} cy="316" r="4" fill={activePlayerIndex === 2 ? '#00e5ff' : '#5944ff'} />
+        <Circle key={x} cx={x} cy="316" r="4" fill={activePlayerIndex === topPlayerIndex ? '#00e5ff' : '#5944ff'} />
       ))}
 
       <Ellipse cx="512" cy="767" rx="367" ry="302" fill="#063aae" stroke="#8019ff" strokeWidth="6" />
@@ -403,24 +417,33 @@ export function Artwork({
         </G>
       )}
 
-      <Panel x={31} y={568} w={190} h={55} stroke={activePlayerIndex === 1 ? '#57faff' : '#bf35ff'} />
-      <T x="111" y="603" textAnchor="middle" fontFamily={FONT} fontSize="24" fontWeight="800" fill="#fff">
-        QueenBee
-      </T>
-      <Crown x={180} y={596} size={29} />
+      {/* Left Player Panel (Shown in 3 or 4 Player games) */}
+      {(isThreePlayer || isFourPlayer) && (
+        <>
+          <Panel x={31} y={568} w={190} h={55} stroke={activePlayerIndex === 1 ? '#57faff' : '#bf35ff'} />
+          <T x="111" y="603" textAnchor="middle" fontFamily={FONT} fontSize="22" fontWeight="800" fill="#fff">
+            {leftPlayer.name}
+          </T>
+          <Crown x={180} y={596} size={29} />
+          {[-1, 0, 1].map((i) => (
+            <CardBack key={`q_${i}`} x={126 + i * 40} y={701 + Math.abs(i) * 7} angle={i * 17} w={76} h={118} />
+          ))}
+        </>
+      )}
 
-      <Panel x={811} y={569} w={185} h={55} stroke={activePlayerIndex === 3 ? '#57faff' : '#b630ff'} />
-      <Circle cx={844} cy="597" r="8" fill="#00ec58" />
-      <T x="913" y="605" textAnchor="middle" fontFamily={FONT} fontSize="25" fontWeight="800" fill="#fff">
-        KingTee
-      </T>
-
-      {[-1, 0, 1].map((i) => (
-        <CardBack key={`q_${i}`} x={126 + i * 40} y={701 + Math.abs(i) * 7} angle={i * 17} w={76} h={118} />
-      ))}
-      {[-1, 0, 1].map((i) => (
-        <CardBack key={`k_${i}`} x={895 + i * 40} y={701 + Math.abs(i) * 7} angle={i * 17} w={76} h={118} />
-      ))}
+      {/* Right Player Panel (Shown ONLY in 4 Player games) */}
+      {isFourPlayer && (
+        <>
+          <Panel x={811} y={569} w={185} h={55} stroke={activePlayerIndex === 3 ? '#57faff' : '#b630ff'} />
+          <Circle cx={844} cy="597" r="8" fill="#00ec58" />
+          <T x="913" y="605" textAnchor="middle" fontFamily={FONT} fontSize="22" fontWeight="800" fill="#fff">
+            {rightPlayer.name}
+          </T>
+          {[-1, 0, 1].map((i) => (
+            <CardBack key={`k_${i}`} x={895 + i * 40} y={701 + Math.abs(i) * 7} angle={i * 17} w={76} h={118} />
+          ))}
+        </>
+      )}
 
       {[5, 4, 3, 2, 1, 0].map((i) => (
         <CardBack key={i} x={373 + i * 4} y={730 + i * 5} w={126} h={190} angle={2} />
@@ -457,11 +480,12 @@ export function Artwork({
       </T>
       <Icon x={612} y={1342} name="send" color="#7042ff" />
 
+      {/* Human Player (Bottom Panel) */}
       <Panel x={719} y={1305} w={270} h={76} stroke={activePlayerIndex === 0 ? '#57faff' : '#7435ff'} />
-      <T x="799" y="1352" fontFamily={FONT} fontSize="30" fontWeight="800" fill="#fff">
-        You
+      <T x="799" y="1352" fontFamily={FONT} fontSize="24" fontWeight="800" fill="#fff">
+        {humanName}
       </T>
-      <Circle cx="864" cy="1343" r="8" fill={activePlayerIndex === 0 ? '#00ec5f' : '#ff9900'} />
+      <Circle cx={864} cy="1343" r="8" fill={activePlayerIndex === 0 ? '#00ec5f' : '#ff9900'} />
       <Crown x={733} y={1295} size={40} />
       <Badge x={951} y={1343} value={hand.length} />
 

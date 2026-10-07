@@ -269,6 +269,56 @@ export default function AccountSecurityScreen({ navigation }) {
           </View>
         </LinearGradient>
 
+        {/* Section: ACCOUNT ACTIONS */}
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.orangeBar} />
+          <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>ACCOUNT MANAGEMENT</Text>
+        </View>
+
+        <View style={styles.methodsContainer}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('ChangeEmail')}
+            style={[styles.methodCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}
+          >
+            <View style={[styles.methodIconBox, { backgroundColor: 'rgba(0, 229, 255, 0.12)' }]}>
+              <Mail size={22} color="#00E5FF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.methodTitle, { color: theme.textPrimary }]}>Change Email Address</Text>
+              <Text style={[styles.methodValue, { color: theme.textSecondary }]}>{userProfile?.email || 'Not set'}</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('EditPhone')}
+            style={[styles.methodCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}
+          >
+            <View style={[styles.methodIconBox, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
+              <Smartphone size={22} color="#10B981" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.methodTitle, { color: theme.textPrimary }]}>Edit Phone Number</Text>
+              <Text style={[styles.methodValue, { color: theme.textSecondary }]}>{userProfile?.phone || userProfile?.phoneNumber || 'Not set'}</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('ResetPassword')}
+            style={[styles.methodCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle, marginBottom: 20 }]}
+          >
+            <View style={[styles.methodIconBox, { backgroundColor: 'rgba(255, 85, 0, 0.12)' }]}>
+              <KeyRound size={22} color="#FF5500" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.methodTitle, { color: theme.textPrimary }]}>Reset Password</Text>
+              <Text style={[styles.methodValue, { color: theme.textSecondary }]}>Send password reset link</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Section: TWO-FACTOR AUTH */}
         <View style={styles.sectionHeaderRow}>
           <View style={styles.orangeBar} />
@@ -637,7 +687,8 @@ const styles = StyleSheet.create({
   },
   otpVerificationCard: {
     marginTop: 12,
-    padding: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 16,
     borderRadius: 20,
     borderWidth: 1,
   },
@@ -657,17 +708,20 @@ const styles = StyleSheet.create({
   },
   otpRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 6,
     justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 12,
+    width: '100%',
+    flexWrap: 'nowrap',
   },
   otpInput: {
-    width: 50,
-    height: 56,
-    borderRadius: 12,
+    width: 38,
+    height: 46,
+    borderRadius: 10,
     borderWidth: 1.5,
     textAlign: 'center',
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },

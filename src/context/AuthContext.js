@@ -136,16 +136,17 @@ function profileFromMe(me, cached) {
 
   const rawNaira = me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? cached?.walletBalance ?? 0;
 
-  // Stored GP preservation: prioritize explicitly saved gamePower/gp so it never resets on app restart
+  // Stored GP preservation: calculate derived GP and ensure storedGp <= 0 never overrides valid computed GP
   const storedGp = me?.gamePower !== undefined && me?.gamePower !== null ? Number(me.gamePower)
                  : me?.gp !== undefined && me?.gp !== null ? Number(me.gp)
                  : cached?.gamePower !== undefined && cached?.gamePower !== null ? Number(cached.gamePower)
                  : cached?.gp !== undefined && cached?.gp !== null ? Number(cached.gp)
                  : null;
 
-  const gp = storedGp !== null && !isNaN(storedGp)
-    ? Math.min(100, Math.max(0, storedGp))
-    : calculateGamePower(gamesPlayed, wins, losses);
+  const computedGp = calculateGamePower(gamesPlayed, wins, losses);
+  const gp = storedGp !== null && !isNaN(storedGp) && storedGp > 0
+    ? Math.max(storedGp, computedGp)
+    : computedGp;
 
   const computedVp = calculateValuePoints(rawNaira, gamesPlayed, wins);
   const vp = Math.max(
@@ -154,9 +155,10 @@ function profileFromMe(me, cached) {
     computedVp
   );
 
-  const username = me?.username || me?.name || me?.displayName || cached?.username || me?.email?.split('@')[0] || 'Gamer';
-  const displayName = me?.displayName || me?.username || me?.name || cached?.displayName || 'Gamer';
-  const name = me?.name || me?.username || me?.displayName || cached?.name || 'Gamer';
+  const username = me?.username || cached?.username || me?.displayName || me?.name || me?.email?.split('@')[0] || 'Gamer';
+  const displayName = me?.displayName || me?.fullName || me?.name || cached?.displayName || cached?.fullName || me?.username || 'Gamer';
+  const fullName = me?.displayName || me?.fullName || me?.name || cached?.fullName || cached?.displayName || 'Gamer';
+  const name = displayName;
 
   const gameStats = me?.gameStats || cached?.gameStats || {};
 
@@ -165,6 +167,7 @@ function profileFromMe(me, cached) {
     ...me,
     username,
     displayName,
+    fullName,
     name,
     avatar: me?.avatar || me?.avatarUrl || me?.photoURL || cached?.avatar || '',
     bio: me?.bio || cached?.bio || '',
@@ -356,12 +359,12 @@ export const AuthProvider = ({ children }) => {
     return confirmPhoneCode(confirmation, code);
   });
 
-  const signUp = async (email, password, displayName = null, phoneNumber = null) => {
+  const signUp = async (email, password, displayName = null, phoneNumber = null, referralCode = null) => {
     if (activeLogin.current) return null;
     activeLogin.current = true;
     setLoading(true);
     setAuthError('');
-    pendingProfile.current = { displayName, phoneNumber };
+    pendingProfile.current = { displayName, phoneNumber, referralCode };
     try {
       const fbUser = await registerEmailPassword(email, password);
       setUserProfile(null);
@@ -456,7 +459,8 @@ export const AuthProvider = ({ children }) => {
   });
 
   const backendRegister = async ({ phoneNumber, displayName, referralCode }) => {
-    await authApi.register({ phoneNumber, displayName, referralCode });
+    const finalCode = referralCode || pendingProfile.current?.referralCode || undefined;
+    await authApi.register({ phoneNumber, displayName, referralCode: finalCode });
     const me = await authApi.me();
     const isAdmin = await isAdminUser();
     const profile = profileFromMe({ ...me, isAdmin });

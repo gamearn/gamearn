@@ -157,51 +157,88 @@ export default function HelpSupportScreen({ navigation }) {
         ) : (
           items.map((section, secIdx) => {
             const Icon = SECTION_ICONS[section.id] || LifeBuoy;
-            const isFirst = secIdx === 0;
-            const sectionCardStyle = isFirst ? styles.categoryCardHero : styles.categoryCardRow;
             const sectionTitle = titleCase(section.title);
+            const numItems = (section.items || []).length;
+
             return (
               <View
                 key={section.id || secIdx}
-                style={[sectionCardStyle, { backgroundColor: theme.cardBg, borderColor: isFirst ? theme.cardBorder : theme.cardBorderSubtle }]}
+                style={[
+                  styles.categoryCard,
+                  { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle },
+                ]}
               >
-                <View style={styles.sectionHeaderRow}>
-                  <View style={[styles.iconCircleCyan, !isFirst && styles.iconCircleCyanSmall]}>
-                    <Icon size={isFirst ? 24 : 20} color="#00E5FF" />
+                {/* Category Header Row */}
+                <View style={styles.categoryHeaderRow}>
+                  <View style={styles.iconCircleCyan}>
+                    <Icon size={22} color="#00E5FF" />
                   </View>
-                  <View style={styles.rowLeftContent}>
-                    <Text style={[styles.cardTitle, isFirst && styles.cardTitleSmall, { color: theme.textPrimary }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitleText, { color: theme.textPrimary }]}>
                       {sectionTitle.toUpperCase()}
+                    </Text>
+                    <Text style={[styles.cardSubText, { color: theme.textSecondary }]}>
+                      {numItems} {numItems === 1 ? 'article' : 'articles'} available
                     </Text>
                   </View>
                 </View>
 
-                {section.items.slice(0, 5).map((item) => {
-                  const open = !!expanded[item.key];
-                  return (
-                    <View key={item.key} style={styles.faqItem}>
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => toggleItem(secIdx, parseInt(item.key.split('-')[1], 10))}
-                        style={styles.faqQuestionRow}
-                      >
-                        <Text style={[styles.faqQuestion, { color: theme.textPrimary }]}>
-                          {item.question || item.title || 'Topic'}
-                        </Text>
-                        <ChevronDown size={18} color={theme.textMuted} style={[styles.faqChevron, open && styles.faqChevronOpen]} />
-                      </TouchableOpacity>
-                      {open && (
-                        <Text style={[styles.faqAnswer, { color: theme.textSecondary }]}>
-                          {item.answer || item.body || 'No details available yet.'}
-                        </Text>
-                      )}
-                    </View>
-                  );
-                })}
+                {/* FAQ Accordion List */}
+                <View style={styles.faqListContainer}>
+                  {section.items.map((item, itemIdx) => {
+                    const itemKey = `${secIdx}-${itemIdx}`;
+                    const open = !!expanded[itemKey];
+
+                    return (
+                      <View key={itemKey} style={[styles.faqItemCard, { borderColor: open ? theme.primary : 'rgba(255, 255, 255, 0.06)' }]}>
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          onPress={() => toggleItem(secIdx, itemIdx)}
+                          style={styles.faqQuestionRow}
+                        >
+                          <Text style={[styles.faqQuestionText, { color: theme.textPrimary }]}>
+                            {item.question || item.title || 'Topic'}
+                          </Text>
+                          <View style={[styles.chevronBadge, open && { backgroundColor: theme.primaryGlow }]}>
+                            <ChevronDown
+                              size={18}
+                              color={open ? theme.primary : theme.textMuted}
+                              style={open ? styles.faqChevronOpen : styles.faqChevronClosed}
+                            />
+                          </View>
+                        </TouchableOpacity>
+
+                        {open && (
+                          <View style={[styles.faqAnswerContainer, { backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.03)' }]}>
+                            <Text style={[styles.faqAnswerText, { color: theme.textSecondary }]}>
+                              {item.answer || item.body || 'No details available yet.'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
               </View>
             );
           })
         )}
+
+        {/* Still Need Help Contact Footer */}
+        <View style={[styles.contactCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
+          <LifeBuoy size={28} color="#FF5500" />
+          <Text style={[styles.contactTitle, { color: theme.textPrimary }]}>STILL NEED HELP?</Text>
+          <Text style={[styles.contactSubText, { color: theme.textSecondary }]}>
+            Our support team is active 24/7 to assist with wallet, games, and account questions.
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Settings'))}
+            style={styles.contactBtn}
+          >
+            <Text style={styles.contactBtnText}>Back to Settings</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -236,7 +273,7 @@ const styles = StyleSheet.create({
   },
   heroTitleBlock: {
     marginTop: 10,
-    marginBottom: 28,
+    marginBottom: 24,
   },
   centerOpsLabel: {
     color: '#00E5FF',
@@ -246,83 +283,15 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   mainHeroTitle: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '900',
-    lineHeight: 38,
+    lineHeight: 36,
   },
   orangeHeroTitle: {
     color: '#FF5500',
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: '900',
-    lineHeight: 40,
-  },
-  categoryCardHero: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 24,
-    marginBottom: 16,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  iconCircleCyan: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0, 229, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  cardSubText: {
-    fontSize: 14,
-    lineHeight: 20,
-    maxWidth: '85%',
-  },
-  decorLinesPattern: {
-    position: 'absolute',
-    right: -10,
-    bottom: -10,
-    gap: 6,
-    transform: [{ rotate: '-45deg' }],
-  },
-  decorLineBar: {
-    width: 50,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  categoryCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 18,
-    marginBottom: 14,
-  },
-  rowLeftContent: {
-    flex: 1,
-    paddingRight: 10,
-  },
-  rowHeaderInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  rowTitleText: {
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  rowSubText: {
-    fontSize: 12,
-    lineHeight: 16,
+    lineHeight: 38,
   },
   loadingBox: {
     alignItems: 'center',
@@ -332,49 +301,111 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 13,
   },
-  sectionHeaderRow: {
+  categoryCard: {
+    flexDirection: 'column',
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 20,
+    marginBottom: 18,
+  },
+  categoryHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 16,
+    gap: 14,
   },
-  iconCircleCyanSmall: {
-    width: 40,
-    height: 40,
-    borderRadius: 13,
-    marginBottom: 0,
-    marginRight: 12,
+  iconCircleCyan: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 229, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cardTitleSmall: {
-    fontSize: 16,
-    marginBottom: 0,
+  cardTitleText: {
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
-  faqItem: {
-    marginTop: 4,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(128, 128, 128, 0.2)',
-    paddingVertical: 2,
+  cardSubText: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  faqListContainer: {
+    gap: 10,
+  },
+  faqItemCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
   faqQuestionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 10,
   },
-  faqQuestion: {
+  faqQuestionText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
+    lineHeight: 19,
   },
-  faqChevron: {
+  chevronBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  faqChevronClosed: {
     transform: [{ rotate: '0deg' }],
   },
   faqChevronOpen: {
     transform: [{ rotate: '180deg' }],
   },
-  faqAnswer: {
+  faqAnswerContainer: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(128, 128, 128, 0.15)',
+  },
+  faqAnswerText: {
     fontSize: 13,
-    lineHeight: 19,
-    paddingBottom: 12,
+    lineHeight: 20,
+  },
+  contactCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 24,
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  contactTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  contactSubText: {
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  contactBtn: {
+    backgroundColor: '#FF5500',
+    borderRadius: 14,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  contactBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

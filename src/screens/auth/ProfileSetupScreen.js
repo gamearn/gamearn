@@ -20,6 +20,13 @@ export default function ProfileSetupScreen({ navigation }) {
   const pending = getPendingProfile() || {};
   const sanitizeUsername = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+  const [phone, setPhone] = useState(pending.phoneNumber || '');
+  const [phoneCode, setPhoneCode] = useState('+234');
+  const [username, setUsername] = useState('');
+  const [referralCode, setReferralCode] = useState(pending.referralCode || '');
+  const [favGame, setFavGame] = useState('whot');
+  const [loading, setLoading] = useState(false);
+
   const handleSave = async () => {
     const cleanUsername = sanitizeUsername(username);
     if (!phone.trim()) {

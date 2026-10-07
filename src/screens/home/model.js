@@ -72,15 +72,40 @@ function restore(value) {
   };
 }
 
+function computeRowGp(wins = 0, played = 0, explicitGp = null) {
+  if (explicitGp !== null && explicitGp !== undefined && !isNaN(Number(explicitGp)) && Number(explicitGp) > 0) {
+    return Math.min(100, Math.max(0, Math.round(Number(explicitGp))));
+  }
+  const P = Math.max(0, Number(played) || Number(wins) || 0);
+  const W = Math.max(0, Number(wins) || 0);
+  if (P === 0) return 0;
+  const WR = Math.min(1, Math.max(0, W / P));
+  const expScore = Math.min(1, Math.log10(P + 1) / 3);
+  return Math.min(100, Math.max(0, Math.round(100 * (0.75 * WR + 0.25 * expScore))));
+}
+
 function leaderboard(dbRows = [], userProfile = null) {
+  const getUserGp = () => {
+    if (!userProfile) return 0;
+    if (userProfile.gp !== undefined && userProfile.gp !== null) return Number(userProfile.gp);
+    if (userProfile.gamePower !== undefined && userProfile.gamePower !== null) return Number(userProfile.gamePower);
+    const wins = Number(userProfile.wins || userProfile.gamesWon || 0);
+    const losses = Number(userProfile.losses || userProfile.gamesLost || 0);
+    const played = Number(userProfile.gamesPlayed || (wins + losses));
+    return computeRowGp(wins, played);
+  };
+
   if (!Array.isArray(dbRows) || dbRows.length === 0) {
     if (userProfile?.uid) {
+      const userGp = getUserGp();
       return [
         {
           id: userProfile.uid,
-          name: `${userProfile.username || userProfile.fullName || userProfile.displayName || userProfile.name || 'You'} (You)`,
+          name: `${userProfile.displayName || userProfile.fullName || userProfile.name || userProfile.username || 'You'} (You)`,
           wins: Number(userProfile.wins || userProfile.gamesWon || 0),
-          xp: Number(userProfile.xp || userProfile.valuePoints * 10 || 0),
+          gp: userGp,
+          gpText: `${userGp}% GP`,
+          xp: userGp,
           avatar: userProfile.avatar || 'adebayo',
           isUser: true,
           rank: 1,
@@ -93,11 +118,16 @@ function leaderboard(dbRows = [], userProfile = null) {
   const list = dbRows.map((row, index) => {
     const isUser = Boolean(userProfile?.uid && (row.id === userProfile.uid || row.uid === userProfile.uid));
     const name = row.name || row.displayName || 'Gamer';
+    const wins = Number(row.wins || 0);
+    const played = Number(row.gamesPlayed || row.played || wins);
+    const rowGp = isUser ? getUserGp() : computeRowGp(wins, played, row.gp ?? row.gamePower);
     return {
       id: row.id || row.uid || `player_${index}`,
       name: isUser ? `${name} (You)` : name,
-      wins: Number(row.wins || 0),
-      xp: Number(row.xp || 0),
+      wins,
+      gp: rowGp,
+      gpText: `${rowGp}% GP`,
+      xp: rowGp,
       avatar: row.avatar || 'adebayo',
       isUser,
       rank: index + 1,
@@ -106,11 +136,14 @@ function leaderboard(dbRows = [], userProfile = null) {
 
   const hasUserInList = userProfile?.uid && list.some((item) => item.isUser);
   if (userProfile?.uid && !hasUserInList) {
+    const userGp = getUserGp();
     list.push({
       id: userProfile.uid,
-      name: `${userProfile.username || userProfile.fullName || userProfile.displayName || userProfile.name || 'You'} (You)`,
+      name: `${userProfile.displayName || userProfile.fullName || userProfile.name || userProfile.username || 'You'} (You)`,
       wins: Number(userProfile.wins || userProfile.gamesWon || 0),
-      xp: Number(userProfile.xp || userProfile.valuePoints * 10 || 0),
+      gp: userGp,
+      gpText: `${userGp}% GP`,
+      xp: userGp,
       avatar: userProfile.avatar || 'adebayo',
       isUser: true,
       rank: list.length + 1,
