@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 import { practice } from '../../services/api';
 import { ApiError } from '../../services/apiClient';
+import CoinTossModal from '../../components/CoinTossModal';
 
 export default function DraughtsGameScreen({ route, navigation }) {
   const { mode = 'local', roomId, aiDifficulty = 'auto' } = route.params || {};
@@ -123,6 +124,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
         gameName: 'Dráfù Game',
         targetScreen: 'DraughtsGame',
         stake: stake,
+        matchSettings: route.params || {},
       });
     }, 800);
   };
@@ -154,7 +156,12 @@ export default function DraughtsGameScreen({ route, navigation }) {
 
   const liveName = m.opponent?.displayName || 'Live opponent';
 
-  const playerColor = route.params?.playerColor || 'white';
+  const [showCoinToss, setShowCoinToss] = useState(true);
+
+  const draftPlayers = [
+    { id: 0, name: 'You', isUser: true },
+    { id: 1, name: m.opponent?.displayName || 'Oba 👑', isAi: true },
+  ];
 
   return (
     <View style={styles.container}>
@@ -166,6 +173,12 @@ export default function DraughtsGameScreen({ route, navigation }) {
         onWin={handleLocalWin}
         onSquarePress={isMultiplayer ? relayIfMove : undefined}
         onBack={handleBack}
+      />
+      <CoinTossModal
+        visible={showCoinToss}
+        players={draftPlayers}
+        gameName="Dráfù Game"
+        onComplete={() => setShowCoinToss(false)}
       />
 
       {isMultiplayer && (

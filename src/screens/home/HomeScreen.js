@@ -281,7 +281,7 @@ export default function HomeScreen({ navigation }) {
   };
 
   function Header() {
-    const fullName = userProfile?.displayName || userProfile?.fullName || userProfile?.name || state.name || 'Gamer';
+    const fullName = userProfile?.fullName || userProfile?.name || state.name || userProfile?.username || 'Gamer';
     const avatarUri = userProfile?.avatar;
 
     return (
@@ -442,7 +442,7 @@ export default function HomeScreen({ navigation }) {
         ) : rows.length === 0 ? (
           <Text style={[s.muted, { marginTop: 12 * scale }]}>No active database rankings for this period yet.</Text>
         ) : rows.map((player, index) => (
-          <Tap key={player.id} label={`${index + 1}, ${player.name}, ${player.wins} wins, ${player.gpText || `${player.gp || 0}% GP`}`} onPress={() => open('player', player)} style={[s.leaderRow, index === 0 && s.firstRow]}>
+          <Tap key={player.id} label={`${index + 1}, ${player.name}, ${player.wins} wins, ${player.gpText || `${player.gp || 0} GP`}`} onPress={() => open('player', player)} style={[s.leaderRow, index === 0 && s.firstRow]}>
             <View style={[s.rank, index < 3 && { borderColor: ['#eab51b', '#91a6b9', '#ff8a00'][index], backgroundColor: ['#8f6400', '#526b80', '#bf4004'][index] }]}>
               {index < 3 && <View style={s.medalRibbon} />}
               {txt(String(index + 1), 17, index === 0 && { color: '#fff676' })}
@@ -452,7 +452,7 @@ export default function HomeScreen({ navigation }) {
               {txt(player.name, 12)}
               {txt(`${player.wins} Wins`, 11, s.muted)}
             </View>
-            {txt(player.gpText || `${player.gp || 0}% GP`, 14, [s.bold, index === 0 && { color: '#ffe856' }])}
+            {txt(player.gpText || `${player.gp || 0} GP`, 14, [s.bold, index === 0 && { color: '#ffe856' }])}
           </Tap>
         ))}
       </View>
@@ -776,7 +776,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={ui.body}>
               {period} leaderboard{'\n'}
               {sheet.data.wins} Wins{'\n'}
-              {sheet.data.gpText || `${sheet.data.gp || 0}% GP`}
+              {sheet.data.gpText || `${sheet.data.gp || 0} GP`}
             </Text>
             <Text style={ui.caption}>Player profile</Text>
           </>

@@ -164,21 +164,9 @@ export function isValidMove(card, topCard, requestedShape, pendingPenalty) {
   return card.shape === topCard.shape || card.value === topCard.value;
 }
 
-// Ensure deck has cards by recycling discard pile if draw pile is empty
+// Draw pile does NOT recycle discard pile - once the first pile finishes, game ends for checkup
 function ensureDrawPileHasCards(drawPile, discardPile) {
-  if (drawPile.length > 0) return { drawPile: [...drawPile], discardPile: [...discardPile] };
-
-  if (discardPile.length <= 1) return { drawPile: [], discardPile: [...discardPile] };
-
-  const topCard = discardPile[discardPile.length - 1];
-  const recycled = discardPile.slice(0, discardPile.length - 1);
-
-  for (let i = recycled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [recycled[i], recycled[j]] = [recycled[j], recycled[i]];
-  }
-
-  return { drawPile: recycled, discardPile: [topCard] };
+  return { drawPile: [...drawPile], discardPile: [...discardPile] };
 }
 
 export function nextPlayerIndex(currentIndex, step = 1, numPlayers = 4) {
@@ -280,9 +268,6 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
     let currentDiscard = updatedDiscard;
     const marketPlayers = updatedPlayers.map((p, idx) => {
       if (idx === playerIndex) return p;
-      const refilled = ensureDrawPileHasCards(drawPile, currentDiscard);
-      drawPile = refilled.drawPile;
-      currentDiscard = refilled.discardPile;
       if (drawPile.length > 0) {
         const drawnCard = drawPile.pop();
         return { ...p, hand: [...p.hand, drawnCard] };
@@ -290,6 +275,22 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
       return p;
     });
     msg = `${player.name} played 14 (General Market)! All opponents draw 1 card.`;
+
+    if (drawPile.length === 0) {
+      const { winner, minScore } = evaluateCheckup(marketPlayers);
+      const isHumanWinner = winner.id === 0;
+      return {
+        ...state,
+        players: marketPlayers,
+        drawPile: [],
+        discardPile: currentDiscard,
+        gameStatus: 'game_over',
+        winner,
+        coinBalance: state.coinBalance + (isHumanWinner ? 500 : 0),
+        statusMessage: `🏁 First pile finished! Checkup: ${winner.name} won with lowest card count (${minScore} pts)!`,
+      };
+    }
+
     return {
       ...state,
       players: marketPlayers,
@@ -301,6 +302,22 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
       secondsRemaining: state.turnTimerSeconds || 120,
       pendingWhotSelection: false,
       statusMessage: msg,
+    };
+  }
+
+  // Check if draw pile finished after playing
+  if (drawPile.length === 0) {
+    const { winner, minScore } = evaluateCheckup(updatedPlayers);
+    const isHumanWinner = winner.id === 0;
+    return {
+      ...state,
+      players: updatedPlayers,
+      discardPile: updatedDiscard,
+      drawPile: [],
+      gameStatus: 'game_over',
+      winner,
+      coinBalance: state.coinBalance + (isHumanWinner ? 500 : 0),
+      statusMessage: `🏁 First pile finished! Checkup: ${winner.name} won with lowest card count (${minScore} pts)!`,
     };
   }
 
@@ -321,7 +338,8 @@ export function drawCard(state, playerIndex) {
   if (state.gameStatus === 'game_over') return state;
 
   const numPlayers = state.players.length;
-  let { drawPile, discardPile } = ensureDrawPileHasCards(state.drawPile, state.discardPile);
+  const drawPile = [...state.drawPile];
+  const discardPile = [...state.discardPile];
   const player = state.players[playerIndex];
 
   let drawCount = 1;
@@ -333,9 +351,6 @@ export function drawCard(state, playerIndex) {
 
   const drawnCards = [];
   for (let i = 0; i < drawCount; i++) {
-    const refilled = ensureDrawPileHasCards(drawPile, discardPile);
-    drawPile = refilled.drawPile;
-    discardPile = refilled.discardPile;
     if (drawPile.length > 0) {
       drawnCards.push(drawPile.pop());
     }
@@ -345,8 +360,8 @@ export function drawCard(state, playerIndex) {
     idx === playerIndex ? { ...p, hand: [...p.hand, ...drawnCards] } : p
   );
 
-  // Market exhausted (One Pile End) - Checkup Scoring
-  if (drawnCards.length === 0 && drawPile.length === 0) {
+  // Market exhausted (First Pile Finished) -> Game ends immediately & Checkup Scoring determines winner!
+  if (drawPile.length === 0) {
     const { winner, minScore } = evaluateCheckup(updatedPlayers);
     const isHumanWinner = winner.id === 0;
     const bonusCoins = isHumanWinner ? 500 : 0;
@@ -358,7 +373,7 @@ export function drawCard(state, playerIndex) {
       gameStatus: 'game_over',
       winner,
       coinBalance: state.coinBalance + bonusCoins,
-      statusMessage: `Market empty! Checkup: ${winner.name} won with lowest score (${minScore} pts)!`,
+      statusMessage: `🏁 First pile finished! Checkup: ${winner.name} won with lowest card count (${minScore} pts)!`,
     };
   }
 

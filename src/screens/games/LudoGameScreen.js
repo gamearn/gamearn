@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useOnlineMatch } from '../../games/useOnlineMatch';
 import { practice } from '../../services/api';
 import { ApiError } from '../../services/apiClient';
+import CoinTossModal from '../../components/CoinTossModal';
 
 const STATUS_LABEL = {
   joining: 'Connectingâ€¦',
@@ -85,9 +86,17 @@ const handleWin = (won = true) => {
         gameName: 'Ludo Classic',
         targetScreen: 'LudoGame',
         stake: stake,
+        matchSettings: route.params || {},
       });
     }, 800);
   };
+
+  const [showCoinToss, setShowCoinToss] = useState(true);
+
+  const ludoPlayers = [
+    { id: 0, name: 'You', isUser: true },
+    { id: 1, name: m.opponent?.displayName || 'Gamearn Bot 🤖', isAi: true },
+  ];
 
   return (
     <View style={styles.container}>
@@ -99,6 +108,12 @@ const handleWin = (won = true) => {
         tokenCount={params.tokens || params.tokenCount || 4}
         onWin={handleWin}
         onBack={handleBack}
+      />
+      <CoinTossModal
+        visible={showCoinToss}
+        players={ludoPlayers}
+        gameName="Ludo Classic"
+        onComplete={() => setShowCoinToss(false)}
       />
       {isPractice && (
         <View style={styles.practiceHud} pointerEvents="none">

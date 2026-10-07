@@ -134,7 +134,7 @@ export default function GameSectionScreen({ route, navigation }) {
                   <Text style={{ color: '#94A3B8', fontSize: 11 }}>{player.wins} Wins · Live</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: '#00E5FF', fontWeight: '900', fontSize: 14 }}>{player.gpText || `${player.gp || 0}% GP`}</Text>
+                  <Text style={{ color: '#00E5FF', fontWeight: '900', fontSize: 14 }}>{player.gpText || `${player.gp || 0} GP`}</Text>
                 </View>
               </View>
             ))

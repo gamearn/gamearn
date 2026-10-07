@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useOnlineMatch } from '../../games/useOnlineMatch';
 import { practice } from '../../services/api';
 import { ApiError } from '../../services/apiClient';
+import CoinTossModal from '../../components/CoinTossModal';
 
 const STATUS_TEXT = {
   idle: '',
@@ -76,6 +77,7 @@ export default function AyoGameScreen({ route, navigation }) {
         gameName: 'Ayò Ọ̀pọ́n',
         targetScreen: 'AyoGame',
         stake: params.stake || 250,
+        matchSettings: route.params || {},
       });
     }, 800);
   };
@@ -88,8 +90,21 @@ export default function AyoGameScreen({ route, navigation }) {
     }
   };
 
+  const [showCoinToss, setShowCoinToss] = useState(true);
+
+  const ayoPlayers = [
+    { id: 0, name: 'You', isUser: true },
+    { id: 1, name: m.opponent?.displayName || 'Ayò Master 🤖', isAi: true },
+  ];
+
   return (
     <View style={styles.container}>
+      <CoinTossModal
+        visible={showCoinToss}
+        players={ayoPlayers}
+        gameName="Ayò Ọ̀pọ́n"
+        onComplete={() => setShowCoinToss(false)}
+      />
       {isPractice ? (
         <View style={styles.practiceBar}>
           <Text style={styles.practiceTitle}>AyÃ² á»ŒÌ€pá»Ìn â€” Practice</Text>

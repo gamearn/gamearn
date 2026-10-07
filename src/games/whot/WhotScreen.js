@@ -32,6 +32,7 @@ import { useAuth } from '../../context/AuthContext';
 import { recordGameStreak } from '../../utils/recordGameStreak';
 import { getAiDifficulty } from '../../utils/aiDifficulty';
 import { wallet } from '../../services/api';
+import CoinTossModal from '../../components/CoinTossModal';
 
 export function Portrait({ index, scale, avatarUrl = null }) {
   const c = PORTRAITS[index];
@@ -100,6 +101,7 @@ export function WhotScreen({
   );
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [showCoinToss, setShowCoinToss] = useState(true);
   const [pendingWhotCardId, setPendingWhotCardId] = useState(null);
   const [draft, setDraft] = useState('');
   const knownChatIds = useRef(new Set());
@@ -529,7 +531,8 @@ export function WhotScreen({
     }));
   }
 
-  const centers = getCardCenters(humanHand.length);
+  const selectedIndex = humanHand.findIndex((c) => c.id === selected);
+  const centers = getCardCenters(humanHand.length, selectedIndex);
   const bonusHours = String(Math.floor(gameState.dailyBonusSeconds / 3600)).padStart(2, '0');
   const bonusMins = String(Math.floor((gameState.dailyBonusSeconds % 3600) / 60)).padStart(2, '0');
   const bonusSecs = String(gameState.dailyBonusSeconds % 60).padStart(2, '0');
@@ -599,16 +602,16 @@ export function WhotScreen({
 
           {/* Opponent Card Count Badges */}
           {(gameState.players.length === 2
-            ? [{ x: 459, y: 329, n: gameState.players[1]?.hand?.length || 0 }]
+            ? [{ x: 512, y: 345, n: gameState.players[1]?.hand?.length || 0, name: gameState.players[1]?.name }]
             : gameState.players.length === 3
             ? [
-                { x: 181, y: 548, n: gameState.players[1]?.hand?.length || 0 },
-                { x: 459, y: 329, n: gameState.players[2]?.hand?.length || 0 },
+                { x: 181, y: 548, n: gameState.players[1]?.hand?.length || 0, name: gameState.players[1]?.name },
+                { x: 512, y: 345, n: gameState.players[2]?.hand?.length || 0, name: gameState.players[2]?.name },
               ]
             : [
-                { x: 181, y: 548, n: gameState.players[1]?.hand?.length || 0 },
-                { x: 954, y: 548, n: gameState.players[3]?.hand?.length || 0 },
-                { x: 459, y: 329, n: gameState.players[2]?.hand?.length || 0 },
+                { x: 181, y: 548, n: gameState.players[1]?.hand?.length || 0, name: gameState.players[1]?.name },
+                { x: 843, y: 548, n: gameState.players[3]?.hand?.length || 0, name: gameState.players[3]?.name },
+                { x: 512, y: 345, n: gameState.players[2]?.hand?.length || 0, name: gameState.players[2]?.name },
               ]
           ).map((b, idx) => (
             <View
@@ -616,31 +619,102 @@ export function WhotScreen({
               pointerEvents="none"
               style={{
                 position: 'absolute',
-                left: (b.x - 21) * scale,
-                top: (b.y - 21) * scale,
-                width: 42 * scale,
-                height: 42 * scale,
-                borderRadius: 21 * scale,
-                backgroundColor: '#9800ee',
-                borderColor: '#d873ff',
+                left: (b.x - 55) * scale,
+                top: (b.y - 18) * scale,
+                paddingHorizontal: 12 * scale,
+                paddingVertical: 5 * scale,
+                borderRadius: 14 * scale,
+                backgroundColor: '#10B981',
+                borderColor: '#34D399',
                 borderWidth: 2 * scale,
                 alignItems: 'center',
                 justifyContent: 'center',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.6,
+                elevation: 6,
+                zIndex: 50,
               }}
             >
-              <Text style={{ color: '#fff', fontSize: 26 * scale, fontWeight: '900' }}>{b.n}</Text>
+              <Text style={{ color: '#ffffff', fontSize: 16 * scale, fontWeight: '900' }}>
+                🂠 {b.n} {b.n === 1 ? 'Card' : 'Cards'}
+              </Text>
             </View>
           ))}
 
+          {/* Scrollable Expanded Hand Bar when Cards >= 5 */}
+          {humanHand.length >= 5 && (
+            <View
+              style={{
+                position: 'absolute',
+                top: 975 * scale,
+                left: 60 * scale,
+                width: 904 * scale,
+                backgroundColor: '#0a0d26f0',
+                borderRadius: 18 * scale,
+                borderWidth: 2 * scale,
+                borderColor: '#7042ff',
+                paddingVertical: 8 * scale,
+                paddingHorizontal: 12 * scale,
+                zIndex: 100,
+              }}
+            >
+              <Text style={{ color: '#00E5FF', fontSize: 13 * scale, fontWeight: '900', textAlign: 'center', marginBottom: 6 * scale }}>
+                🔍 MY HAND CARDS ({humanHand.length} Total — Tap to Select, Double Tap to Play)
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 * scale, alignItems: 'center' }}>
+                {humanHand.map((card) => {
+                  const isSel = selected === card.id;
+                  const shapeColor = card.shape === 'whot' ? '#F59E0B' : card.shape === 'star' ? '#FF5E00' : card.color;
+                  return (
+                    <TouchableOpacity
+                      key={card.id}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        if (selected === card.id) {
+                          handlePlayCard(card.id);
+                        } else {
+                          setSelected(card.id);
+                        }
+                      }}
+                      style={{
+                        backgroundColor: isSel ? '#7042ff' : '#161b40',
+                        borderColor: isSel ? '#00E5FF' : shapeColor,
+                        borderWidth: 2 * scale,
+                        borderRadius: 12 * scale,
+                        paddingHorizontal: 14 * scale,
+                        paddingVertical: 8 * scale,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexDirection: 'row',
+                        gap: 6 * scale,
+                      }}
+                    >
+                      <Text style={{ color: '#FFFFFF', fontSize: 16 * scale, fontWeight: '900' }}>
+                        {card.value === 20 ? 'WHOT' : card.value}
+                      </Text>
+                      <Text style={{ color: shapeColor, fontSize: 14 * scale, fontWeight: '900' }}>
+                        {card.shape.toUpperCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
           {/* Interactive Player Hand Cards */}
           {humanHand.map((card, i) => {
-            const c = centers[i] || { x: 512, y: 1115, a: 0 };
+            const c = centers[i] || { x: 512, y: 1115, a: 0, scale: 1 };
+            const isSel = selected === card.id;
+            const cardW = 98 * (c.scale || 1) * scale;
+            const cardH = 182 * (c.scale || 1) * scale;
             return (
               <Pressable
                 key={card.id}
                 accessibilityRole="button"
                 accessibilityLabel={`${card.value} ${card.shape} card`}
-                accessibilityState={{ selected: selected === card.id }}
+                accessibilityState={{ selected: isSel }}
                 onPress={() => {
                   if (selected === card.id) {
                     // Double tap plays card
@@ -651,12 +725,13 @@ export function WhotScreen({
                 }}
                 style={({ pressed }) => ({
                   position: 'absolute',
-                  left: (c.x - 49) * scale,
-                  top: (c.y - 91) * scale,
-                  width: 98 * scale,
-                  height: 182 * scale,
+                  left: (c.x - (49 * (c.scale || 1))) * scale,
+                  top: (c.y - (91 * (c.scale || 1))) * scale,
+                  width: cardW,
+                  height: cardH,
                   borderRadius: 12 * scale,
                   backgroundColor: pressed ? '#ffffff33' : 'transparent',
+                  zIndex: isSel ? 999 : i + 10,
                 })}
               />
             );
@@ -811,74 +886,16 @@ export function WhotScreen({
         </View>
       </Modal>
 
-      {/* Pre-Game Whot Formation & Rules Modal */}
-      <Modal
-        visible={showFormationModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFormationModal(false)}
-      >
-        <View style={styles.scrim}>
-          <View style={[styles.dialog, { borderColor: '#00E5FF', maxWidth: 440, padding: 20 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <Text style={{ fontSize: 20, fontWeight: '900', color: '#FFFFFF' }}>
-                ⚔️ Match Formation
-              </Text>
-              <View style={{ backgroundColor: 'rgba(0, 229, 255, 0.15)', borderColor: '#00E5FF', borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 }}>
-                <Text style={{ color: '#00E5FF', fontWeight: '800', fontSize: 13 }}>
-                  ⏱️ Starts in {formationCountdown}s
-                </Text>
-              </View>
-            </View>
-
-            <Text style={{ fontSize: 13, color: '#94A3B8', marginBottom: 14 }}>
-              Get ready! Review turn order formation and card controls:
-            </Text>
-
-            {/* Turn Order Formation */}
-            <View style={{ backgroundColor: 'rgba(0, 0, 0, 0.35)', borderRadius: 14, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }}>
-              <Text style={{ fontSize: 11, fontWeight: '800', color: '#70DDFF', textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 }}>
-                Turn Order ({gameState.players.length} Players)
-              </Text>
-              {gameState.players.map((p, idx) => {
-                const medals = ['🥇 1st Turn', '🥈 2nd Turn', '🥉 3rd Turn', '🎖️ 4th Turn'];
-                const displayName = p.id === 0 ? (userProfile?.fullName || userProfile?.username || p.name || 'You') : p.name;
-                const isUser = p.id === 0;
-                return (
-                  <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: idx < gameState.players.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
-                    <Text style={{ fontSize: 13, fontWeight: '800', color: isUser ? '#FFD700' : '#E2E8F0' }}>
-                      {medals[idx] || `${idx + 1}th Turn`}
-                    </Text>
-                    <Text style={{ fontSize: 13, fontWeight: '800', color: isUser ? '#00E5FF' : '#FFFFFF' }}>
-                      {displayName} {isUser ? '(You)' : ''}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-
-            {/* Double Tap Instruction Notice */}
-            <View style={{ backgroundColor: 'rgba(255, 153, 0, 0.12)', borderRadius: 14, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: '#FF9900' }}>
-              <Text style={{ fontSize: 13, fontWeight: '900', color: '#FFB703', marginBottom: 4 }}>
-                💡 Important Rule Notice:
-              </Text>
-              <Text style={{ fontSize: 13, color: '#FFE6A7', lineHeight: 18 }}>
-                • <Text style={{ fontWeight: '800', color: '#FFF' }}>Tap your card TWICE</Text> to play it onto the table (1st tap selects, 2nd tap plays).{'\n'}
-                • Match the shape or value with the top card on the pile!
-              </Text>
-            </View>
-
-            <Pressable
-              style={[styles.button, { backgroundColor: '#00E5FF', width: '100%', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12 }]}
-              onPress={() => setShowFormationModal(false)}
-            >
-              <Text style={{ color: '#0A0E1A', fontWeight: '900', fontSize: 15 }}>
-                Get Ready & Start Now ({formationCountdown}s)
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      {/* Pre-Game Backend Coin Toss Modal */}
+      <CoinTossModal
+        visible={showCoinToss}
+        players={gameState.players}
+        gameName="Wọńt Game"
+        onComplete={(winnerIdx) => {
+          setShowCoinToss(false);
+          setGameState((prev) => ({ ...prev, activePlayerIndex: winnerIdx }));
+        }}
+      />
     </View>
   );
 }

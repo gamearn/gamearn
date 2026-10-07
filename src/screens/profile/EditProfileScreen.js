@@ -22,7 +22,8 @@ export default function EditProfileScreen({ navigation }) {
   };
   const sanitizeUsername = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
   const [selectedAvatar, setSelectedAvatar] = useState(initialAvatar);
-  const [username, setUsername] = useState(sanitizeUsername(userProfile?.username || userProfile?.name || userProfile?.displayName || ''));
+  const [fullName, setFullName] = useState(userProfile?.fullName || userProfile?.name || '');
+  const [username, setUsername] = useState(sanitizeUsername(userProfile?.username || userProfile?.name || ''));
   const [bio, setBio] = useState(userProfile?.bio || '');
   const [loading, setLoading] = useState(false);
 
@@ -71,6 +72,7 @@ export default function EditProfileScreen({ navigation }) {
       }
 
       await updateProfileData({
+        fullName: fullName.trim(),
         username: cleanUsername,
         name: cleanUsername,
         displayName: cleanUsername,
@@ -159,6 +161,21 @@ export default function EditProfileScreen({ navigation }) {
               );
             })}
           </ScrollView>
+        </View>
+
+        {/* Full Name Field */}
+        <View style={styles.sectionWrap}>
+          <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>Full Name</Text>
+          <View style={[styles.inputBox, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder }]}>
+            <TextInput
+              style={[styles.textInput, { color: theme.textPrimary }]}
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="e.g. Adebayo Johnson"
+              placeholderTextColor={theme.textMuted}
+              autoCapitalize="words"
+            />
+          </View>
         </View>
 
         {/* Username Field */}

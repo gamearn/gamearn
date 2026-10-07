@@ -10,7 +10,7 @@
  * - Game Power = Math.round(100 * (0.75 * WR + 0.25 * Experience Score))
  */
 
-export function calculateGamePower(played = 0, wins = 0, losses = 0) {
+export function calculateGamePower(played = 0, wins = 0, _losses = 0) {
   const P = Math.max(0, Number(played) || 0);
   const W = Math.max(0, Number(wins) || 0);
 

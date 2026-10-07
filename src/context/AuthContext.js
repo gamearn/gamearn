@@ -86,30 +86,30 @@ async function clearCachedProfile(uid) {
 
 
 function profileFromMe(me, cached) {
-  const wins = Math.max(
-    Number(me?.stats?.wins ?? me?.wins ?? me?.gamesWon ?? 0),
-    Number(cached?.wins ?? cached?.gamesWon ?? 0)
-  );
-  const losses = Math.max(
-    Number(me?.stats?.losses ?? me?.losses ?? me?.gamesLost ?? 0),
-    Number(cached?.losses ?? cached?.gamesLost ?? 0)
-  );
-  const gamesPlayed = Math.max(
-    Number(me?.stats?.gamesPlayed ?? me?.gamesPlayed ?? me?.stats?.games ?? 0),
-    Number(cached?.gamesPlayed ?? 0),
-    wins + losses
-  );
+  const meWins = Number(me?.stats?.wins ?? me?.wins ?? me?.gamesWon ?? 0);
+  const cachedWins = Number(cached?.wins ?? cached?.gamesWon ?? 0);
+  const wins = Math.max(meWins, cachedWins);
+
+  const meLosses = Number(me?.stats?.losses ?? me?.losses ?? me?.gamesLost ?? 0);
+  const cachedLosses = Number(cached?.losses ?? cached?.gamesLost ?? 0);
+  const losses = Math.max(meLosses, cachedLosses);
+
+  const mePlayed = Number(me?.stats?.gamesPlayed ?? me?.gamesPlayed ?? me?.stats?.games ?? 0);
+  const cachedPlayed = Number(cached?.gamesPlayed ?? 0);
+  const gamesPlayed = Math.max(mePlayed, cachedPlayed, wins + losses);
 
   const todayStr = getLocalDateString();
   const lastDateStr = me?.lastStreakDate || me?.lastPlayedDate || me?.lastCheckInDate || cached?.lastStreakDate || cached?.lastPlayedDate || cached?.lastCheckInDate;
 
-  let baseStreak = gamesPlayed > 0 ? Number(me?.streak ?? me?.currentStreak ?? me?.stats?.streak ?? cached?.streak ?? cached?.currentStreak ?? 1) : 0;
+  const meStreak = Number(me?.streak ?? me?.currentStreak ?? me?.stats?.streak ?? 0);
+  const cachedStreak = Number(cached?.streak ?? cached?.currentStreak ?? 0);
+  const baseStreak = Math.max(meStreak, cachedStreak);
 
   let updatedStreak = 0;
   let newLastStreakDate = lastDateStr ? String(lastDateStr).split('T')[0] : null;
   let lastStreakPersistedDate = me?.lastStreakPersistedDate || cached?.lastStreakPersistedDate || (me?.lastStreakDate === todayStr ? todayStr : null);
 
-  if (gamesPlayed > 0) {
+  if (gamesPlayed > 0 || baseStreak > 0) {
     if (lastDateStr) {
       const diffDays = getDayGap(lastDateStr, todayStr);
 
@@ -118,12 +118,14 @@ function profileFromMe(me, cached) {
         updatedStreak = baseStreak > 0 ? baseStreak + 1 : 1;
         newLastStreakDate = todayStr;
       } else if (diffDays === 0) {
-        // Same day login: maintain current streak (at least 1 if active)
+        // Same day login: maintain current streak
         updatedStreak = Math.max(1, baseStreak);
       } else if (diffDays !== null && diffDays > 1) {
         // Missed 2+ days: restart streak at 1 for today's login
         updatedStreak = 1;
         newLastStreakDate = todayStr;
+      } else {
+        updatedStreak = Math.max(1, baseStreak);
       }
     } else {
       updatedStreak = Math.max(1, baseStreak);
@@ -134,19 +136,12 @@ function profileFromMe(me, cached) {
     newLastStreakDate = null;
   }
 
-  const rawNaira = me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? cached?.walletBalance ?? 0;
+  const rawNaira = Math.max(
+    Number(me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? 0),
+    Number(cached?.walletBalance ?? 0)
+  );
 
-  // Stored GP preservation: calculate derived GP and ensure storedGp <= 0 never overrides valid computed GP
-  const storedGp = me?.gamePower !== undefined && me?.gamePower !== null ? Number(me.gamePower)
-                 : me?.gp !== undefined && me?.gp !== null ? Number(me.gp)
-                 : cached?.gamePower !== undefined && cached?.gamePower !== null ? Number(cached.gamePower)
-                 : cached?.gp !== undefined && cached?.gp !== null ? Number(cached.gp)
-                 : null;
-
-  const computedGp = calculateGamePower(gamesPlayed, wins, losses);
-  const gp = storedGp !== null && !isNaN(storedGp) && storedGp > 0
-    ? Math.max(storedGp, computedGp)
-    : computedGp;
+  const gp = calculateGamePower(gamesPlayed, wins, losses);
 
   const computedVp = calculateValuePoints(rawNaira, gamesPlayed, wins);
   const vp = Math.max(
@@ -155,10 +150,10 @@ function profileFromMe(me, cached) {
     computedVp
   );
 
-  const username = me?.username || cached?.username || me?.displayName || me?.name || me?.email?.split('@')[0] || 'Gamer';
-  const displayName = me?.displayName || me?.fullName || me?.name || cached?.displayName || cached?.fullName || me?.username || 'Gamer';
-  const fullName = me?.displayName || me?.fullName || me?.name || cached?.fullName || cached?.displayName || 'Gamer';
-  const name = displayName;
+  const fullName = me?.fullName || cached?.fullName || me?.displayName || cached?.displayName || 'Gamer';
+  const username = me?.username || cached?.username || (me?.email ? me.email.split('@')[0] : 'Gamer');
+  const displayName = username;
+  const name = username;
 
   const gameStats = me?.gameStats || cached?.gameStats || {};
 
@@ -364,7 +359,7 @@ export const AuthProvider = ({ children }) => {
     activeLogin.current = true;
     setLoading(true);
     setAuthError('');
-    pendingProfile.current = { displayName, phoneNumber, referralCode };
+    pendingProfile.current = { displayName, fullName: displayName, phoneNumber, referralCode };
     try {
       const fbUser = await registerEmailPassword(email, password);
       setUserProfile(null);
@@ -460,11 +455,12 @@ export const AuthProvider = ({ children }) => {
 
   const backendRegister = async ({ phoneNumber, displayName, referralCode }) => {
     const finalCode = referralCode || pendingProfile.current?.referralCode || undefined;
-    await authApi.register({ phoneNumber, displayName, referralCode: finalCode });
+    const finalFullName = pendingProfile.current?.fullName || displayName;
+    await authApi.register({ phoneNumber, displayName: finalFullName, fullName: finalFullName, referralCode: finalCode });
     const me = await authApi.me();
     const isAdmin = await isAdminUser();
-    const profile = profileFromMe({ ...me, isAdmin });
-    await writeCachedProfile({ ...me, isAdmin }, me?.uid || getCurrentUser()?.uid);
+    const profile = profileFromMe({ ...me, fullName: finalFullName, isAdmin });
+    await writeCachedProfile({ ...me, fullName: finalFullName, isAdmin }, me?.uid || getCurrentUser()?.uid);
     setUserProfile(profile);
     setBackendReady(true);
     return me;
@@ -480,6 +476,7 @@ export const AuthProvider = ({ children }) => {
     try {
       if (backendReady && authApi && authApi.updateProfile) {
         await authApi.updateProfile({
+          ...(updates.fullName ? { fullName: updates.fullName } : {}),
           ...(displayName ? { displayName } : {}),
           ...(updates.avatar ? { avatarUrl: updates.avatar } : {}),
           ...(updates.bio !== undefined ? { bio: updates.bio } : {}),
@@ -509,6 +506,7 @@ export const AuthProvider = ({ children }) => {
       const merged = {
         ...(prev || {}),
         ...updates,
+        fullName: updates.fullName || prev?.fullName,
         lastStreakPersistedDate: updates.lastStreakPersistedDate || (updates.lastStreakDate === getLocalDateString() ? getLocalDateString() : prev?.lastStreakPersistedDate),
         username: updates.username || updates.name || updates.displayName || prev?.username,
         name: updates.name || updates.username || updates.displayName || prev?.name,
@@ -525,7 +523,7 @@ export const AuthProvider = ({ children }) => {
   }, [backendReady, authApi]);
 
   const signOut = async () => {
-    await clearCachedProfile();
+    await AsyncStorage.removeItem(PROFILE_CACHE_KEY).catch(() => {});
     await signOutFirebase();
     setUser(null);
     setUserProfile(null);

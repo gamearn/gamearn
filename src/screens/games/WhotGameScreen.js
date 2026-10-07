@@ -197,6 +197,7 @@ onOpponentForfeited: (p) => {
       gameName: 'Wọ́t Game',
       targetScreen: 'WhotGame',
       stake: stake,
+      matchSettings: route.params || {},
     });
   };
 
@@ -220,6 +221,7 @@ onOpponentForfeited: (p) => {
     <View style={styles.container}>
       <View style={styles.gameArea}>
         <WhotScreen
+          key={String(route.params?.resetKey || JSON.stringify(route.params || {}))}
           timer={timer}
           cardCount={route.params?.cardCount || 6}
           playerCount={route.params?.playerCount || (route.params?.vsOba ? 2 : 2)}
@@ -242,15 +244,13 @@ onOpponentForfeited: (p) => {
         </TouchableOpacity>
         <View style={styles.titleBlock}>
           <Text style={styles.title}>Whot Championship</Text>
-          <Text style={styles.statusLine}>{statusPill}</Text>
+          {statusPill && statusPill !== 'Offline' && (
+            <Text style={styles.statusLine}>{statusPill}</Text>
+          )}
         </View>
-        {mode === 'multiplayer' && entryFee > 0 ? (
+        {mode === 'multiplayer' && entryFee > 0 && (
           <View style={styles.stakeTag}>
             <Text style={styles.stakeText}>{`Stake \u20A6${((entryFee || 0) / 100).toLocaleString()}`}</Text>
-          </View>
-        ) : (
-          <View style={styles.stakeTag}>
-            <Text style={styles.stakeText}>{mode === 'practice' ? 'FREE' : `${stake} Coins`}</Text>
           </View>
         )}
       </View>

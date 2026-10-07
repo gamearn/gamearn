@@ -73,12 +73,14 @@ function restore(value) {
 }
 
 function computeRowGp(wins = 0, played = 0, explicitGp = null) {
-  if (explicitGp !== null && explicitGp !== undefined && !isNaN(Number(explicitGp)) && Number(explicitGp) > 0) {
-    return Math.min(100, Math.max(0, Math.round(Number(explicitGp))));
-  }
-  const P = Math.max(0, Number(played) || Number(wins) || 0);
   const W = Math.max(0, Number(wins) || 0);
-  if (P === 0) return 0;
+  const P = Math.max(0, Number(played) || W);
+  if (P === 0) {
+    if (explicitGp !== null && explicitGp !== undefined && !isNaN(Number(explicitGp))) {
+      return Math.min(100, Math.max(0, Math.round(Number(explicitGp))));
+    }
+    return 0;
+  }
   const WR = Math.min(1, Math.max(0, W / P));
   const expScore = Math.min(1, Math.log10(P + 1) / 3);
   return Math.min(100, Math.max(0, Math.round(100 * (0.75 * WR + 0.25 * expScore))));
@@ -104,7 +106,7 @@ function leaderboard(dbRows = [], userProfile = null) {
           name: `${userProfile.displayName || userProfile.fullName || userProfile.name || userProfile.username || 'You'} (You)`,
           wins: Number(userProfile.wins || userProfile.gamesWon || 0),
           gp: userGp,
-          gpText: `${userGp}% GP`,
+          gpText: `${userGp} GP`,
           xp: userGp,
           avatar: userProfile.avatar || 'adebayo',
           isUser: true,
@@ -126,7 +128,7 @@ function leaderboard(dbRows = [], userProfile = null) {
       name: isUser ? `${name} (You)` : name,
       wins,
       gp: rowGp,
-      gpText: `${rowGp}% GP`,
+      gpText: `${rowGp} GP`,
       xp: rowGp,
       avatar: row.avatar || 'adebayo',
       isUser,
@@ -142,7 +144,7 @@ function leaderboard(dbRows = [], userProfile = null) {
       name: `${userProfile.displayName || userProfile.fullName || userProfile.name || userProfile.username || 'You'} (You)`,
       wins: Number(userProfile.wins || userProfile.gamesWon || 0),
       gp: userGp,
-      gpText: `${userGp}% GP`,
+      gpText: `${userGp} GP`,
       xp: userGp,
       avatar: userProfile.avatar || 'adebayo',
       isUser: true,
@@ -153,4 +155,4 @@ function leaderboard(dbRows = [], userProfile = null) {
   return list;
 }
 
-module.exports = { INITIAL_STATE, reducer, restore, parseAmount, money, localDay, previousDay, leaderboard };
+module.exports = { INITIAL_STATE, reducer, restore, parseAmount, money, localDay, previousDay, leaderboard, computeRowGp };

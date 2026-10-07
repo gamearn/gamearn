@@ -143,23 +143,68 @@ export default function GameLobbyScreen({ route, navigation }) {
     }
 
     setIsSearching(true);
-    setQueueLen(0);
-    Alert.alert(
-      '⚡ Quick Match Broadcasted!',
-      `Notification sent to all online players to play a free ${gameName} match! Searching for an opponent...`
-    );
+    setQueueLen(1);
 
-    const sock = new GamearnSocket({
-      onConnected: () => joinQueue(0),
-      onMatchFound: navigateToMatch,
-      onError: (msg) => {
-        const m = msg || 'Game service is temporarily unavailable.';
-        cleanup();
-        Alert.alert('Matchmaking unavailable', m);
-      },
-    });
-    sockRef.current = sock;
-    sock.connect();
+    let matchHandled = false;
+
+    const launchMatch = (p = null) => {
+      if (matchHandled) return;
+      matchHandled = true;
+      cleanup();
+      setIsSearching(false);
+
+      if (p && p.roomId) {
+        navigateToMatch(p);
+      } else {
+        navigation.navigate(targetScreen, {
+          stake: 0,
+          vsOba: true,
+          timer: selectedTimer,
+          tokenCount,
+          playerCount,
+          tokens: tokenCount,
+          players: playerCount,
+          playerColor,
+          cardCount,
+          enableSpecialCards,
+          seedCount,
+          gameId,
+          gameName,
+          isQuickMatch: true,
+        });
+      }
+    };
+
+    const fallbackTimer = setTimeout(() => {
+      launchMatch();
+    }, 2500);
+
+    try {
+      const sock = new GamearnSocket({
+        onConnected: () => {
+          joinQueue(0).catch(() => {
+            clearTimeout(fallbackTimer);
+            launchMatch();
+          });
+        },
+        onMatchFound: (p) => {
+          clearTimeout(fallbackTimer);
+          launchMatch(p);
+        },
+        onError: (_msg) => {
+          clearTimeout(fallbackTimer);
+          launchMatch();
+        },
+      });
+      sockRef.current = sock;
+      sock.connect().catch(() => {
+        clearTimeout(fallbackTimer);
+        launchMatch();
+      });
+    } catch (_err) {
+      clearTimeout(fallbackTimer);
+      launchMatch();
+    }
   };
 
   const handleCreateChallenge = async () => {

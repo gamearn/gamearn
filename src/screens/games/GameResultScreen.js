@@ -44,6 +44,7 @@ export default function GameResultScreen({ route, navigation }) {
     gameName = 'Wọ́t Game',
     targetScreen = 'WhotGame',
     stake = 250,
+    matchSettings = {},
   } = route.params || {};
 
   const [myTournaments, setMyTournaments] = useState([]);
@@ -87,10 +88,8 @@ export default function GameResultScreen({ route, navigation }) {
         },
       };
 
-      // Accumulate Game Power (GP) from existing stored GP, capped at 100 max
-      const currentGpVal = Number(userProfile?.gamePower ?? userProfile?.gp ?? 0);
-      const gpIncrement = isWinner ? 40 : 10;
-      const newGp = Math.min(100, Math.max(0, currentGpVal + gpIncrement));
+      // Calculate Game Power (GP) dynamically using official formula
+      const newGp = calculateGamePower(newPlayed, newWins, newLosses);
 
       const userBalance = Number(userProfile?.walletBalance ?? userProfile?.balance ?? userProfile?.coins ?? 0);
       const newVp = calculateValuePoints(userBalance, newPlayed, newWins);
@@ -222,7 +221,15 @@ export default function GameResultScreen({ route, navigation }) {
   const previewPoolKobo = previewStandings?.poolKobo ?? openTour?.prizePoolKobo ?? null;
 
   const handlePlayAgain = () => {
-    navigation.navigate(targetScreen, { gameId, gameName, targetScreen, stake });
+    const prevMatch = route.params?.matchSettings || matchSettings || {};
+    navigation.navigate(targetScreen, {
+      ...prevMatch,
+      gameId,
+      gameName,
+      targetScreen,
+      stake,
+      resetKey: Date.now(),
+    });
   };
 
   const handleExitGame = async () => {

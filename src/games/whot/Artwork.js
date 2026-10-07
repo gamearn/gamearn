@@ -13,23 +13,32 @@ export const HAND = [
   { id: 'black14', value: 14, color: '#292533', shape: 'triangle' },
 ];
 
-export function getCardCenters(count) {
+export function getCardCenters(count, selectedIndex = -1) {
   if (count <= 0) return [];
-  if (count === 1) return [{ x: 512, y: 1115, a: 0 }];
+  if (count === 1) return [{ x: 512, y: selectedIndex === 0 ? 1025 : 1115, a: 0, scale: selectedIndex === 0 ? 1.28 : 1.05 }];
 
-  const startX = 200;
-  const endX = 824;
-  const startAngle = -16;
-  const endAngle = 16;
+  // Expand bounds dynamically so cards spread out wide across the screen
+  const minX = count > 5 ? 90 : 180;
+  const maxX = count > 5 ? 934 : 844;
+  const startAngle = count > 7 ? -26 : -16;
+  const endAngle = count > 7 ? 26 : 16;
   const centers = [];
 
   for (let i = 0; i < count; i++) {
     const t = i / (count - 1);
-    const x = startX + t * (endX - startX);
-    const norm = (t - 0.5) * 2;
-    const y = 1115 + norm * norm * 35;
-    const a = startAngle + t * (endAngle - startAngle);
-    centers.push({ x, y, a });
+    let x = minX + t * (maxX - minX);
+    let norm = (t - 0.5) * 2;
+    let y = 1115 + norm * norm * (count > 7 ? 45 : 30);
+    let a = startAngle + t * (endAngle - startAngle);
+    let cardScale = count > 7 ? 0.92 : 1.05;
+
+    if (i === selectedIndex) {
+      y -= 85; // Elevate selected card high up above all other cards
+      a = a * 0.2; // Straighten selected card upright
+      cardScale = 1.30; // Make selected card 30% larger!
+    }
+
+    centers.push({ x, y, a, scale: cardScale });
   }
   return centers;
 }
@@ -154,15 +163,16 @@ export function PlayingCard({
   card,
   angle = 0,
   selected = false,
+  scale = 1,
   w = 134,
   h = 238,
   white = false,
 }) {
   const ink = card.shape === 'whot' ? '#462400' : white ? '#dc0927' : '#fff';
   return (
-    <G transform={`translate(${x} ${y}) rotate(${angle})`}>
+    <G transform={`translate(${x} ${y}) rotate(${angle}) scale(${scale})`}>
       <Rect x={-w / 2 + 3} y={-h / 2 + 6} width={w} height={h} rx="13" fill="#050028" opacity={0.5} />
-      {selected && <Rect x={-w / 2 - 6} y={-h / 2 - 6} width={w + 12} height={h + 12} rx="17" fill="none" stroke="#00e9ff" strokeWidth="7" opacity={0.8} />}
+      {selected && <Rect x={-w / 2 - 8} y={-h / 2 - 8} width={w + 16} height={h + 16} rx="19" fill="none" stroke="#00e9ff" strokeWidth="8" opacity={0.9} />}
       <Rect x={-w / 2} y={-h / 2} width={w} height={h} rx="12" fill={white ? '#fffcfc' : card.color} stroke={selected ? '#57faff' : '#f4e9ff'} strokeWidth="4" />
       <Rect x={-w / 2 + 5} y={-h / 2 + 5} width={w - 10} height={h - 10} rx="8" fill="none" stroke={white ? '#006bff' : '#ffffff44'} strokeWidth="2" />
       {!white && <Rect x={-w * 0.37} y={-h * 0.25} width={w * 0.74} height={h * 0.55} rx="14" fill="#ffffffd9" transform="rotate(-7)" />}
