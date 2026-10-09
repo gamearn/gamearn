@@ -16,7 +16,7 @@ import { ApiError } from '../../services/apiClient';
 import CoinTossModal from '../../components/CoinTossModal';
 
 export default function DraughtsGameScreen({ route, navigation }) {
-  const { mode = 'local', roomId, aiDifficulty = 'auto' } = route.params || {};
+  const { mode = 'local', roomId, aiDifficulty = 'auto', playerColor = 'white' } = route.params || {};
   const stake = route.params?.stake || 250;
   const timer = route.params?.timer || '2m';
 

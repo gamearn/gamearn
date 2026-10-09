@@ -238,7 +238,7 @@ export default function GameSetupScreen({ route, navigation }) {
               onPress={() => setEnableSpecialCards(!enableSpecialCards)}
               style={{
                 flexDirection: 'row',
-                justify: 'space-between',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 marginTop: 14,
                 padding: 12,

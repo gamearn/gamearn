@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(5, 7, 20, 0.88)',
     alignItems: 'center',
-    justify: 'center',
+    justifyContent: 'center',
     padding: 20,
   },
   card: {
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justify: 'space-between',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
   badgeText: {
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   },
   coinContainer: {
     alignItems: 'center',
-    justify: 'center',
+    justifyContent: 'center',
     marginVertical: 8,
   },
   coinIcon: {
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
-    justify: 'center',
+    justifyContent: 'center',
   },
   actionBtnText: {
     color: '#0F172A',

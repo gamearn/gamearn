@@ -7,6 +7,7 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import { captureInviteCode } from './src/utils/inviteLink';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 function MainApp() {
   const { isDark } = useTheme();
@@ -22,9 +23,11 @@ function MainApp() {
   return (
     <SafeAreaProvider>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <NavigationContainer>
-        <RootNavigator />
-      </NavigationContainer>
+      <ErrorBoundary>
+        <NavigationContainer>
+          <RootNavigator />
+        </NavigationContainer>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

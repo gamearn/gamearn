@@ -6,7 +6,7 @@ import GAButton from '../../components/GAButton';
 import GACard from '../../components/GACard';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { matchmaking } from '../../services/api';
+import { matchmaking, challenges } from '../../services/api';
 import { GamearnSocket } from '../../services/gamearnSocket';
 import { coinsFromNaira, koboToN, naira, nairaToKobo } from '../../config/appConfig';
 

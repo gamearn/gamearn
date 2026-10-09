@@ -493,7 +493,6 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto', playerCount 
             borderColor: color,
             paddingLeft: (reverse ? 24 : 82) * k,
             paddingRight: (reverse ? 82 : 24) * k,
-            justify: 'center',
             justifyContent: 'center',
           }}
         >

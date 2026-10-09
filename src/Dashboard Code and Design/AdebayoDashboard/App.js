@@ -301,7 +301,7 @@ function Dashboard() {
       case 'tournament': return <>
         <Text style={ui.heading}>Ayo Ọpọ́n Grandmaster Tournament</Text>
         <Art name="tournament" width={280} height={146} style={{ alignSelf: 'center', borderRadius: 12 }} />
-        <Text style={ui.body}>Prize pool: ₦5,000.00{\n}
+        <Text style={ui.body}>Prize pool: ₦5,000.00{'\n'}</Text>
         <Text style={ui.body}>{state.joined ? 'Your demo registration is saved. A production lobby needs a tournament service and an Ayo game engine.' : 'Register locally to preview the joined state. No entry fee will be deducted.'}</Text>
         <GradientButton title={state.joined ? 'Open Ayo lobby' : 'Confirm demo registration'} onPress={() => {
           if (state.joined) open('game', GAMES[1]); else dispatch({ type: 'JOIN' });
