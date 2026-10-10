@@ -241,3 +241,7 @@ export function AyoArtwork({ width, height, pits, scores, selected, activePit, c
   );
 }
 
+
+// Presentation coordinates used by the server snapshot adapter.
+export const pitIndexAt = (row, col) => row * 6 + col;
+export const pitPosition = index => ({ x: PIT_X[index % 6], y: PIT_Y[Math.floor(index / 6)] });

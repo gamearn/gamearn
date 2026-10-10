@@ -36,6 +36,8 @@ export default function GameResultScreen({ route, navigation }) {
 
   const {
     isWinner = true,
+    isDraw = false,
+    serverConfirmed = false,
     myScore = 72,
     opponentScore = 66,
     opponentName = 'Oba 👑',
@@ -62,6 +64,10 @@ export default function GameResultScreen({ route, navigation }) {
     if (recordedRef.current) return;
     recordedRef.current = true;
 
+    if (serverConfirmed) {
+      refreshProfile().catch(() => {});
+      return;
+    }
     if (updateProfileData && userProfile) {
       const currentWins = Number(userProfile?.wins ?? userProfile?.gamesWon ?? 0);
       const currentLosses = Number(userProfile?.losses ?? userProfile?.gamesLost ?? 0);
@@ -116,9 +122,9 @@ export default function GameResultScreen({ route, navigation }) {
 
   // Per-game specific stats for display on this result screen
   const currentGameStats = userProfile?.gameStats?.[gameId] || {};
-  const thisGamePlayed = Number(currentGameStats.gamesPlayed ?? (isWinner ? 1 : 1));
-  const thisGameWins = Number(currentGameStats.wins ?? (isWinner ? 1 : 0));
-  const thisGameLosses = Number(currentGameStats.losses ?? (isWinner ? 0 : 1));
+  const thisGamePlayed = Number(currentGameStats.gamesPlayed ?? 0);
+  const thisGameWins = Number(currentGameStats.wins ?? 0);
+  const thisGameLosses = Number(currentGameStats.losses ?? 0);
   const winRate = thisGamePlayed > 0 ? Math.round((thisGameWins / thisGamePlayed) * 100) : 0;
 
   const streakCount = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
@@ -222,7 +228,11 @@ export default function GameResultScreen({ route, navigation }) {
 
   const handlePlayAgain = () => {
     const prevMatch = route.params?.matchSettings || matchSettings || {};
-    navigation.navigate(targetScreen, {
+    if (serverConfirmed && prevMatch.mode === 'multiplayer') {
+      navigation.replace('GameLobby', { gameId, gameType: gameId, gameName, targetScreen });
+      return;
+    }
+    navigation.replace(targetScreen, {
       ...prevMatch,
       gameId,
       gameName,
@@ -257,9 +267,9 @@ export default function GameResultScreen({ route, navigation }) {
             <View style={styles.trophyGlow} />
             <Text style={styles.trophyEmoji}>🏆</Text>
           </View>
-          <Text style={styles.victoryTitle}>{isWinner ? 'VICTORY!' : 'GAME OVER'}</Text>
+          <Text style={styles.victoryTitle}>{isDraw ? 'MATCH DRAWN' : isWinner ? 'VICTORY!' : 'GAME OVER'}</Text>
           <Text style={styles.victorySub}>
-            {isWinner ? 'Great Game! You played well. Keep it up!' : 'Good effort! Practice makes perfect!'}
+            {isDraw ? 'An evenly matched game. Play again!' : isWinner ? 'Great Game! You played well. Keep it up!' : 'Good effort! Practice makes perfect!'}
           </Text>
         </View>
 
@@ -303,15 +313,15 @@ export default function GameResultScreen({ route, navigation }) {
             style={[
               styles.playerBox,
               styles.playerBoxRight,
-              !isWinner && styles.winnerHighlightBox,
+              !isWinner && !isDraw && styles.winnerHighlightBox,
             ]}
           >
-            {!isWinner && (
+            {!isWinner && !isDraw && (
               <View style={styles.winnerTag}>
                 <Text style={styles.winnerTagText}>👑 WINNER</Text>
               </View>
             )}
-            <View style={[styles.avatarCircle, !isWinner && styles.avatarCircleWinner]}>
+            <View style={[styles.avatarCircle, !isWinner && !isDraw && styles.avatarCircleWinner]}>
               {opponentAvatar ? (
                 <Image source={{ uri: opponentAvatar }} style={styles.avatarImg} />
               ) : (
@@ -356,7 +366,7 @@ export default function GameResultScreen({ route, navigation }) {
         </View>
 
         {/* Match Win Streak Card */}
-        {(() => {
+        {!serverConfirmed && (() => {
           const winStreakInfo = getWinStreakInfo(userProfile);
           return (
             <View style={styles.cardContainer}>
@@ -391,7 +401,7 @@ export default function GameResultScreen({ route, navigation }) {
               </View>
               <Text style={styles.cardTitle}>Game Power</Text>
             </View>
-            <Text style={styles.gpGainText}>+{gpGained} GP</Text>
+            {!serverConfirmed && <Text style={styles.gpGainText}>+{gpGained} GP</Text>}
           </View>
 
           {/* Progress Track */}

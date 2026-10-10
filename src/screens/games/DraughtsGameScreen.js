@@ -1,18 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { CheckersScreen } from '../../games/checkers/CheckersScreen';
-import {
-  applyMove,
-  checkGameEnd,
-  getBestAIMove,
-  getLegalMovesForSquare,
-  initialBoardState,
-} from '../../games/checkers/CheckersEngine';
-import { useOnlineMatch } from '../../games/useOnlineMatch';
+import { useServerGame } from '../../games/useServerGame';
+import { draughtsSnapshotToRemote, engineMoveToServer } from '../../games/checkers/draughtsAdapter';
 import { useAuth } from '../../context/AuthContext';
-import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
-import { practice } from '../../services/api';
-import { ApiError } from '../../services/apiClient';
+import { setActiveMatch } from '../../utils/activeMatch';
 import CoinTossModal from '../../components/CoinTossModal';
 
 export default function DraughtsGameScreen({ route, navigation }) {
@@ -20,10 +12,12 @@ export default function DraughtsGameScreen({ route, navigation }) {
   const stake = route.params?.stake || 250;
   const timer = route.params?.timer || '2m';
 
-  const { userProfile } = useAuth();
+  const { user } = useAuth();
+  const uid = user?.uid;
 
   const isMultiplayer = mode === 'multiplayer' && !!roomId;
   const isPractice = mode === 'practice';
+  const remoteMode = isMultiplayer || isPractice;
 
   useEffect(() => {
     setActiveMatch({
@@ -34,100 +28,53 @@ export default function DraughtsGameScreen({ route, navigation }) {
     });
   }, []);
 
-  const m = useOnlineMatch({
-    roomId: isMultiplayer ? roomId : undefined,
+  const options = useMemo(
+    () => ({ playerRating: route.params?.playerRating || 1200 }),
+    [route.params?.playerRating],
+  );
+
+  // Shared server session controller: practice (REST) and live rooms (socket),
+  // owning the authoritative board, turn clock and every accepted move.
+  const session = useServerGame({
     gameType: 'draughts',
-    onExit: () => navigation.goBack(),
+    roomId: isMultiplayer ? roomId : null,
+    uid: remoteMode ? uid : null,
+    options,
   });
 
-  const boardMirror = useRef(initialBoardState());
-  const selectedRef = useRef(null);
-  const turnRef = useRef('white');
-  const practiceSessionId = useRef(null);
-  const [practiceReady, setPracticeReady] = useState(isPractice);
-  const [localResult, setLocalResult] = useState('');
+  const snapshot = session.snapshot;
+  const remote = useMemo(
+    () => (remoteMode ? draughtsSnapshotToRemote(snapshot, uid) : null),
+    [remoteMode, snapshot, uid],
+  );
 
-  useEffect(() => {
-    if (!isPractice) return;
-    let cancelled = false;
-    setPracticeReady(false);
-    practice.draughts
-      .start({ playerRating: 1200 })
-      .then((res) => {
-        if (cancelled) return;
-        practiceSessionId.current = res?.sessionId || null;
-        setPracticeReady(true);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        Alert.alert(
-          'Could not start practice',
-          err instanceof ApiError ? err.message : 'Practice is temporarily unavailable.',
-        );
-        navigation.goBack();
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPractice]);
-
-  const relayIfMove = (index) => {
-    const from = selectedRef.current;
-    if (from === null) {
-      const piece = boardMirror.current[index];
-      selectedRef.current = piece && piece.side === turnRef.current ? index : null;
-      return;
-    }
-    const legal = getLegalMovesForSquare(boardMirror.current, turnRef.current, from);
-    const move = legal.find((mm) => mm.to === index);
-    if (move) {
-      const captures =
-        move.captures && move.captures.length
-          ? move.captures.map((c) => ({ row: Math.floor(c / 8), col: c % 8 }))
-          : undefined;
-      if (m.status === 'playing') {
-        m.sendMove({
-          fromRow: Math.floor(move.from / 8),
-          fromCol: move.from % 8,
-          toRow: Math.floor(move.to / 8),
-          toCol: move.to % 8,
-          captures,
-        });
-      }
-      const nextBoard = applyMove(boardMirror.current, move);
-      const over = checkGameEnd(nextBoard, turnRef.current === 'white' ? 'black' : 'white');
-      if (over.isOver) {
-        boardMirror.current = nextBoard;
-      } else {
-        const aiMove = getBestAIMove(nextBoard, 'black');
-        boardMirror.current = aiMove ? applyMove(nextBoard, aiMove) : nextBoard;
-      }
-      turnRef.current = 'white';
-      selectedRef.current = null;
-      return;
-    }
-    if (index === from) return;
-    const piece = boardMirror.current[index];
-    selectedRef.current = piece && piece.side === turnRef.current ? index : null;
+  const navigateResult = (won) => {
+    const opponent = (snapshot?.players || []).find((p) => p.uid !== uid);
+    navigation.navigate('GameResult', {
+      isWinner: won,
+      myScore: won ? 12 : 6,
+      opponentScore: won ? 4 : 12,
+      opponentName: opponent?.displayName || 'Oba 👑',
+      gameId: 'draft',
+      gameName: 'Dráfù Game',
+      targetScreen: 'DraughtsGame',
+      stake: isMultiplayer ? stake : 0,
+      matchSettings: route.params || {},
+    });
   };
 
   const handleLocalWin = (won = true) => {
-    setLocalResult(won ? 'You win!' : 'Match over!');
-    setTimeout(() => {
-      navigation.navigate('GameResult', {
-        isWinner: won,
-        myScore: won ? 12 : 6,
-        opponentScore: won ? 4 : 12,
-        opponentName: m.opponent?.displayName || 'Oba 👑',
-        gameId: 'draft',
-        gameName: 'Dráfù Game',
-        targetScreen: 'DraughtsGame',
-        stake: stake,
-        matchSettings: route.params || {},
-      });
-    }, 800);
+    setTimeout(() => navigateResult(won), 800);
   };
+
+  const navigated = useRef(false);
+  useEffect(() => {
+    if (!remoteMode || snapshot?.status !== 'completed' || navigated.current) return;
+    navigated.current = true;
+    const timerId = setTimeout(() => navigateResult(snapshot.winner === uid), 800);
+    return () => clearTimeout(timerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteMode, snapshot?.status, snapshot?.winner, uid]);
 
   const handleBack = () => {
     if (navigation.canGoBack()) {
@@ -138,29 +85,29 @@ export default function DraughtsGameScreen({ route, navigation }) {
   };
 
   const liveStatus =
-    m.status === 'joining'
-      ? 'Connectingâ€¦'
-      : m.status === 'waiting'
-      ? 'Waiting for opponentâ€¦'
-      : m.status === 'playing'
-      ? 'Live match'
-      : m.status === 'game_over'
-      ? m.result?.winner === m.myUid
-        ? 'You won'
-        : 'Match over'
-      : m.status === 'aborted'
-      ? 'Ended'
-      : m.status === 'error'
-      ? 'Connection failed'
-      : 'Connectingâ€¦';
+    session.status === 'connecting'
+      ? 'Connecting…'
+      : session.status === 'playing'
+        ? isPractice
+          ? 'Practice · vs CPU'
+          : 'Live match'
+        : session.status === 'completed'
+          ? snapshot?.winner === uid
+            ? 'You won'
+            : 'Match over'
+          : session.status === 'aborted'
+            ? 'Ended'
+            : session.status === 'error'
+              ? 'Connection failed'
+              : 'Connecting…';
 
-  const liveName = m.opponent?.displayName || 'Live opponent';
+  const liveName = (snapshot?.players || []).find((p) => p.uid !== uid)?.displayName || 'Live opponent';
 
   const [showCoinToss, setShowCoinToss] = useState(true);
 
   const draftPlayers = [
     { id: 0, name: 'You', isUser: true },
-    { id: 1, name: m.opponent?.displayName || 'Oba 👑', isAi: true },
+    { id: 1, name: liveName, isAi: true },
   ];
 
   return (
@@ -170,8 +117,11 @@ export default function DraughtsGameScreen({ route, navigation }) {
         timer={timer}
         playerColor={playerColor}
         aiDifficulty={aiDifficulty}
-        onWin={handleLocalWin}
-        onSquarePress={isMultiplayer ? relayIfMove : undefined}
+        secondsRemaining={remoteMode ? session.secondsRemaining : undefined}
+        isRemote={remoteMode && !!remote}
+        remote={remote}
+        onRemoteMove={(move) => session.move(engineMoveToServer(move))}
+        onWin={remoteMode ? undefined : handleLocalWin}
         onBack={handleBack}
       />
       <CoinTossModal
@@ -183,30 +133,32 @@ export default function DraughtsGameScreen({ route, navigation }) {
 
       {isMultiplayer && (
         <View style={styles.liveBar} pointerEvents="none">
-          <Text style={styles.liveTitle}>DrÃ¡fÃ¹ â€” Live</Text>
+          <Text style={styles.liveTitle}>Dráfù — Live</Text>
           <Text style={styles.liveName}>{liveName}</Text>
           <Text style={styles.liveStatus}>{liveStatus}</Text>
         </View>
       )}
 
-      {isMultiplayer && m.banner !== '' && (
+      {remoteMode && !!session.error && !!remote && (
         <View style={styles.banner} pointerEvents="none">
-          <Text style={styles.bannerText}>{m.banner}</Text>
+          <Text style={styles.bannerText}>{session.error}</Text>
         </View>
       )}
 
-      {(isPractice || localResult !== '') && (
+      {isPractice && (
         <View style={styles.noticeBanner} pointerEvents="none">
           <Text style={styles.noticeText}>
-            {isPractice ? (practiceReady ? 'Practice vs Gamearn Bot' : 'Starting practice\u2026') : localResult}
+            {remote ? 'Practice vs Gamearn Bot' : 'Starting practice…'}
           </Text>
         </View>
       )}
 
-      {isPractice && !practiceReady && (
+      {remoteMode && (!remote || session.status === 'connecting') && (
         <View style={styles.overlay}>
           <ActivityIndicator size="large" color="#00E5FF" />
-          <Text style={styles.overlayText}>Starting practice game\u2026</Text>
+          <Text style={styles.overlayText}>
+            {isPractice ? 'Starting practice game…' : 'Joining live room…'}
+          </Text>
         </View>
       )}
     </View>

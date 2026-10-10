@@ -131,7 +131,7 @@ export default function GameSectionScreen({ route, navigation }) {
                 <Image source={resolveAvatarSource(player.avatar)} style={{ width: 32, height: 32, borderRadius: 16, marginLeft: 10 }} />
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 14 }}>{player.name}</Text>
-                  <Text style={{ color: '#94A3B8', fontSize: 11 }}>{player.wins} Wins · Live</Text>
+                  <Text style={{ color: '#94A3B8', fontSize: 11 }}>{player.plays} Plays · {player.wins} Wins</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={{ color: '#00E5FF', fontWeight: '900', fontSize: 14 }}>{player.gpText || `${player.gp || 0} GP`}</Text>

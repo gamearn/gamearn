@@ -1,205 +1,79 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, Text, Alert, ActivityIndicator } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { View, TouchableOpacity, StyleSheet, Text, ActivityIndicator } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { WhotScreen } from '../../games/whot/WhotScreen';
-import { useTheme } from '../../context/ThemeContext';
+import { useServerGame } from '../../games/useServerGame';
 import { useAuth } from '../../context/AuthContext';
-import { GamearnSocket } from '../../services/gamearnSocket';
-import { practice } from '../../services/api';
-import { ApiError } from '../../services/apiClient';
-import {
-  practiceSnapshotToEngine,
-  socketStateToEngine,
-} from '../../games/whot/serverAdapter';
+import { practiceSnapshotToEngine, socketStateToEngine } from '../../games/whot/serverAdapter';
+
+const STATUS_LABEL = {
+  connecting: 'Connecting…',
+  playing: 'Live match',
+  completed: 'Match over',
+  aborted: 'Match cancelled',
+  error: 'Connection error',
+};
 
 export default function WhotGameScreen({ route, navigation }) {
-  const { theme } = useTheme();
-  const { userProfile, refreshWallet } = useAuth();
-
-  const { roomId, entryFee = 0, prizePool = 0, opponent } = route.params || {};
-  const mode = route.params?.mode || 'local';
-  const stake = route.params?.stake || 250;
-  const timer = route.params?.timer || '2m';
-
-  const myUid = userProfile?.uid || 'practice_anon';
+  const { user, userProfile } = useAuth();
+  const params = route.params || {};
+  const mode = params.mode || 'local';
+  const multiplayer = mode === 'multiplayer';
+  const practice = mode === 'practice';
+  const remoteMode = multiplayer || practice;
+  const stake = params.stake || 250;
+  const timer = params.timer || '2m';
+  const uid = user?.uid;
   const selfName = userProfile?.displayName || userProfile?.username || 'You';
+  const entryFee = params.entryFee || 0;
 
-const socketRef = useRef(null);
-  const activePracticeId = useRef(route.params?.practiceSessionId || null);
-  const [remote, setRemote] = useState(null);
-  const [phase, setPhase] = useState('local'); // joining | waiting | playing | game_over | local
-  const [pendingMove, setPendingMove] = useState(false);
-  const [result, setResult] = useState(null);
-  const [banner, setBanner] = useState('');
-  const [incomingChats, setIncomingChats] = useState([]);
+  const options = useMemo(() => ({
+    playerRating: params.playerRating || 1200,
+    startCards: params.cardCount || 6,
+    seats: params.playerCount || 4,
+    timer,
+  }), [params.playerRating, params.cardCount, params.playerCount, timer]);
 
-  const isRemote = mode === 'multiplayer' || mode === 'practice';
-  const isPlaying = phase === 'playing';
-  const opponentName = opponent?.displayName || 'Opponent';
+  // Shared server session controller: owns transport (practice REST or
+  // multiplayer socket), the turn clock, and every authoritative move.
+  const session = useServerGame({
+    gameType: 'whot',
+    roomId: multiplayer ? params.roomId : null,
+    uid: remoteMode ? uid : null,
+    options,
+  });
 
-const handleServerResult = (p) => {
-    const won = !!p?.winner && p.winner === myUid;
-    const opp = (Array.isArray(p?.players) ? p.players : []).filter((x) => x.uid !== myUid)[0];
-    setResult(p);
-    setPhase('game_over');
-    setBanner(won ? 'You won this match!' : p?.winnerDisplayName ? `${p.winnerDisplayName} won.` : 'Match over.');
-    if (won && p?.prize > 0) {
-      refreshWallet().catch(() => {});
-    }
-    setTimeout(() => {
-      navigation.navigate('GameResult', {
-        isWinner: won,
-        myScore: p?.myScore || (won ? 72 : 52),
-        opponentScore: p?.opponentScore || (won ? 48 : 66),
-        opponentName: opp?.displayName || p?.winnerDisplayName || opponentName || 'Opponent',
-        opponentAvatar: opp?.avatar || p?.opponentAvatar || null,
-        gameId: 'whot',
-        gameName: 'Wọńt Game',
-        targetScreen: 'WhotGame',
-        stake: stake,
-      });
-    }, 1000);
-  };
+  const snapshot = session.snapshot;
+  const remote = useMemo(() => {
+    if (!snapshot) return null;
+    return multiplayer
+      ? socketStateToEngine(snapshot, uid, { selfName })
+      : practiceSnapshotToEngine(snapshot, { selfUid: uid, selfName });
+  }, [snapshot, multiplayer, uid, selfName]);
 
-  // â”€â”€ Multiplayer room session â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  useEffect(() => {
-    if (mode !== 'multiplayer' || !roomId) return;
-
-    const sock = new GamearnSocket({
-      onConnected: () => {
-        sock.joinRoom(roomId, (data) => {
-          if (!data) return;
-          setPhase(data.status === 'playing' ? 'playing' : 'waiting');
-          if (data.gameState) {
-            setRemote(socketStateToEngine(data.gameState, myUid, { selfName }));
-          }
-        });
-      },
-      onMatchStarted: (p) => {
-        setPhase('playing');
-        if (p?.gameState) setRemote(socketStateToEngine(p.gameState, myUid, { selfName }));
-      },
-      onMoveMade: (p) => {
-        if (p?.gameState) setRemote(socketStateToEngine(p.gameState, myUid, { selfName }));
-      },
-      onGameStateSync: (p) => {
-        if (p?.gameState) setRemote(socketStateToEngine(p.gameState, myUid, { selfName }));
-      },
-      onGameOver: handleServerResult,
-      onMatchAborted: (p) => {
-        Alert.alert('Match cancelled', p?.message || 'The match could not start.');
-        navigation.goBack();
-      },
-      onOpponentDisconnected: (p) =>
-        setBanner(`Opponent disconnected â€” ${p?.graceSeconds || 30}s to reconnect.`),
-      onOpponentReconnected: () => setBanner(''),
-onOpponentForfeited: (p) => {
-        setBanner(p?.reason === 'disconnect_timeout' ? 'Opponent forfeited. You win!' : 'Opponent left the match.');
-      },
-      onChatMessage: (msg) => {
-        setIncomingChats((prev) => [...prev, msg]);
-      },
-      onError: (msg) => {
-        if (msg) Alert.alert('Game service', msg);
-      },
-    });
-
-    socketRef.current = sock;
-    setPhase('joining');
-    sock.connect();
-
-    return () => {
-      sock.disconnect();
-      socketRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, roomId]);
-
-  // â”€â”€ Practice session â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  useEffect(() => {
-    if (mode !== 'practice') return;
-    let cancelled = false;
-    setPhase('joining');
-    practice.whot
-      .start({ startCards: 6, playerRating: 1200, seats: 4 })
-      .then((res) => {
-        if (cancelled) return;
-        activePracticeId.current = res?.sessionId || null;
-        setRemote(practiceSnapshotToEngine(res, { selfUid: myUid, selfName }));
-        setPhase('playing');
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        Alert.alert(
-          'Could not start practice',
-          err instanceof ApiError ? err.message : 'Practice is temporarily unavailable.',
-        );
-        navigation.goBack();
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
-
-  // â”€â”€ Human move â†’ server â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const handleRemoteMove = async (move) => {
-    if (pendingMove) return;
-
-    if (mode === 'multiplayer') {
-      setPendingMove(true);
-      socketRef.current?.makeMove(move, () => setPendingMove(false));
-      return;
-    }
-
-    if (mode === 'practice' && activePracticeId.current) {
-      setPendingMove(true);
-      try {
-        const res = await practice.whot.move(activePracticeId.current, move);
-        setRemote(practiceSnapshotToEngine(res, { selfUid: myUid, selfName }));
-        if (res?.gameOver) {
-          const won = res.winner === myUid;
-          setPhase('game_over');
-          setBanner(won ? 'Practice complete — you emptied your hand first!' : 'Practice complete — an Oba bot emptied its hand first.');
-          setTimeout(() => {
-            navigation.navigate('GameResult', {
-              isWinner: won,
-              myScore: won ? 72 : 46,
-              opponentScore: won ? 46 : 66,
-              opponentName: 'Oba Bots 🤖',
-              gameId: 'whot',
-              gameName: 'Wọ́t Game',
-              targetScreen: 'WhotGame',
-              stake: 0,
-            });
-          }, 800);
-        }
-      } catch (err) {
-        const msg = err instanceof ApiError ? err.message : 'Could not send your move.';
-        Alert.alert('Move rejected', msg);
-        practice.whot
-          .state(activePracticeId.current)
-          .then((s) => s && setRemote(practiceSnapshotToEngine(s, { selfUid: myUid, selfName })))
-          .catch(() => {});
-      } finally {
-        setPendingMove(false);
-      }
-    }
-  };
-
-  const handleWin = (won = true) => {
+  const handleWin = (won) => {
+    const opponent = (snapshot?.players || []).find((p) => p.uid !== uid);
     navigation.navigate('GameResult', {
       isWinner: won,
-      myScore: won ? 72 : 48,
-      opponentScore: won ? 50 : 68,
-      opponentName: opponentName || 'Gamearn Bot 🤖',
+      myScore: won ? 72 : 52,
+      opponentScore: won ? 48 : 66,
+      opponentName: opponent?.displayName || params.opponent?.displayName || 'Opponent',
       gameId: 'whot',
-      gameName: 'Wọ́t Game',
+      gameName: 'Wọ́n Game',
       targetScreen: 'WhotGame',
-      stake: stake,
-      matchSettings: route.params || {},
+      stake: multiplayer ? stake : 0,
+      matchSettings: params,
     });
   };
+
+  const navigated = useRef(false);
+  useEffect(() => {
+    if (snapshot?.status !== 'completed' || navigated.current) return;
+    navigated.current = true;
+    const timerId = setTimeout(() => handleWin(snapshot.winner === uid), 800);
+    return () => clearTimeout(timerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot?.status, snapshot?.winner, uid]);
 
   const handleBack = () => {
     if (navigation.canGoBack()) {
@@ -209,32 +83,31 @@ onOpponentForfeited: (p) => {
     }
   };
 
-  const statusPill = {
-    local: 'Offline',
-    joining: 'Connecting…',
-    waiting: 'Waiting for opponent…',
-    playing: mode === 'practice' ? 'Practice · vs CPU' : 'Live match',
-    game_over: result?.winner === myUid ? 'You won' : 'Match over',
-  }[phase];
+  const phase = remoteMode ? session.status : 'local';
+  const statusPill =
+    phase === 'local' ? 'Offline'
+      : phase === 'connecting' ? 'Connecting…'
+        : phase === 'playing' ? (practice ? 'Practice · vs CPU' : 'Live match')
+          : STATUS_LABEL[phase] || 'Live match';
 
   return (
     <View style={styles.container}>
       <View style={styles.gameArea}>
         <WhotScreen
-          key={String(route.params?.resetKey || JSON.stringify(route.params || {}))}
+          key={String(params.resetKey || JSON.stringify(params || {}))}
           timer={timer}
-          cardCount={route.params?.cardCount || 6}
-          playerCount={route.params?.playerCount || (route.params?.vsOba ? 2 : 2)}
-          vsOba={!!route.params?.vsOba}
-          aiDifficulty={route.params?.aiDifficulty}
-          isRemote={isRemote && phase !== 'local'}
+          cardCount={params.cardCount || 6}
+          playerCount={params.playerCount || 2}
+          vsOba={!!params.vsOba}
+          aiDifficulty={params.aiDifficulty}
+          isRemote={remoteMode && !!remote}
           remote={remote}
-          onRemoteMove={handleRemoteMove}
+          onRemoteMove={(move) => session.move(move)}
           onBack={handleBack}
-          onRemoteGameOver={(winnerUid) => handleWin(winnerUid === myUid)}
-          onWin={(humanWon) => handleWin(humanWon)}
-          onMessage={mode === 'multiplayer' && roomId ? (text) => socketRef.current?.sendChat(roomId, text) : null}
-          incomingChats={mode === 'multiplayer' ? incomingChats : []}
+          onRemoteGameOver={() => {}}
+          onWin={(won) => handleWin(won)}
+          onMessage={multiplayer && params.roomId ? (text) => session.sendChat(text) : null}
+          incomingChats={multiplayer ? session.chats : []}
         />
       </View>
 
@@ -248,29 +121,27 @@ onOpponentForfeited: (p) => {
             <Text style={styles.statusLine}>{statusPill}</Text>
           )}
         </View>
-        {mode === 'multiplayer' && entryFee > 0 && (
+        {multiplayer && entryFee > 0 && (
           <View style={styles.stakeTag}>
             <Text style={styles.stakeText}>{`Stake \u20A6${((entryFee || 0) / 100).toLocaleString()}`}</Text>
           </View>
         )}
       </View>
 
-      {(phase === 'joining' || phase === 'waiting') && (
+      {remoteMode && (!remote || phase === 'connecting') && (
         <View style={styles.overlay}>
           <ActivityIndicator size="large" color="#00E5FF" />
           <Text style={styles.overlayText}>
-            {phase === 'joining'
-              ? mode === 'practice'
-                ? 'Starting practice gameâ€¦'
-                : 'Joining live roomâ€¦'
-              : 'Waiting for the match to startâ€¦'}
+            {phase === 'connecting'
+              ? practice ? 'Starting practice game…' : 'Joining live room…'
+              : 'Waiting for the match to start…'}
           </Text>
         </View>
       )}
 
-      {banner !== '' && phase === 'playing' && (
+      {!!session.error && remoteMode && !!remote && (
         <View style={styles.banner}>
-          <Text style={styles.bannerText}>{banner}</Text>
+          <Text style={styles.bannerText}>{session.error}</Text>
         </View>
       )}
     </View>

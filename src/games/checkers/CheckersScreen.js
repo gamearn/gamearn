@@ -34,6 +34,9 @@ export function CheckersScreen({
   onWin,
   playerColor = 'white',
   aiDifficulty = 'auto',
+  isRemote = false,
+  remote = null,
+  onRemoteMove,
 }) {
   const { updateProfileData, userProfile } = useAuth();
   const playerSide = playerColor === 'black' ? 'black' : 'white';
@@ -64,22 +67,24 @@ export function CheckersScreen({
   const mountStreakRecorded = React.useRef(false);
   useEffect(() => {
     let alive = true;
-    getActiveMatch().then((match) => {
-      if (alive && match?.gameId === 'checkers' && match?.savedState && !match.savedState?.isOver) {
-        const s = match.savedState;
-        if (s.boardState) setBoardState(s.boardState);
-        if (s.turn) setTurn(s.turn);
-        if (s.history) setHistory(s.history);
-        if (s.seconds !== undefined) setSeconds(s.seconds);
-      } else {
-        setActiveMatch({
-          gameId: 'checkers',
-          gameName: 'Checkers / Draughts',
-          targetScreen: 'DraughtsGame',
-          durationSecs: 120,
-        });
-      }
-    });
+    if (!isRemote) {
+      getActiveMatch().then((match) => {
+        if (alive && match?.gameId === 'checkers' && match?.savedState && !match.savedState?.isOver) {
+          const s = match.savedState;
+          if (s.boardState) setBoardState(s.boardState);
+          if (s.turn) setTurn(s.turn);
+          if (s.history) setHistory(s.history);
+          if (s.seconds !== undefined) setSeconds(s.seconds);
+        } else {
+          setActiveMatch({
+            gameId: 'checkers',
+            gameName: 'Checkers / Draughts',
+            targetScreen: 'DraughtsGame',
+            durationSecs: 120,
+          });
+        }
+      });
+    }
 
     if (!mountStreakRecorded.current && updateProfileData && userProfile) {
       mountStreakRecorded.current = true;
@@ -90,12 +95,23 @@ export function CheckersScreen({
 
   // Persist ongoing state changes to active match session
   useEffect(() => {
+    if (isRemote) return;
     if (gameOver.isOver) {
       clearActiveMatch();
     } else if (boardState) {
       updateActiveMatchState('checkers', { boardState, turn, history, seconds });
     }
-  }, [boardState, turn, history, seconds, gameOver.isOver]);
+  }, [boardState, turn, history, seconds, gameOver.isOver, isRemote]);
+
+  // Remote (server-authoritative) mode: rehydrate the render tree from the
+  // server board and respect the server's turn/legality.
+  useEffect(() => {
+    if (!isRemote || !remote) return;
+    setBoardState(remote.board);
+    setTurn(remote.turn);
+    setSelected(null);
+    setValidMoves([]);
+  }, [remote, isRemote]);
 
   // Sync external board prop if provided
   useEffect(() => {
@@ -118,6 +134,7 @@ export function CheckersScreen({
 
   // Handle timer expiration (turn timeout - forfeit turn to opponent)
   useEffect(() => {
+    if (isRemote) return;
     if (seconds === 0 && !gameOver.isOver && dialog === null) {
       if (turn === playerSide) {
         setTurn(aiSide);
@@ -128,10 +145,11 @@ export function CheckersScreen({
       }
       setSeconds(turnDuration);
     }
-  }, [seconds, gameOver.isOver, dialog, turn, playerSide, aiSide, turnDuration]);
+  }, [seconds, gameOver.isOver, dialog, turn, playerSide, aiSide, turnDuration, isRemote]);
 
   // Check if player has 0 legal moves on their turn
   useEffect(() => {
+    if (isRemote) return;
     if (turn === playerSide && !gameOver.isOver && !isAiThinking && dialog === null) {
       let hasMoves = false;
       for (let i = 0; i < 64; i++) {
@@ -150,10 +168,11 @@ export function CheckersScreen({
         if (onWin) onWin(false);
       }
     }
-  }, [turn, playerSide, aiSide, boardState, gameOver.isOver, isAiThinking, dialog, onWin, updateProfileData, userProfile]);
+  }, [turn, playerSide, aiSide, boardState, gameOver.isOver, isAiThinking, dialog, onWin, updateProfileData, userProfile, isRemote]);
 
   // Computer AI turn trigger
   useEffect(() => {
+    if (isRemote) return;
     if (vsAI && turn === aiSide && !gameOver.isOver && dialog === null) {
       setIsAiThinking(true);
       const timer = setTimeout(() => {
@@ -189,7 +208,7 @@ export function CheckersScreen({
       }, 400);
       return () => clearTimeout(timer);
     }
-  }, [turn, vsAI, boardState, gameOver.isOver, dialog, aiSide, playerSide, activeDifficulty, onWin, stake]);
+  }, [turn, vsAI, boardState, gameOver.isOver, dialog, aiSide, playerSide, activeDifficulty, onWin, stake, isRemote]);
 
   function restartGame() {
     setBoardState(initialBoardState());
@@ -204,7 +223,33 @@ export function CheckersScreen({
     setSeconds(296);
   }
 
+  function handleRemotePress(index) {
+    if (!remote?.canMove) return;
+    setHintMove(null);
+    if (selected !== null) {
+      const move = validMoves.find((m) => m.to === index);
+      if (move) {
+        onRemoteMove?.(move);
+        setSelected(null);
+        setValidMoves([]);
+        return;
+      }
+    }
+    const piece = boardState[index];
+    if (piece && piece.side === remote.humanSide) {
+      setSelected(index);
+      setValidMoves(getLegalMovesForSquare(boardState, remote.humanSide, index));
+    } else {
+      setSelected(null);
+      setValidMoves([]);
+    }
+  }
+
   function handleSquarePress(index) {
+    if (isRemote) {
+      handleRemotePress(index);
+      return;
+    }
     if (gameOver.isOver || isAiThinking || (vsAI && turn === 'black')) return;
     onSquarePress?.(index);
     setHintMove(null);
@@ -261,6 +306,7 @@ export function CheckersScreen({
   }
 
   function handleUndo() {
+    if (isRemote) return;
     if (history.length === 0) {
       setNotice('No previous moves to undo.');
       setDialog('undo');
@@ -292,6 +338,7 @@ export function CheckersScreen({
   }
 
   function handleHint() {
+    if (isRemote) return;
     const hint = getHintMove(boardState, turn);
     if (hint) {
       setHintMove(hint);

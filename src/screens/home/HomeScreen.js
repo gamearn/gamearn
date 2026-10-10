@@ -448,7 +448,7 @@ export default function HomeScreen({ navigation }) {
         ) : rows.length === 0 ? (
           <Text style={[s.muted, { marginTop: 12 * scale }]}>No active database rankings for this period yet.</Text>
         ) : rows.map((player, index) => (
-          <Tap key={player.id} label={`${index + 1}, ${player.name}, ${player.wins} wins, ${player.gpText || `${player.gp || 0} GP`}`} onPress={() => open('player', player)} style={[s.leaderRow, index === 0 && s.firstRow]}>
+          <Tap key={player.id} label={`${index + 1}, ${player.name}, ${player.plays} plays, ${player.wins} wins`} onPress={() => open('player', player)} style={[s.leaderRow, index === 0 && s.firstRow]}>
             <View style={[s.rank, index < 3 && { borderColor: ['#eab51b', '#91a6b9', '#ff8a00'][index], backgroundColor: ['#8f6400', '#526b80', '#bf4004'][index] }]}>
               {index < 3 && <View style={s.medalRibbon} />}
               {txt(String(index + 1), 17, index === 0 && { color: '#fff676' })}
@@ -456,7 +456,7 @@ export default function HomeScreen({ navigation }) {
             <Image source={resolveAvatarSource(player.avatar)} style={[s.smallAvatar, { width: 32 * scale, height: 32 * scale, borderRadius: (32 * scale) / 2 }]} />
             <View style={{ flex: 1 }}>
               {txt(player.name, 12)}
-              {txt(`${player.wins} Wins`, 11, s.muted)}
+              {txt(`${player.plays} Plays · ${player.wins} Wins`, 11, s.muted)}
             </View>
             {txt(player.gpText || `${player.gp || 0} GP`, 14, [s.bold, index === 0 && { color: '#ffe856' }])}
           </Tap>

@@ -87,14 +87,21 @@ function computeRowGp(wins = 0, played = 0, explicitGp = null) {
 }
 
 function leaderboard(dbRows = [], userProfile = null) {
+  // Rows arrive pre-ranked by the server (plays DESC, then wins). The client
+  // only shapes them; plays is the ranking metric, wins/GP stay visible.
+  const getUserPlays = () => {
+    if (!userProfile) return 0;
+    const wins = Number(userProfile.wins || userProfile.gamesWon || 0);
+    const losses = Number(userProfile.losses || userProfile.gamesLost || 0);
+    const draws = Number(userProfile.draws || userProfile.gamesDrawn || 0);
+    return Number(userProfile.gamesPlayed ?? userProfile.plays ?? (wins + losses + draws)) || 0;
+  };
+
   const getUserGp = () => {
     if (!userProfile) return 0;
     if (userProfile.gp !== undefined && userProfile.gp !== null) return Number(userProfile.gp);
     if (userProfile.gamePower !== undefined && userProfile.gamePower !== null) return Number(userProfile.gamePower);
-    const wins = Number(userProfile.wins || userProfile.gamesWon || 0);
-    const losses = Number(userProfile.losses || userProfile.gamesLost || 0);
-    const played = Number(userProfile.gamesPlayed || (wins + losses));
-    return computeRowGp(wins, played);
+    return computeRowGp(Number(userProfile.wins || userProfile.gamesWon || 0), getUserPlays());
   };
 
   if (!Array.isArray(dbRows) || dbRows.length === 0) {
@@ -104,6 +111,7 @@ function leaderboard(dbRows = [], userProfile = null) {
         {
           id: userProfile.uid,
           name: `${userProfile.displayName || userProfile.fullName || userProfile.name || userProfile.username || 'You'} (You)`,
+          plays: getUserPlays(),
           wins: Number(userProfile.wins || userProfile.gamesWon || 0),
           gp: userGp,
           gpText: `${userGp} GP`,
@@ -121,11 +129,12 @@ function leaderboard(dbRows = [], userProfile = null) {
     const isUser = Boolean(userProfile?.uid && (row.id === userProfile.uid || row.uid === userProfile.uid));
     const name = row.name || row.displayName || 'Gamer';
     const wins = Number(row.wins || 0);
-    const played = Number(row.gamesPlayed || row.played || wins);
-    const rowGp = isUser ? getUserGp() : computeRowGp(wins, played, row.gp ?? row.gamePower);
+    const plays = Number(row.plays ?? row.gamesPlayed ?? row.played ?? wins);
+    const rowGp = isUser ? getUserGp() : computeRowGp(wins, plays, row.gp ?? row.gamePower);
     return {
       id: row.id || row.uid || `player_${index}`,
       name: isUser ? `${name} (You)` : name,
+      plays,
       wins,
       gp: rowGp,
       gpText: `${rowGp} GP`,
@@ -142,6 +151,7 @@ function leaderboard(dbRows = [], userProfile = null) {
     list.push({
       id: userProfile.uid,
       name: `${userProfile.displayName || userProfile.fullName || userProfile.name || userProfile.username || 'You'} (You)`,
+      plays: getUserPlays(),
       wins: Number(userProfile.wins || userProfile.gamesWon || 0),
       gp: userGp,
       gpText: `${userGp} GP`,

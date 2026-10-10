@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -10,17 +9,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { ArrowLeft, RotateCcw, Award } from 'lucide-react-native';
-import { ART_HEIGHT, ART_WIDTH, AyoArtwork, AyoGradients, PITS_CONFIG } from './AyoArtwork';
-import {
-  createAyoInitialState,
-  getAyoAiMove,
-  getAyoMoveSteps,
-  isValidAyoMove,
-} from './ayoGameEngine';
-import { setActiveMatch, clearActiveMatch, getActiveMatch, updateActiveMatchState } from '../../utils/activeMatch';
-import { useAuth } from '../../context/AuthContext';
-import { recordGameStreak } from '../../utils/recordGameStreak';
-import { getAiDifficulty } from '../../utils/aiDifficulty';
+import { ART_HEIGHT, ART_WIDTH, AyoArtwork, AyoGradients, PIT_X, PIT_Y, pitIndexAt, pitPosition, Seed } from './AyoArtwork';
+import { ayoView, serverPitIndex } from './ayoPresentation';
 
 import Svg, { G, Path, Rect } from 'react-native-svg';
 
@@ -28,7 +18,7 @@ function AyoBackgroundAnimation() {
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1,
@@ -43,7 +33,9 @@ function AyoBackgroundAnimation() {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    animation.start();
+    return () => animation.stop();
   }, []);
 
   const foliageOpacity = pulseAnim.interpolate({
@@ -72,172 +64,53 @@ function AyoBackgroundAnimation() {
   );
 }
 
-function parseTimerSec(timerStr) {
-  if (!timerStr) return 120;
-  if (typeof timerStr === 'number') return timerStr;
-  if (timerStr.endsWith('s')) return parseInt(timerStr, 10);
-  if (timerStr.endsWith('m')) return parseInt(timerStr, 10) * 60;
-  return 120;
-}
-
-export function AyoScreen({ timer = '2m', seedCount = 4, onWin, onBack, onHumanMove, aiDifficulty = 'auto' }) {
+export function AyoScreen({ secondsRemaining, update, uid, canMove, pending, status, onComplete, onBack, onHumanMove, onRestart }) {
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
-  const [gameState, setGameState] = useState(() => createAyoInitialState(seedCount));
-  const [selected, setSelected] = useState(null);
-  const [activePit, setActivePit] = useState(null);
-  const [capturedPits, setCapturedPits] = useState([]);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [dialogVisible, setDialogVisible] = useState(false);
-
-  const gameStateRef = useRef(gameState);
-  const animTimerRef = useRef(null);
+  const [gameState, setGameState] = useState(null);
+  const [sowing, setSowing] = useState(null);
+  const flight = useRef(new Animated.Value(0)).current;
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    gameStateRef.current = gameState;
-  }, [gameState]);
-
-  const turnDuration = parseTimerSec(timer);
-  const [secondsRemaining, setSecondsRemaining] = useState(turnDuration);
-
-  // Turn Countdown & Timeout forfeit handling
-  useEffect(() => {
-    if (gameState.gameStatus === 'game_over' || isAnimating) return;
-    const interval = setInterval(() => {
-      setSecondsRemaining((prev) => {
-        if (prev <= 1) {
-          // Timeout! Pass turn to opponent
-          setGameState((current) => {
-            if (current.gameStatus === 'game_over') return current;
-            const nextPlayer = current.activePlayer === 1 ? 2 : 1;
-            const msg = current.activePlayer === 1
-              ? "⏱️ Time's up! Turn passed to Oba."
-              : "⏱️ Oba timed out! Your turn.";
-            return {
-              ...current,
-              activePlayer: nextPlayer,
-              statusMessage: msg,
-            };
-          });
-          return turnDuration;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [gameState.gameStatus, isAnimating, turnDuration]);
-
-  useEffect(() => {
-    setSecondsRemaining(turnDuration);
-  }, [gameState.activePlayer, turnDuration]);
-
-  const { updateProfileData, userProfile } = useAuth();
-  const mountStreakRecorded = useRef(false);
-  const gameOverStreakRecorded = useRef(false);
-
-  useEffect(() => {
-    let alive = true;
-    getActiveMatch().then((match) => {
-      if (alive && match?.gameId === 'ayo' && match?.savedState && match.savedState.gameStatus !== 'game_over') {
-        setGameState(match.savedState);
-      } else {
-        setActiveMatch({
-          gameId: 'ayo',
-          gameName: 'Ayò Ọ̀pọ́n',
-          targetScreen: 'AyoGame',
-          durationSecs: 120,
-        });
-      }
-    });
-
-    if (!mountStreakRecorded.current) {
-      mountStreakRecorded.current = true;
-      recordGameStreak(updateProfileData, userProfile);
-    }
-    return () => { alive = false; };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (animTimerRef.current) {
-        clearInterval(animTimerRef.current);
-        animTimerRef.current = null;
-      }
+    if (!update) return;
+    let cancelled = false;
+    let timeout;
+    const result = ayoView(update.snapshot, uid);
+    const steps = update.animate ? result.steps : [];
+    const finish = () => {
+      if (cancelled) return;
+      setSowing(null);
+      setGameState(result);
+      onCompleteRef.current(update.id);
     };
-  }, []);
-
-  const executeAnimatedMove = (pitIndex) => {
-    if (isAnimating) return;
-    setIsAnimating(true);
-    setSelected(pitIndex);
-
-    const { steps, finalState } = getAyoMoveSteps(gameStateRef.current, pitIndex);
-    if (!steps || steps.length === 0) {
-      setGameState(finalState);
-      setIsAnimating(false);
-      setSelected(null);
-      return;
-    }
-
-    let stepIdx = 0;
-    animTimerRef.current = setInterval(() => {
-      if (stepIdx < steps.length) {
-        const step = steps[stepIdx];
-        setGameState((prev) => ({
-          ...prev,
-          pits: step.pits,
-          scores: step.scores,
-          statusMessage: step.message,
-        }));
-        setActivePit(step.activePit);
-        setCapturedPits(step.capturedPits || []);
-        stepIdx++;
-      } else {
-        clearInterval(animTimerRef.current);
-        animTimerRef.current = null;
-        setTimeout(() => {
-          setActivePit(null);
-          setCapturedPits([]);
-          setSelected(null);
-          setGameState(finalState);
-          gameStateRef.current = finalState;
-          setIsAnimating(false);
-        }, 350);
+    const play = (index) => {
+      if (cancelled) return;
+      if (index >= steps.length) {
+        timeout = setTimeout(finish, 450);
+        return;
       }
-    }, 240);
-  };
-
-  // AI Turn Handling & Game Over Streak
-  useEffect(() => {
-    if (gameState.gameStatus === 'game_over') {
-      clearActiveMatch();
-      if (!gameOverStreakRecorded.current) {
-        gameOverStreakRecorded.current = true;
-        recordGameStreak(updateProfileData, userProfile);
-        if (onWin) {
-          onWin(gameState.winner === 1);
-        } else {
-          setDialogVisible(true);
-        }
+      const next = steps[index];
+      const previous = steps[index - 1];
+      if (next.phase === 'pickup' || !previous) {
+        setSowing({ ...next, from: next.pitIndex, to: next.pitIndex, flying: false, player: result.movingPlayer });
+        timeout = setTimeout(() => play(index + 1), 300);
+        return;
       }
-      return;
-    }
-    if (gameState) {
-      updateActiveMatchState('ayo', gameState);
-    }
-
-    if (gameState.activePlayer === 2 && !isAnimating) {
-      const activeDifficulty = getAiDifficulty(userProfile, aiDifficulty);
-      const aiTimer = setTimeout(() => {
-        if (gameStateRef.current.activePlayer !== 2 || gameStateRef.current.gameStatus === 'game_over') return;
-        const bestPit = getAyoAiMove(gameStateRef.current, activeDifficulty);
-        if (bestPit !== null) {
-          executeAnimatedMove(bestPit);
-        }
-      }, 900);
-
-      return () => clearTimeout(aiTimer);
-    }
-  }, [gameState.activePlayer, gameState.gameStatus, isAnimating, aiDifficulty]);
+      flight.setValue(0);
+      setSowing({ ...previous, from: previous.pitIndex, to: next.pitIndex, flying: true, player: result.movingPlayer });
+      Animated.timing(flight, {
+        toValue: 1, duration: 300, easing: Easing.inOut(Easing.quad), useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (!finished || cancelled) return;
+        setSowing({ ...next, from: next.pitIndex, to: next.pitIndex, flying: false, player: result.movingPlayer });
+        timeout = setTimeout(() => play(index + 1), 90);
+      });
+    };
+    if (steps.length) play(0);
+    else finish();
+    return () => { cancelled = true; clearTimeout(timeout); flight.stopAnimation(); };
+  }, [update, uid, flight]);
 
   function layout(event) {
     const { width, height } = event.nativeEvent.layout;
@@ -245,34 +118,12 @@ export function AyoScreen({ timer = '2m', seedCount = 4, onWin, onBack, onHumanM
   }
 
   function handlePitPress(index) {
-    if (isAnimating || gameState.gameStatus === 'game_over') return;
-    if (gameState.activePlayer !== 1) {
-      setGameState((prev) => ({ ...prev, statusMessage: "Wait for Oba's turn!" }));
-      return;
-    }
-    if (!isValidAyoMove(gameState, index)) {
-      setGameState((prev) => ({ ...prev, statusMessage: "Select a valid pit on your row!" }));
-      return;
-    }
-
-    onHumanMove?.(index);
-    executeAnimatedMove(index);
+    if (!canMove || sowing || !gameState) return;
+    onHumanMove(serverPitIndex(index, gameState.playerIndex));
   }
 
-  function handleRestart() {
-    if (animTimerRef.current) {
-      clearInterval(animTimerRef.current);
-      animTimerRef.current = null;
-    }
-    const fresh = createAyoInitialState(seedCount);
-    setGameState(fresh);
-    gameStateRef.current = fresh;
-    setSelected(null);
-    setActivePit(null);
-    setCapturedPits([]);
-    setIsAnimating(false);
-    setDialogVisible(false);
-  }
+  if (!gameState) return <View style={styles.root}><Text style={styles.playerName}>Waiting for the server board...</Text></View>;
+  const activePlayer = sowing?.player || gameState.activePlayer;
 
   const effectiveWidth = bounds.width || (typeof window !== 'undefined' ? window.innerWidth : 380);
   const effectiveHeight = bounds.height || (typeof window !== 'undefined' ? window.innerHeight : 700);
@@ -289,8 +140,6 @@ export function AyoScreen({ timer = '2m', seedCount = 4, onWin, onBack, onHumanM
     height = ART_HEIGHT * scale;
   }
 
-  const targetHalfSeeds = (gameState.seedCount || 4) * 6;
-
   return (
     <View onLayout={layout} style={styles.root}>
       <AyoBackgroundAnimation />
@@ -301,29 +150,29 @@ export function AyoScreen({ timer = '2m', seedCount = 4, onWin, onBack, onHumanM
           <ArrowLeft size={22} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={{ alignItems: 'center' }}>
-          <Text style={styles.headerTitle}>AYÒ OLOPON</Text>
+          <Text style={styles.headerTitle}>AYO OLOPON</Text>
           <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '800' }}>
-            ⏱️ {Math.floor(secondsRemaining / 60)}:{String(secondsRemaining % 60).padStart(2, '0')}
+            {secondsRemaining == null ? 'Connecting to clock...' : `Time left ${Math.floor(secondsRemaining / 60)}:${String(secondsRemaining % 60).padStart(2, '0')}`}
           </Text>
         </View>
-        <TouchableOpacity style={styles.iconBtn} onPress={handleRestart}>
+        {onRestart ? <TouchableOpacity style={styles.iconBtn} onPress={onRestart} disabled={pending || !!sowing}>
           <RotateCcw size={20} color="#F59E0B" />
-        </TouchableOpacity>
+        </TouchableOpacity> : <View style={{ width: 38 }} />}
       </View>
 
       {/* Top Player Profile HUD (AI Bot) */}
       <View style={styles.playerHudTop}>
-        <View style={[styles.playerCard, gameState.activePlayer === 2 && styles.activePlayerGlow]}>
-          <Text style={styles.avatarEmoji}>👑</Text>
+        <View style={[styles.playerCard, activePlayer === 2 && styles.activePlayerGlow]}>
+          <Award size={22} color="#F59E0B" style={{ marginRight: 10 }} />
           <View style={styles.playerInfo}>
-            <Text style={styles.playerName}>Oba (Top Row)</Text>
+            <Text style={styles.playerName}>{gameState.opponentName}</Text>
             <Text style={styles.scoreText}>
-              Seeds Captured: <Text style={styles.scoreValue}>{gameState.scores[1]}</Text> / {targetHalfSeeds}
+              Seeds Captured: <Text style={styles.scoreValue}>{gameState.scores[1]}</Text> / 24
             </Text>
           </View>
-          {gameState.activePlayer === 2 && (
+          {activePlayer === 2 && (
             <View style={styles.turnBadge}>
-              <Text style={styles.turnText}>{isAnimating ? 'SOWING...' : 'THINKING...'}</Text>
+              <Text style={styles.turnText}>{sowing ? 'SOWING...' : 'WAITING...'}</Text>
             </View>
           )}
         </View>
@@ -336,11 +185,10 @@ export function AyoScreen({ timer = '2m', seedCount = 4, onWin, onBack, onHumanM
             <AyoArtwork
               width={width}
               height={height}
-              pits={gameState.pits}
+              pits={Array.from({ length: 12 }, (_, i) => (sowing?.pits || gameState.pits)[i < 6 ? i + 6 : 11 - i])}
               scores={gameState.scores}
-              selected={selected}
-              activePit={activePit}
-              capturedPits={capturedPits}
+              selected={sowing ? (sowing.to < 6 ? 11 - sowing.to : sowing.to - 6) : null}
+              activePit={sowing ? (sowing.to < 6 ? 11 - sowing.to : sowing.to - 6) : null}
             />
           </View>
 
@@ -348,52 +196,77 @@ export function AyoScreen({ timer = '2m', seedCount = 4, onWin, onBack, onHumanM
           <View style={{ position: 'absolute', top: 380 * scale, left: 100 * scale, width: 1200 * scale, alignItems: 'center' }}>
             <View style={{ backgroundColor: '#03271ddd', paddingHorizontal: 24 * scale, paddingVertical: 10 * scale, borderRadius: 24 * scale, borderWidth: 2 * scale, borderColor: '#F59E0B' }}>
               <Text style={{ color: '#FFF', fontSize: 26 * scale, fontWeight: '800', textAlign: 'center' }}>
-                {gameState.statusMessage}
+                {sowing ? `${sowing.remaining} seeds left to sow` : (pending ? 'Waiting for server confirmation...' : gameState.statusMessage)}
               </Text>
             </View>
           </View>
 
           {/* Interactive Pit Touch Targets */}
-          {PITS_CONFIG.map((pit) => (
-            <Pressable
-              key={pit.index}
-              accessibilityRole="button"
-              disabled={isAnimating || gameState.gameStatus === 'game_over' || gameState.activePlayer !== 1}
-              onPress={() => handlePitPress(pit.index)}
-              style={({ pressed }) => ({
-                position: 'absolute',
-                left: (pit.x - 79) * scale,
-                top: (pit.y - 79) * scale,
-                width: 158 * scale,
-                height: 158 * scale,
-                borderRadius: 79 * scale,
-                backgroundColor: pressed ? '#ffdc6644' : 'transparent',
-                borderColor: selected === pit.index ? '#F59E0B' : 'transparent',
-                borderWidth: selected === pit.index ? 3 * scale : 0,
-                cursor: 'pointer',
-              })}
-            />
-          ))}
+          {PIT_Y.map((y, row) => PIT_X.map((x, col) => {
+            const index = pitIndexAt(row, col);
+            return (
+              <Pressable
+                key={index}
+                accessibilityRole="button"
+                accessibilityLabel={`${row === 1 ? 'Your' : gameState.opponentName + "'s"} pit ${col + 1}, ${(sowing?.pits || gameState.pits)[index]} seeds`}
+                disabled={!canMove || !!sowing || row !== 1 || gameState.pits[index] === 0}
+                onPress={() => handlePitPress(index)}
+                style={({ pressed }) => ({
+                  position: 'absolute',
+                  left: (x - 79) * scale,
+                  top: (y - 79) * scale,
+                  width: 158 * scale,
+                  height: 158 * scale,
+                  borderRadius: 79 * scale,
+                  backgroundColor: pressed ? '#ffdc6644' : 'transparent',
+                  borderColor: sowing?.to === index ? '#F59E0B' : 'transparent',
+                  borderWidth: sowing?.to === index ? 3 * scale : 0,
+                  cursor: 'pointer',
+                })}
+              />
+            );
+          }))}
+
+          {sowing?.flying && (
+            <Animated.View pointerEvents="none" style={{
+              position: 'absolute', left: 0, top: 0,
+              width: 64 * scale, height: 64 * scale,
+              transform: [
+                { translateX: flight.interpolate({ inputRange: [0, 1], outputRange: [pitPosition(sowing.from).x * scale - 32 * scale, pitPosition(sowing.to).x * scale - 32 * scale] }) },
+                { translateY: flight.interpolate({ inputRange: [0, 0.5, 1], outputRange: [pitPosition(sowing.from).y * scale - 32 * scale, (pitPosition(sowing.from).y + pitPosition(sowing.to).y) * scale / 2 - 100 * scale, pitPosition(sowing.to).y * scale - 32 * scale] }) },
+              ],
+            }}>
+              <Svg width="100%" height="100%" viewBox="0 0 64 64">
+                <AyoGradients />
+                <Seed x={32} y={32} angle={-25} scale={1.2} />
+              </Svg>
+            </Animated.View>
+          )}
+
+
         </View>
       )}
 
       {/* Bottom Player Profile HUD (You - Player 1) */}
       <View style={styles.playerHudBottom}>
-        <View style={[styles.playerCard, gameState.activePlayer === 1 && styles.activePlayerGlow]}>
-          <Text style={styles.avatarEmoji}>👑</Text>
+        <View style={[styles.playerCard, activePlayer === 1 && styles.activePlayerGlow]}>
+          <Award size={22} color="#F59E0B" style={{ marginRight: 10 }} />
           <View style={styles.playerInfo}>
             <Text style={styles.playerName}>You (Bottom Row)</Text>
             <Text style={styles.scoreText}>
-              Seeds Captured: <Text style={styles.scoreValue}>{gameState.scores[0]}</Text> / {targetHalfSeeds}
+              Seeds Captured: <Text style={styles.scoreValue}>{gameState.scores[0]}</Text> / 24
             </Text>
           </View>
-          {gameState.activePlayer === 1 && (
+          {activePlayer === 1 && (
             <View style={[styles.turnBadge, { backgroundColor: '#10B981' }]}>
-              <Text style={styles.turnText}>{isAnimating ? 'SOWING...' : 'YOUR TURN'}</Text>
+              <Text style={styles.turnText}>{sowing ? 'SOWING...' : 'YOUR TURN'}</Text>
             </View>
           )}
         </View>
       </View>
+      <Text style={{ color: '#FFF3CD', fontSize: 13, textAlign: 'center', minHeight: 20 }}>
+        {sowing ? `${activePlayer === 1 ? 'You' : gameState.opponentName} sowing: ${sowing.remaining} seeds in hand` : (pending ? 'Waiting for server confirmation...' : gameState.statusMessage)}
+      </Text>
     </View>
   );
 }

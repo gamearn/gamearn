@@ -179,10 +179,14 @@ export const tournaments = {
 
 // ── Leaderboard ───────────────────────────────────────────────────────────────
 
+// The UI key for Draughts is "draft"; the backend enum is "draughts".
+const GAME_TYPE_ALIASES = { draft: 'draughts' };
+
 export const leaderboard = {
   get: async (period = 'Daily', gameType = null) => {
     const qs = new URLSearchParams({ period });
-    if (gameType) qs.set('gameType', gameType);
+    const normalized = gameType ? GAME_TYPE_ALIASES[String(gameType).toLowerCase()] || gameType : null;
+    if (normalized) qs.set('gameType', normalized);
     const res = await apiGet(`/leaderboard?${qs.toString()}`);
     return res?.data || res || [];
   },
@@ -208,6 +212,8 @@ export const practice = {
         gameType: 'whot',
         playerRating: opts.playerRating || 1200,
         startCards: opts.startCards || 6,
+        seats: opts.seats || 4,
+        timer: opts.timer || '2m',
       }),
     move: (sessionId, move) => apiPost('/practice/whot/move', { sessionId, move }),
     state: (sessionId) => apiGet(`/practice/whot/state/${sessionId}`),
@@ -230,7 +236,7 @@ export const practice = {
 
   ayo: {
     start: (opts = {}) =>
-      apiPost('/practice/ayo/start', { playerRating: opts.playerRating || 1200 }),
+      apiPost('/practice/ayo/start', { playerRating: opts.playerRating || 1200, timer: opts.timer || '2m' }),
     move: (sessionId, pitIndex) => apiPost('/practice/ayo/move', { sessionId, pitIndex }),
     state: (sessionId) => apiGet(`/practice/ayo/state/${sessionId}`),
   },
@@ -247,3 +253,5 @@ export const streak = {
   recover: (method) => apiPost('/streak/recover', { method }),
 };
 
+
+export const practiceControl = (gameType, sessionId, action) => apiPost(`/practice/${gameType}/control`, { sessionId, action });
