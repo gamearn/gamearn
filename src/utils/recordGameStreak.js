@@ -56,6 +56,9 @@ export async function recordGameStreak(updateProfileData, userProfile, isWinner 
     newWinStreak = 0;
   }
 
+  const currentGamesPlayed = Number(userProfile?.gamesPlayed ?? userProfile?.stats?.gamesPlayed ?? (Number(userProfile?.wins || 0) + Number(userProfile?.losses || 0)));
+  const newGamesPlayed = currentGamesPlayed + 1;
+
   try {
     await updateProfileData({
       dailyPlayStreak: newDailyStreak,
@@ -63,6 +66,7 @@ export async function recordGameStreak(updateProfileData, userProfile, isWinner 
       currentStreak: newDailyStreak,
       winStreak: newWinStreak,
       currentWinStreak: newWinStreak,
+      gamesPlayed: newGamesPlayed,
       lastPlayedDate: todayStr,
       lastStreakDate: todayStr,
       lastCheckInDate: todayStr,
@@ -76,28 +80,56 @@ export async function recordGameStreak(updateProfileData, userProfile, isWinner 
  * Get Daily Play Streak info for Dashboard
  */
 export function getDailyStreakInfo(userProfile) {
-  const gamesPlayed = Number(userProfile?.gamesPlayed ?? userProfile?.stats?.gamesPlayed ?? (Number(userProfile?.wins || 0) + Number(userProfile?.losses || 0)));
+  const todayStr = getLocalDateString();
   const rawStreak = Number(userProfile?.dailyPlayStreak ?? userProfile?.streak ?? userProfile?.currentStreak ?? 0);
-  const streakCount = gamesPlayed === 0 ? 0 : rawStreak;
+  const lastDate = userProfile?.lastPlayedDate || userProfile?.lastStreakDate || userProfile?.lastCheckInDate || null;
+  const gap = lastDate ? getDayGap(lastDate, todayStr) : null;
 
-  if (streakCount <= 0 || gamesPlayed === 0) {
+  // Case 1: No streak started yet
+  if (rawStreak <= 0) {
     return {
       dayText: 'Day 0',
-      statusText: 'Daily Play',
-      isAtRisk: true,
+      statusText: 'Inactive',
+      isAtRisk: false,
       isActive: false,
       streakNumber: 0,
       subText: 'Play a game today to start your daily play streak!',
     };
   }
 
+  // Case 2: Missed 2+ days (streak expired)
+  if (gap !== null && gap > 1) {
+    return {
+      dayText: 'Day 0',
+      statusText: 'Inactive',
+      isAtRisk: true,
+      isActive: false,
+      streakNumber: 0,
+      subText: 'Streak lost! Play a game today to start a new streak.',
+    };
+  }
+
+  // Case 3: Played today (gap === 0) -> Streak completed and active for today!
+  if (gap === 0) {
+    return {
+      dayText: `Day ${rawStreak}`,
+      statusText: 'Active',
+      isAtRisk: false,
+      isActive: true,
+      streakNumber: rawStreak,
+      subText: `🔥 ${rawStreak}-day play streak active!`,
+    };
+  }
+
+  // Case 4: Streak alive from yesterday (gap === 1 or not yet played today).
+  // Streak is MAINTAINED at rawStreak (e.g. Day 2), but flagged AT RISK in RED until a game is played today!
   return {
-    dayText: `Day ${streakCount}`,
-    statusText: 'Daily Play',
-    isAtRisk: false,
-    isActive: true,
-    streakNumber: streakCount,
-    subText: `🔥 ${streakCount}-day play streak active!`,
+    dayText: `Day ${rawStreak}`,
+    statusText: 'At Risk',
+    isAtRisk: true,
+    isActive: false,
+    streakNumber: rawStreak,
+    subText: 'Play a game today to keep your streak!',
   };
 }
 

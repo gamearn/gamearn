@@ -84,21 +84,28 @@ export default function ProfileScreen({ navigation }) {
               styles.statCardBox,
               {
                 backgroundColor: theme.cardBg,
-                borderColor: streakInfo.isActive ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)',
+                borderColor: streakInfo.isActive
+                  ? 'rgba(16, 185, 129, 0.4)'
+                  : (streakInfo.isAtRisk ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.4)'),
               },
             ]}
           >
             <View style={styles.streakInlineRow}>
               <Flame
                 size={16}
-                color={streakInfo.isActive ? '#10B981' : '#F59E0B'}
-                fill={streakInfo.isActive ? '#10B981' : 'none'}
+                color={streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#EF4444' : '#F59E0B')}
+                fill={streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#EF4444' : 'none')}
                 style={{ marginRight: 4 }}
               />
               <Text
                 style={[
                   styles.streakBigVal,
-                  { color: streakInfo.isActive ? '#10B981' : '#F59E0B', fontSize: 16 },
+                  {
+                    color: streakInfo.isActive
+                      ? '#10B981'
+                      : (streakInfo.isAtRisk ? '#EF4444' : '#F59E0B'),
+                    fontSize: 16,
+                  },
                 ]}
               >
                 {streakInfo.dayText}
@@ -107,7 +114,7 @@ export default function ProfileScreen({ navigation }) {
             <Text
               style={[
                 styles.streakSubLabel,
-                { color: streakInfo.isActive ? '#10B981' : '#F59E0B' },
+                { color: streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#EF4444' : '#F59E0B') },
               ]}
             >
               {streakInfo.statusText.toUpperCase()}

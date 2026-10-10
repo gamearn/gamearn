@@ -396,7 +396,13 @@ export default function HomeScreen({ navigation }) {
       <LinearGradient colors={['#002332', '#07122b', '#200732']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.streak}>
         <View style={s.sectionRow}>
           {txt('Streak Progress', 18, s.bold)}
-          {txt(streakInfo.isActive ? 'Great! Streak active for today.' : 'Play a game today to keep your streak!', 10, streakInfo.isActive ? s.cyan : { color: '#F59E0B' })}
+          {txt(
+            streakInfo.isActive
+              ? 'Great! Streak active for today.'
+              : (streakInfo.isAtRisk ? 'Streak at risk! Play today to keep it.' : 'Play a game today to keep your streak!'),
+            10,
+            streakInfo.isActive ? s.cyan : (streakInfo.isAtRisk ? { color: '#EF4444', fontWeight: '700' } : { color: '#F59E0B' })
+          )}
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled style={s.milestoneScroller} contentContainerStyle={s.milestones}>
           <View style={s.milestoneTrack}>
@@ -488,13 +494,28 @@ export default function HomeScreen({ navigation }) {
             <View style={{ flex: 1, marginLeft: 6 * scale }}>
               <View style={s.inline}>
                 {txt(streakInfo.dayText, 21, [s.bold, { color: '#FFFFFF' }])}
-                <View style={[s.activeBadge, { backgroundColor: streakInfo.isActive ? '#10B981' : '#F59E0B' }]}>
+                <View
+                  style={[
+                    s.activeBadge,
+                    {
+                      backgroundColor: streakInfo.isActive
+                        ? '#10B981'
+                        : (streakInfo.isAtRisk ? '#EF4444' : '#F59E0B'),
+                    },
+                  ]}
+                >
                   {txt(streakInfo.statusText, 12, { color: '#FFFFFF', fontWeight: '800' })}
                   {icon(streakInfo.isActive ? 'checkmark-circle' : 'alert-circle', 13, '#FFFFFF')}
                 </View>
               </View>
               {txt('Daily Streak', 14, s.muted)}
-              {txt(streakInfo.subText, 12, streakInfo.isActive ? s.cyan : { color: '#F59E0B' })}
+              {txt(
+                streakInfo.subText,
+                12,
+                streakInfo.isActive
+                  ? s.cyan
+                  : (streakInfo.isAtRisk ? { color: '#EF4444', fontWeight: '600' } : { color: '#F59E0B' })
+              )}
             </View>
           </View>
         </View>
