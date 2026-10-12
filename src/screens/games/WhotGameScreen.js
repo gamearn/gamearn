@@ -17,7 +17,7 @@ const STATUS_LABEL = {
 export default function WhotGameScreen({ route, navigation }) {
   const { user, userProfile } = useAuth();
   const params = route.params || {};
-  const mode = params.mode || 'local';
+  const mode = params.mode === 'multiplayer' ? 'multiplayer' : 'practice';
   const multiplayer = mode === 'multiplayer';
   const practice = mode === 'practice';
   const remoteMode = multiplayer || practice;
@@ -39,7 +39,7 @@ export default function WhotGameScreen({ route, navigation }) {
   const session = useServerGame({
     gameType: 'whot',
     roomId: multiplayer ? params.roomId : null,
-    uid: remoteMode ? uid : null,
+    uid: multiplayer && !params.roomId ? null : uid,
     options,
   });
 
@@ -51,29 +51,27 @@ export default function WhotGameScreen({ route, navigation }) {
       : practiceSnapshotToEngine(snapshot, { selfUid: uid, selfName });
   }, [snapshot, multiplayer, uid, selfName]);
 
-  const handleWin = (won) => {
-    const opponent = (snapshot?.players || []).find((p) => p.uid !== uid);
-    navigation.navigate('GameResult', {
-      isWinner: won,
-      myScore: won ? 72 : 52,
-      opponentScore: won ? 48 : 66,
-      opponentName: opponent?.displayName || params.opponent?.displayName || 'Opponent',
-      gameId: 'whot',
-      gameName: 'Wọ́n Game',
-      targetScreen: 'WhotGame',
-      stake: multiplayer ? stake : 0,
-      matchSettings: params,
-    });
-  };
-
   const navigated = useRef(false);
   useEffect(() => {
-    if (snapshot?.status !== 'completed' || navigated.current) return;
-    navigated.current = true;
-    const timerId = setTimeout(() => handleWin(snapshot.winner === uid), 800);
+    if (snapshot?.status !== 'completed' || navigated.current || session.pending) return;
+    const timerId = setTimeout(() => {
+      if (navigated.current) return;
+      navigated.current = true;
+      const opponent = snapshot.players?.find(player => player.uid !== uid);
+      navigation.replace('GameResult', {
+        serverConfirmed: true,
+        isWinner: snapshot.winner === uid,
+        isDraw: snapshot.winner == null,
+        completionReason: snapshot.completionReason || 'normal',
+        myScore: null, opponentScore: null,
+        opponentName: opponent?.uid?.startsWith('bot_') ? 'Oba' : opponent?.displayName || 'Opponent',
+        gameId: 'whot', gameName: 'Whot', targetScreen: 'WhotGame',
+        stake: multiplayer ? stake : 0,
+        matchSettings: { ...params, mode },
+      });
+    }, 800);
     return () => clearTimeout(timerId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot?.status, snapshot?.winner, uid]);
+  }, [snapshot, session.pending, uid, navigation, multiplayer, stake, mode]);
 
   const handleBack = () => {
     if (navigation.canGoBack()) {
@@ -93,7 +91,7 @@ export default function WhotGameScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.gameArea}>
-        <WhotScreen
+        {remote && <WhotScreen
           key={String(params.resetKey || JSON.stringify(params || {}))}
           timer={timer}
           cardCount={params.cardCount || 6}
@@ -105,10 +103,10 @@ export default function WhotGameScreen({ route, navigation }) {
           onRemoteMove={(move) => session.move(move)}
           onBack={handleBack}
           onRemoteGameOver={() => {}}
-          onWin={(won) => handleWin(won)}
+          onWin={() => {}}
           onMessage={multiplayer && params.roomId ? (text) => session.sendChat(text) : null}
           incomingChats={multiplayer ? session.chats : []}
-        />
+        />}
       </View>
 
       <View style={[styles.topBar, { backgroundColor: 'rgba(16, 7, 93, 0.85)' }]}>

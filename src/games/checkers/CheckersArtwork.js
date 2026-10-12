@@ -84,14 +84,14 @@ export function Avatar({ x, y, blue = false }) {
   );
 }
 
-export function PlayerPanel({ x, blue, count }) {
+export function PlayerPanel({ x, blue, count, name }) {
   return (
     <G transform={`translate(${x} 64)`}>
       <Rect y="7" width="371" height="120" rx="61" fill="#000" opacity={0.5} />
       <Rect width="371" height="120" rx="61" fill={blue ? 'url(#bluePanel)' : 'url(#panel)'} stroke={blue ? 'url(#blue)' : 'url(#gold)'} strokeWidth="6" />
       <Rect x="7" y="6" width="357" height="108" rx="53" fill="none" stroke={blue ? '#0079c1' : '#9e6e12'} strokeWidth="1.4" />
       <Avatar x={blue ? 310 : 63} y={61} blue={blue} />
-      <T x={blue ? 248 : 128} y="50" textAnchor={blue ? 'end' : 'start'} fontFamily={FONT} fontWeight="800" fontSize="29" fill="#fff">Player {blue ? '2' : '1'}</T>
+      <T x={blue ? 248 : 128} y="50" textAnchor={blue ? 'end' : 'start'} fontFamily={FONT} fontWeight="800" fontSize="29" fill="#fff">{name || `Player ${blue ? '2' : '1'}`}</T>
       <T x={blue ? 228 : 128} y="89" textAnchor={blue ? 'end' : 'start'} fontFamily={FONT} fontWeight="600" fontSize="22" fill="#b6b6c2">{blue ? 'Black' : 'White'}</T>
       <G transform={`translate(${blue ? 17 : 236} 26)`}>
         <Rect width="113" height="73" rx="34" fill={blue ? '#00325a' : '#614000'} fillOpacity={0.38} stroke={blue ? '#075995' : '#8e6319'} strokeWidth="2" />
@@ -196,10 +196,10 @@ export function ControlButton({ button, muted }) {
   );
 }
 
-export function CheckersArtwork({ size, board, selected, time, muted, validDests = [], hintMove = null }) {
+export function CheckersArtwork({ size, board, selected, time, muted, validDests = [], hintMove = null, whiteName, blackName }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 1254 1254">
-      <Gradients /><Background /><PlayerPanel x={117} blue={false} count={board.filter(p => p?.side === 'white').length} /><PlayerPanel x={768} blue count={board.filter(p => p?.side === 'black').length} />
+      <Gradients /><Background /><PlayerPanel x={117} blue={false} count={board.filter(p => p?.side === 'white').length} name={whiteName} /><PlayerPanel x={768} blue count={board.filter(p => p?.side === 'black').length} name={blackName} />
       <TimerPanel time={time} /><BoardFrame /><CheckerBoard board={board} selected={selected} validDests={validDests} hintMove={hintMove} />
       {BUTTONS.map(button => <ControlButton key={button.id} button={button} muted={muted} />)}
     </Svg>

@@ -8,7 +8,8 @@ import { setActiveMatch } from '../../utils/activeMatch';
 import CoinTossModal from '../../components/CoinTossModal';
 
 export default function DraughtsGameScreen({ route, navigation }) {
-  const { mode = 'local', roomId, aiDifficulty = 'auto', playerColor = 'white' } = route.params || {};
+  const { roomId, aiDifficulty = 'auto', playerColor = 'white' } = route.params || {};
+  const mode = route.params?.mode === 'multiplayer' ? 'multiplayer' : 'practice';
   const stake = route.params?.stake || 250;
   const timer = route.params?.timer || '2m';
 
@@ -50,11 +51,10 @@ export default function DraughtsGameScreen({ route, navigation }) {
 
   const navigateResult = (won) => {
     const opponent = (snapshot?.players || []).find((p) => p.uid !== uid);
+    const vsBot = isPractice || !!opponent?.uid?.startsWith('bot_');
     navigation.navigate('GameResult', {
       isWinner: won,
-      myScore: won ? 12 : 6,
-      opponentScore: won ? 4 : 12,
-      opponentName: opponent?.displayName || 'Oba 👑',
+      opponentName: vsBot ? 'Oba 👑' : opponent?.displayName || 'Opponent',
       gameId: 'draft',
       gameName: 'Dráfù Game',
       targetScreen: 'DraughtsGame',
@@ -101,14 +101,21 @@ export default function DraughtsGameScreen({ route, navigation }) {
               ? 'Connection failed'
               : 'Connecting…';
 
-  const liveName = (snapshot?.players || []).find((p) => p.uid !== uid)?.displayName || 'Live opponent';
+  const opponentEntry = (snapshot?.players || []).find((p) => p.uid !== uid);
+  const opponentIsBot = isPractice || !!opponentEntry?.uid?.startsWith('bot_');
+  const liveName = opponentIsBot
+    ? 'Oba 👑'
+    : opponentEntry?.displayName || 'Live opponent';
 
   const [showCoinToss, setShowCoinToss] = useState(true);
 
-  const draftPlayers = [
-    { id: 0, name: 'You', isUser: true },
-    { id: 1, name: liveName, isAi: true },
-  ];
+  const draftPlayers = useMemo(
+    () => [
+      { id: 0, name: 'You', isUser: true },
+      { id: 1, name: liveName, isAi: true },
+    ],
+    [liveName],
+  );
 
   return (
     <View style={styles.container}>
@@ -116,11 +123,13 @@ export default function DraughtsGameScreen({ route, navigation }) {
         stake={stake}
         timer={timer}
         playerColor={playerColor}
+        humanColor={isPractice ? playerColor : null}
         aiDifficulty={aiDifficulty}
         secondsRemaining={remoteMode ? session.secondsRemaining : undefined}
         isRemote={remoteMode && !!remote}
         remote={remote}
         onRemoteMove={(move) => session.move(engineMoveToServer(move))}
+        onControl={isPractice ? session.control : undefined}
         onWin={remoteMode ? undefined : handleLocalWin}
         onBack={handleBack}
       />
@@ -139,25 +148,27 @@ export default function DraughtsGameScreen({ route, navigation }) {
         </View>
       )}
 
-      {remoteMode && !!session.error && !!remote && (
+      {remoteMode && remote && (session.status === 'connecting' || !!session.error) && (
         <View style={styles.banner} pointerEvents="none">
-          <Text style={styles.bannerText}>{session.error}</Text>
+          <Text style={styles.bannerText}>
+            {session.status === 'connecting' ? 'Syncing turn…' : session.error}
+          </Text>
         </View>
       )}
 
       {isPractice && (
         <View style={styles.noticeBanner} pointerEvents="none">
           <Text style={styles.noticeText}>
-            {remote ? 'Practice vs Gamearn Bot' : 'Starting practice…'}
+            {remote ? 'Practice vs Oba 👑' : 'Starting practice…'}
           </Text>
         </View>
       )}
 
-      {remoteMode && (!remote || session.status === 'connecting') && (
+      {remoteMode && !remote && (
         <View style={styles.overlay}>
-          <ActivityIndicator size="large" color="#00E5FF" />
+          {!session.error && <ActivityIndicator size="large" color="#00E5FF" />}
           <Text style={styles.overlayText}>
-            {isPractice ? 'Starting practice game…' : 'Joining live room…'}
+            {session.error || (isPractice ? 'Starting practice game…' : 'Joining live room…')}
           </Text>
         </View>
       )}

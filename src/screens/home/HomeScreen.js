@@ -29,7 +29,7 @@ import { resolveAvatarSource } from '../../utils/avatarPresets';
 import ActiveMatchBanner from '../../components/ActiveMatchBanner';
 const { INITIAL_STATE, reducer, parseAmount, money, localDay, leaderboard } = require('./model');
 
-const STORAGE_KEY = '@adebayo-dashboard/v1';
+const STORAGE_KEY = '@gamearn/home_ui.v1';
 const CYAN = '#00d9ff';
 const GREEN = '#12ff39';
 const GAMES = [
@@ -96,7 +96,7 @@ export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const scale = Math.min(width, 650) / 590;
-  const { theme, isDark } = useTheme();
+  const { theme, isDark, setTheme } = useTheme();
   const { userProfile, updateProfileData } = useAuth() || {};
   const s = useMemo(() => makeStyles(scale, theme, isDark), [scale, theme, isDark]);
 
@@ -112,6 +112,7 @@ export default function HomeScreen({ navigation }) {
   const [demoComplete, setDemoComplete] = useState(false);
   const [storageError, setStorageError] = useState('');
   const [backendWallet, setBackendWallet] = useState(null);
+  const [serverTransactions, setServerTransactions] = useState([]);
   const [featuredTournament, setFeaturedTournament] = useState(null);
   const [myTournaments, setMyTournaments] = useState([]);
   const [homeDataLoading, setHomeDataLoading] = useState(true);
@@ -190,7 +191,24 @@ export default function HomeScreen({ navigation }) {
     };
   }, []);
 
-  // Load server-side preferences (sound/notifications) once and merge them in.
+  // Transaction history is server-authoritative (never cached locally).
+  useEffect(() => {
+    if (!userProfile) return;
+    let active = true;
+    wallet
+      .transactions({ page: 1, limit: 20 })
+      .then((res) => {
+        if (!active) return;
+        const list = Array.isArray(res) ? res : res?.transactions || res?.data || [];
+        setServerTransactions(Array.isArray(list) ? list : []);
+      })
+      .catch(() => { });
+    return () => {
+      active = false;
+    };
+  }, [userProfile?.uid]);
+
+  // Load server-side preferences (sound/notifications/theme) once and merge them in.
   useEffect(() => {
     if (!userProfile) return;
     let active = true;
@@ -199,6 +217,7 @@ export default function HomeScreen({ navigation }) {
       const prefs = res.value?.data ?? res.value ?? {};
       if (typeof prefs.sound === 'boolean') dispatch({ type: 'SETTING', key: 'sound', value: prefs.sound });
       if (typeof prefs.notifications === 'boolean') dispatch({ type: 'SETTING', key: 'notifications', value: prefs.notifications });
+      if (prefs.theme === 'dark' || prefs.theme === 'light') setTheme(prefs.theme === 'dark');
     });
     return () => { active = false; };
   }, [userProfile?.uid]);
@@ -212,6 +231,16 @@ export default function HomeScreen({ navigation }) {
           dispatch({ type: 'SETTING', key, value: !value });
           if (mounted.current) Alert.alert('Sync failed', 'Your preference could not be saved to your account.');
         });
+    }
+  };
+
+  const changeTheme = (nextDark) => {
+    setTheme(nextDark);
+    if (userProfile) {
+      settingsApi.patch({ theme: nextDark ? 'dark' : 'light' }).catch(() => {
+        setTheme(!nextDark);
+        if (mounted.current) Alert.alert('Sync failed', 'Your appearance preference could not be saved to your account.');
+      });
     }
   };
 
@@ -231,12 +260,19 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     if (!ready) return;
+    // Only non-authoritative UI flags are cached locally. Wallet balance,
+    // streak, transactions and profile fields are read from the server.
+    const uiFlags = {
+      joined: state.joined,
+      notificationsRead: state.notificationsRead,
+      claimed: state.claimed,
+    };
     pendingWrites.current = pendingWrites.current
-      .then(() => AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)))
+      .then(() => AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(uiFlags)))
       .catch(() => {
         if (mounted.current) setStorageError('Changes are active, but could not be saved on this device.');
       });
-  }, [state, ready]);
+  }, [state.joined, state.notificationsRead, state.claimed, ready]);
 
   const launchGame = (game) => {
     if (!navigation) return;
@@ -253,7 +289,7 @@ export default function HomeScreen({ navigation }) {
     setRoll(null);
     setDemoComplete(false);
     depositLock.current = false;
-    if (type === 'profile') setName(state.name);
+    if (type === 'profile') setName(displayName);
     if (type === 'notifications') dispatch({ type: 'READ_NOTIFICATIONS' });
     setSheet({ type, data });
   };
@@ -317,7 +353,7 @@ export default function HomeScreen({ navigation }) {
     return (
       <LinearGradient colors={['#003a72', '#001324', '#00101e']} style={[s.card, s.wallet]}>
         <View style={s.walletIcon}>{icon('wallet-outline', 34)}</View>
-        <Tap label={`Open wallet, balance ${money(state.balance)}`} onPress={() => navigation?.navigate('WalletTab')} style={{ flex: 1 }}>
+          <Tap label={`Open wallet, balance ${formatNaira(walletBalanceNaira)}`} onPress={() => navigation?.navigate('WalletTab')} style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             {txt('Wallet Balance', 13, s.muted)}
           </View>
@@ -360,7 +396,7 @@ export default function HomeScreen({ navigation }) {
           </View>
           <GradientButton
             title={isJoined ? 'Joined' : 'Join Now'}
-            onPress={() => navigation.navigate(isJoined ? 'LiveTournament' : 'TournamentDetails', { tournamentId: tournament.id })}
+            onPress={() => navigation.navigate(isJoined ? 'LiveTournament' : 'TournamentDetails', { tourId: tournament.id, title: tournament.name })}
             style={{ width: 148 * scale }}
             compact
             scale={scale}
@@ -401,7 +437,7 @@ export default function HomeScreen({ navigation }) {
               ? 'Great! Streak active for today.'
               : (streakInfo.isAtRisk ? 'Streak at risk! Play today to keep it.' : 'Play a game today to keep your streak!'),
             10,
-            streakInfo.isActive ? s.cyan : (streakInfo.isAtRisk ? { color: '#EF4444', fontWeight: '700' } : { color: '#F59E0B' })
+            streakInfo.isActive ? s.cyan : (streakInfo.isAtRisk ? { color: '#F59E0B', fontWeight: '700' } : { color: '#EF4444' })
           )}
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled style={s.milestoneScroller} contentContainerStyle={s.milestones}>
@@ -500,7 +536,7 @@ export default function HomeScreen({ navigation }) {
                     {
                       backgroundColor: streakInfo.isActive
                         ? '#10B981'
-                        : (streakInfo.isAtRisk ? '#EF4444' : '#F59E0B'),
+                        : (streakInfo.isAtRisk ? '#F59E0B' : '#EF4444'),
                     },
                   ]}
                 >
@@ -509,13 +545,6 @@ export default function HomeScreen({ navigation }) {
                 </View>
               </View>
               {txt('Daily Streak', 14, s.muted)}
-              {txt(
-                streakInfo.subText,
-                12,
-                streakInfo.isActive
-                  ? s.cyan
-                  : (streakInfo.isAtRisk ? { color: '#EF4444', fontWeight: '600' } : { color: '#F59E0B' })
-              )}
             </View>
           </View>
         </View>
@@ -565,22 +594,26 @@ export default function HomeScreen({ navigation }) {
           <Text style={ui.pageTitle}>Wallet</Text>
           <View style={ui.panel}>
             <Text style={ui.body}>Wallet balance</Text>
-            <Text style={ui.balance}>{money(state.balance)}</Text>
+            <Text style={ui.balance}>{formatNaira(walletBalanceNaira)}</Text>
             <GradientButton title="Add funds" onPress={() => open('deposit')} />
           </View>
           <Text style={ui.heading}>Transaction history</Text>
-          {state.transactions.length === 0 ? (
+          {serverTransactions.length === 0 ? (
             <Text style={ui.body}>No transactions yet.</Text>
           ) : (
-            state.transactions.map((t) => (
-              <View key={t.id} style={ui.transaction}>
-                <View style={{ flex: 1 }}>
-                  <Text style={ui.label}>{t.label}</Text>
-                  <Text style={ui.caption}>{new Date(t.date).toLocaleString()}</Text>
+            serverTransactions.map((t) => {
+              const amount = Number(t.amount ?? (t.amountKobo != null ? t.amountKobo / 100 : 0)) || 0;
+              const credit = amount >= 0;
+              return (
+                <View key={t.id} style={ui.transaction}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={ui.label}>{t.description || t.type || 'Transaction'}</Text>
+                    <Text style={ui.caption}>{new Date(t.createdAt || t.processedAt || Date.now()).toLocaleString()}</Text>
+                  </View>
+                  <Text style={ui.credit}>{credit ? '+' : ''}{formatNaira(amount)}</Text>
                 </View>
-                <Text style={ui.credit}>+{money(t.amount)}</Text>
-              </View>
-            ))
+              );
+            })
           )}
         </>
       );
@@ -589,7 +622,7 @@ export default function HomeScreen({ navigation }) {
         <Text style={ui.pageTitle}>Profile</Text>
         <View style={[ui.panel, { alignItems: 'center' }]}>
           <Art name="adebayo" width={80} height={80} style={{ borderRadius: 40 }} />
-          <Text style={ui.pageTitle}>{state.name}</Text>
+          <Text style={ui.pageTitle}>{displayName}</Text>
           <Text style={ui.credit}>â— Active Member</Text>
           <Text style={ui.body}>
             {streakDays} day streak · {userProfile?.wins || 0} wins · {userProfile?.gpText || '0 GP'}
@@ -632,6 +665,16 @@ export default function HomeScreen({ navigation }) {
                 />
               </View>
             ))}
+            <View style={ui.listItem}>
+              <Text style={ui.label}>Dark mode</Text>
+              <Switch
+                accessibilityLabel="Dark mode"
+                value={isDark}
+                onValueChange={changeTheme}
+                trackColor={{ false: '#394657', true: '#008fae' }}
+                thumbColor={isDark ? CYAN : '#cad2df'}
+              />
+            </View>
             <Text style={ui.body}>Preferences are synced to your account when you are signed in.</Text>
           </>
         );

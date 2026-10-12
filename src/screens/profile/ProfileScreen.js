@@ -86,15 +86,15 @@ export default function ProfileScreen({ navigation }) {
                 backgroundColor: theme.cardBg,
                 borderColor: streakInfo.isActive
                   ? 'rgba(16, 185, 129, 0.4)'
-                  : (streakInfo.isAtRisk ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.4)'),
+                  : (streakInfo.isAtRisk ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)'),
               },
             ]}
           >
             <View style={styles.streakInlineRow}>
               <Flame
                 size={16}
-                color={streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#EF4444' : '#F59E0B')}
-                fill={streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#EF4444' : 'none')}
+                color={streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#F59E0B' : '#EF4444')}
+                  fill={streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#F59E0B' : 'none')}
                 style={{ marginRight: 4 }}
               />
               <Text
@@ -103,7 +103,7 @@ export default function ProfileScreen({ navigation }) {
                   {
                     color: streakInfo.isActive
                       ? '#10B981'
-                      : (streakInfo.isAtRisk ? '#EF4444' : '#F59E0B'),
+                      : (streakInfo.isAtRisk ? '#F59E0B' : '#EF4444'),
                     fontSize: 16,
                   },
                 ]}
@@ -114,7 +114,7 @@ export default function ProfileScreen({ navigation }) {
             <Text
               style={[
                 styles.streakSubLabel,
-                { color: streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#EF4444' : '#F59E0B') },
+                { color: streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#F59E0B' : '#EF4444') },
               ]}
             >
               {streakInfo.statusText.toUpperCase()}

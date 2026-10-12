@@ -28,6 +28,7 @@ import {
   X,
   Smartphone,
   KeyRound,
+  LayoutDashboard,
 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -35,7 +36,8 @@ import { auth } from '../../services/api';
 
 export default function SettingsScreen({ navigation }) {
   const { theme, isDark, toggleTheme } = useTheme();
-  const { signOut } = useAuth();
+  const { signOut, userProfile } = useAuth();
+  const isAdmin = !!userProfile?.isAdmin;
 
   const [emailAlerts, setEmailAlerts] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
@@ -178,6 +180,29 @@ export default function SettingsScreen({ navigation }) {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Admin (only for users with the admin claim) */}
+        {isAdmin && (
+          <View style={styles.sectionWrap}>
+            <Text style={[styles.sectionTitle, { color: theme.primary }]}>ADMINISTRATION</Text>
+            <View style={[styles.menuGroupCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('AdminDashboard')}
+                style={[styles.menuRow, { borderBottomWidth: 0 }]}
+              >
+                <View style={[styles.iconSquare, { backgroundColor: 'rgba(255, 85, 0, 0.16)' }]}>
+                  <LayoutDashboard size={20} color="#FF5500" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <Text style={[styles.menuItemTitle, { color: theme.textPrimary }]}>Admin Control Center</Text>
+                  <Text style={[styles.menuItemSub, { color: theme.textSecondary }]}>Users, settings, logs & system</Text>
+                </View>
+                <ChevronRight size={18} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Section 2: GAME PREFERENCES */}
         <View style={styles.sectionWrap}>

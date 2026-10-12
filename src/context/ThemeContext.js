@@ -15,15 +15,23 @@ export const ThemeProvider = ({ children }) => {
   }, []);
 
   const toggleTheme = async () => {
-    const next = !isDark;
+    await setTheme(!isDark);
+  };
+
+  const setTheme = async (nextDark) => {
+    const next = !!nextDark;
     setIsDark(next);
-    await AsyncStorage.setItem('@gamearn_theme', next ? 'dark' : 'light');
+    try {
+      await AsyncStorage.setItem('@gamearn_theme', next ? 'dark' : 'light');
+    } catch {
+      // Local cache is best-effort; the server preference is the source of truth.
+    }
   };
 
   const theme = isDark ? DARK_THEME : LIGHT_THEME;
 
   return (
-    <ThemeContext.Provider value={{ isDark, toggleTheme, theme }}>
+    <ThemeContext.Provider value={{ isDark, toggleTheme, setTheme, theme }}>
       {children}
     </ThemeContext.Provider>
   );

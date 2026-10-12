@@ -91,7 +91,7 @@ export default function GameSectionScreen({ route, navigation }) {
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {ts.map((t) => (
-              <TouchableOpacity key={t.id} onPress={() => navigation.navigate('TournamentDetails', { tournamentId: t.id })} style={styles.tour}>
+              <TouchableOpacity key={t.id} onPress={() => navigation.navigate('TournamentDetails', { tourId: t.id, title: t.name })} style={styles.tour}>
                 <Text style={styles.live}>LIVE</Text>
                 <Text style={styles.tourTitle}>{t.name || `${game.title} tournament`}</Text>
                 <View style={styles.row}>

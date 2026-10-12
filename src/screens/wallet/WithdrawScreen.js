@@ -24,13 +24,15 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { wallet } from '../../services/api';
+import { NAIRA_PER_COIN, coinsFromNaira } from '../../config/appConfig';
 
 export default function WithdrawScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
   const { userProfile, refreshWallet } = useAuth();
 
-  const coins = userProfile?.coins ?? 0;
-  const cashBalance = (coins / 100).toFixed(2);
+  const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.coins ?? 0);
+  const cashBalance = balanceNaira.toFixed(2);
+  const coinBalance = coinsFromNaira(balanceNaira);
 
   const [step, setStep] = useState(1); // 1: Amount, 2: Account details, 3: Confirm
   const [amountInput, setAmountInput] = useState(String(route?.params?.amount ?? ''));
@@ -175,7 +177,7 @@ export default function WithdrawScreen({ route, navigation }) {
               <Text style={[styles.balanceCardAmount, { color: theme.textPrimary }]}>₦{Number(cashBalance).toLocaleString()}</Text>
               <View style={styles.coinsRow}>
                 <Coins size={15} color={theme.primary} />
-                <Text style={[styles.coinsText, { color: theme.textSecondary }]}>{coins.toLocaleString()} Coins</Text>
+                <Text style={[styles.coinsText, { color: theme.textSecondary }]}>{coinBalance.toLocaleString()} Coins</Text>
               </View>
             </LinearGradient>
 
@@ -197,7 +199,7 @@ export default function WithdrawScreen({ route, navigation }) {
 
               <View style={styles.conversionNoteRow}>
                 <AlertCircle size={14} color="#64748B" />
-                <Text style={styles.conversionNoteText}>1 coin = ₦0.01 · Withdrawals go to Nigerian bank accounts</Text>
+                <Text style={styles.conversionNoteText}>1 coin = ₦{NAIRA_PER_COIN} · Withdrawals go to Nigerian bank accounts</Text>
               </View>
             </View>
 

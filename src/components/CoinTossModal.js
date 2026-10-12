@@ -26,6 +26,14 @@ export default function CoinTossModal({
   const [countdown, setCountdown] = useState(5);
   const [tossResult, setTossResult] = useState(null); // { winnerIndex, winnerPlayer }
   const coinSpinAnim = useRef(new Animated.Value(0)).current;
+  // Callers often pass an inline players array that is a new reference on every
+  // render, so the effect must key off the roster's contents (playersKey) rather
+  // than the array identity — otherwise it re-runs and resets the countdown forever.
+  const playersRef = useRef(players);
+  playersRef.current = players;
+  const playersKey = (players || [])
+    .map((p) => `${p?.id ?? p?.uid ?? ''}:${p?.name || p?.displayName || ''}`)
+    .join('|');
 
   useEffect(() => {
     if (!visible) {
@@ -34,10 +42,11 @@ export default function CoinTossModal({
       return;
     }
 
+    const roster = playersRef.current || [];
     // Determine coin toss winner (backend decision / randomized coin toss)
-    const count = Math.max(1, players.length || 2);
+    const count = Math.max(1, roster.length || 2);
     const winnerIdx = Math.floor(Math.random() * count);
-    const winnerPlayer = players[winnerIdx] || {
+    const winnerPlayer = roster[winnerIdx] || {
       id: winnerIdx,
       name: winnerIdx === 0 ? (userProfile?.username || 'You') : `Player ${winnerIdx + 1}`,
       isUser: winnerIdx === 0,
@@ -70,7 +79,7 @@ export default function CoinTossModal({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [visible, players]);
+  }, [visible, playersKey]);
 
   if (!visible || !tossResult) return null;
 

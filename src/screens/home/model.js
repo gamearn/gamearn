@@ -58,17 +58,13 @@ function reducer(state, action) {
 
 function restore(value) {
   if (!value || typeof value !== 'object') return { ...INITIAL_STATE };
+  // Only non-authoritative UI flags are cached locally. Wallet balance, streak,
+  // transactions and profile fields are always read from the server.
   return {
     ...INITIAL_STATE,
-    name: typeof value.name === 'string' && value.name.trim() ? value.name.trim().slice(0, 24) : INITIAL_STATE.name,
-    balance: Number.isSafeInteger(value.balance) && value.balance >= 0 ? value.balance : INITIAL_STATE.balance,
-    streak: Number.isInteger(value.streak) && value.streak >= 0 && value.streak <= 100000 ? value.streak : 0,
-    lastPlayed: typeof value.lastPlayed === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.lastPlayed) ? value.lastPlayed : null,
-    joined: value.joined === true, notificationsRead: value.notificationsRead === true, claimed: value.claimed === true,
-    settings: { sound: value.settings?.sound !== false, notifications: value.settings?.notifications !== false },
-    transactions: Array.isArray(value.transactions) ? value.transactions.filter(t =>
-      t && typeof t.id === 'string' && typeof t.label === 'string' && typeof t.date === 'string' && Number.isSafeInteger(t.amount)
-    ).slice(0, 100) : [],
+    joined: value.joined === true,
+    notificationsRead: value.notificationsRead === true,
+    claimed: value.claimed === true,
   };
 }
 

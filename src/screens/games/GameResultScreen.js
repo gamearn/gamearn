@@ -9,6 +9,7 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Trophy,
@@ -32,14 +33,16 @@ import { recordGameStreak, getWinStreakInfo } from '../../utils/recordGameStreak
 
 export default function GameResultScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const { userProfile, updateProfileData, refreshProfile } = useAuth();
 
   const {
     isWinner = true,
     isDraw = false,
     serverConfirmed = false,
-    myScore = 72,
-    opponentScore = 66,
+    completionReason = 'normal',
+    myScore = null,
+    opponentScore = null,
     opponentName = 'Oba 👑',
     opponentAvatar = null,
     gameId = 'whot',
@@ -56,6 +59,12 @@ export default function GameResultScreen({ route, navigation }) {
   const [previewStandings, setPreviewStandings] = useState(null);
 
   const recordedRef = React.useRef(false);
+
+  // The per-game careers map (`userProfile.gameStats`) is keyed by the backend
+  // game enum ("draughts"), but the UI route passes "draft" for Draughts. Map
+  // UI ids to their stats bucket so the right career record is read/written.
+  const GAME_STATS_KEY = { draft: 'draughts' };
+  const statsKey = GAME_STATS_KEY[String(gameId).toLowerCase()] || gameId;
 
   useEffect(() => {
     // Always clear active match session when game result screen mounts!
@@ -79,7 +88,7 @@ export default function GameResultScreen({ route, navigation }) {
 
       // Per-Game stats calculation (e.g. Ludo: 4 games, Ayo: 3 games)
       const existingGameStats = userProfile?.gameStats || {};
-      const currentThisGame = existingGameStats[gameId] || { gamesPlayed: 0, wins: 0, losses: 0 };
+      const currentThisGame = existingGameStats[statsKey] || { gamesPlayed: 0, wins: 0, losses: 0 };
 
       const thisGamePlayed = Number(currentThisGame.gamesPlayed || 0) + 1;
       const thisGameWins = Number(currentThisGame.wins || 0) + (isWinner ? 1 : 0);
@@ -87,7 +96,7 @@ export default function GameResultScreen({ route, navigation }) {
 
       const updatedGameStats = {
         ...existingGameStats,
-        [gameId]: {
+        [statsKey]: {
           gamesPlayed: thisGamePlayed,
           wins: thisGameWins,
           losses: thisGameLosses,
@@ -121,7 +130,7 @@ export default function GameResultScreen({ route, navigation }) {
   }, []);
 
   // Per-game specific stats for display on this result screen
-  const currentGameStats = userProfile?.gameStats?.[gameId] || {};
+  const currentGameStats = userProfile?.gameStats?.[statsKey] || {};
   const thisGamePlayed = Number(currentGameStats.gamesPlayed ?? 0);
   const thisGameWins = Number(currentGameStats.wins ?? 0);
   const thisGameLosses = Number(currentGameStats.losses ?? 0);
@@ -129,8 +138,6 @@ export default function GameResultScreen({ route, navigation }) {
 
   const streakCount = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
   const currentGp = Number(userProfile?.gamePower ?? userProfile?.gp ?? 0);
-  const gpGained = isWinner ? 40 : 10;
-  const nextGpMilestone = currentGp < 30 ? 30 : currentGp < 60 ? 60 : 100;
 
   // Streak node progress (1, 2, 3 wins)
   const streakStep = (streakCount % 3) || (streakCount > 0 ? 3 : 0);
@@ -256,7 +263,7 @@ export default function GameResultScreen({ route, navigation }) {
   };
 
   return (
-    <View style={styles.screenRoot}>
+    <View style={[styles.screenRoot, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar barStyle="light-content" backgroundColor="#070C1B" />
       <LinearGradient colors={['#091026', '#060919', '#040612']} style={StyleSheet.absoluteFillObject} />
 
@@ -269,7 +276,7 @@ export default function GameResultScreen({ route, navigation }) {
           </View>
           <Text style={styles.victoryTitle}>{isDraw ? 'MATCH DRAWN' : isWinner ? 'VICTORY!' : 'GAME OVER'}</Text>
           <Text style={styles.victorySub}>
-            {isDraw ? 'An evenly matched game. Play again!' : isWinner ? 'Great Game! You played well. Keep it up!' : 'Good effort! Practice makes perfect!'}
+            {completionReason === 'forfeit' ? (isWinner ? 'Opponent surrendered.' : 'Lost by surrender.') : isDraw ? 'An evenly matched game. Play again!' : isWinner ? 'Great Game! You played well. Keep it up!' : 'Good effort! Practice makes perfect!'}
           </Text>
         </View>
 
@@ -300,7 +307,7 @@ export default function GameResultScreen({ route, navigation }) {
               )}
             </View>
             <Text style={styles.playerName}>You</Text>
-            <Text style={styles.playerScore}>{myScore}</Text>
+            {gameId !== 'whot' && myScore != null && completionReason !== 'forfeit' && <><Text style={styles.playerScore}>{myScore}</Text><Text style={styles.statLabel}>{gameId === 'ayo' ? 'Seeds scored' : 'Score'}</Text></>}
           </View>
 
           {/* Center VS Badge */}
@@ -333,7 +340,7 @@ export default function GameResultScreen({ route, navigation }) {
             <Text style={styles.playerName} numberOfLines={1}>
               {opponentName}
             </Text>
-            <Text style={styles.playerScore}>{opponentScore}</Text>
+            {gameId !== 'whot' && opponentScore != null && completionReason !== 'forfeit' && <><Text style={styles.playerScore}>{opponentScore}</Text><Text style={styles.statLabel}>{gameId === 'ayo' ? 'Seeds scored' : 'Score'}</Text></>}
           </View>
         </View>
 
@@ -401,7 +408,7 @@ export default function GameResultScreen({ route, navigation }) {
               </View>
               <Text style={styles.cardTitle}>Game Power</Text>
             </View>
-            {!serverConfirmed && <Text style={styles.gpGainText}>+{gpGained} GP</Text>}
+
           </View>
 
           {/* Progress Track */}
@@ -410,12 +417,12 @@ export default function GameResultScreen({ route, navigation }) {
               colors={['#00E5FF', '#0284C7']}
               style={[
                 styles.progressBarFill,
-                { width: `${Math.min(100, (currentGp / nextGpMilestone) * 100)}%` },
+                { width: `${Math.min(100, Math.max(0, currentGp))}%` },
               ]}
             />
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-            <Text style={styles.gpSubText}>{currentGp.toLocaleString()} / {nextGpMilestone.toLocaleString()} GP</Text>
+            <Text style={styles.gpSubText}>{currentGp.toLocaleString()} / 100 GP</Text>
             <ChevronRight size={16} color="#64748B" />
           </View>
         </View>
@@ -473,7 +480,7 @@ export default function GameResultScreen({ route, navigation }) {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                   <Sparkles size={16} color="#00E5FF" />
                   <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 12 }}>
-                    Tournament Standing Preview
+                    Explore Tournaments
                   </Text>
                 </View>
                 <Text style={{ color: '#F59E0B', fontWeight: '800', fontSize: 11 }}>
@@ -492,8 +499,7 @@ export default function GameResultScreen({ route, navigation }) {
                   </>
                 ) : (
                   <>
-                    Your match score of <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{myScore} pts</Text>{' '}
-                    is exactly what a winning run looks like. Join a tournament to convert it into prize money.
+                    This match does not change tournament standings. Join a tournament to compete.
                   </>
                 )}
               </Text>

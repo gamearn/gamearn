@@ -162,23 +162,23 @@ export default function WalletScreen({ navigation }) {
                   {
                     backgroundColor: streakInfo.isActive
                       ? 'rgba(16, 185, 129, 0.12)'
-                      : (streakInfo.isAtRisk ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)'),
+                      : (streakInfo.isAtRisk ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)'),
                     borderColor: streakInfo.isActive
                       ? 'rgba(16, 185, 129, 0.4)'
-                      : (streakInfo.isAtRisk ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.4)'),
+                      : (streakInfo.isAtRisk ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)'),
                   },
                 ]}
               >
                 <Flame
                   size={14}
-                  color={streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#EF4444' : '#F59E0B')}
-                  fill={streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#EF4444' : 'none')}
+                  color={streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#F59E0B' : '#EF4444')}
+                  fill={streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#F59E0B' : 'none')}
                   style={{ marginRight: 6 }}
                 />
                 <Text
                   style={[
                     styles.streakPillText,
-                    { color: streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#EF4444' : '#F59E0B') },
+                    { color: streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#F59E0B' : '#EF4444') },
                   ]}
                 >
                   {`${streakInfo.dayText} • ${streakInfo.statusText}`}

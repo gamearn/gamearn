@@ -34,6 +34,7 @@ export function ServerGameShell({ gameType, title, route, navigation, children, 
     const opponent = state.players[1 - seat];
     const scores = state.finalScores ? [state.finalScores.player0, state.finalScores.player1] : state.stores;
     navigation.replace('GameResult', {
+      completionReason: state.completionReason || 'normal',
       serverConfirmed: true, isWinner: winner === uid, isDraw: winner == null,
       myScore: scores?.[seat] ?? 0, opponentScore: scores?.[1 - seat] ?? 0,
       opponentName: opponent?.uid?.startsWith('bot_') ? 'Oba' : opponent?.displayName || 'Opponent',

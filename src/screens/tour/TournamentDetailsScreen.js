@@ -51,7 +51,7 @@ function useCountdown(targetIso) {
 
 export default function TournamentDetailsScreen({ route, navigation }) {
   const { userProfile, refreshWallet } = useAuth();
-  const tourId = route.params?.tourId;
+  const tourId = route.params?.tourId ?? route.params?.tournamentId;
   const fallbackTitle = route.params?.title || 'Dráfù Grandmaster Championship';
 
   const [tour, setTour] = useState(null);
@@ -106,7 +106,7 @@ export default function TournamentDetailsScreen({ route, navigation }) {
     load();
   }, [load]);
 
-  if (loading || stillLoading && tour === null) {
+  if (loading || (stillLoading && !error)) {
     return (
       <View style={styles.screenRoot}>
         <StatusBar barStyle="light-content" backgroundColor="#070C1B" />

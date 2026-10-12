@@ -92,18 +92,20 @@ export function getDailyStreakInfo(userProfile) {
       statusText: 'Inactive',
       isAtRisk: false,
       isActive: false,
+      isInactive: true,
       streakNumber: 0,
       subText: 'Play a game today to start your daily play streak!',
     };
   }
 
-  // Case 2: Missed 2+ days (streak expired)
+  // Case 2: Missed 2+ days (streak expired) -> Inactive (red)
   if (gap !== null && gap > 1) {
     return {
       dayText: 'Day 0',
       statusText: 'Inactive',
-      isAtRisk: true,
+      isAtRisk: false,
       isActive: false,
+      isInactive: true,
       streakNumber: 0,
       subText: 'Streak lost! Play a game today to start a new streak.',
     };
@@ -116,18 +118,20 @@ export function getDailyStreakInfo(userProfile) {
       statusText: 'Active',
       isAtRisk: false,
       isActive: true,
+      isInactive: false,
       streakNumber: rawStreak,
       subText: `🔥 ${rawStreak}-day play streak active!`,
     };
   }
 
   // Case 4: Streak alive from yesterday (gap === 1 or not yet played today).
-  // Streak is MAINTAINED at rawStreak (e.g. Day 2), but flagged AT RISK in RED until a game is played today!
+  // Streak is MAINTAINED at rawStreak (e.g. Day 2), but flagged AT RISK in YELLOW until a game is played today!
   return {
     dayText: `Day ${rawStreak}`,
     statusText: 'At Risk',
     isAtRisk: true,
     isActive: false,
+    isInactive: false,
     streakNumber: rawStreak,
     subText: 'Play a game today to keep your streak!',
   };

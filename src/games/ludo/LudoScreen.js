@@ -457,10 +457,8 @@ function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto', playerCount 
           Alert.alert('Already claimed', 'You already claimed the Ludo bonus today. Come back tomorrow!');
         }
       } else {
-        // Offline / signed-out fallback: local only.
-        const next = { coins: (bonus?.coins ?? 0) + 100, next: Date.now() + 86400000 };
-        setBonus(next);
-        Alert.alert('Bonus claimed', '100 local practice coins added.');
+        // Bonus coins are server-authoritative; no local grant without sign-in.
+        Alert.alert('Sign in required', 'Please sign in to claim your daily bonus.');
       }
     } catch (err) {
       setStorageError('Could not claim the bonus. Please try again.');

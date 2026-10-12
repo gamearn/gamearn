@@ -201,6 +201,40 @@ export const admin = {
   banUser: (uid, payload) => apiPost(`/admin/users/${uid}/ban`, payload),
   unbanUser: (uid, payload) => apiPost(`/admin/users/${uid}/unban`, payload),
   adjustWallet: (uid, payload) => apiPost(`/admin/wallets/${uid}/adjust`, payload),
+
+  // System + logs
+  system: () => apiGet('/admin/system'),
+  logs: ({ lines = 200, level = 'all', q, file = 'app' } = {}) => {
+    const qs = new URLSearchParams({ lines: String(lines), level, file });
+    if (q) qs.set('q', q);
+    return apiGet(`/admin/logs?${qs.toString()}`);
+  },
+
+  // Settings + feature flags
+  settings: () => apiGet('/admin/settings'),
+  updateSettings: (settings) => apiPatch('/admin/settings', { settings }),
+
+  // Leaderboard rewards
+  leaderboardRewards: () => apiGet('/admin/leaderboard-rewards'),
+  updateLeaderboardRewards: (payload) => apiPatch('/admin/leaderboard-rewards', payload),
+
+  // Users
+  users: ({ page = 1, limit = 50, q, status = 'all' } = {}) => {
+    const qs = new URLSearchParams({ page: String(page), limit: String(limit), status });
+    if (q) qs.set('q', q);
+    return apiGet(`/admin/users?${qs.toString()}`);
+  },
+  user: (uid) => apiGet(`/admin/users/${uid}`),
+  suspendUser: (uid, payload) => apiPost(`/admin/users/${uid}/suspend`, payload),
+  unsuspendUser: (uid, payload) => apiPost(`/admin/users/${uid}/unsuspend`, payload),
+  softDeleteUser: (uid, payload) => apiPost(`/admin/users/${uid}/delete`, payload),
+  revokeSessions: (uid) => apiPost(`/admin/users/${uid}/revoke-sessions`, {}),
+  updateClaims: (uid, claims) => apiPatch(`/admin/users/${uid}/claims`, claims),
+
+  // Identity reconciliation
+  identityMismatches: () => apiGet('/admin/identity-mismatches'),
+  finalizeOrphanDelete: (uid) => apiPost(`/admin/identity-mismatches/${uid}/finalize-delete`, {}),
+  purgeProfile: (uid) => apiPost(`/admin/identity-mismatches/${uid}/purge-profile`, {}),
 };
 
 // ── Practice games ────────────────────────────────────────────────────────────

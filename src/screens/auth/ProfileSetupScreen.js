@@ -5,6 +5,8 @@ import GAButton from '../../components/GAButton';
 import GAInput from '../../components/GAInput';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { auth } from '../../services/api';
+import { getCurrentUser } from '../../services/firebase';
 import { consumeInviteCode } from '../../utils/inviteLink';
 
 const GAMES = [
@@ -16,7 +18,7 @@ const GAMES = [
 
 export default function ProfileSetupScreen({ navigation }) {
   const { theme } = useTheme();
-  const { backendRegister, getPendingProfile } = useAuth();
+  const { backendRegister, getPendingProfile, signOut } = useAuth();
   const pending = getPendingProfile() || {};
   const sanitizeUsername = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -55,11 +57,57 @@ export default function ProfileSetupScreen({ navigation }) {
         index: 0,
         routes: [{ name: 'MainTabs' }],
       });
-    } catch (e) {
-      Alert.alert('Registration Failed', e.message || 'Could not complete registration. Please try again.');
+    } catch (err) {
+      const status = err?.statusCode;
+      const msg = err?.message || '';
+      if (status === 401 && /verify your email/i.test(msg)) {
+        Alert.alert('Verify your email', 'Please verify your email address to finish setup.', [
+          { text: 'Verify now', onPress: () => navigation.navigate('EmailVerification', { email: getCurrentUser()?.email }) },
+        ]);
+      } else if (status === 409) {
+        Alert.alert(
+          'Account already exists',
+          msg || 'This phone number is linked to another account. Log in with that account instead.',
+          [
+            { text: 'Log in instead', onPress: () => handleRemoveAccount() },
+            { text: 'Cancel', style: 'cancel' },
+          ]
+        );
+      } else {
+        Alert.alert('Setup failed', msg || 'Could not finish setting up your account. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  // Lets a user discard a half-created (Firebase-only) account and start over,
+  // instead of being trapped in "finish setup" with no way out.
+  const handleRemoveAccount = () => {
+    Alert.alert(
+      'Remove this account?',
+      'This deletes the sign-in you just created so you can start over with a different email or provider.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove account',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await auth.deleteAccount('DELETE');
+            } catch (err) {
+              // Still sign out locally so the user is never stuck here.
+              console.log('remove account notice:', err?.message || err);
+            } finally {
+              await signOut();
+              setLoading(false);
+              navigation.reset({ index: 0, routes: [{ name: 'Landing' }] });
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -156,6 +204,16 @@ export default function ProfileSetupScreen({ navigation }) {
         loading={loading}
         style={{ marginTop: 28 }}
       />
+
+      <TouchableOpacity
+        onPress={handleRemoveAccount}
+        disabled={loading}
+        style={styles.secondaryAction}
+      >
+        <Text style={[styles.secondaryText, { color: theme.textMuted }]}>
+          Not you? Remove this account and start over
+        </Text>
+      </TouchableOpacity>
     </ScrollView>
     </View>
   );
@@ -231,5 +289,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
+  },
+  secondaryAction: {
+    marginTop: 18,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  secondaryText: {
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
 });

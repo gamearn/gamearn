@@ -88,15 +88,16 @@ async function clearCachedProfile(uid) {
 function profileFromMe(me, cached) {
   const meWins = Number(me?.stats?.wins ?? me?.wins ?? me?.gamesWon ?? 0);
   const cachedWins = Number(cached?.wins ?? cached?.gamesWon ?? 0);
-  const wins = Math.max(meWins, cachedWins);
+  const wins = meWins;
 
   const meLosses = Number(me?.stats?.losses ?? me?.losses ?? me?.gamesLost ?? 0);
   const cachedLosses = Number(cached?.losses ?? cached?.gamesLost ?? 0);
-  const losses = Math.max(meLosses, cachedLosses);
+  const losses = meLosses;
 
   const mePlayed = Number(me?.stats?.gamesPlayed ?? me?.gamesPlayed ?? me?.stats?.games ?? 0);
   const cachedPlayed = Number(cached?.gamesPlayed ?? 0);
-  const gamesPlayed = Math.max(mePlayed, cachedPlayed, wins + losses);
+  const draws = Number(me?.stats?.draws ?? me?.draws ?? 0);
+  const gamesPlayed = wins + losses + draws;
 
   const todayStr = getLocalDateString();
   const lastDateStr = me?.lastStreakDate || me?.lastPlayedDate || me?.lastCheckInDate || cached?.lastStreakDate || cached?.lastPlayedDate || cached?.lastCheckInDate;
@@ -152,7 +153,10 @@ function profileFromMe(me, cached) {
   const displayName = username;
   const name = username;
 
-  const gameStats = me?.gameStats || cached?.gameStats || {};
+  // Per-game careers are server-authoritative. Only fall back to the local
+  // cache when there is no server profile at all (offline), so stale/wrong-keyed
+  // cached buckets can never override fresh server data.
+  const gameStats = me ? (me.gameStats || {}) : (cached?.gameStats || {});
 
   return {
     ...cached,
@@ -172,6 +176,7 @@ function profileFromMe(me, cached) {
     gamesWon: wins,
     losses,
     gamesLost: losses,
+    draws,
     streak: updatedStreak,
     currentStreak: updatedStreak,
     lastStreakDate: newLastStreakDate,
@@ -509,6 +514,11 @@ export const AuthProvider = ({ children }) => {
   }, [backendReady, authApi]);
 
   const signOut = async () => {
+    const uid = getCurrentUser()?.uid || user?.uid;
+    // Clear BOTH the global and the per-uid profile cache. Leaving the per-uid
+    // cache behind let a stale/phantom session survive a sign-out or account
+    // deletion (the "valid token still exists" trap).
+    await clearCachedProfile(uid);
     await AsyncStorage.removeItem(PROFILE_CACHE_KEY).catch(() => {});
     await signOutFirebase();
     setUser(null);

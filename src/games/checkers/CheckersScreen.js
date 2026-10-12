@@ -30,13 +30,16 @@ export function CheckersScreen({
   onAction,
   onSoundChange,
   onBack,
-  stake = 250,
+  stake = 0,
   onWin,
   playerColor = 'white',
+  humanColor = null,
   aiDifficulty = 'auto',
+  opponentName = 'Oba',
   isRemote = false,
   remote = null,
   onRemoteMove,
+  onControl = null,
 }) {
   const { updateProfileData, userProfile } = useAuth();
   const playerSide = playerColor === 'black' ? 'black' : 'white';
@@ -69,7 +72,7 @@ export function CheckersScreen({
     let alive = true;
     if (!isRemote) {
       getActiveMatch().then((match) => {
-        if (alive && match?.gameId === 'checkers' && match?.savedState && !match.savedState?.isOver) {
+        if (alive && match?.gameId === 'draft' && match?.savedState && !match.savedState?.isOver) {
           const s = match.savedState;
           if (s.boardState) setBoardState(s.boardState);
           if (s.turn) setTurn(s.turn);
@@ -77,7 +80,7 @@ export function CheckersScreen({
           if (s.seconds !== undefined) setSeconds(s.seconds);
         } else {
           setActiveMatch({
-            gameId: 'checkers',
+            gameId: 'draft',
             gameName: 'Checkers / Draughts',
             targetScreen: 'DraughtsGame',
             durationSecs: 120,
@@ -99,7 +102,7 @@ export function CheckersScreen({
     if (gameOver.isOver) {
       clearActiveMatch();
     } else if (boardState) {
-      updateActiveMatchState('checkers', { boardState, turn, history, seconds });
+      updateActiveMatchState('draft', { boardState, turn, history, seconds });
     }
   }, [boardState, turn, history, seconds, gameOver.isOver, isRemote]);
 
@@ -138,10 +141,10 @@ export function CheckersScreen({
     if (seconds === 0 && !gameOver.isOver && dialog === null) {
       if (turn === playerSide) {
         setTurn(aiSide);
-        setNotice("⏱️ Time's up! Your turn was passed to Oba.");
+        setNotice(`⏱️ Time's up! Your turn was passed to ${opponentName}.`);
       } else {
         setTurn(playerSide);
-        setNotice("⏱️ Oba timed out! Your turn.");
+        setNotice(`⏱️ ${opponentName} timed out! Your turn.`);
       }
       setSeconds(turnDuration);
     }
@@ -220,7 +223,7 @@ export function CheckersScreen({
     setGameOver({ isOver: false, winner: null });
     setDialog(null);
     setNotice('');
-    setSeconds(296);
+    setSeconds(turnDuration);
   }
 
   function handleRemotePress(index) {
@@ -250,7 +253,7 @@ export function CheckersScreen({
       handleRemotePress(index);
       return;
     }
-    if (gameOver.isOver || isAiThinking || (vsAI && turn === 'black')) return;
+    if (gameOver.isOver || isAiThinking || (vsAI && turn === aiSide)) return;
     onSquarePress?.(index);
     setHintMove(null);
 
@@ -306,7 +309,15 @@ export function CheckersScreen({
   }
 
   function handleUndo() {
-    if (isRemote) return;
+    if (isRemote) {
+      if (onControl) {
+        onControl('undo');
+        setSelected(null);
+        setValidMoves([]);
+        setHintMove(null);
+      }
+      return;
+    }
     if (history.length === 0) {
       setNotice('No previous moves to undo.');
       setDialog('undo');
@@ -315,10 +326,10 @@ export function CheckersScreen({
 
     if (vsAI) {
       // Revert AI move and player move if available
-      const lastPlayerEntry = [...history].reverse().find((h) => h.turn === 'white');
+      const lastPlayerEntry = [...history].reverse().find((h) => h.turn === playerSide);
       if (lastPlayerEntry) {
         setBoardState(lastPlayerEntry.board);
-        setTurn('white');
+        setTurn(playerSide);
         setHistory((prev) => {
           const idx = prev.indexOf(lastPlayerEntry);
           return idx >= 0 ? prev.slice(0, idx) : prev;
@@ -337,8 +348,23 @@ export function CheckersScreen({
     setGameOver({ isOver: false, winner: null });
   }
 
-  function handleHint() {
-    if (isRemote) return;
+  async function handleHint() {
+    if (isRemote) {
+      if (!onControl) return;
+      const reply = await onControl('hint');
+      const move = reply?.move;
+      if (!move || move.fromRow == null) {
+        setNotice('No legal moves available.');
+        setDialog('hint');
+        return;
+      }
+      const from = move.fromRow * 8 + move.fromCol;
+      const to = move.toRow * 8 + move.toCol;
+      setHintMove({ from, to });
+      setSelected(from);
+      setValidMoves(getLegalMovesForSquare(boardState, turn, from));
+      return;
+    }
     const hint = getHintMove(boardState, turn);
     if (hint) {
       setHintMove(hint);
@@ -385,7 +411,21 @@ export function CheckersScreen({
     setDialog(id);
   }
 
-  const normalized = Array.from({ length: 64 }, (_, i) => boardState[i] ?? null);
+  // Always seat the human player at the bottom of the board. Engine 'white'
+  // occupies the top rows and moves down, so when the human is white rotate
+  // the view 180 degrees (index -> 63 - index) to bring their pieces home.
+  const humanSide = isRemote ? (remote?.humanSide || playerSide) : playerSide;
+  const flip = humanSide === 'white';
+  const toDisplay = (i) => (i == null ? i : flip ? 63 - i : i);
+  // The server always seats the human on the same side in practice, so render
+  // the chosen colour client-side: swap which side the human's discs show as.
+  const humanDisplayColor = humanColor || humanSide;
+  const swapColors = humanDisplayColor !== humanSide;
+  const swapSide = (s) => (swapColors ? (s === 'white' ? 'black' : 'white') : s);
+  const normalized = Array.from({ length: 64 }, (_, d) => {
+    const piece = boardState[toDisplay(d)];
+    return piece ? { ...piece, side: swapSide(piece.side) } : null;
+  });
   const rawSeconds = secondsRemaining ?? seconds;
   const timeValue = Number.isFinite(rawSeconds) ? Math.max(0, Math.floor(rawSeconds)) : 0;
   const time = `${String(Math.floor(timeValue / 60)).padStart(2, '0')}:${String(
@@ -398,7 +438,11 @@ export function CheckersScreen({
     setSize(Math.min(width, height));
   }
 
-  const validDests = hintMove ? validMoves.map((m) => m.to) : [];
+  const validDests = hintMove ? validMoves.map((m) => toDisplay(m.to)) : [];
+  const displaySelected = selected == null ? null : toDisplay(selected);
+  const displayHint = hintMove ? { from: toDisplay(hintMove.from), to: toDisplay(hintMove.to) } : null;
+  const whiteName = humanDisplayColor === 'white' ? 'You' : opponentName;
+  const blackName = humanDisplayColor === 'black' ? 'You' : opponentName;
 
   return (
     <View style={styles.root} onLayout={layout}>
@@ -408,9 +452,11 @@ export function CheckersScreen({
             <CheckersArtwork
               size={size}
               board={normalized}
-              selected={selected}
+              selected={displaySelected}
               validDests={validDests}
-              hintMove={hintMove}
+              hintMove={displayHint}
+              whiteName={whiteName}
+              blackName={blackName}
               time={time}
               muted={!sound}
             />
@@ -422,7 +468,7 @@ export function CheckersScreen({
             return (
               <Pressable
                 key={index}
-                onPress={() => handleSquarePress(index)}
+                onPress={() => handleSquarePress(toDisplay(index))}
                 style={({ pressed }) => ({
                   position: 'absolute',
                   left: (BOARD.x + (col * BOARD.w) / 8) * scale,
@@ -464,7 +510,7 @@ export function CheckersScreen({
             {dialog === 'surrender' && (
               <>
                 <Text style={styles.heading}>Surrender Match 🏳️</Text>
-                <Text style={styles.body}>Are you sure you want to surrender this match to Oba? This will be recorded as a loss.</Text>
+                <Text style={styles.body}>Are you sure you want to surrender this match to {opponentName}? This will be recorded as a loss.</Text>
                 <View style={styles.buttons}>
                   <Pressable onPress={() => setDialog(null)} style={styles.modalButton}>
                     <Text style={[styles.buttonText, { color: '#94A3B8' }]}>Cancel</Text>
@@ -472,6 +518,10 @@ export function CheckersScreen({
                   <Pressable
                     onPress={() => {
                       setDialog(null);
+                      if (isRemote) {
+                        if (onControl) onControl('surrender');
+                        return;
+                      }
                       setGameOver({ isOver: true, winner: aiSide });
                       if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
                       if (onWin) onWin(false);
