@@ -364,7 +364,7 @@ export function Artwork({
   const leftPlayer = players[1] || { name: 'QueenBee' };
   const rightPlayer = players[3] || { name: 'KingTee' };
 
-  const humanName = userProfile?.fullName || userProfile?.username || players[0]?.name || 'You';
+  const humanName = userProfile?.username || userProfile?.displayName || players[0]?.name || 'You';
 
   return (
     <Svg width={width} height={height} viewBox="0 0 1024 1536">

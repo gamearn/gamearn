@@ -122,11 +122,12 @@ export default function GameLobbyScreen({ route, navigation }) {
       vsOba: true,
       timer: selectedTimer,
       tokenCount,
-      playerCount,
+      playerCount: isWhot ? 2 : playerCount,
       tokens: tokenCount,
-      players: playerCount,
+      players: isWhot ? 2 : playerCount,
       playerColor,
       cardCount,
+      cards: cardCount,
       enableSpecialCards,
       seedCount,
       gameId,
@@ -161,9 +162,9 @@ export default function GameLobbyScreen({ route, navigation }) {
           vsOba: true,
           timer: selectedTimer,
           tokenCount,
-          playerCount,
+          playerCount: isWhot ? 2 : playerCount,
           tokens: tokenCount,
-          players: playerCount,
+          players: isWhot ? 2 : playerCount,
           playerColor,
           cardCount,
           enableSpecialCards,
@@ -494,11 +495,11 @@ export default function GameLobbyScreen({ route, navigation }) {
         <View style={styles.summaryRow}>
           <Text style={{ color: theme.textSecondary }}>Winner takes (up to):</Text>
           <Text style={{ color: theme.success, fontWeight: '800' }}>
-            {amountValid ? naira(koboToN(Math.floor(selectedFee * (playerCount || 2) * 0.90))) : '—'}
+            {amountValid ? naira(koboToN(Math.floor(selectedFee * (playerCount || 2) * 0.80))) : '—'}
           </Text>
         </View>
         <Text style={[styles.note, { color: theme.textMuted }]}>
-          Entry fees are debited only when a match starts. A 10% platform fee applies to prize payouts.
+          Entry fees are debited only when a match starts. A 20% platform fee applies to prize payouts.
         </Text>
       </GACard>
 

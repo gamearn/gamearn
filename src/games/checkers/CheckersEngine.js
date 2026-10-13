@@ -39,17 +39,13 @@ export function getDirections(piece) {
   return dirs;
 }
 
-/** Generate capture moves recursively for multi-jumps */
-function getCaptureMovesForPiece(
-  board,
-  startIndex,
-  currentIndex,
-  currentPiece,
-  visitedCaptures = [],
-  currentPath = [startIndex]
-) {
+/** Generate single capture moves for a piece (each step is 2 squares) */
+export function getSingleCaptureMovesForPiece(board, squareIndex, piece = null) {
+  const currentPiece = piece || board[squareIndex];
+  if (!currentPiece) return [];
+
   const moves = [];
-  const { r, c } = getCoord(currentIndex);
+  const { r, c } = getCoord(squareIndex);
   const dirs = getDirections(currentPiece);
 
   for (const { dr, dc } of dirs) {
@@ -64,50 +60,16 @@ function getCaptureMovesForPiece(
     if (
       midIdx !== null &&
       landIdx !== null &&
-      !visitedCaptures.includes(midIdx) &&
-      (landIdx === startIndex || board[landIdx] === null)
+      board[landIdx] === null
     ) {
       const midPiece = board[midIdx];
       if (midPiece !== null && midPiece.side !== currentPiece.side) {
-        // Promote temporarily if landing on back row
-        const promotes =
-          !currentPiece.king &&
-          ((currentPiece.side === 'white' && landR === 7) ||
-            (currentPiece.side === 'black' && landR === 0));
-
-        const updatedPiece = promotes ? { ...currentPiece, king: true } : currentPiece;
-        const newVisited = [...visitedCaptures, midIdx];
-        const newPath = [...currentPath, landIdx];
-
-        // If promoted, stop multi-jump per standard rules
-        if (promotes) {
-          moves.push({
-            from: startIndex,
-            to: landIdx,
-            captures: newVisited,
-            path: newPath,
-          });
-        } else {
-          // Continue searching for multi-jumps
-          const subMoves = getCaptureMovesForPiece(
-            board,
-            startIndex,
-            landIdx,
-            updatedPiece,
-            newVisited,
-            newPath
-          );
-          if (subMoves.length > 0) {
-            moves.push(...subMoves);
-          } else {
-            moves.push({
-              from: startIndex,
-              to: landIdx,
-              captures: newVisited,
-              path: newPath,
-            });
-          }
-        }
+        moves.push({
+          from: squareIndex,
+          to: landIdx,
+          captures: [midIdx],
+          path: [squareIndex, landIdx],
+        });
       }
     }
   }
@@ -115,24 +77,35 @@ function getCaptureMovesForPiece(
   return moves;
 }
 
-/** Get all capture moves for a side */
-export function getAllCaptureMoves(board, side) {
+/** Get all single-step capture moves for a side */
+export function getAllCaptureMoves(board, side, forcedSquare = null) {
+  if (forcedSquare !== null && forcedSquare !== undefined) {
+    const p = board[forcedSquare];
+    if (p && p.side === side) {
+      return getSingleCaptureMovesForPiece(board, forcedSquare, p);
+    }
+    return [];
+  }
+
   const captureMoves = [];
   for (let i = 0; i < 64; i++) {
     const piece = board[i];
     if (piece && piece.side === side) {
-      const pieceCaptures = getCaptureMovesForPiece(board, i, i, piece);
+      const pieceCaptures = getSingleCaptureMovesForPiece(board, i, piece);
       captureMoves.push(...pieceCaptures);
     }
   }
   return captureMoves;
 }
 
-/** Get all legal moves for a side (enforcing mandatory captures) */
-export function getAllLegalMoves(board, side) {
-  const captures = getAllCaptureMoves(board, side);
+/** Get all legal moves for a side (enforcing strict mandatory captures) */
+export function getAllLegalMoves(board, side, forcedSquare = null) {
+  const captures = getAllCaptureMoves(board, side, forcedSquare);
   if (captures.length > 0) {
     return captures;
+  }
+  if (forcedSquare !== null && forcedSquare !== undefined) {
+    return [];
   }
 
   const simpleMoves = [];
@@ -160,32 +133,9 @@ export function getAllLegalMoves(board, side) {
   return simpleMoves;
 }
 
-/** Get legal moves starting from a specific square (allows player full freedom of choice) */
-export function getLegalMovesForSquare(board, side, squareIndex) {
-  const piece = board[squareIndex];
-  if (!piece || piece.side !== side) return [];
-
-  const moves = [];
-  const captures = getCaptureMovesForPiece(board, squareIndex, squareIndex, piece);
-  moves.push(...captures);
-
-  const { r, c } = getCoord(squareIndex);
-  const dirs = getDirections(piece);
-  for (const { dr, dc } of dirs) {
-    const destR = r + dr;
-    const destC = c + dc;
-    const destIdx = getIndex(destR, destC);
-    if (destIdx !== null && board[destIdx] === null) {
-      moves.push({
-        from: squareIndex,
-        to: destIdx,
-        captures: [],
-        path: [squareIndex, destIdx],
-      });
-    }
-  }
-
-  return moves;
+/** Get legal moves starting from a specific square (strictly enforces mandatory capture) */
+export function getLegalMovesForSquare(board, side, squareIndex, forcedSquare = null) {
+  return getAllLegalMoves(board, side, forcedSquare).filter((m) => m.from === squareIndex);
 }
 
 /** Execute a move on the board and return new board state */

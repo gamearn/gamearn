@@ -13,7 +13,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
   const stake = route.params?.stake || 250;
   const timer = route.params?.timer || '2m';
 
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const uid = user?.uid;
 
   const isMultiplayer = mode === 'multiplayer' && !!roomId;
@@ -29,9 +29,15 @@ export default function DraughtsGameScreen({ route, navigation }) {
     });
   }, []);
 
+  const chosenColor = route.params?.playerColor || playerColor || 'white';
+
   const options = useMemo(
-    () => ({ playerRating: route.params?.playerRating || 1200 }),
-    [route.params?.playerRating],
+    () => ({
+      playerRating: route.params?.playerRating || 1200,
+      playerColor: chosenColor,
+      timer,
+    }),
+    [route.params?.playerRating, chosenColor, timer],
   );
 
   // Shared server session controller: practice (REST) and live rooms (socket),
@@ -52,14 +58,19 @@ export default function DraughtsGameScreen({ route, navigation }) {
   const navigateResult = (won) => {
     const opponent = (snapshot?.players || []).find((p) => p.uid !== uid);
     const vsBot = isPractice || !!opponent?.uid?.startsWith('bot_');
-    navigation.navigate('GameResult', {
+    navigation.replace('GameResult', {
+      serverConfirmed: true,
       isWinner: won,
-      opponentName: vsBot ? 'Oba 👑' : opponent?.displayName || 'Opponent',
-      gameId: 'draft',
+      isDraw: snapshot?.winner == null,
+      completionReason: snapshot?.completionReason || 'normal',
+      myScore: null,
+      opponentScore: null,
+      opponentName: vsBot ? 'Oba 👑' : opponent?.username || opponent?.displayName || 'Opponent',
+      gameId: 'draughts',
       gameName: 'Dráfù Game',
       targetScreen: 'DraughtsGame',
       stake: isMultiplayer ? stake : 0,
-      matchSettings: route.params || {},
+      matchSettings: { ...route.params, mode, playerColor: chosenColor, timer },
     });
   };
 
@@ -105,16 +116,17 @@ export default function DraughtsGameScreen({ route, navigation }) {
   const opponentIsBot = isPractice || !!opponentEntry?.uid?.startsWith('bot_');
   const liveName = opponentIsBot
     ? 'Oba 👑'
-    : opponentEntry?.displayName || 'Live opponent';
+    : opponentEntry?.username || opponentEntry?.displayName || 'Live opponent';
 
   const [showCoinToss, setShowCoinToss] = useState(true);
 
+  const myName = userProfile?.username || userProfile?.displayName || 'You';
   const draftPlayers = useMemo(
     () => [
-      { id: 0, name: 'You', isUser: true },
+      { id: 0, name: myName, isUser: true },
       { id: 1, name: liveName, isAi: true },
     ],
-    [liveName],
+    [myName, liveName],
   );
 
   return (
@@ -122,8 +134,8 @@ export default function DraughtsGameScreen({ route, navigation }) {
       <CheckersScreen
         stake={stake}
         timer={timer}
-        playerColor={playerColor}
-        humanColor={isPractice ? playerColor : null}
+        playerColor={chosenColor}
+        humanColor={chosenColor}
         aiDifficulty={aiDifficulty}
         secondsRemaining={remoteMode ? session.secondsRemaining : undefined}
         isRemote={remoteMode && !!remote}

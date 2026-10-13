@@ -90,8 +90,8 @@ export default function CoinTossModal({
 
   const winner = tossResult.winnerPlayer;
   const winnerDisplayName = winner?.isUser
-    ? (userProfile?.fullName || userProfile?.username || 'You (You)')
-    : (winner?.name || winner?.displayName || 'Opponent');
+    ? (userProfile?.username || userProfile?.displayName || 'You (You)')
+    : (winner?.username || winner?.name || winner?.displayName || 'Opponent');
 
   // Build formation list starting with coin toss winner
   const turnOrderList = [];

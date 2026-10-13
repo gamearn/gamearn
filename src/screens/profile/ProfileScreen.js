@@ -11,8 +11,7 @@ export default function ProfileScreen({ navigation }) {
   const { userProfile } = useAuth();
   const { theme, isDark } = useTheme();
   const streakInfo = getStreakInfo(userProfile);
-  const userName = userProfile?.username || userProfile?.name || 'Adebayo';
-  const fullName = userProfile?.fullName || userProfile?.name || 'Adebayo';
+  const userName = userProfile?.username || userProfile?.displayName || userProfile?.name || 'Adebayo';
   const [searchQuery, setSearchQuery] = useState('');
   const friendsList = userProfile?.friends || [];
   const onlineCount = friendsList.filter((f) => f.isOnline).length;
@@ -122,10 +121,10 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Full Name Registered during Registration on top of GP & VP */}
+        {/* Username on top of GP & VP */}
         <View style={{ marginTop: 14, marginBottom: 4, alignItems: 'center' }}>
           <Text style={{ color: theme.textPrimary, fontSize: 18, fontWeight: '700', letterSpacing: 0.2 }}>
-            {fullName}
+            {userName}
           </Text>
         </View>
 

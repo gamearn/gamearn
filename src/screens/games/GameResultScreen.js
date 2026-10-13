@@ -301,7 +301,7 @@ export default function GameResultScreen({ route, navigation }) {
               ) : (
                 <View style={styles.avatarFallback}>
                   <Text style={styles.avatarInitial}>
-                    {(userProfile?.displayName || userProfile?.name || 'Y')[0].toUpperCase()}
+                    {(userProfile?.username || userProfile?.displayName || userProfile?.name || 'Y')[0].toUpperCase()}
                   </Text>
                 </View>
               )}

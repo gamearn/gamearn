@@ -1,31 +1,26 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Pressable, Animated, Easing } from 'react-native';
+import { View, Text, Pressable, Animated, Easing } from 'react-native';
 import Svg, {
   Rect,
   Circle,
   Polygon,
   Defs,
   RadialGradient,
-  LinearGradient,
   Stop,
   G,
+  Text as SvgText,
 } from 'react-native-svg';
 import {
   RING,
   START_RING,
   SAFE_RING,
   LANE_BY_COLORIDX,
-  YARD_ORIGIN,
   COLOR_BY_INDEX,
   DARK_BY_INDEX,
   CENTRE,
 } from './serverAdapter';
 
 const CELLS = 15;
-// Route colours are a visual board treatment. The authoritative server positions
-// remain unchanged; this maps the four arms to the supplied reference image.
-const PATH_COLOR_BY_TEAM = [3, 0, 1, 2];
-
 const key = (r, c) => `${r},${c}`;
 
 // Precompute lookup tables once.
@@ -35,14 +30,16 @@ RING.forEach((cell, idx) => ringIndexByCoord.set(key(cell.r, cell.c), idx));
 const startByCoord = new Map();
 START_RING.forEach((idx, colorIdx) => {
   const cell = RING[idx];
-  if (cell) startByCoord.set(key(cell.r, cell.c), PATH_COLOR_BY_TEAM[colorIdx]);
+  if (cell) startByCoord.set(key(cell.r, cell.c), colorIdx);
 });
 
-const safeCoord = new Set(SAFE_RING.map((idx) => RING[idx]).filter(Boolean).map((c) => key(c.r, c.c)));
+const safeCoord = new Set(
+  SAFE_RING.map((idx) => RING[idx]).filter(Boolean).map((c) => key(c.r, c.c))
+);
 
 const laneColorByCoord = new Map();
 LANE_BY_COLORIDX.forEach((lane, colorIdx) => {
-  (lane || []).forEach((cell) => laneColorByCoord.set(key(cell.r, cell.c), PATH_COLOR_BY_TEAM[colorIdx]));
+  (lane || []).forEach((cell) => laneColorByCoord.set(key(cell.r, cell.c), colorIdx));
 });
 
 function isCross(r, c) {
@@ -52,30 +49,42 @@ function isCross(r, c) {
 function star(cx, cy, r) {
   return Array.from({ length: 10 }, (_, i) => {
     const a = -Math.PI / 2 + (i * Math.PI) / 5;
-    const d = i % 2 ? r * 0.45 : r;
+    const d = i % 2 ? r * 0.44 : r;
     return `${cx + Math.cos(a) * d},${cy + Math.sin(a) * d}`;
   }).join(' ');
 }
 
-function yardSlots(colorIdx) {
-  const o = YARD_ORIGIN[colorIdx] || YARD_ORIGIN[0];
-  return [
-    [o.c + 2, o.r + 2],
-    [o.c + 4, o.r + 2],
-    [o.c + 2, o.r + 4],
-    [o.c + 4, o.r + 4],
-  ];
-}
-
-function arrow(cx, cy, direction) {
-  const points = {
-    down: [[0, -0.32], [-0.28, 0.02], [-0.12, 0.02], [-0.12, 0.34], [0.12, 0.34], [0.12, 0.02], [0.28, 0.02]],
-    left: [[0.32, 0], [-0.02, -0.28], [-0.02, -0.12], [-0.34, -0.12], [-0.34, 0.12], [-0.02, 0.12], [-0.02, 0.28]],
-    up: [[0, 0.32], [-0.28, -0.02], [-0.12, -0.02], [-0.12, -0.34], [0.12, -0.34], [0.12, -0.02], [0.28, -0.02]],
-    right: [[-0.32, 0], [0.02, -0.28], [0.02, -0.12], [0.34, -0.12], [0.34, 0.12], [0.02, 0.12], [0.02, 0.28]],
-  };
-  return points[direction].map(([x, y]) => `${cx + x},${cy + y}`).join(' ');
-}
+// 4 Yard Base Configurations (matching reference board)
+const CORNER_YARDS = [
+  {
+    colorIdx: 0,
+    x: 0,
+    y: 0,
+    color: COLOR_BY_INDEX[0], // Red (Top-Left)
+    bases: [[1.8, 1.8], [4.2, 1.8], [1.8, 4.2], [4.2, 4.2]],
+  },
+  {
+    colorIdx: 3,
+    x: 9,
+    y: 0,
+    color: COLOR_BY_INDEX[3], // Green (Top-Right)
+    bases: [[10.8, 1.8], [13.2, 1.8], [10.8, 4.2], [13.2, 4.2]],
+  },
+  {
+    colorIdx: 2,
+    x: 9,
+    y: 9,
+    color: COLOR_BY_INDEX[2], // Blue (Bottom-Right)
+    bases: [[10.8, 10.8], [13.2, 10.8], [10.8, 13.2], [13.2, 13.2]],
+  },
+  {
+    colorIdx: 1,
+    x: 0,
+    y: 9,
+    color: COLOR_BY_INDEX[1], // Yellow (Bottom-Left)
+    bases: [[1.8, 10.8], [4.2, 10.8], [1.8, 13.2], [4.2, 13.2]],
+  },
+];
 
 export default function Board({ size, viewModel, onMove, legalIds }) {
   const legal = new Set(legalIds ?? viewModel?.legalPieceIds ?? []);
@@ -158,6 +167,7 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
       });
     });
   });
+
   const groups = new Map();
   tokens.forEach((t) => {
     const k = key(Math.round(t.cell.r * 4) / 4, Math.round(t.cell.c * 4) / 4);
@@ -180,7 +190,7 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
   });
 
   const cs = size / CELLS;
-  const tokenDiameter = cs * 0.8;
+  const tokenDiameter = cs * 0.84;
   const animInput = active ? active.cells.map((_, i) => i) : [0, 1];
   const animLeft = progress.interpolate({
     inputRange: animInput,
@@ -196,20 +206,16 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
       style={{
         width: size,
         height: size,
-        borderRadius: size * 0.03,
+        borderRadius: size * 0.04,
         overflow: 'hidden',
-        backgroundColor: '#0f172e',
+        backgroundColor: '#ffffff',
         elevation: 8,
       }}
     >
       <Svg width={size} height={size} viewBox={`0 0 ${CELLS} ${CELLS}`}>
         <Defs>
-          <LinearGradient id="boardEdge" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#233a78" />
-            <Stop offset="1" stopColor="#101d49" />
-          </LinearGradient>
           {COLOR_BY_INDEX.map((color, i) => (
-            <RadialGradient key={i} id={`tk${i}`} cx="32%" cy="25%" r="80%">
+            <RadialGradient key={i} id={`token${i}`} cx="32%" cy="25%" r="80%">
               <Stop offset="0" stopColor={color} />
               <Stop offset="0.65" stopColor={color} />
               <Stop offset="1" stopColor={DARK_BY_INDEX[i]} />
@@ -217,113 +223,132 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
           ))}
         </Defs>
 
-        <Rect x="0" y="0" width={CELLS} height={CELLS} fill="url(#boardEdge)" />
-
-        {/* Cross base */}
-        <Rect x={0} y={6} width={CELLS} height={3} fill="#f8fafc" />
-        <Rect x={6} y={0} width={3} height={CELLS} fill="#f8fafc" />
-
-        {/* Yards */}
-        {YARD_ORIGIN.map((o, colorIdx) => (
+        {/* 4 Corner Yards matching reference board */}
+        {CORNER_YARDS.map(({ colorIdx, x, y, color, bases }) => (
           <G key={colorIdx}>
+            {/* Outer Colored Frame */}
+            <Rect x={x} y={y} width="6" height="6" fill={color} stroke="#1e293b" strokeWidth="0.04" />
+            {/* Inner White Box */}
             <Rect
-              x={o.c}
-              y={o.r}
-              width={6}
-              height={6}
-              fill={COLOR_BY_INDEX[colorIdx]}
-              stroke="#102044"
-              strokeWidth="0.12"
-            />
-            <Rect
-              x={o.c + 0.75}
-              y={o.r + 0.75}
-              width={4.5}
-              height={4.5}
-              rx="0.58"
+              x={x + 0.8}
+              y={y + 0.8}
+              width="4.4"
+              height="4.4"
+              rx="0.36"
               fill="#ffffff"
-              fillOpacity="0.88"
-              stroke="#102044"
-              strokeWidth="0.07"
+              stroke="#1e293b"
+              strokeWidth="0.03"
             />
-            {yardSlots(colorIdx).map(([cx, cy], i) => (
-              <Circle
-                key={i}
-                cx={cx}
-                cy={cy}
-                r="0.7"
-                fill={COLOR_BY_INDEX[colorIdx]}
-                opacity="0.22"
-              />
+            {/* 4 Yard Circular Bases */}
+            {bases.map(([cx, cy], i) => (
+              <G key={i}>
+                <Circle cx={cx} cy={cy} r="0.65" fill={color} stroke="#ffffff" strokeWidth="0.09" />
+                <Circle cx={cx} cy={cy} r="0.48" fill={color} />
+              </G>
             ))}
           </G>
         ))}
 
-        {/* Cross squares */}
+        {/* Grid Cells & Colored Pathways */}
         {Array.from({ length: CELLS }, (_, r) =>
           Array.from({ length: CELLS }, (_, c) => {
             if (!isCross(r, c)) return null;
+            if (r >= 6 && r <= 8 && c >= 6 && c <= 8) return null;
             const k = key(r, c);
             const laneColor = laneColorByCoord.get(k);
             const startColor = startByCoord.get(k);
-            const inRing = ringIndexByCoord.has(k);
-            if (!inRing && laneColor === undefined) return null;
 
-            let fill = '#ffffff';
-            if (laneColor !== undefined) fill = COLOR_BY_INDEX[laneColor];
-            else if (startColor !== undefined) fill = COLOR_BY_INDEX[startColor];
+            let fillColor = '#ffffff';
+            if (laneColor !== undefined) {
+              fillColor = COLOR_BY_INDEX[laneColor];
+            } else if (startColor !== undefined) {
+              fillColor = COLOR_BY_INDEX[startColor];
+            }
 
             return (
               <Rect
                 key={k}
-                x={c + 0.04}
-                y={r + 0.04}
-                width={0.92}
-                height={0.92}
-                rx="0.04"
-                fill={fill}
-                stroke="#17213d"
-                strokeWidth="0.07"
+                x={c + 0.01}
+                y={r + 0.01}
+                width="0.98"
+                height="0.98"
+                rx="0.03"
+                fill={fillColor}
+                stroke="#2b3954"
+                strokeWidth="0.025"
               />
             );
           })
         )}
 
-        {/* Safe stars */}
+        {/* Center Triangles */}
+        <Polygon points="6,6 9,6 7.5,7.5" fill={COLOR_BY_INDEX[0]} stroke="#1e293b" strokeWidth="0.04" />
+        <Polygon points="9,6 9,9 7.5,7.5" fill={COLOR_BY_INDEX[3]} stroke="#1e293b" strokeWidth="0.04" />
+        <Polygon points="9,9 6,9 7.5,7.5" fill={COLOR_BY_INDEX[2]} stroke="#1e293b" strokeWidth="0.04" />
+        <Polygon points="6,9 6,6 7.5,7.5" fill={COLOR_BY_INDEX[1]} stroke="#1e293b" strokeWidth="0.04" />
+
+        {/* 8 Star Safe Haven Symbols (4 Start Squares + 4 Secondary Safe Squares) */}
         {[...safeCoord].map((k) => {
           const [r, c] = k.split(',').map(Number);
           return (
             <Polygon
               key={`s-${k}`}
-              points={star(c + 0.5, r + 0.5, 0.3)}
-              fill="#FFD700"
-              stroke="#0b1225"
-              strokeWidth="0.04"
+              points={star(c + 0.5, r + 0.5, 0.36)}
+              fill="#ffd700"
+              stroke="#000000"
+              strokeWidth="0.03"
             />
           );
         })}
 
-        {/* Centre home triangles */}
-        <Polygon points={`6,6 9,6 ${CENTRE.c + 0.5},${CENTRE.r + 0.5}`} fill={COLOR_BY_INDEX[3]} stroke="#0b1225" strokeWidth="0.05" />
-        <Polygon points={`9,6 9,9 ${CENTRE.c + 0.5},${CENTRE.r + 0.5}`} fill={COLOR_BY_INDEX[2]} stroke="#0b1225" strokeWidth="0.05" />
-        <Polygon points={`9,9 6,9 ${CENTRE.c + 0.5},${CENTRE.r + 0.5}`} fill={COLOR_BY_INDEX[1]} stroke="#0b1225" strokeWidth="0.05" />
-        <Polygon points={`6,9 6,6 ${CENTRE.c + 0.5},${CENTRE.r + 0.5}`} fill={COLOR_BY_INDEX[0]} stroke="#0b1225" strokeWidth="0.05" />
+        {/* Home Directional Indicators */}
+        {[[7.5, 6.5, '↓'], [8.5, 7.5, '←'], [7.5, 8.5, '↑'], [6.5, 7.5, '→']].map(([x, y, text]) => (
+          <SvgText key={text} x={x} y={y + 0.3} fontSize="0.85" fontWeight="bold" textAnchor="middle" fill="#ffffffaa">
+            {text}
+          </SvgText>
+        ))}
 
-        {/* The coloured entry squares are easier to read with the reference-style arrows. */}
-        <Polygon points={arrow(7.5, 5.5, 'up')} fill="#ffffff" fillOpacity="0.5" />
-        <Polygon points={arrow(9.5, 7.5, 'right')} fill="#ffffff" fillOpacity="0.5" />
-        <Polygon points={arrow(7.5, 9.5, 'down')} fill="#ffffff" fillOpacity="0.5" />
-        <Polygon points={arrow(5.5, 7.5, 'left')} fill="#ffffff" fillOpacity="0.5" />
+        {/* Center Target Circle & Crown */}
+        <Circle cx="7.5" cy="7.5" r="0.88" fill="#09267f" stroke="#1186ff" strokeWidth="0.07" />
+        <Polygon points="6.92,7.19 7.13,7.77 7.87,7.77 8.08,7.19 7.75,7.41 7.5,7.03 7.25,7.41" fill="#ffffff" />
 
-        {/* Pieces */}
+        {/* Interactive Player Tokens */}
         {tokens.map((t) => (isAnimating(t) ? null : (
           <G key={`p-${t.playerIndex}-${t.pieceId}`}>
-            {t.legal && <Circle cx={t.x} cy={t.y} r="0.58" fill="none" stroke="#00E5FF" strokeWidth="0.11" />}
-            <Circle cx={t.x} cy={t.y} r="0.4" fill={`url(#tk${t.colorIdx ?? 0})`} stroke={t.dark} strokeWidth="0.08" />
-            <Circle cx={t.x - 0.11} cy={t.y - 0.13} r="0.1" fill="#ffffff" opacity={0.6} />
+            {t.legal && (
+              <Circle
+                cx={t.x}
+                cy={t.y}
+                r="0.52"
+                fill="none"
+                stroke="#ffea00"
+                strokeWidth="0.08"
+              />
+            )}
+            <Circle
+              cx={t.x}
+              cy={t.y}
+              r="0.42"
+              fill={`url(#token${t.colorIdx ?? 0})`}
+              stroke={t.dark}
+              strokeWidth="0.05"
+            />
+            <Circle cx={t.x - 0.13} cy={t.y - 0.17} r="0.085" fill="#ffffff77" />
+            <SvgText
+              x={t.x}
+              y={t.y + 0.12}
+              fontSize="0.32"
+              fontWeight="bold"
+              textAnchor="middle"
+              fill="#ffffff"
+            >
+              {t.pieceId + 1}
+            </SvgText>
           </G>
         )))}
-        <Rect x="0.08" y="0.08" width="14.84" height="14.84" rx="0.28" fill="none" stroke="#102044" strokeWidth="0.16" />
+
+        {/* Outer Board Border */}
+        <Rect x="0.06" y="0.06" width="14.88" height="14.88" rx="0.3" fill="none" stroke="#2b3954" strokeWidth="0.12" />
       </Svg>
 
       {/* Moving token — replays the server's per-square path during a move. */}
@@ -338,16 +363,18 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
             height: tokenDiameter,
             borderRadius: tokenDiameter / 2,
             backgroundColor: COLOR_BY_INDEX[active.colorIdx] || '#ffffff',
-            borderWidth: Math.max(1, cs * 0.08),
+            borderWidth: Math.max(1, cs * 0.06),
             borderColor: DARK_BY_INDEX[active.colorIdx] || '#000000',
             elevation: 6,
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           <View
             style={{
               position: 'absolute',
-              left: tokenDiameter * 0.24,
-              top: tokenDiameter * 0.16,
+              left: tokenDiameter * 0.18,
+              top: tokenDiameter * 0.12,
               width: tokenDiameter * 0.22,
               height: tokenDiameter * 0.22,
               borderRadius: tokenDiameter * 0.11,
@@ -355,6 +382,15 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
               opacity: 0.6,
             }}
           />
+          <Text
+            style={{
+              color: '#ffffff',
+              fontSize: tokenDiameter * 0.38,
+              fontWeight: 'bold',
+            }}
+          >
+            {active.pieceId + 1}
+          </Text>
         </Animated.View>
       )}
 

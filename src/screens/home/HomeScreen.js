@@ -249,10 +249,10 @@ export default function HomeScreen({ navigation }) {
   const formatNaira = (value) => `\u20A6${Number(value || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const streakDays = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
 
-  const displayName = userProfile?.username || userProfile?.fullName || userProfile?.name || state.name || 'Gamer';
+  const displayName = userProfile?.username || userProfile?.displayName || userProfile?.name || state.name || 'Gamer';
 
   useEffect(() => {
-    const currentName = userProfile?.username || userProfile?.fullName || userProfile?.name;
+    const currentName = userProfile?.username || userProfile?.displayName || userProfile?.name;
     if (currentName && currentName !== state.name) {
       dispatch({ type: 'NAME', value: currentName });
     }
@@ -317,7 +317,7 @@ export default function HomeScreen({ navigation }) {
   };
 
   function Header() {
-    const fullName = userProfile?.fullName || userProfile?.name || state.name || userProfile?.username || 'Gamer';
+    const username = userProfile?.username || userProfile?.displayName || userProfile?.name || state.name || 'Gamer';
     const avatarUri = userProfile?.avatar;
 
     return (
@@ -327,7 +327,7 @@ export default function HomeScreen({ navigation }) {
             <Image source={resolveAvatarSource(avatarUri)} style={[s.avatar, { width: 55 * scale, height: 55 * scale, borderRadius: (55 * scale) / 2 }]} />
           </LinearGradient>
           <View style={{ marginLeft: 15 * scale }}>
-            {txt(fullName, 20, s.medium)}
+            {txt(username, 20, s.medium)}
             <View style={[s.inline, { flexWrap: 'wrap', gap: 6 * scale }]}>
                                           <View style={{ backgroundColor: '#F59E0B22', paddingHorizontal: 6 * scale, paddingVertical: 2 * scale, borderRadius: 6 * scale, borderWidth: 1, borderColor: '#F59E0B66' }}>
                 <Text style={{ color: '#F59E0B', fontSize: 11 * scale, fontWeight: '900' }}>⚡ {userProfile?.gpText || '0 GP'}</Text>

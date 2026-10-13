@@ -7,6 +7,7 @@ import {
   getBestAIMove,
   getHintMove,
   getLegalMovesForSquare,
+  getSingleCaptureMovesForPiece,
   initialBoardState,
 } from './CheckersEngine';
 import { useAuth } from '../../context/AuthContext';
@@ -54,6 +55,7 @@ export function CheckersScreen({
   const [validMoves, setValidMoves] = useState([]);
   const [hintMove, setHintMove] = useState(null);
   const [history, setHistory] = useState([]);
+  const [forcedCaptureSquare, setForcedCaptureSquare] = useState(null);
 
   const [vsAI, setVsAI] = useState(true);
   const [sound, setSound] = useState(true);
@@ -220,6 +222,7 @@ export function CheckersScreen({
     setValidMoves([]);
     setHintMove(null);
     setHistory([]);
+    setForcedCaptureSquare(null);
     setGameOver({ isOver: false, winner: null });
     setDialog(null);
     setNotice('');
@@ -229,6 +232,8 @@ export function CheckersScreen({
   function handleRemotePress(index) {
     if (!remote?.canMove) return;
     setHintMove(null);
+
+    // If destination is pressed for currently selected piece
     if (selected !== null) {
       const move = validMoves.find((m) => m.to === index);
       if (move) {
@@ -238,10 +243,21 @@ export function CheckersScreen({
         return;
       }
     }
+
+    // Select piece
     const piece = boardState[index];
     if (piece && piece.side === remote.humanSide) {
-      setSelected(index);
-      setValidMoves(getLegalMovesForSquare(boardState, remote.humanSide, index));
+      const candidateMoves = Array.isArray(remote.legalMoves) && remote.legalMoves.length > 0
+        ? remote.legalMoves.filter((m) => m.from === index)
+        : getLegalMovesForSquare(boardState, remote.humanSide, index);
+
+      if (candidateMoves.length > 0) {
+        setSelected(index);
+        setValidMoves(candidateMoves);
+      } else {
+        setSelected(index);
+        setValidMoves([]);
+      }
     } else {
       setSelected(null);
       setValidMoves([]);
@@ -263,13 +279,33 @@ export function CheckersScreen({
     if (selected !== null) {
       const selectedMove = validMoves.find((m) => m.to === index);
       if (selectedMove) {
-        // Execute move
+        const movingPiece = boardState[selectedMove.from];
         setHistory((prev) => [...prev, { board: [...boardState], turn }]);
         const nextBoard = applyMove(boardState, selectedMove);
         setBoardState(nextBoard);
         setSelected(null);
         setValidMoves([]);
 
+        const wasCapture = selectedMove.captures && selectedMove.captures.length > 0;
+        const destR = Math.floor(selectedMove.to / 8);
+        const crowned = movingPiece && !movingPiece.king &&
+          ((movingPiece.side === 'white' && destR === 7) || (movingPiece.side === 'black' && destR === 0));
+
+        // In standard Draughts, if capture was made and piece was not crowned this turn, check for multi-jump
+        if (wasCapture && !crowned) {
+          const pieceAtDest = nextBoard[selectedMove.to];
+          const moreCaptures = getSingleCaptureMovesForPiece(nextBoard, selectedMove.to, pieceAtDest);
+          if (moreCaptures.length > 0) {
+            setSelected(selectedMove.to);
+            setValidMoves(moreCaptures);
+            setForcedCaptureSquare(selectedMove.to);
+            setNotice('Double jump! You must continue capturing.');
+            return;
+          }
+        }
+
+        setForcedCaptureSquare(null);
+        setNotice('');
         const nextTurn = turn === 'white' ? 'black' : 'white';
         const endResult = checkGameEnd(nextBoard, nextTurn);
         if (endResult.isOver) {
@@ -288,7 +324,10 @@ export function CheckersScreen({
 
     // Select piece
     if (piece && piece.side === turn) {
-      const moves = getLegalMovesForSquare(boardState, turn, index);
+      if (forcedCaptureSquare !== null && index !== forcedCaptureSquare) {
+        return;
+      }
+      const moves = getLegalMovesForSquare(boardState, turn, index, forcedCaptureSquare);
       if (moves.length > 0) {
         setSelected(index);
         setValidMoves(moves);
@@ -297,8 +336,10 @@ export function CheckersScreen({
         setValidMoves([]);
       }
     } else {
-      setSelected(null);
-      setValidMoves([]);
+      if (forcedCaptureSquare === null) {
+        setSelected(null);
+        setValidMoves([]);
+      }
     }
   }
 
@@ -345,6 +386,8 @@ export function CheckersScreen({
     setSelected(null);
     setValidMoves([]);
     setHintMove(null);
+    setForcedCaptureSquare(null);
+    setNotice('');
     setGameOver({ isOver: false, winner: null });
   }
 
@@ -438,11 +481,12 @@ export function CheckersScreen({
     setSize(Math.min(width, height));
   }
 
-  const validDests = hintMove ? validMoves.map((m) => toDisplay(m.to)) : [];
+  const validDests = (selected != null || hintMove ? validMoves : []).map((m) => toDisplay(m.to));
   const displaySelected = selected == null ? null : toDisplay(selected);
   const displayHint = hintMove ? { from: toDisplay(hintMove.from), to: toDisplay(hintMove.to) } : null;
-  const whiteName = humanDisplayColor === 'white' ? 'You' : opponentName;
-  const blackName = humanDisplayColor === 'black' ? 'You' : opponentName;
+  const myName = userProfile?.username || userProfile?.displayName || 'You';
+  const whiteName = humanDisplayColor === 'white' ? myName : opponentName;
+  const blackName = humanDisplayColor === 'black' ? myName : opponentName;
 
   return (
     <View style={styles.root} onLayout={layout}>

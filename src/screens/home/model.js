@@ -106,7 +106,7 @@ function leaderboard(dbRows = [], userProfile = null) {
       return [
         {
           id: userProfile.uid,
-          name: `${userProfile.displayName || userProfile.fullName || userProfile.name || userProfile.username || 'You'} (You)`,
+          name: `${userProfile.username || userProfile.displayName || userProfile.name || 'You'} (You)`,
           plays: getUserPlays(),
           wins: Number(userProfile.wins || userProfile.gamesWon || 0),
           gp: userGp,
@@ -123,7 +123,7 @@ function leaderboard(dbRows = [], userProfile = null) {
 
   const list = dbRows.map((row, index) => {
     const isUser = Boolean(userProfile?.uid && (row.id === userProfile.uid || row.uid === userProfile.uid));
-    const name = row.name || row.displayName || 'Gamer';
+    const name = row.username || row.displayName || row.name || 'Gamer';
     const wins = Number(row.wins || 0);
     const plays = Number(row.plays ?? row.gamesPlayed ?? row.played ?? wins);
     const rowGp = isUser ? getUserGp() : computeRowGp(wins, plays, row.gp ?? row.gamePower);
@@ -146,7 +146,7 @@ function leaderboard(dbRows = [], userProfile = null) {
     const userGp = getUserGp();
     list.push({
       id: userProfile.uid,
-      name: `${userProfile.displayName || userProfile.fullName || userProfile.name || userProfile.username || 'You'} (You)`,
+      name: `${userProfile.username || userProfile.displayName || userProfile.name || 'You'} (You)`,
       plays: getUserPlays(),
       wins: Number(userProfile.wins || userProfile.gamesWon || 0),
       gp: userGp,

@@ -21,18 +21,21 @@ export default function WhotGameScreen({ route, navigation }) {
   const multiplayer = mode === 'multiplayer';
   const practice = mode === 'practice';
   const remoteMode = multiplayer || practice;
+  const isVsOba = !!params.vsOba || practice;
   const stake = params.stake || 250;
   const timer = params.timer || '2m';
   const uid = user?.uid;
-  const selfName = userProfile?.displayName || userProfile?.username || 'You';
+  const selfName = userProfile?.username || userProfile?.displayName || 'You';
   const entryFee = params.entryFee || 0;
+  const effectiveSeats = isVsOba ? 2 : Math.max(2, Math.min(4, params.playerCount || params.players || 2));
+  const effectiveCards = params.cardCount || params.cards || 6;
 
   const options = useMemo(() => ({
     playerRating: params.playerRating || 1200,
-    startCards: params.cardCount || 6,
-    seats: params.playerCount || 4,
+    startCards: effectiveCards,
+    seats: effectiveSeats,
     timer,
-  }), [params.playerRating, params.cardCount, params.playerCount, timer]);
+  }), [params.playerRating, effectiveCards, effectiveSeats, timer]);
 
   // Shared server session controller: owns transport (practice REST or
   // multiplayer socket), the turn clock, and every authoritative move.
@@ -47,9 +50,9 @@ export default function WhotGameScreen({ route, navigation }) {
   const remote = useMemo(() => {
     if (!snapshot) return null;
     return multiplayer
-      ? socketStateToEngine(snapshot, uid, { selfName })
+      ? socketStateToEngine(snapshot, uid, { selfName, vsOba: isVsOba })
       : practiceSnapshotToEngine(snapshot, { selfUid: uid, selfName });
-  }, [snapshot, multiplayer, uid, selfName]);
+  }, [snapshot, multiplayer, uid, selfName, isVsOba]);
 
   const navigated = useRef(false);
   useEffect(() => {
@@ -64,14 +67,14 @@ export default function WhotGameScreen({ route, navigation }) {
         isDraw: snapshot.winner == null,
         completionReason: snapshot.completionReason || 'normal',
         myScore: null, opponentScore: null,
-        opponentName: opponent?.uid?.startsWith('bot_') ? 'Oba' : opponent?.displayName || 'Opponent',
+        opponentName: opponent?.uid?.startsWith('bot_') ? 'Oba 👑' : opponent?.username || opponent?.displayName || 'Opponent',
         gameId: 'whot', gameName: 'Whot', targetScreen: 'WhotGame',
         stake: multiplayer ? stake : 0,
-        matchSettings: { ...params, mode },
+        matchSettings: { ...params, mode, cardCount: effectiveCards, playerCount: effectiveSeats, vsOba: isVsOba, timer },
       });
     }, 800);
     return () => clearTimeout(timerId);
-  }, [snapshot, session.pending, uid, navigation, multiplayer, stake, mode]);
+  }, [snapshot, session.pending, uid, navigation, multiplayer, stake, mode, effectiveCards, effectiveSeats, isVsOba, timer]);
 
   const handleBack = () => {
     if (navigation.canGoBack()) {
@@ -85,7 +88,7 @@ export default function WhotGameScreen({ route, navigation }) {
   const statusPill =
     phase === 'local' ? 'Offline'
       : phase === 'connecting' ? 'Connecting…'
-        : phase === 'playing' ? (practice ? 'Practice · vs CPU' : 'Live match')
+        : phase === 'playing' ? (practice ? 'Practice · vs Oba' : 'Live match')
           : STATUS_LABEL[phase] || 'Live match';
 
   return (
@@ -94,9 +97,9 @@ export default function WhotGameScreen({ route, navigation }) {
         {remote && <WhotScreen
           key={String(params.resetKey || JSON.stringify(params || {}))}
           timer={timer}
-          cardCount={params.cardCount || 6}
-          playerCount={params.playerCount || 2}
-          vsOba={!!params.vsOba}
+          cardCount={effectiveCards}
+          playerCount={effectiveSeats}
+          vsOba={isVsOba}
           aiDifficulty={params.aiDifficulty}
           isRemote={remoteMode && !!remote}
           remote={remote}

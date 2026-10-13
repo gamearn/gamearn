@@ -14,11 +14,12 @@ export default function LudoGameScreen({ route, navigation }) {
   const stake = params.stake || 0;
   const playerCount = Math.max(2, Math.min(4, params.players || params.playerCount || 2));
   const tokenCount = Math.max(1, Math.min(4, params.tokens || params.tokenCount || 4));
-  const diceCount = 2;
+  const diceCount = params.diceCount || 2;
+  const timer = params.timer || '2m';
 
   const options = useMemo(
-    () => ({ playerCount, diceCount, tokenCount }),
-    [playerCount, diceCount, tokenCount],
+    () => ({ playerCount, diceCount, tokenCount, timer }),
+    [playerCount, diceCount, tokenCount, timer],
   );
 
   const session = useServerGame({ gameType: 'ludo', roomId, uid, options });
@@ -43,16 +44,16 @@ export default function LudoGameScreen({ route, navigation }) {
         opponentName:
           typeof opponent?.uid === 'string' && opponent.uid.indexOf('bot') === 0
             ? 'OBA'
-            : opponent?.displayName || 'Opponent',
+            : opponent?.username || opponent?.displayName || 'Opponent',
         gameId: 'ludo',
         gameName: 'Ludo',
         targetScreen: 'LudoGame',
         stake: multiplayer ? stake : 0,
-        matchSettings: { ...params, mode },
+        matchSettings: { ...params, mode, playerCount, tokenCount, diceCount, timer },
       });
     }, 900);
     return () => clearTimeout(timerId);
-  }, [snapshot, session.pending, uid, navigation, multiplayer, stake, mode, params]);
+  }, [snapshot, session.pending, uid, navigation, multiplayer, stake, mode, params, playerCount, tokenCount, diceCount, timer]);
 
   const handleBack = () => {
     if (navigation.canGoBack()) navigation.goBack();

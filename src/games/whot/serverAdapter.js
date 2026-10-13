@@ -52,14 +52,23 @@ function buildEngineState(view, meta = {}) {
   const selfName = view.selfName || 'You';
   const opps = view.opponents || [];
 
+  const oppAvatarIndices = [0, 2, 1];
   const players = [
     { id: 0, name: selfName, hand: (view.self || []).map(serverCardToEngine), isAi: false, avatarIndex: 3 },
-    { id: 1, name: opps[0]?.name || meta.opponentName || SEAT_NAMES[0], hand: Array.from({ length: opps[0]?.handSize ?? 0 }), isAi: true, avatarIndex: 0 },
-    { id: 2, name: opps[1]?.name || SEAT_NAMES[1], hand: Array.from({ length: opps[1]?.handSize ?? 0 }), isAi: true, avatarIndex: 2 },
-    { id: 3, name: opps[2]?.name || SEAT_NAMES[2], hand: Array.from({ length: opps[2]?.handSize ?? 0 }), isAi: true, avatarIndex: 1 },
+    ...(opps.length > 0
+      ? opps.map((opp, idx) => ({
+          id: idx + 1,
+          name: opp.name || meta.opponentName || SEAT_NAMES[idx] || `Player ${idx + 2}`,
+          hand: Array.from({ length: opp?.handSize ?? 0 }),
+          isAi: true,
+          avatarIndex: oppAvatarIndices[idx % oppAvatarIndices.length],
+        }))
+      : [{ id: 1, name: meta.opponentName || 'Oba 👑', hand: [], isAi: true, avatarIndex: 0 }]
+    ),
   ];
 
-  const finished = view.status === 'completed' || !!view.winner;
+  const pileFinished = view.deckSize === 0 && view.deckSize !== undefined && (view.self?.length > 0 || opps.some((o) => (o.handSize ?? 0) > 0));
+  const finished = view.status === 'completed' || !!view.winner || pileFinished;
   const topCard = view.topCard ? serverCardToEngine(view.topCard) : null;
 
   const activePlayerIndex =
@@ -71,11 +80,33 @@ function buildEngineState(view, meta = {}) {
           ? view.seatByIndex[view.currentPlayerIndex] ?? 1
           : 1;
 
+  let winner = null;
+  if (finished) {
+    if (view.winner) {
+      winner = view.winner === view.selfUid ? players[0] : (players[1] || null);
+    } else if (pileFinished) {
+      const selfTotal = (view.self || []).reduce(
+        (sum, c) => sum + (c.number === 20 ? 20 : (Number(c.number) || 0)),
+        0
+      );
+      let lowestScore = selfTotal;
+      let winningPlayer = players[0];
+      opps.forEach((opp, i) => {
+        const oppEst = (opp.handSize ?? 0) * 6;
+        if (oppEst < lowestScore) {
+          lowestScore = oppEst;
+          winningPlayer = players[i + 1] || players[1];
+        }
+      });
+      winner = winningPlayer;
+    }
+  }
+
   let statusMessage = view.statusMessage;
   if (!statusMessage) {
     const activeName = activePlayerIndex === 0 ? 'You' : players[activePlayerIndex]?.name;
     statusMessage = finished
-      ? 'Game over'
+      ? (pileFinished ? `🏁 Pile finished! Checkup: ${winner?.name || 'Player'} wins!` : 'Game over')
       : activePlayerIndex === 0
         ? 'Your turn! Select a card to play or pick from the pile.'
         : `${activeName || 'Opponent'} is playing…`;
@@ -91,7 +122,7 @@ function buildEngineState(view, meta = {}) {
     turnTimerSeconds: turnSecs,
     secondsRemaining: turnSecs,
     gameStatus: finished ? 'game_over' : 'playing',
-    winner: finished && view.winner === view.selfUid ? players[0] : finished && view.winner ? players[1] : null,
+    winner,
     statusMessage,
     valuePoints: 0,
     dailyBonusSeconds: 0,
@@ -111,10 +142,10 @@ export function practiceSnapshotToEngine(data, opts = {}) {
   const opponents = others.length
     ? others.map((p) => ({
         handSize: p.handSize || 0,
-        name: p.displayName || 'Player',
+        name: p.username || p.displayName || 'Player',
       }))
-    : [{ handSize: data.botCardCount || 0, name: 'Oba' }];
-  const opponentName = opponents[0]?.name || 'Oba';
+    : [{ handSize: data.botCardCount || 0, name: 'Oba 👑' }];
+  const opponentName = opts.opponentName || opponents[0]?.name || 'Oba 👑';
   return buildEngineState(
     {
       self: data.playerHand || [],
@@ -143,15 +174,21 @@ export function socketStateToEngine(gameState, selfUid, opts = {}) {
   const self = selfIndex >= 0 ? players[selfIndex] : null;
   const others = players.filter((p, i) => i !== selfIndex);
 
+  const isVsOba = opts.vsOba || (players.length === 2 && others.some((p) => p.uid?.startsWith('bot_')));
+
+  const opponents = isVsOba
+    ? [{ handSize: handSize(others[0]?.hand ?? 0), name: 'Oba 👑' }]
+    : (others.length ? others : players.slice(1)).map((p, idx) => ({
+        handSize: handSize(p.hand),
+        name: p.username || p.displayName || `Player ${idx + 2}`,
+      }));
+
   const topCard = gameState.topCard || gameState.discardPile?.[gameState.discardPile.length - 1] || null;
 
   return buildEngineState(
     {
       self: self?.hand || [],
-      opponents: (others.length ? others : players.slice(1)).map((p) => ({
-        handSize: handSize(p.hand),
-        name: p.displayName || 'Opponent',
-      })),
+      opponents,
       topCard,
       pendingShape: gameState.pendingShape || null,
       currentPlayerIndex: gameState.currentPlayerIndex ?? 0,
@@ -160,9 +197,9 @@ export function socketStateToEngine(gameState, selfUid, opts = {}) {
       status: gameState.status || 'playing',
       winner: gameState.winner || null,
       selfUid,
-      selfName: opts.selfName || self?.displayName || 'You',
+      selfName: opts.selfName || self?.username || self?.displayName || 'You',
       statusMessage: opts.statusMessage,
     },
-    { opponentName: opts.opponentName },
+    { opponentName: opponents[0]?.name },
   );
 }

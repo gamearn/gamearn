@@ -17,27 +17,27 @@ import { MAIN_TRACK, HOME_STRETCHES } from './ludoGameEngine';
 
 export const RING = MAIN_TRACK; // 52 squares; index === server absolute track position
 
-// Physical board quadrants, matching the approved Ludo-board artwork:
-// red top-left, blue top-right, green bottom-left, yellow bottom-right.
-export const COLOR_BY_INDEX = ['#EF4444', '#10B981', '#FACC15', '#2563EB'];
-export const DARK_BY_INDEX = ['#991B1B', '#065F46', '#A16207', '#1E40AF'];
-export const LIGHT_BY_INDEX = ['#FCA5A5', '#6EE7B7', '#FDE68A', '#93C5FD'];
-export const NAME_BY_INDEX = ['Red', 'Green', 'Yellow', 'Blue'];
+// Physical board quadrants, matching the approved reference Ludo-board artwork:
+// 0: Red (top-left), 1: Yellow (bottom-left), 2: Blue (bottom-right), 3: Green (top-right).
+export const COLOR_BY_INDEX = ['#e61c24', '#ffcc00', '#0085ff', '#00b843'];
+export const DARK_BY_INDEX = ['#980014', '#bb7300', '#0033a8', '#006320'];
+export const LIGHT_BY_INDEX = ['#fca5a5', '#fde68a', '#93c5fd', '#6ee7b7'];
+export const NAME_BY_INDEX = ['Red', 'Yellow', 'Blue', 'Green'];
 
 export const START_RING = [0, 13, 26, 39];
-export const SAFE_RING = [0, 8, 13, 21, 26, 31, 39, 47];
+export const SAFE_RING = [0, 8, 13, 21, 26, 34, 39, 47];
 
 // The backend only stores homePosition; the lane is implied by colorIdx.
-// index 0 red -> top lane, 1 blue -> left, 2 yellow -> bottom, 3 green -> right
+// 0 Red -> top lane, 1 Yellow -> left lane, 2 Blue -> bottom lane, 3 Green -> right lane
 export const LANE_BY_COLORIDX = [
-  HOME_STRETCHES[0], // red  -> top   (1..6, 7)
-  HOME_STRETCHES[3], // blue -> left  (7, 1..6)
-  HOME_STRETCHES[2], // yellow -> bottom (13..8, 7)
-  HOME_STRETCHES[1], // green -> right (7, 13..8)
+  HOME_STRETCHES[0], // Red -> top (1..6, 7)
+  HOME_STRETCHES[3], // Yellow -> left (7, 1..6)
+  HOME_STRETCHES[2], // Blue -> bottom (13..8, 7)
+  HOME_STRETCHES[1], // Green -> right (7, 13..8)
 ];
 
-// Yard quadrant origin (top-left cell on the 15x15 grid) for each colorIdx.
-// 0 red top-left, 1 blue bottom-left, 2 yellow bottom-right, 3 green top-right
+// Yard quadrant origin (top-left cell on the 15x15 grid) for each colorIdx:
+// 0 Red top-left, 1 Yellow bottom-left, 2 Blue bottom-right, 3 Green top-right
 export const YARD_ORIGIN = [
   { r: 0, c: 0 },
   { r: 9, c: 0 },
@@ -50,13 +50,11 @@ export const CENTRE = { r: 7, c: 7 };
 
 function yardCell(colorIdx, pieceIndex, count) {
   const o = YARD_ORIGIN[colorIdx] || YARD_ORIGIN[0];
-  // The reference board uses a stable 2 × 2 home formation. Keeping these
-  // positions fixed also prevents four pieces from overlapping in a single row.
+  // Offsets chosen so tokens land directly on the 4 circular yard bases
+  // (centres at o.c + 1.8, o.r + 1.8, etc., with token center at c + 0.5, r + 0.5).
   const slots = [
-    // pieceCell adds half a board cell when drawing a token, hence the .5
-    // offsets here: the final token centre lands exactly on each home circle.
-    { r: 1.5, c: 1.5 }, { r: 1.5, c: 3.5 },
-    { r: 3.5, c: 1.5 }, { r: 3.5, c: 3.5 },
+    { r: 1.3, c: 1.3 }, { r: 1.3, c: 3.7 },
+    { r: 3.7, c: 1.3 }, { r: 3.7, c: 3.7 },
   ];
   const slot = slots[pieceIndex % slots.length];
   return { r: o.r + slot.r, c: o.c + slot.c };

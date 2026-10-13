@@ -36,6 +36,26 @@ export function draughtsSnapshotToRemote(snapshot, uid) {
   const finished = snapshot.status === 'completed' || !!snapshot.winner;
   const winnerIndex = snapshot.winner ? players.findIndex((p) => p.uid === snapshot.winner) : -1;
 
+  const rawLegal = Array.isArray(snapshot.legalMoves) ? snapshot.legalMoves : [];
+  const legalMoves = rawLegal.map((m) => {
+    const fromIdx = m.fromRow * 8 + m.fromCol;
+    const toIdx = m.toRow * 8 + m.toCol;
+    const rowDiff = m.toRow - m.fromRow;
+    const colDiff = m.toCol - m.fromCol;
+    const captures = [];
+    if (Math.abs(rowDiff) === 2 && Math.abs(colDiff) === 2) {
+      const midRow = (m.fromRow + m.toRow) / 2;
+      const midCol = (m.fromCol + m.toCol) / 2;
+      captures.push(midRow * 8 + midCol);
+    }
+    return {
+      from: fromIdx,
+      to: toIdx,
+      captures,
+      path: [fromIdx, toIdx],
+    };
+  });
+
   return {
     board: serverBoardToEngine(snapshot.board),
     humanSide: seatToEngineSide(selfIndex),
@@ -45,6 +65,10 @@ export function draughtsSnapshotToRemote(snapshot, uid) {
     winnerSide: finished && winnerIndex >= 0 ? seatToEngineSide(winnerIndex) : null,
     selfIndex,
     currentIndex,
+    legalMoves,
+    forcedCapture: snapshot.forcedCapture
+      ? snapshot.forcedCapture.row * 8 + snapshot.forcedCapture.col
+      : null,
   };
 }
 

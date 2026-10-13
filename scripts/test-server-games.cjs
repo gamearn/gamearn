@@ -20,6 +20,7 @@ const whotAdapter = load('src/games/whot/serverAdapter.js', {
   './whotGameEngine': { SHAPE_COLORS: {}, parseTimerSec: () => 120 },
 });
 const draughtsAdapter = load('src/games/checkers/draughtsAdapter.js');
+const checkersEngine = load('src/games/checkers/CheckersEngine.js');
 
 
 const players = [{ uid: 'first', displayName: 'First' }, { uid: 'second', displayName: 'Second' }];
@@ -369,5 +370,93 @@ test('practice controls never send a request in multiplayer', async () => {
   assert.equal(h.calls.filter(([type]) => type === 'control').length, 0);
   h.unmount();
 });
+
+test('Whot pile exhaustion ends the game with checkup evaluation', () => {
+  const state = {
+    players: [
+      { uid: 'me', hand: [{ number: 2, shape: 'circle' }] },
+      { uid: 'foe', hand: 3 },
+    ],
+    deckSize: 0,
+    status: 'playing',
+    winner: null,
+  };
+  const view = whotAdapter.socketStateToEngine(state, 'me');
+  assert.equal(view.gameStatus, 'game_over');
+  assert.ok(view.winner);
+});
+
+test('Whot vs Oba strictly shows Oba and player, while multiplayer shows usernames', () => {
+  const vsObaState = {
+    players: [
+      { uid: 'me', username: 'Champion', displayName: 'Champ Full' },
+      { uid: 'bot_oba', displayName: 'Bot Oba' },
+    ],
+    deckSize: 5,
+    status: 'playing',
+  };
+  const obaView = whotAdapter.socketStateToEngine(vsObaState, 'me', { vsOba: true });
+  assert.equal(obaView.players.length, 2);
+  assert.equal(obaView.players[0].name, 'Champion');
+  assert.equal(obaView.players[1].name, 'Oba 👑');
+
+  const multiState = {
+    players: [
+      { uid: 'me', username: 'GamerOne', displayName: 'John Doe' },
+      { uid: 'p2', username: 'ProShooter', displayName: 'Jane Smith' },
+    ],
+    deckSize: 5,
+    status: 'playing',
+  };
+  const multiView = whotAdapter.socketStateToEngine(multiState, 'me');
+  assert.equal(multiView.players[0].name, 'GamerOne');
+  assert.equal(multiView.players[1].name, 'ProShooter');
+});
+
+test('Draughts remote descriptor exposes server legalMoves and forcedCapture', () => {
+  const state = {
+    players: [{ uid: 'top', displayName: 'Top' }, { uid: 'bottom', displayName: 'Bottom' }],
+    board: Array(64).fill(0),
+    currentPlayerIndex: 0,
+    status: 'playing',
+    winner: null,
+    legalMoves: [{ fromRow: 2, fromCol: 1, toRow: 4, toCol: 3 }],
+    forcedCapture: { row: 2, col: 1 },
+  };
+  const view = draughtsAdapter.draughtsSnapshotToRemote(state, 'top');
+  assert.equal(view.legalMoves.length, 1);
+  assert.deepEqual(view.legalMoves[0], {
+    from: 17,
+    to: 35,
+    captures: [26],
+    path: [17, 35],
+  });
+  assert.equal(view.forcedCapture, 17);
+});
+
+test('CheckersEngine strictly enforces mandatory capture and single 2-square jumps', () => {
+  // Setup board where white at 17 can jump black at 26 landing at 35,
+  // and another white piece at 19 has only a simple move.
+  const board = Array(64).fill(null);
+  board[17] = { side: 'white', king: false };
+  board[26] = { side: 'black', king: false };
+  board[1] = { side: 'white', king: false };
+
+  const captures = checkersEngine.getAllCaptureMoves(board, 'white');
+  assert.equal(captures.length, 1);
+  assert.equal(captures[0].from, 17);
+  assert.equal(captures[0].to, 35);
+  assert.deepEqual(captures[0].captures, [26]);
+
+  // Because capture is mandatory, legal moves for piece at 1 must be EMPTY (cannot make simple moves)
+  const movesFor1 = checkersEngine.getLegalMovesForSquare(board, 'white', 1);
+  assert.equal(movesFor1.length, 0);
+
+  // Legal moves for piece at 17 must be ONLY the jump
+  const movesFor17 = checkersEngine.getLegalMovesForSquare(board, 'white', 17);
+  assert.equal(movesFor17.length, 1);
+  assert.equal(movesFor17[0].to, 35);
+});
+
 
 

@@ -211,7 +211,7 @@ export function WhotScreen({
   // Sync human player name with userProfile
   useEffect(() => {
     if (!userProfile) return;
-    const displayName = userProfile?.fullName || userProfile?.username || 'You';
+    const displayName = userProfile?.username || userProfile?.displayName || 'You';
     setGameState((prev) => {
       if (!prev?.players?.[0]) return prev;
       if (prev.players[0].name === displayName) return prev;
@@ -438,7 +438,7 @@ export function WhotScreen({
 
     const newMsg = {
       id: String(Date.now()),
-      sender: userProfile?.fullName || userProfile?.username || 'You',
+      sender: userProfile?.username || userProfile?.displayName || 'You',
       text,
       isUser: true,
     };
