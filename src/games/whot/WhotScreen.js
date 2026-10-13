@@ -120,9 +120,11 @@ export function WhotScreen({
     onRemoteMove?.(move);
   }
 
-  const activePlayer = gameState.players[gameState.activePlayerIndex];
-  const humanHand = gameState.players[0].hand;
-  const topDiscard = gameState.discardPile[gameState.discardPile.length - 1];
+  const activePlayer = gameState?.players?.[gameState?.activePlayerIndex] || gameState?.players?.[0];
+  const humanHand = gameState?.players?.[0]?.hand || [];
+  const topDiscard = gameState?.discardPile && gameState.discardPile.length > 0
+    ? gameState.discardPile[gameState.discardPile.length - 1]
+    : null;
 
   const effectiveWidth = bounds.width || (typeof window !== 'undefined' ? window.innerWidth : 0);
   const effectiveHeight = bounds.height || (typeof window !== 'undefined' ? window.innerHeight : 0);
@@ -184,7 +186,7 @@ export function WhotScreen({
     }, 1300);
 
     return () => clearTimeout(timer);
-  }, [isRemote, gameState.activePlayerIndex, gameState.gameStatus, gameState.discardPile.length, aiDifficulty]);
+  }, [isRemote, gameState?.activePlayerIndex, gameState?.gameStatus, gameState?.discardPile?.length, aiDifficulty]);
 
   const { updateProfileData, userProfile, refreshProfile } = useAuth();
   const mountStreakRecorded = useRef(false);
@@ -549,22 +551,22 @@ export function WhotScreen({
               selected={selected}
               seconds={gameState.secondsRemaining}
               bonus={bonusText}
-              drawCount={gameState.drawPile.length}
+              drawCount={gameState?.drawPile?.length || 0}
               hand={humanHand}
               last={topDiscard}
-              requestedShape={gameState.requestedShape}
-              activePlayerIndex={gameState.activePlayerIndex}
+              requestedShape={gameState?.requestedShape}
+              activePlayerIndex={gameState?.activePlayerIndex ?? 0}
               valuePoints={userProfile?.valuePoints ?? 0}
-              statusText={gameState.statusMessage}
+              statusText={gameState?.statusMessage}
               undoSecondsLeft={undoSecondsLeft}
               canUndo={canUndo}
-              players={gameState.players}
+              players={gameState?.players || []}
               userProfile={userProfile}
             />
           </View>
 
           {/* Character Portraits dynamically filtered by total players */}
-          {(gameState.players.length === 2
+          {((gameState?.players?.length || 2) === 2
             ? [
                 { portraitIndex: 2, player: gameState.players[1] },
                 { portraitIndex: 3, player: gameState.players[0] },
@@ -600,7 +602,7 @@ export function WhotScreen({
           </View>
 
           {/* Opponent Card Count Badges */}
-          {(gameState.players.length === 2
+          {((gameState?.players?.length || 2) === 2
             ? [{ x: 512, y: 345, n: gameState.players[1]?.hand?.length || 0, name: gameState.players[1]?.name }]
             : gameState.players.length === 3
             ? [

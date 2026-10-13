@@ -168,6 +168,7 @@ export function PlayingCard({
   h = 238,
   white = false,
 }) {
+  if (!card) return null;
   const ink = card.shape === 'whot' ? '#462400' : white ? '#dc0927' : '#fff';
   return (
     <G transform={`translate(${x} ${y}) rotate(${angle}) scale(${scale})`}>
@@ -340,9 +341,9 @@ export function Artwork({
   selected,
   seconds,
   bonus,
-  drawCount,
-  hand,
-  last,
+  drawCount = 0,
+  hand = [],
+  last = null,
   requestedShape,
   activePlayerIndex = 0,
   opponentCounts = [5, 4, 6],
@@ -353,18 +354,20 @@ export function Artwork({
   players = [],
   userProfile = null,
 }) {
-  const centers = getCardCenters(hand.length);
-  const totalPlayers = players.length || 2;
+  const safeHand = Array.isArray(hand) ? hand : [];
+  const safePlayers = Array.isArray(players) ? players : [];
+  const centers = getCardCenters(safeHand.length);
+  const totalPlayers = safePlayers.length || 2;
   const isTwoPlayer = totalPlayers === 2;
   const isThreePlayer = totalPlayers === 3;
   const isFourPlayer = totalPlayers >= 4;
 
   const topPlayerIndex = isTwoPlayer ? 1 : 2;
-  const topPlayer = players[topPlayerIndex] || { name: 'Oba' };
-  const leftPlayer = players[1] || { name: 'QueenBee' };
-  const rightPlayer = players[3] || { name: 'KingTee' };
+  const topPlayer = safePlayers[topPlayerIndex] || { name: 'Oba' };
+  const leftPlayer = safePlayers[1] || { name: 'QueenBee' };
+  const rightPlayer = safePlayers[3] || { name: 'KingTee' };
 
-  const humanName = userProfile?.username || userProfile?.displayName || players[0]?.name || 'You';
+  const humanName = userProfile?.username || userProfile?.displayName || safePlayers[0]?.name || 'You';
 
   return (
     <Svg width={width} height={height} viewBox="0 0 1024 1536">
@@ -473,12 +476,13 @@ export function Artwork({
         Last Played
       </T>
       <T x="607" y="926" textAnchor="middle" fontFamily={FONT} fontSize="32" fontWeight="800" fill="#fff">
-        {last.value === 20 ? 'WHOT' : `${last.value}`}
+        {last ? (last.value === 20 ? 'WHOT' : `${last.value}`) : '—'}
       </T>
 
-      {hand.map((card, i) => {
+      {safeHand.map((card, i) => {
+        if (!card) return null;
         const c = centers[i] || { x: 512, y: 1115, a: 0 };
-        return <PlayingCard key={card.id} x={c.x} y={c.y} angle={c.a} card={card} selected={selected === card.id} />;
+        return <PlayingCard key={card.id || i} x={c.x} y={c.y} angle={c.a} card={card} selected={selected === card.id} />;
       })}
 
       <Panel x={35} y={1304} w={627} h={77} />
@@ -497,7 +501,7 @@ export function Artwork({
       </T>
       <Circle cx={864} cy="1343" r="8" fill={activePlayerIndex === 0 ? '#00ec5f' : '#ff9900'} />
       <Crown x={733} y={1295} size={40} />
-      <Badge x={951} y={1343} value={hand.length} />
+      <Badge x={951} y={1343} value={safeHand.length} />
 
       <BottomControls />
     </Svg>
