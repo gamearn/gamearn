@@ -15,19 +15,25 @@ import {
   Box,
   Trophy,
   Coins,
+  Dices,
 } from 'lucide-react-native';
 
 export default function LudoSetupScreen({ navigation }) {
-  const [playerCount, setPlayerCount] = useState(4); // 2, 4
+  const [playerCount, setPlayerCount] = useState(4); // 2, 3, 4
   const [tokenCount, setTokenCount] = useState(4); // 1, 2, 3, 4
+  const diceCount = 2; // Standard Ludo uses two dice.
   const [turnTimer, setTurnTimer] = useState('2m'); // '30s', '1m', '2m', '3m'
 
   const handleStartGame = () => {
     navigation.navigate('LudoGame', {
+      mode: 'practice',
       players: playerCount,
+      playerCount,
       tokens: tokenCount,
+      tokenCount,
+      diceCount,
       timer: turnTimer,
-      stake: 250,
+      stake: 0,
     });
   };
 
@@ -61,7 +67,7 @@ export default function LudoSetupScreen({ navigation }) {
             <Text style={styles.sectionLabel}>Players Selection</Text>
           </View>
           <View style={styles.segmentedRow}>
-            {[2, 4].map((num) => (
+            {[2, 3, 4].map((num) => (
               <TouchableOpacity
                 key={num}
                 activeOpacity={0.85}
@@ -92,6 +98,27 @@ export default function LudoSetupScreen({ navigation }) {
               >
                 <Text style={[styles.segmentBtnText, tokenCount === tCount && styles.segmentBtnTextActiveDark]}>
                   {tCount}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Dice Per Turn */}
+        <View style={styles.sectionWrap}>
+          <View style={styles.sectionLabelRow}>
+            <Dices size={16} color="#A855F7" />
+            <Text style={styles.sectionLabel}>Dice Per Turn</Text>
+          </View>
+          <View style={styles.segmentedRow}>
+            {[2].map((d) => (
+              <TouchableOpacity
+                key={d}
+                activeOpacity={0.85}
+                style={[styles.segmentBtn, diceCount === d && styles.segmentBtnActivePurple]}
+              >
+                <Text style={[styles.segmentBtnText, diceCount === d && styles.segmentBtnTextActiveDark]}>
+                  {d} {d === 1 ? 'Die' : 'Dice'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -269,6 +296,13 @@ const styles = StyleSheet.create({
   segmentBtnActiveYellow: {
     backgroundColor: '#FFB800',
     shadowColor: '#FFB800',
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  segmentBtnActivePurple: {
+    backgroundColor: '#A855F7',
+    shadowColor: '#A855F7',
     shadowOpacity: 0.4,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },

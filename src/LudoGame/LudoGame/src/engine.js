@@ -10,8 +10,8 @@ const TRACK = [
   [4,7],[3,7],[2,7],[1,7],[0,7],[0,6],[0,5],
   [1,5],[2,5],[3,5],[4,5],[5,4],[5,3],[5,2],[5,1],
 ];
-const START = [3,14,36,25];
-const SAFE = new Set([1,3,12,14,23,25,34,36]);
+const START = [1,12,34,23];
+const SAFE = new Set([1,10,12,21,23,32,34,43]);
 const FINISH = 47;
 function fresh(now = Date.now()) {
   return { tokens: Array.from({length:4}, () => [-1,-1,-1,-1]), turn:0,

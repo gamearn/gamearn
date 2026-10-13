@@ -1,203 +1,279 @@
 import React from 'react';
 import { View, Pressable } from 'react-native';
-import Svg, { Rect, Circle, Polygon, Defs, RadialGradient, Stop, Text as SvgText, G } from 'react-native-svg';
-const { COLORS, coordinate, legal, FINISH } = require('./engine');
+import Svg, {
+  Rect,
+  Circle,
+  Polygon,
+  Defs,
+  RadialGradient,
+  LinearGradient,
+  Stop,
+  G,
+} from 'react-native-svg';
+import {
+  RING,
+  START_RING,
+  SAFE_RING,
+  LANE_BY_COLORIDX,
+  YARD_ORIGIN,
+  COLOR_BY_INDEX,
+  DARK_BY_INDEX,
+  CENTRE,
+} from './serverAdapter';
+
+const CELLS = 15;
+// Route colours are a visual board treatment. The authoritative server positions
+// remain unchanged; this maps the four arms to the supplied reference image.
+const PATH_COLOR_BY_TEAM = [3, 0, 1, 2];
+
+const key = (r, c) => `${r},${c}`;
+
+// Precompute lookup tables once.
+const ringIndexByCoord = new Map();
+RING.forEach((cell, idx) => ringIndexByCoord.set(key(cell.r, cell.c), idx));
+
+const startByCoord = new Map();
+START_RING.forEach((idx, colorIdx) => {
+  const cell = RING[idx];
+  if (cell) startByCoord.set(key(cell.r, cell.c), PATH_COLOR_BY_TEAM[colorIdx]);
+});
+
+const safeCoord = new Set(SAFE_RING.map((idx) => RING[idx]).filter(Boolean).map((c) => key(c.r, c.c)));
+
+const laneColorByCoord = new Map();
+LANE_BY_COLORIDX.forEach((lane, colorIdx) => {
+  (lane || []).forEach((cell) => laneColorByCoord.set(key(cell.r, cell.c), PATH_COLOR_BY_TEAM[colorIdx]));
+});
+
+function isCross(r, c) {
+  return (r >= 6 && r <= 8) || (c >= 6 && c <= 8);
+}
 
 function star(cx, cy, r) {
   return Array.from({ length: 10 }, (_, i) => {
     const a = -Math.PI / 2 + (i * Math.PI) / 5;
-    const d = i % 2 ? r * 0.44 : r;
+    const d = i % 2 ? r * 0.45 : r;
     return `${cx + Math.cos(a) * d},${cy + Math.sin(a) * d}`;
   }).join(' ');
 }
 
-export default function Board({ size, state, onMove }) {
-  const candidates = legal(state);
-  const tokens = state.tokens.flatMap((team, p) =>
-    team.map((progress, t) => {
-      const coord = coordinate(p, t, progress);
-      const xy = Array.isArray(coord) && coord.length >= 2 ? coord : [6.5, 6.5];
-      return { p, t, progress, xy };
-    })
-  );
-  const groups = {};
-  tokens.forEach((token) => {
-    const key = Array.isArray(token.xy) ? token.xy.join(',') : '6.5,6.5';
-    (groups[key] ||= []).push(token);
-  });
-  for (const group of Object.values(groups)) {
-    group.forEach((token, i) => {
-      if (group.length > 1 && Array.isArray(token.xy)) {
-        const a = (i * Math.PI * 2) / group.length;
-        token.xy = [token.xy[0] + Math.cos(a) * 0.22, token.xy[1] + Math.sin(a) * 0.22];
-      }
-    });
-  }
-
-  // 4 Yard Base Configurations (matching reference board)
-  const YARDS = [
-    { p: 0, x: 0, y: 0, color: '#e61c24', light: '#ffffff', tokenColor: '#e61c24' }, // Red (Top-Left)
-    { p: 1, x: 8, y: 0, color: '#00b843', light: '#ffffff', tokenColor: '#00b843' }, // Green (Top-Right)
-    { p: 2, x: 0, y: 8, color: '#ffcc00', light: '#ffffff', tokenColor: '#ffcc00' }, // Yellow (Bottom-Left)
-    { p: 3, x: 8, y: 8, color: '#0085ff', light: '#ffffff', tokenColor: '#0085ff' }, // Blue (Bottom-Right)
+function yardSlots(colorIdx) {
+  const o = YARD_ORIGIN[colorIdx] || YARD_ORIGIN[0];
+  return [
+    [o.c + 2, o.r + 2],
+    [o.c + 4, o.r + 2],
+    [o.c + 2, o.r + 4],
+    [o.c + 4, o.r + 4],
   ];
+}
 
-  const visibleTokens = tokens.filter(
-    (t) => t.progress !== FINISH && Array.isArray(t.xy) && t.xy.length >= 2
-  );
+function arrow(cx, cy, direction) {
+  const points = {
+    down: [[0, -0.32], [-0.28, 0.02], [-0.12, 0.02], [-0.12, 0.34], [0.12, 0.34], [0.12, 0.02], [0.28, 0.02]],
+    left: [[0.32, 0], [-0.02, -0.28], [-0.02, -0.12], [-0.34, -0.12], [-0.34, 0.12], [-0.02, 0.12], [-0.02, 0.28]],
+    up: [[0, 0.32], [-0.28, -0.02], [-0.12, -0.02], [-0.12, -0.34], [0.12, -0.34], [0.12, -0.02], [0.28, -0.02]],
+    right: [[-0.32, 0], [0.02, -0.28], [0.02, -0.12], [0.34, -0.12], [0.34, 0.12], [0.02, 0.12], [0.02, 0.28]],
+  };
+  return points[direction].map(([x, y]) => `${cx + x},${cy + y}`).join(' ');
+}
+
+export default function Board({ size, viewModel, onMove, legalIds }) {
+  const legal = new Set(legalIds ?? viewModel?.legalPieceIds ?? []);
+  const myTurn = !!viewModel?.isMyTurn;
+  const canPick = myTurn && viewModel?.diceRolled && (viewModel?.legalPieceIds || []).length > 0;
+
+  // Flatten pieces and fan out stacked pieces sharing a cell.
+  const tokens = [];
+  (viewModel?.players || []).forEach((player) => {
+    (player.pieces || []).forEach((piece) => {
+      tokens.push({
+        playerIndex: player.index,
+        pieceId: piece.pieceId,
+        colorIdx: piece.colorIdx,
+        color: piece.color,
+        dark: piece.dark,
+        legal: canPick && player.index === viewModel.currentPlayerIndex && legal.has(piece.pieceId),
+        completed: piece.completed,
+        cell: piece.cell || CENTRE,
+      });
+    });
+  });
+  const groups = new Map();
+  tokens.forEach((t) => {
+    const k = key(Math.round(t.cell.r * 4) / 4, Math.round(t.cell.c * 4) / 4);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(t);
+  });
+  groups.forEach((group) => {
+    if (group.length < 2) return;
+    group.forEach((t, i) => {
+      const a = (i * Math.PI * 2) / group.length;
+      t.x = t.cell.c + 0.5 + Math.cos(a) * 0.16;
+      t.y = t.cell.r + 0.5 + Math.sin(a) * 0.16;
+    });
+  });
+  tokens.forEach((t) => {
+    if (t.x == null) {
+      t.x = t.cell.c + 0.5;
+      t.y = t.cell.r + 0.5;
+    }
+  });
+
+  const cs = size / CELLS;
 
   return (
-    <View style={{ width: size, height: size, borderRadius: size * 0.04, overflow: 'hidden', backgroundColor: '#ffffff', elevation: 8 }}>
-      <Svg width={size} height={size} viewBox="0 0 13 13">
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.03,
+        overflow: 'hidden',
+        backgroundColor: '#0f172e',
+        elevation: 8,
+      }}
+    >
+      <Svg width={size} height={size} viewBox={`0 0 ${CELLS} ${CELLS}`}>
         <Defs>
-          {COLORS.map((color, i) => (
-            <RadialGradient key={i} id={`token${i}`} cx="32%" cy="25%" r="80%">
+          <LinearGradient id="boardEdge" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#233a78" />
+            <Stop offset="1" stopColor="#101d49" />
+          </LinearGradient>
+          {COLOR_BY_INDEX.map((color, i) => (
+            <RadialGradient key={i} id={`tk${i}`} cx="32%" cy="25%" r="80%">
               <Stop offset="0" stopColor={color} />
               <Stop offset="0.65" stopColor={color} />
-              <Stop offset="1" stopColor={['#980014', '#006320', '#bb7300', '#0033a8'][i]} />
+              <Stop offset="1" stopColor={DARK_BY_INDEX[i]} />
             </RadialGradient>
           ))}
         </Defs>
 
-        {/* 4 Corner Yards matching reference board */}
-        {YARDS.map(({ p, x, y, color, tokenColor }) => (
-          <G key={p}>
-            {/* Outer Colored Frame */}
-            <Rect x={x} y={y} width="5" height="5" fill={color} stroke="#1e293b" strokeWidth="0.04" />
-            {/* Inner White Box */}
-            <Rect x={x + 0.7} y={y + 0.7} width="3.6" height="3.6" rx="0.3" fill="#ffffff" stroke="#1e293b" strokeWidth="0.03" />
-            {/* 4 Yard Circular Bases */}
-            {[
-              [x + 1.6, y + 1.6],
-              [x + 3.4, y + 1.6],
-              [x + 1.6, y + 3.4],
-              [x + 3.4, y + 3.4],
-            ].map(([cx, cy], i) => (
-              <G key={i}>
-                <Circle cx={cx} cy={cy} r="0.6" fill={tokenColor} stroke="#ffffff" strokeWidth="0.08" />
-                <Circle cx={cx} cy={cy} r="0.45" fill={tokenColor} />
-              </G>
+        <Rect x="0" y="0" width={CELLS} height={CELLS} fill="url(#boardEdge)" />
+
+        {/* Cross base */}
+        <Rect x={0} y={6} width={CELLS} height={3} fill="#f8fafc" />
+        <Rect x={6} y={0} width={3} height={CELLS} fill="#f8fafc" />
+
+        {/* Yards */}
+        {YARD_ORIGIN.map((o, colorIdx) => (
+          <G key={colorIdx}>
+            <Rect
+              x={o.c}
+              y={o.r}
+              width={6}
+              height={6}
+              fill={COLOR_BY_INDEX[colorIdx]}
+              stroke="#102044"
+              strokeWidth="0.12"
+            />
+            <Rect
+              x={o.c + 0.75}
+              y={o.r + 0.75}
+              width={4.5}
+              height={4.5}
+              rx="0.58"
+              fill="#ffffff"
+              fillOpacity="0.88"
+              stroke="#102044"
+              strokeWidth="0.07"
+            />
+            {yardSlots(colorIdx).map(([cx, cy], i) => (
+              <Circle
+                key={i}
+                cx={cx}
+                cy={cy}
+                r="0.7"
+                fill={COLOR_BY_INDEX[colorIdx]}
+                opacity="0.22"
+              />
             ))}
           </G>
         ))}
 
-        {/* Grid Cells & Colored Pathways */}
-        {Array.from({ length: 13 }, (_, y) =>
-          Array.from({ length: 13 }, (_, x) => {
-            if (!((x >= 5 && x <= 7) || (y >= 5 && y <= 7)) || (x >= 5 && x <= 7 && y >= 5 && y <= 7)) return null;
+        {/* Cross squares */}
+        {Array.from({ length: CELLS }, (_, r) =>
+          Array.from({ length: CELLS }, (_, c) => {
+            if (!isCross(r, c)) return null;
+            const k = key(r, c);
+            const laneColor = laneColorByCoord.get(k);
+            const startColor = startByCoord.get(k);
+            const inRing = ringIndexByCoord.has(k);
+            if (!inRing && laneColor === undefined) return null;
 
-            let fillColor = '#ffffff';
-            let strokeColor = '#2b3954';
-
-            // Colored Home Pathways leading to center (reference layout)
-            if (x === 6 && y >= 1 && y <= 4) fillColor = COLORS[0]; // Red pathway (Top, from Red House)
-            if (y === 6 && x >= 8 && x <= 11) fillColor = COLORS[1]; // Green pathway (Right, from Green House)
-            if (y === 6 && x >= 1 && x <= 4) fillColor = COLORS[2]; // Yellow pathway (Left, from Yellow House)
-            if (x === 6 && y >= 8 && y <= 11) fillColor = COLORS[3]; // Blue pathway (Bottom, from Blue House)
-
-            // Colored Player Start Squares (where tokens enter the track)
-            if (x === 5 && y === 1) fillColor = COLORS[0]; // Red Start Square
-            if (x === 11 && y === 5) fillColor = COLORS[1]; // Green Start Square
-            if (x === 1 && y === 7) fillColor = COLORS[2]; // Yellow Start Square
-            if (x === 7 && y === 11) fillColor = COLORS[3]; // Blue Start Square
+            let fill = '#ffffff';
+            if (laneColor !== undefined) fill = COLOR_BY_INDEX[laneColor];
+            else if (startColor !== undefined) fill = COLOR_BY_INDEX[startColor];
 
             return (
               <Rect
-                key={`${x}-${y}`}
-                x={x + 0.01}
-                y={y + 0.01}
-                width="0.98"
-                height="0.98"
-                rx="0.03"
-                fill={fillColor}
-                stroke={strokeColor}
-                strokeWidth="0.025"
+                key={k}
+                x={c + 0.04}
+                y={r + 0.04}
+                width={0.92}
+                height={0.92}
+                rx="0.04"
+                fill={fill}
+                stroke="#17213d"
+                strokeWidth="0.07"
               />
             );
           })
         )}
 
-        {/* Center Triangles */}
-        <Polygon points="5,5 8,5 6.5,6.5" fill={COLORS[0]} stroke="#1e293b" strokeWidth="0.04" />
-        <Polygon points="8,5 8,8 6.5,6.5" fill={COLORS[1]} stroke="#1e293b" strokeWidth="0.04" />
-        <Polygon points="5,8 8,8 6.5,6.5" fill={COLORS[3]} stroke="#1e293b" strokeWidth="0.04" />
-        <Polygon points="5,5 5,8 6.5,6.5" fill={COLORS[2]} stroke="#1e293b" strokeWidth="0.04" />
-
-        {/* 8 Star Safe Haven Symbols (4 Start Squares + 4 Secondary Safe Squares) */}
-        {[
-          [5.5, 1.5],   // Red Start
-          [7.5, 3.5],   // Top Arm Safe
-          [11.5, 5.5],  // Green Start
-          [9.5, 7.5],   // Right Arm Safe
-          [7.5, 11.5],  // Blue Start
-          [5.5, 9.5],   // Bottom Arm Safe
-          [1.5, 7.5],   // Yellow Start
-          [3.5, 5.5],   // Left Arm Safe
-        ].map(([x, y], i) => (
-          <Polygon key={i} points={star(x, y, 0.34)} fill="#ffd700" stroke="#000000" strokeWidth="0.03" />
-        ))}
-
-        {/* Home Directional Indicators */}
-        {[[6.5, 4.5, '↓'], [8.5, 6.5, '←'], [6.5, 8.5, '↑'], [4.5, 6.5, '→']].map(([x, y, text]) => (
-          <SvgText key={text} x={x} y={y + 0.28} fontSize="0.8" fontWeight="bold" textAnchor="middle" fill="#ffffffaa">
-            {text}
-          </SvgText>
-        ))}
-
-        {/* Center Target Circle */}
-        <Circle cx="6.5" cy="6.5" r="0.76" fill="#09267f" stroke="#1186ff" strokeWidth="0.06" />
-        <Polygon points="6.03,6.25 6.2,6.72 6.8,6.72 6.97,6.25 6.7,6.43 6.5,6.12 6.3,6.43" fill="#ffffff" />
-
-        {/* Interactive Player Tokens */}
-        {visibleTokens.map(({ p, t, xy }) => {
-          const x = xy[0];
-          const y = xy[1];
+        {/* Safe stars */}
+        {[...safeCoord].map((k) => {
+          const [r, c] = k.split(',').map(Number);
           return (
-            <React.Fragment key={`${p}-${t}`}>
-              {p === state.turn && candidates.includes(t) && (
-                <Circle
-                  cx={x}
-                  cy={y}
-                  r="0.52"
-                  fill="none"
-                  stroke={state.hint === t ? '#ffffff' : '#ffea00'}
-                  strokeWidth="0.08"
-                />
-              )}
-              <Circle cx={x} cy={y} r="0.42" fill={`url(#token${p})`} stroke={['#980014', '#006320', '#bb7300', '#0033a8'][p]} strokeWidth="0.05" />
-              <Circle cx={x - 0.13} cy={y - 0.17} r="0.085" fill="#ffffff77" />
-              {state.tokens[p][t] >= 0 && (
-                <SvgText x={x} y={y + 0.12} fontSize="0.32" fontWeight="bold" textAnchor="middle" fill="#ffffff">
-                  {t + 1}
-                </SvgText>
-              )}
-            </React.Fragment>
+            <Polygon
+              key={`s-${k}`}
+              points={star(c + 0.5, r + 0.5, 0.3)}
+              fill="#FFD700"
+              stroke="#0b1225"
+              strokeWidth="0.04"
+            />
           );
         })}
+
+        {/* Centre home triangles */}
+        <Polygon points={`6,6 9,6 ${CENTRE.c + 0.5},${CENTRE.r + 0.5}`} fill={COLOR_BY_INDEX[3]} stroke="#0b1225" strokeWidth="0.05" />
+        <Polygon points={`9,6 9,9 ${CENTRE.c + 0.5},${CENTRE.r + 0.5}`} fill={COLOR_BY_INDEX[2]} stroke="#0b1225" strokeWidth="0.05" />
+        <Polygon points={`9,9 6,9 ${CENTRE.c + 0.5},${CENTRE.r + 0.5}`} fill={COLOR_BY_INDEX[1]} stroke="#0b1225" strokeWidth="0.05" />
+        <Polygon points={`6,9 6,6 ${CENTRE.c + 0.5},${CENTRE.r + 0.5}`} fill={COLOR_BY_INDEX[0]} stroke="#0b1225" strokeWidth="0.05" />
+
+        {/* The coloured entry squares are easier to read with the reference-style arrows. */}
+        <Polygon points={arrow(7.5, 5.5, 'up')} fill="#ffffff" fillOpacity="0.5" />
+        <Polygon points={arrow(9.5, 7.5, 'right')} fill="#ffffff" fillOpacity="0.5" />
+        <Polygon points={arrow(7.5, 9.5, 'down')} fill="#ffffff" fillOpacity="0.5" />
+        <Polygon points={arrow(5.5, 7.5, 'left')} fill="#ffffff" fillOpacity="0.5" />
+
+        {/* Pieces */}
+        {tokens.map((t) => (
+          <G key={`p-${t.playerIndex}-${t.pieceId}`}>
+            {t.legal && <Circle cx={t.x} cy={t.y} r="0.58" fill="none" stroke="#00E5FF" strokeWidth="0.11" />}
+            <Circle cx={t.x} cy={t.y} r="0.4" fill={`url(#tk${t.colorIdx ?? 0})`} stroke={t.dark} strokeWidth="0.08" />
+            <Circle cx={t.x - 0.11} cy={t.y - 0.13} r="0.1" fill="#ffffff" opacity={0.6} />
+          </G>
+        ))}
+        <Rect x="0.08" y="0.08" width="14.84" height="14.84" rx="0.28" fill="none" stroke="#102044" strokeWidth="0.16" />
       </Svg>
 
-      {/* Pressable Tokens Overlay */}
-      {visibleTokens.map(({ p, t, xy }) => {
-        const x = xy[0];
-        const y = xy[1];
-        return (
-          <Pressable
-            key={`${p}-${t}`}
-            accessibilityRole="button"
-            accessibilityLabel={`Player ${p + 1}, token ${t + 1}${p === state.turn && candidates.includes(t) ? ', legal move' : ''}`}
-            disabled={p !== state.turn || !candidates.includes(t)}
-            onPress={() => onMove(t)}
-            style={{
-              position: 'absolute',
-              left: ((x - 0.45) / 13) * size,
-              top: ((y - 0.45) / 13) * size,
-              width: (size * 0.9) / 13,
-              height: (size * 0.9) / 13,
-              borderRadius: size,
-            }}
-          />
-        );
-      })}
+      {/* Interaction overlay */}
+      {tokens.map((t) => (
+        <Pressable
+          key={`pt-${t.playerIndex}-${t.pieceId}`}
+          accessibilityRole="button"
+          accessibilityLabel={`Player ${t.playerIndex + 1}, piece ${t.pieceId + 1}${t.legal ? ', legal move' : ''}`}
+          disabled={!t.legal}
+          onPress={() => onMove && onMove(t.pieceId)}
+          style={{
+            position: 'absolute',
+            left: (t.x - 0.6) * cs,
+            top: (t.y - 0.6) * cs,
+            width: cs * 1.2,
+            height: cs * 1.2,
+            borderRadius: cs,
+          }}
+        />
+      ))}
     </View>
   );
 }

@@ -1,809 +1,374 @@
-import React, { useEffect, useReducer, useRef, useState } from 'react';
-import { AppState, Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  useWindowDimensions,
+} from 'react-native';
+import { ArrowLeft, RotateCw } from 'lucide-react-native';
 import Board from './Board';
-import { setActiveMatch, clearActiveMatch, getActiveMatch, updateActiveMatchState } from '../../utils/activeMatch';
-import { useAuth } from '../../context/AuthContext';
-import { recordGameStreak } from '../../utils/recordGameStreak';
-import { getAiDifficulty } from '../../utils/aiDifficulty';
-import { wallet } from '../../services/api';
-const { COLORS, NAMES, FINISH, SAFE, globalIndex, fresh, legal, reduce } = require('./engine');
-const PHOTO = require('./assets/reference.jpg');
-const BONUS_KEY = '@ludo-reference/bonus-v1';
-const ART = {
-  logo: [482, 5, 297, 192],
-  p0: [118, 65, 128, 128],
-  p1: [1012, 64, 125, 125],
-  p2: [35, 976, 126, 126],
-  p3: [1094, 975, 123, 123],
-  gift: [52, 466, 91, 88],
-  left: [22, 676, 157, 244],
-  right: [1086, 674, 149, 250],
+import DiceRoll from './DiceRoll';
+import { diceOptions, legalPieceIdsForValue, NAME_BY_INDEX } from './serverAdapter';
+
+const STATUS_TEXT = {
+  connecting: 'Connecting…',
+  playing: 'Live match',
+  completed: 'Match over',
+  aborted: 'Match cancelled',
+  error: 'Connection error',
 };
 
-const RULES = `This local four-player variant follows the board in the picture: five-cell arms, a 44-square perimeter, and two dice.\n\n1. Turns run red → green → yellow → blue. Pass the device to the active player.\n\n2. Roll both dice. Select either unused die, then a highlighted token. Each die makes one move. A six brings a token out of its yard; the full six is consumed.\n\n3. A token travels 43 perimeter positions, then four private lane positions and the center. You need an exact roll to finish.\n\n4. Landing on opponents on an unsafe square sends all of those tokens back to their yards. Stars and starting squares are safe. Stacked tokens do not block movement.\n\n5. A roll containing a six earns one extra turn after both dice are used or no legal moves remain. Captures and finishes do not grant extra turns. There is no three-sixes penalty.\n\n6. If no die can move a token, the turn advances automatically. Get all four tokens to the center to win.\n\n7. Each turn lasts 2:45. Time expiring forfeits unused dice and extra turns. Menus and backgrounding pause the timer.\n\n8. Undo restores the previous roll or move; this is a local practice feature. Hint recommends a finish, capture, yard exit, or advanced token.\n\nThis is not the standard 15×15, single-die ruleset. Room 458721 and 4/4 identify the local table, not an online connection.`;
+function sameCell(a, b) {
+  return !!a && !!b && Math.abs(a.r - b.r) < 0.3 && Math.abs(a.c - b.c) < 0.3;
+}
 
-function Art({ name, w, h }) {
-  const coords = ART[name] || [0, 0, 100, 100];
-  const [x, y, cw, ch] = coords;
-  const f = Math.max(w / cw, h / ch);
-  return (
-    <View pointerEvents="none" style={{ width: w, height: h, overflow: 'hidden', borderRadius: String(name || '').startsWith('p') ? w / 2 : 0 }}>
-      <Image source={PHOTO} resizeMode="stretch" style={{ position: 'absolute', width: 1254 * f, height: 1254 * f, left: -x * f + (w - cw * f) / 2, top: -y * f + (h - ch * f) / 2 }} />
-    </View>
+function turnLabel(viewModel, status, selectedValue) {
+  if (!viewModel) return { text: 'Loading…', tone: 'muted' };
+  if (status === 'completed' || viewModel.status === 'completed') return { text: 'Match over', tone: 'muted' };
+  if (status === 'error') return { text: 'Connection problem', tone: 'error' };
+  if (viewModel.isMyTurn) {
+    if (!viewModel.diceRolled) return { text: 'Your turn — roll the dice', tone: 'you' };
+    if (selectedValue == null) return { text: 'Choose a number', tone: 'you' };
+    return { text: 'Tap a highlighted piece to move', tone: 'you' };
+  }
+  const current = viewModel.players?.[viewModel.currentPlayerIndex];
+  return { text: `${current?.name || 'Opponent'} is playing…`, tone: 'them' };
+}
+
+export default function LudoScreen({
+  viewModel,
+  isRemote = true,
+  status = 'playing',
+  secondsRemaining = null,
+  error = '',
+  canMove = false,
+  pending = false,
+  onRoll,
+  onMove,
+  onBack,
+}) {
+  const { width } = useWindowDimensions();
+  const boardSize = Math.min(width - 24, 400);
+
+  const [rolling, setRolling] = useState(false);
+  const [lastDice, setLastDice] = useState([]);
+  const [selectedValue, setSelectedValue] = useState(null);
+  const [pickerGroup, setPickerGroup] = useState(null);
+  const sawPending = useRef(false);
+
+  useEffect(() => {
+    if (Array.isArray(viewModel?.dice) && viewModel.dice.length) setLastDice(viewModel.dice);
+  }, [viewModel?.dice]);
+
+  // Selectable dice options (two dice expose each die plus the sum).
+  const options = useMemo(() => diceOptions(viewModel), [viewModel]);
+  const uniqueValues = useMemo(() => [...new Set(options.map((o) => o.value))], [options]);
+
+  // Auto-pick when only one value is usable; otherwise wait for a tap.
+  const diceSig = (viewModel?.dice || []).join('-');
+  useEffect(() => {
+    if (!viewModel?.diceRolled || !options.length) {
+      setSelectedValue(null);
+      setPickerGroup(null);
+      return;
+    }
+    const movable = uniqueValues.filter((v) => legalPieceIdsForValue(viewModel, v).length > 0);
+    setSelectedValue(movable.length === 1 ? movable[0] : null);
+  }, [diceSig, viewModel?.diceRolled, viewModel?.currentPlayerIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const legalIds = useMemo(
+    () => (selectedValue == null ? [] : legalPieceIdsForValue(viewModel, selectedValue)),
+    [viewModel, selectedValue],
   );
-}
 
-function Button({ label, onPress, children, style, disabled = false }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled }}
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [style, pressed && { opacity: 0.75 }, disabled && { opacity: 0.45 }]}
-    >
-      {children}
-    </Pressable>
+  const canRoll = !!(
+    isRemote &&
+    viewModel &&
+    viewModel.status === 'playing' &&
+    viewModel.isMyTurn &&
+    !viewModel.diceRolled &&
+    canMove &&
+    !pending
   );
-}
 
-function clock(seconds, hours = false) {
-  const n = Math.max(0, Math.ceil(seconds));
-  return hours
-    ? `${String(Math.floor(n / 3600)).padStart(2, '0')}:${String(Math.floor(n / 60) % 60).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`
-    : `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
-}
-
-function Die({ value, size, selected, used, onPress, index, rolling = false }) {
-  const dots = {
-    1: [[1, 1]],
-    2: [[0, 0], [2, 2]],
-    3: [[0, 0], [1, 1], [2, 2]],
-    4: [[0, 0], [2, 0], [0, 2], [2, 2]],
-    5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]],
-    6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]],
-  }[value] || [[1, 1]];
-
-  const isRedDot = value === 1;
-  const faceSize = Math.max(1, size - 4);
-  const dotSize = isRedDot ? faceSize * 0.3 : faceSize * 0.22;
-  const margin = faceSize * 0.12;
-  const centerPos = (faceSize - dotSize) / 2;
-  const endPos = faceSize - margin - dotSize;
-
-  const getPos = (gridVal) => {
-    if (gridVal === 0) return margin;
-    if (gridVal === 1) return centerPos;
-    return endPos;
+  const handleRoll = () => {
+    if (!canRoll) return;
+    sawPending.current = false;
+    setRolling(true);
+    onRoll && onRoll();
   };
 
-  const rotAngle = rolling
-    ? (index ? '28deg' : '-28deg')
-    : (index ? '8deg' : '-8deg');
+  const handlePick = (pieceId) => {
+    const current = viewModel?.players?.[viewModel.currentPlayerIndex];
+    const target = current?.pieces?.find((p) => p.pieceId === pieceId);
+    if (!target) return;
+    const group = (current?.pieces || []).filter(
+      (p) => legalIds.includes(p.pieceId) && sameCell(p.cell, target.cell),
+    );
+    if (group.length > 1) {
+      setPickerGroup(group);
+      return;
+    }
+    onMove && onMove(pieceId, selectedValue);
+  };
+
+  // Stop tumbling once the server request settles.
+  useEffect(() => {
+    if (!rolling) return;
+    if (pending) {
+      sawPending.current = true;
+      return;
+    }
+    if (!sawPending.current) {
+      const t = setTimeout(() => setRolling(false), 250);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setRolling(false), 180);
+    return () => clearTimeout(t);
+  }, [rolling, pending]);
+
+  useEffect(() => {
+    if (!rolling) return;
+    const t = setTimeout(() => setRolling(false), 9000);
+    return () => clearTimeout(t);
+  }, [rolling]);
+
+  // Ludo is played with two dice. Keep both visible in the centre before and
+  // after a roll; a dual roll exposes die one, die two, and their sum.
+  const diceCount = 2;
+  const displayDice = rolling ? [] : viewModel?.dice?.length ? viewModel.dice : lastDice;
+  const label = turnLabel(viewModel, status, selectedValue);
+
+  let buttonLabel = 'ROLL DICE';
+  if (viewModel?.diceRolled && viewModel?.isMyTurn) {
+    buttonLabel = selectedValue == null ? 'CHOOSE A NUMBER' : 'SELECT A PIECE';
+  }
+  const showChips = isRemote && viewModel?.isMyTurn && viewModel?.diceRolled && options.length > 0;
 
   return (
-    <Button
-      label={`3D Die ${index + 1}: ${value}${used ? ', unavailable' : ''}`}
-      onPress={onPress}
-      disabled={used}
-      style={{
-        width: size,
-        height: size,
-        position: 'relative',
-        transform: [{ rotate: rotAngle }, { scale: rolling ? 1.12 : 1 }],
-      }}
-    >
-      {/* 3D Drop Shadow Base */}
-      <View
-        style={{
-          position: 'absolute',
-          left: 4,
-          top: 6,
-          width: size - 4,
-          height: size - 4,
-          borderRadius: size * 0.22,
-          backgroundColor: '#000000',
-          opacity: 0.65,
-        }}
-      />
+    <View style={styles.root}>
+      <View style={styles.topBar}>
+        <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+          <ArrowLeft size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.title}>Ludo</Text>
+        <View style={styles.backBtn} />
+      </View>
 
-      {/* 3D Side Bevel (Depth layer) */}
-      <View
-        style={{
-          position: 'absolute',
-          left: 2,
-          top: 3,
-          width: size - 2,
-          height: size - 2,
-          borderRadius: size * 0.22,
-          backgroundColor: selected ? '#d97706' : '#64748b',
-        }}
-      />
+      <Text style={styles.turnText}>{label.text}</Text>
 
-      {/* 3D Main Front Face */}
-      <LinearGradient
-        colors={selected ? ['#ffffff', '#fff5c4', '#fde047'] : ['#ffffff', '#f1f5f9', '#cbd5e1']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          width: faceSize,
-          height: faceSize,
-          borderRadius: size * 0.2,
-          borderWidth: selected ? 3.5 : 2,
-          borderColor: selected ? '#f59e0b' : '#94a3b8',
-          position: 'relative',
-          overflow: 'hidden',
-          elevation: 10,
-          shadowColor: '#000',
-          shadowOffset: { width: 3, height: 4 },
-          shadowOpacity: 0.4,
-          shadowRadius: 6,
-        }}
+      <View style={{ width: boardSize, height: boardSize }}>
+        <Board size={boardSize} viewModel={viewModel} onMove={handlePick} legalIds={legalIds} />
+        <DiceRoll boardSize={boardSize} count={diceCount} values={displayDice} rolling={rolling} />
+      </View>
+
+      {showChips && (
+        <View style={styles.chipsRow}>
+          {options.map((opt, i) => {
+            const enabled = legalPieceIdsForValue(viewModel, opt.value).length > 0;
+            const active = selectedValue === opt.value;
+            return (
+              <TouchableOpacity
+                key={`${opt.value}-${i}`}
+                disabled={!enabled}
+                onPress={() => setSelectedValue(opt.value)}
+                style={[
+                  styles.chip,
+                  active && styles.chipActive,
+                  !enabled && styles.chipDisabled,
+                ]}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{opt.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={[styles.rollBtn, !canRoll && styles.rollBtnDisabled]}
+        disabled={!canRoll}
+        onPress={handleRoll}
       >
-        {/* Top Gloss Reflection Highlight */}
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: 2,
-            left: 4,
-            right: 4,
-            height: faceSize * 0.18,
-            borderRadius: faceSize * 0.09,
-            backgroundColor: 'rgba(255, 255, 255, 0.65)',
-            zIndex: 1,
-          }}
-        />
+        {pending ? (
+          <ActivityIndicator color="#0B113A" />
+        ) : (
+          <>
+            <RotateCw size={20} color={canRoll ? '#0B113A' : '#5b6b8f'} />
+            <Text style={[styles.rollText, !canRoll && styles.rollTextDisabled]}>{buttonLabel}</Text>
+          </>
+        )}
+      </TouchableOpacity>
 
-        {/* 3D Inset Pip Dots */}
-        {dots.map(([gx, gy], i) => {
-          const posX = getPos(gx);
-          const posY = getPos(gy);
+      <View style={styles.statusRow}>
+        <Text style={styles.statusText}>{STATUS_TEXT[status] || status}</Text>
+        {secondsRemaining != null && <Text style={styles.timerText}>{secondsRemaining}s</Text>}
+      </View>
+
+      <View style={styles.playersRow}>
+        {(viewModel?.players || []).map((p) => {
+          const active = p.index === viewModel?.currentPlayerIndex;
           return (
-            <View
-              key={i}
-              style={{
-                position: 'absolute',
-                left: posX,
-                top: posY,
-                width: dotSize,
-                height: dotSize,
-                borderRadius: dotSize / 2,
-                backgroundColor: isRedDot ? '#dc2626' : '#090d16',
-                borderWidth: 1.5,
-                borderColor: isRedDot ? '#991b1b' : '#000000',
-                zIndex: 2,
-                elevation: 3,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1.5 },
-                shadowOpacity: 0.6,
-              }}
-            >
-              {/* Dot 3D Reflection Spot */}
-              <View
-                style={{
-                  width: dotSize * 0.32,
-                  height: dotSize * 0.32,
-                  borderRadius: dotSize * 0.16,
-                  backgroundColor: 'rgba(255, 255, 255, 0.75)',
-                  marginTop: dotSize * 0.1,
-                  marginLeft: dotSize * 0.1,
-                }}
-              />
+            <View key={p.index} style={[styles.playerChip, active && styles.playerChipActive]}>
+              <View style={[styles.playerDot, { backgroundColor: p.color }]} />
+              <Text style={[styles.playerName, active && styles.playerNameActive]} numberOfLines={1}>
+                {p.name}
+              </Text>
             </View>
           );
         })}
-      </LinearGradient>
-    </Button>
-  );
-}
+      </View>
 
-function parseTimerMs(timerStr) {
-  if (!timerStr) return 120000;
-  if (typeof timerStr === 'number') return timerStr;
-  if (timerStr.endsWith('s')) return parseInt(timerStr, 10) * 1000;
-  if (timerStr.endsWith('m')) return parseInt(timerStr, 10) * 60 * 1000;
-  return 120000;
-}
-
-export function LudoScreen({ onBack, stake = 250, timer = '2m', onWin, aiDifficulty = 'auto', playerCount = 2, tokenCount = 4 }) {
-  return (
-    <SafeAreaProvider>
-      <Game onBack={onBack} stake={stake} timer={timer} onWin={onWin} aiDifficulty={aiDifficulty} playerCount={playerCount} tokenCount={tokenCount} />
-    </SafeAreaProvider>
-  );
-}
-
-function Game({ onBack, stake, timer, onWin, aiDifficulty = 'auto', playerCount = 2, tokenCount = 4 }) {
-  const { width, height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const timerMs = React.useMemo(() => parseTimerMs(timer), [timer]);
-  const [state, dispatch] = useReducer(reduce, undefined, () => fresh(Date.now(), timerMs, playerCount, tokenCount));
-  const [now, setNow] = useState(Date.now());
-  const [modal, setModal] = useState(null);
-  const [chat, setChat] = useState([]);
-  const [draft, setDraft] = useState('');
-  const [hints, setHints] = useState(true);
-  const [bonus, setBonus] = useState(null);
-  const [storageError, setStorageError] = useState('');
-  const [rollingDice, setRollingDice] = useState(false);
-  const [animDice, setAnimDice] = useState([1, 1]);
-  const pause = useRef(null);
-  const background = useRef(false);
-  const dialog = useRef(false);
-  const bonusLock = useRef(false);
-  const wonReported = useRef(false);
-
-  const availableWidth = width - insets.left - insets.right;
-  const sceneSize = Math.max(360, Math.min(availableWidth, height - insets.top - insets.bottom - 55, 1000));
-  const k = sceneSize / 1254;
-  const rect = (x, y, w, h) => ({ position: 'absolute', left: x * k, top: y * k, width: w * k, height: h * k });
-  const text = (value, size = 28, style) => <Text style={[{ color: '#fff', fontSize: size * k, fontWeight: '700' }, style]}>{value}</Text>;
-  const ico = (name, size = 42, color = '#fff') => <Ionicons name={name} size={size * k} color={color} />;
-
-  const reconcilePause = () => {
-    const shouldPause = background.current || dialog.current;
-    if (shouldPause && pause.current === null) pause.current = Date.now();
-    if (!shouldPause && pause.current !== null) {
-      dispatch({ type: 'RESUME', duration: Date.now() - pause.current });
-      pause.current = null;
-      setNow(Date.now());
-    }
-  };
-
-  const show = (type) => {
-    dialog.current = !!type;
-    reconcilePause();
-    setModal(type);
-  };
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      const time = Date.now();
-      setNow(time);
-      if (pause.current === null) dispatch({ type: 'TIMEOUT', now: time });
-    }, 250);
-    const listener = AppState.addEventListener('change', (status) => {
-      background.current = status !== 'active';
-      reconcilePause();
-    });
-    let alive = true;
-    AsyncStorage.getItem(BONUS_KEY)
-      .then((raw) => {
-        let stored = raw ? JSON.parse(raw) : null;
-        if (!stored || !Number.isFinite(stored.next) || !Number.isInteger(stored.coins) || stored.coins < 0) {
-          stored = { next: Date.now() + (2 * 3600 + 14 * 60 + 33) * 1000, coins: 0 };
-        }
-        if (alive) setBonus(stored);
-      })
-      .catch(() => {
-        if (alive) {
-          setBonus({ next: Date.now() + (2 * 3600 + 14 * 60 + 33) * 1000, coins: 0 });
-          setStorageError('Bonus storage is unavailable. Claims may not persist.');
-        }
-      });
-    return () => {
-      alive = false;
-      clearInterval(id);
-      listener.remove();
-    };
-  }, []);
-
-  const { updateProfileData, userProfile, refreshProfile } = useAuth();
-  const mountStreakRecorded = useRef(false);
-
-  useEffect(() => {
-    let alive = true;
-    getActiveMatch().then((match) => {
-      if (alive && match?.gameId === 'ludo' && match?.savedState && match.savedState.phase !== 'won') {
-        dispatch({ type: 'RESTORE', savedState: match.savedState });
-      } else {
-        setActiveMatch({
-          gameId: 'ludo',
-          gameName: 'Lúùdò Game',
-          targetScreen: 'LudoGame',
-          durationSecs: 120,
-        });
-      }
-    });
-    if (!mountStreakRecorded.current) {
-      mountStreakRecorded.current = true;
-      recordGameStreak(updateProfileData, userProfile);
-    }
-    return () => { alive = false; };
-  }, []);
-
-  useEffect(() => {
-    if (state.phase === 'won') {
-      clearActiveMatch();
-      if (!wonReported.current) {
-        wonReported.current = true;
-        recordGameStreak(updateProfileData, userProfile);
-        if (onWin) onWin(state.winner === 0);
-      }
-    } else if (state) {
-      updateActiveMatchState('ludo', state);
-    }
-  }, [state]);
-
-  // Automatic AI Bot (Oba) Turn Controller & Dice Rolling
-  useEffect(() => {
-    if (state.phase === 'won') return;
-
-    if (state.turn !== 0) {
-      if (state.phase === 'roll' && !rollingDice) {
-        const rollTimer = setTimeout(() => {
-          setRollingDice(true);
-          let count = 0;
-          const animInterval = setInterval(() => {
-            setAnimDice([1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)]);
-            count++;
-            if (count >= 8) {
-              clearInterval(animInterval);
-              setRollingDice(false);
-              const d1 = 1 + Math.floor(Math.random() * 6);
-              const d2 = 1 + Math.floor(Math.random() * 6);
-              dispatch({ type: 'ROLL', dice: [d1, d2] });
-            }
-          }, 80);
-        }, 700);
-        return () => clearTimeout(rollTimer);
-      }
-
-      if (state.phase === 'no_moves') {
-        const passTimer = setTimeout(() => {
-          dispatch({ type: 'PASS_TURN' });
-        }, 1600);
-        return () => clearTimeout(passTimer);
-      }
-
-      if (state.phase === 'move') {
-        const activeDifficulty = getAiDifficulty(userProfile, aiDifficulty);
-        const aiTimer = setTimeout(() => {
-          const allMoves = [];
-          for (const d of state.available) {
-            const legalTokens = legal(state, d);
-            for (const t of legalTokens) {
-              const p = state.tokens[state.turn][t];
-              const target = p < 0 ? 0 : p + state.dice[d];
-              const capture =
-                target < 43 &&
-                !SAFE.has(globalIndex(state.turn, target)) &&
-                state.tokens.some(
-                  (team, player) =>
-                    player !== state.turn &&
-                    team.some((v) => v >= 0 && v < 43 && globalIndex(player, v) === globalIndex(state.turn, target))
-                );
-              const isSafeSquare = target < 43 && SAFE.has(globalIndex(state.turn, target));
-              let score = target === FINISH ? 1000 : capture ? 500 : p < 0 ? 200 : target;
-              if (activeDifficulty === 'hard') {
-                score = target === FINISH ? 1200 : capture ? 800 : isSafeSquare ? score + 150 : p < 0 ? 300 : target;
-              }
-              allMoves.push({ die: d, token: t, score });
-            }
-          }
-
-          let best = null;
-          if (allMoves.length > 0) {
-            if (activeDifficulty === 'easy' && Math.random() < 0.45) {
-              best = allMoves[Math.floor(Math.random() * allMoves.length)];
-            } else {
-              allMoves.sort((a, b) => b.score - a.score);
-              best = allMoves[0];
-            }
-          }
-
-          if (best) {
-            dispatch({ type: 'SELECT', index: best.die });
-            setTimeout(() => {
-              dispatch({ type: 'MOVE', token: best.token });
-            }, 800);
-          } else {
-            dispatch({ type: 'PASS_TURN' });
-          }
-        }, 1200);
-
-        return () => clearTimeout(aiTimer);
-      }
-    } else {
-      if (state.phase === 'no_moves') {
-        const passTimer = setTimeout(() => {
-          dispatch({ type: 'PASS_TURN' });
-        }, 1800);
-        return () => clearTimeout(passTimer);
-      }
-    }
-  }, [state.turn, state.phase, state.available, state.dice, rollingDice]);
-
-  const handleRollDice = () => {
-    if (state.phase === 'won') {
-      reset();
-      return;
-    }
-    if (state.turn !== 0 || state.phase !== 'roll' || rollingDice) return;
-    setRollingDice(true);
-    let count = 0;
-    const animInterval = setInterval(() => {
-      setAnimDice([1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)]);
-      count++;
-      if (count >= 8) {
-        clearInterval(animInterval);
-        setRollingDice(false);
-        const d1 = 1 + Math.floor(Math.random() * 6);
-        const d2 = 1 + Math.floor(Math.random() * 6);
-        dispatch({ type: 'ROLL', dice: [d1, d2] });
-      }
-    }, 80);
-  };
-
-  const claim = async () => {
-    if (!bonus || Date.now() < bonus.next || bonusLock.current) return;
-    bonusLock.current = true;
-    try {
-      // Real backend grant — idempotent per claim per UTC day.
-      if (userProfile?.id || userProfile?.uid) {
-        const res = await wallet.freeCoins('ludo-bonus');
-        const next = { coins: res?.coins ?? bonus.coins + 100, next: Date.now() + 86400000 };
-        setBonus(next);
-        if (res?.granted) {
-          Alert.alert('Bonus claimed', `${res.amountKobo != null ? res.amountKobo / 100 : 100} practice coins added to your account.`);
-          if (refreshProfile) refreshProfile().catch(() => { });
-        } else {
-          Alert.alert('Already claimed', 'You already claimed the Ludo bonus today. Come back tomorrow!');
-        }
-      } else {
-        // Bonus coins are server-authoritative; no local grant without sign-in.
-        Alert.alert('Sign in required', 'Please sign in to claim your daily bonus.');
-      }
-    } catch (err) {
-      setStorageError('Could not claim the bonus. Please try again.');
-    } finally {
-      bonusLock.current = false;
-    }
-  };
-
-  useEffect(() => {
-    if (bonus) AsyncStorage.setItem(BONUS_KEY, JSON.stringify(bonus)).catch(() => setStorageError('Bonus changes could not be saved.'));
-  }, [bonus]);
-
-  function Player({ p, x, y, w, reverse = false }) {
-    const color = COLORS[p];
-    const pName = p === 0 ? (userProfile?.fullName || userProfile?.username || NAMES[p]) : NAMES[p];
-    return (
-      <Button label={`${pName}${state.turn === p ? ', current player' : ''}`} onPress={() => show(`player${p}`)} style={rect(x, y, w, 140)}>
-        <LinearGradient
-          colors={[color + 'cc', '#071454']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={{
-            position: 'absolute',
-            left: reverse ? 0 : 60 * k,
-            right: reverse ? 60 * k : 0,
-            top: 7 * k,
-            bottom: 7 * k,
-            borderRadius: 60 * k,
-            borderWidth: 2 * k,
-            borderColor: color,
-            paddingLeft: (reverse ? 24 : 82) * k,
-            paddingRight: (reverse ? 82 : 24) * k,
-            justifyContent: 'center',
-          }}
-        >
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            {reverse && ico('trophy', 35, '#ffe126')}
-            {text(pName, 29)}
-            {!reverse && ico('trophy', 35, '#ffe126')}
-          </View>
-          <View style={{ height: 2 * k, backgroundColor: color + '66', marginVertical: 12 * k }} />
-          <View style={{ flexDirection: 'row', gap: 8 * k, justifyContent: reverse ? 'flex-end' : 'flex-start' }}>
-            {state.tokens[p].map((n, i) => (
-              <View
-                key={i}
-                style={{
-                  width: 29 * k,
-                  height: 29 * k,
-                  borderRadius: 16 * k,
-                  backgroundColor: n === FINISH ? '#fff' : color,
-                  borderWidth: 2 * k,
-                  borderColor: state.turn === p ? '#ffffffaa' : color,
+      <Modal
+        visible={!!pickerGroup}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickerGroup(null)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setPickerGroup(null)}>
+          <Pressable style={styles.pickerCard} onPress={() => {}}>
+            <Text style={styles.pickerTitle}>Which piece?</Text>
+            <Text style={styles.pickerSub}>
+              These pieces share a square — pick one to move {selectedValue}.
+            </Text>
+            {(pickerGroup || []).map((p) => (
+              <TouchableOpacity
+                key={p.pieceId}
+                style={styles.pickerRow}
+                onPress={() => {
+                  const id = p.pieceId;
+                  setPickerGroup(null);
+                  onMove && onMove(id, selectedValue);
                 }}
-              />
+              >
+                <View style={[styles.pickerDot, { backgroundColor: p.color }]} />
+                <Text style={styles.pickerText}>
+                  {NAME_BY_INDEX[p.colorIdx] || 'Piece'} · piece {p.pieceId + 1}
+                </Text>
+              </TouchableOpacity>
             ))}
-          </View>
-        </LinearGradient>
-        <View
-          style={{
-            position: 'absolute',
-            left: reverse ? undefined : 0,
-            right: reverse ? 0 : undefined,
-            width: 140 * k,
-            height: 140 * k,
-            borderRadius: 70 * k,
-            borderWidth: 4 * k,
-            borderColor: color,
-            overflow: 'hidden',
-          }}
-        >
-          <Art name={`p${p}`} w={132 * k} h={132 * k} />
-        </View>
-      </Button>
-    );
-  }
-
-  const reset = () =>
-    Alert.alert('Start a new local game?', 'This clears the current match and undo history. Your bonus coins remain.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'New game',
-        onPress: () => {
-          wonReported.current = false;
-          if (pause.current !== null) pause.current = Date.now();
-          dispatch({ type: 'RESET' });
-          setChat([]);
-          show(null);
-        },
-      },
-    ]);
-
-  function DialogContent() {
-    if (modal === 'rules') return <><Text style={ui.title}>Rules</Text><Text style={ui.body}>{RULES}</Text></>;
-    if (modal === 'menu')
-      return (
-        <>
-          <Text style={ui.title}>Local game menu</Text>
-          <Text style={ui.body}>Room 458721 · 4 local seats{'\n'}Pass this device between players. The match pauses while this menu is open.</Text>
-          <Action label="Resume game" onPress={() => show(null)} />
-          <Action label="New game" onPress={reset} />
-          <Action label="Read rules" onPress={() => show('rules')} />
-          {onBack && <Action label="Exit game" onPress={onBack} />}
-        </>
-      );
-    if (modal === 'settings')
-      return (
-        <>
-          <Text style={ui.title}>Settings</Text>
-          <View style={ui.row}>
-            <Text style={ui.body}>Move hints</Text>
-            <Switch value={hints} onValueChange={setHints} accessibilityLabel="Enable move hints" />
-          </View>
-          <Text style={ui.body}>Four-player local mode. Timer: 2:45 per turn. Use the Rules panel for the exact two-dice variant.</Text>
-          <Action label="Restart match" onPress={reset} />
-        </>
-      );
-    if (modal === 'bonus')
-      return (
-        <>
-          <Text style={ui.title}>Daily Bonus</Text>
-          <Text style={ui.body}>
-            Practice coins: {userProfile?.coins ?? bonus?.coins ?? 0}{'\n'}
-            Next bonus: {bonus ? clock((bonus.next - Date.now()) / 1000, true) : 'Loading…'}{'\n'}
-            Claim 100 local practice coins every 24 hours. These have no cash value.
-          </Text>
-          <Action label="Claim 100 coins" disabled={!bonus || Date.now() < bonus.next} onPress={claim} />
-          {!!storageError && <Text style={ui.error}>{storageError}</Text>}
-        </>
-      );
-    if (modal === 'chat')
-      return (
-        <>
-          <Text style={ui.title}>Table Chat · local</Text>
-          <Text style={ui.body}>Messages stay on this device for this match. Sending uses the active player’s name.</Text>
-          {chat.length === 0 && <Text style={ui.body}>No messages yet.</Text>}
-          {chat.map((m) => (
-            <View key={m.id} style={ui.message}>
-              <Text style={{ color: COLORS[m.player], fontWeight: '700' }}>{NAMES[m.player]}</Text>
-              <Text style={ui.body}>{m.text}</Text>
-            </View>
-          ))}
-          <TextInput
-            style={ui.input}
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Type a message…"
-            placeholderTextColor="#b3bbed"
-            accessibilityLabel="Chat message"
-            maxLength={280}
-          />
-          <Action
-            label="Send message"
-            disabled={!draft.trim()}
-            onPress={() => {
-              setChat((old) => [...old, { id: `${Date.now()}-${Math.random()}`, player: state.turn, text: draft.trim() }].slice(-100));
-              setDraft('');
-            }}
-          />
-        </>
-      );
-    if (modal?.startsWith('player')) {
-      const p = Number(modal.slice(-1));
-      return (
-        <>
-          <Text style={ui.title}>{NAMES[p]}</Text>
-          <Text style={ui.body}>
-            Color: {['Red', 'Green', 'Yellow', 'Blue'][p]}{'\n'}
-            Tokens at home: {state.tokens[p].filter((n) => n === FINISH).length}/4{'\n'}
-            Tokens in yard: {state.tokens[p].filter((n) => n < 0).length}/4{'\n'}
-            {state.turn === p ? 'It is your turn.' : 'Waiting for your turn.'}
-          </Text>
-        </>
-      );
-    }
-    return null;
-  }
-
-  return (
-    <View style={[ui.root, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
-      <StatusBar barStyle="light-content" backgroundColor="#2521ac" />
-      {onBack && (
-        <Pressable onPress={onBack} style={ui.backHeaderBtn} accessibilityRole="button" accessibilityLabel="Go back">
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-          <Text style={{ color: '#fff', fontWeight: '700', marginLeft: 6 }}>Back</Text>
+          </Pressable>
         </Pressable>
-      )}
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }} maximumZoomScale={2} minimumZoomScale={1} bouncesZoom>
-        <ScrollView horizontal contentContainerStyle={{ alignItems: 'center' }} showsHorizontalScrollIndicator={false}>
-          <LinearGradient colors={['#3426cc', '#151578', '#2925b4']} style={{ width: sceneSize, height: sceneSize }}>
-            {[[-80, -80, 230], [1130, -50, 240], [-100, 930, 270], [1120, 1080, 220]].map(([x, y, r], i) => (
-              <View key={i} style={[rect(x, y, r, r), { borderRadius: r * k, backgroundColor: '#652aff44' }]} />
-            ))}
-            <Button label="Menu" onPress={() => show('menu')} style={[rect(20, 22, 90, 94), ui.round, { borderRadius: 50 * k, borderWidth: 4 * k }]}>
-              {ico('menu', 60)}
-            </Button>
-            <Button label="Settings" onPress={() => show('settings')} style={[rect(1146, 22, 90, 94), ui.round, { borderRadius: 50 * k, borderWidth: 4 * k }]}>
-              {ico('settings-sharp', 54)}
-            </Button>
-            <View style={rect(482, 5, 297, 192)}>
-              <Art name="logo" w={297 * k} h={192 * k} />
-            </View>
-            <Player p={0} x={112} y={57} w={350} />
-            <Player p={1} x={792} y={57} w={350} reverse />
-            <View style={rect(22, 676, 157, 244)}>
-              <Art name="left" w={157 * k} h={244 * k} />
-            </View>
-            <View style={[rect(194, 203, 864, 748), { borderWidth: 5 * k, borderColor: '#1664d4', borderRadius: 51 * k, backgroundColor: '#073b9a', padding: 12 * k }]}>
-              <View style={{ flex: 1, transform: [{ scaleY: 710 / 828 }], marginTop: -59 * k, marginBottom: -59 * k, justifyContent: 'center' }}>
-                <Board
-                  size={828 * k}
-                  state={state}
-                  onMove={(token) => dispatch({ type: 'MOVE', token })}
-                />
-              </View>
-            </View>
-            <View style={[rect(1077, 252, 160, 160), ui.round, { borderWidth: 6 * k, borderColor: '#168dff', borderRadius: 90 * k }]}>
-              {ico('stopwatch-outline', 59, '#00c8ff')}
-              {text(clock(((pause.current ?? now) < state.deadline ? state.deadline - (pause.current ?? now) : 0) / 1000), 39)}
-            </View>
-            {[
-              ['Rules', 'book', 'rules', 452],
-              ['Chat', 'chatbubble-ellipses', 'chat', 551],
-            ].map(([label, name, target, y]) => (
-              <Button key={target} label={label} onPress={() => show(target)} style={[rect(1078, y, 157, 78), ui.round, { borderRadius: 32 * k, borderWidth: 4 * k, flexDirection: 'row', gap: 15 * k }]}>
-                {ico(name, 35)}
-                {text(label, 26)}
-              </Button>
-            ))}
-            <View style={rect(1086, 674, 149, 250)}>
-              <Art name="right" w={149 * k} h={250 * k} />
-            </View>
-            <Player p={2} x={30} y={967} w={385} />
-            <Player p={3} x={838} y={967} w={386} reverse />
-            <View style={[rect(434, 952, 386, 126), ui.round, { borderRadius: 60 * k, borderWidth: 4 * k, flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', paddingHorizontal: 12 * k }]}>
-              {ico('chevron-back', 40, '#1262ef')}
-              <View style={{ flexDirection: 'row', gap: 24 * k, alignItems: 'center', justifyContent: 'center' }}>
-                {state.dice.map((value, index) => (
-                  <Die
-                    key={index}
-                    index={index}
-                    value={rollingDice ? animDice[index] : value}
-                    size={Math.max(36, 94 * k)}
-                    rolling={rollingDice}
-                    selected={state.phase === 'move' && state.selected === index}
-                    used={state.phase === 'move' && !state.available.includes(index)}
-                    onPress={() => dispatch({ type: 'SELECT', index })}
-                  />
-                ))}
-              </View>
-              {ico('chevron-forward', 40, '#1262ef')}
-            </View>
-            {(() => {
-              const undoElapsed = state.lastMoveTimestamp ? (now - state.lastMoveTimestamp) : null;
-              const undoTimeLeft = undoElapsed !== null ? Math.max(0, Math.ceil((10000 - undoElapsed) / 1000)) : 0;
-              const canUndo = Boolean(
-                state.history.length > 0 &&
-                state.turn === 0 &&
-                undoElapsed !== null &&
-                undoElapsed <= 10000
-              );
-              return (
-                <Button
-                  label="Undo last roll or move"
-                  onPress={() => dispatch({ type: 'UNDO' })}
-                  disabled={!canUndo}
-                  style={[
-                    rect(88, 1126, 271, 90),
-                    ui.round,
-                    { borderRadius: 46 * k, borderWidth: 5 * k, flexDirection: 'row', gap: 14 * k },
-                    !canUndo && { opacity: 0.4 },
-                  ]}
-                >
-                  {ico('arrow-undo', 40, canUndo ? '#ffe52b' : '#64748b')}
-                  {text(canUndo ? `UNDO (${undoTimeLeft}s)` : 'UNDO', 24, { color: canUndo ? '#fff' : '#94a3b8' })}
-                </Button>
-              );
-            })()}
-            <Button
-              label={state.phase === 'won' ? 'Start new game' : rollingDice ? 'Rolling dice...' : state.turn !== 0 ? `${NAMES[state.turn]}'s Turn` : 'Roll both dice'}
-              disabled={state.phase === 'move' || state.turn !== 0 || rollingDice}
-              onPress={handleRollDice}
-              style={rect(435, 1124, 385, 96)}
-            >
-              <LinearGradient colors={state.turn !== 0 ? ['#64748B', '#475569', '#334155'] : ['#fff147', '#ffc600', '#ffab00']} style={{ flex: 1, borderRadius: 50 * k, borderWidth: 5 * k, borderColor: state.turn !== 0 ? '#94A3B8' : '#ffe950', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24 * k }}>
-                {ico(rollingDice || state.turn !== 0 ? 'sync' : 'play', 48, state.turn !== 0 ? '#FFF' : '#402500')}
-                {text(state.phase === 'won' ? 'NEW GAME' : rollingDice ? 'ROLLING...' : state.turn !== 0 ? `${NAMES[state.turn].toUpperCase()}'S TURN` : 'ROLL DICE', 32, { color: state.turn !== 0 ? '#FFF' : '#281a00', fontWeight: '900' })}
-              </LinearGradient>
-            </Button>
-            <Button label="Show best move hint" disabled={!hints || state.phase === 'won'} onPress={() => dispatch({ type: 'HINT' })} style={[rect(897, 1122, 270, 92), ui.round, { borderRadius: 46 * k, borderWidth: 5 * k, flexDirection: 'row', gap: 24 * k }]}>
-              {ico('bulb', 48, '#ffe32a')}
-              {text('HINT', 28)}
-            </Button>
-          </LinearGradient>
-        </ScrollView>
-        <Text accessibilityLiveRegion="polite" style={[ui.status, { maxWidth: sceneSize }]}>
-          {state.message}
-        </Text>
-        {state.phase === 'move' && (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, paddingBottom: 8 }}>
-            {legal(state).map((t) => (
-              <Button key={t} label={`Move token ${t + 1} with die ${state.dice[state.selected]}`} onPress={() => dispatch({ type: 'MOVE', token: t })} style={ui.move}>
-                <Text style={{ color: '#fff' }}>Move token {t + 1}</Text>
-              </Button>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-      <Modal visible={!!modal} transparent animationType="fade" onRequestClose={() => show(null)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={ui.backdrop}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => show(null)} accessibilityRole="button" accessibilityLabel="Close panel" />
-          <View accessibilityViewIsModal style={ui.dialog}>
-            <Button label="Close panel" onPress={() => show(null)} style={{ alignSelf: 'flex-end', padding: 8 }}>
-              <Ionicons name="close" size={28} color="#fff" />
-            </Button>
-            <ScrollView keyboardShouldPersistTaps="handled">{DialogContent()}</ScrollView>
-          </View>
-        </KeyboardAvoidingView>
       </Modal>
+
+      {!!error && (
+        <View style={styles.banner}>
+          <Text style={styles.bannerText}>{error}</Text>
+        </View>
+      )}
     </View>
   );
 }
 
-function Action({ label, onPress, disabled }) {
-  return (
-    <Button label={label} onPress={onPress} disabled={disabled} style={ui.action}>
-      <Text style={{ color: '#101242', fontSize: 16, fontWeight: '700' }}>{label}</Text>
-    </Button>
-  );
-}
-
-const ui = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#2521ac' },
-  backHeaderBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, zIndex: 10 },
-  round: { backgroundColor: '#10135c', borderColor: '#3757e3', alignItems: 'center', justifyContent: 'center' },
-  panel: { backgroundColor: '#0e155e' },
-  status: { color: '#fff', fontSize: 15, textAlign: 'center', padding: 12, lineHeight: 21 },
-  move: { backgroundColor: '#174db2', padding: 12, borderRadius: 12 },
-  backdrop: { flex: 1, backgroundColor: '#000a', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  dialog: { maxHeight: '88%', width: '100%', maxWidth: 520, backgroundColor: '#121f68', borderRadius: 24, padding: 20, borderWidth: 2, borderColor: '#4277ff' },
-  title: { fontSize: 24, fontWeight: '800', color: '#fff', marginBottom: 12 },
-  body: { fontSize: 16, lineHeight: 24, color: '#e2e8ff', marginVertical: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  action: { backgroundColor: '#ffda18', borderRadius: 18, padding: 16, alignItems: 'center', marginTop: 12 },
-  input: { borderWidth: 1, borderColor: '#8798e5', borderRadius: 12, padding: 14, color: '#fff', fontSize: 16, marginTop: 15 },
-  message: { backgroundColor: '#1e327e', padding: 12, borderRadius: 12, marginBottom: 8 },
-  error: { color: '#ffbcb8', marginTop: 12 },
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#0B113A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  title: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 },
+  turnText: { color: '#9fb0d0', fontSize: 14, fontWeight: '700', marginBottom: 8 },
+  chipsRow: { flexDirection: 'row', gap: 12, marginTop: 12 },
+  chip: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#16204a',
+    borderWidth: 1,
+    borderColor: '#26305c',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipActive: { backgroundColor: '#00E5FF', borderColor: '#00E5FF' },
+  chipDisabled: { opacity: 0.35 },
+  chipText: { color: '#c7d2ff', fontSize: 18, fontWeight: '800' },
+  chipTextActive: { color: '#0B113A' },
+  rollBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 14,
+    backgroundColor: '#00E5FF',
+  },
+  rollBtnDisabled: { backgroundColor: '#1b2350' },
+  rollText: { color: '#0B113A', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 },
+  rollTextDisabled: { color: '#5b6b8f' },
+  statusRow: { flexDirection: 'row', gap: 10, marginTop: 12, alignItems: 'center' },
+  statusText: { color: '#6f7fa8', fontSize: 12, fontWeight: '700' },
+  timerText: { color: '#FFD224', fontSize: 12, fontWeight: '800' },
+  playersRow: { flexDirection: 'row', gap: 12, marginTop: 14, flexWrap: 'wrap', justifyContent: 'center' },
+  playerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#141d44',
+  },
+  playerChipActive: { backgroundColor: '#243063' },
+  playerDot: { width: 10, height: 10, borderRadius: 5 },
+  playerName: { color: '#9fb0d0', fontSize: 12, fontWeight: '600' },
+  playerNameActive: { color: '#FFFFFF', fontWeight: '800' },
+  banner: {
+    position: 'absolute',
+    bottom: 24,
+    left: 24,
+    right: 24,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+  },
+  bannerText: { color: '#FFD224', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  pickerCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#141d44',
+    borderRadius: 18,
+    padding: 20,
+    gap: 10,
+  },
+  pickerTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
+  pickerSub: { color: '#9fb0d0', fontSize: 13, marginBottom: 6 },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: '#1d2856',
+  },
+  pickerDot: { width: 18, height: 18, borderRadius: 9 },
+  pickerText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });
-export default LudoScreen;

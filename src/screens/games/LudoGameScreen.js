@@ -1,146 +1,108 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Text, Alert, ActivityIndicator } from 'react-native';
-import { LudoScreen } from '../../games/ludo/LudoScreen';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { View, StyleSheet, Text, ActivityIndicator } from 'react-native';
+import LudoScreen from '../../games/ludo/LudoScreen';
+import { useServerGame } from '../../games/useServerGame';
 import { useAuth } from '../../context/AuthContext';
-import { useOnlineMatch } from '../../games/useOnlineMatch';
-import { practice } from '../../services/api';
-import { ApiError } from '../../services/apiClient';
-import CoinTossModal from '../../components/CoinTossModal';
-
-const STATUS_LABEL = {
-  joining: 'Connectingâ€¦',
-  waiting: 'Waitingâ€¦',
-  playing: 'Live match',
-  game_over: 'Match over',
-  aborted: 'Match cancelled',
-  error: 'Connection error',
-};
-
+import { ludoViewModel, diceValueForMove } from '../../games/ludo/serverAdapter';
 export default function LudoGameScreen({ route, navigation }) {
-  const { userProfile } = useAuth();
+  const { user } = useAuth();
   const params = route.params || {};
-  const mode = params.mode || 'local';
-  const roomId = params.roomId || null;
-  const stake = params.stake || 250;
-  const timer = params.timer || '2m';
-  const [localWinBanner, setLocalWinBanner] = useState('');
+  const mode = params.mode === 'multiplayer' ? 'multiplayer' : 'practice';
+  const multiplayer = mode === 'multiplayer';
+  const roomId = multiplayer ? params.roomId || null : null;
+  const uid = user?.uid;
+  const stake = params.stake || 0;
+  const playerCount = Math.max(2, Math.min(4, params.players || params.playerCount || 2));
+  const tokenCount = Math.max(1, Math.min(4, params.tokens || params.tokenCount || 4));
+  const diceCount = 2;
+
+  const options = useMemo(
+    () => ({ playerCount, diceCount, tokenCount }),
+    [playerCount, diceCount, tokenCount],
+  );
+
+  const session = useServerGame({ gameType: 'ludo', roomId, uid, options });
+  const snapshot = session.snapshot;
+
+  const viewModel = useMemo(() => ludoViewModel(snapshot, uid), [snapshot, uid]);
+
+  const navigated = useRef(false);
+  useEffect(() => {
+    if (snapshot?.status !== 'completed' || navigated.current || session.pending) return;
+    const timerId = setTimeout(() => {
+      if (navigated.current) return;
+      navigated.current = true;
+      const opponent = snapshot.players?.find((p) => p.uid !== uid);
+      navigation.replace('GameResult', {
+        serverConfirmed: true,
+        isWinner: snapshot.winner === uid,
+        isDraw: snapshot.winner == null,
+        completionReason: snapshot.completionReason || 'normal',
+        myScore: null,
+        opponentScore: null,
+        opponentName:
+          typeof opponent?.uid === 'string' && opponent.uid.indexOf('bot') === 0
+            ? 'OBA'
+            : opponent?.displayName || 'Opponent',
+        gameId: 'ludo',
+        gameName: 'Ludo',
+        targetScreen: 'LudoGame',
+        stake: multiplayer ? stake : 0,
+        matchSettings: { ...params, mode },
+      });
+    }, 900);
+    return () => clearTimeout(timerId);
+  }, [snapshot, session.pending, uid, navigation, multiplayer, stake, mode, params]);
 
   const handleBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      navigation.navigate('MainTabs');
-    }
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.navigate('MainTabs');
   };
 
-  const m = useOnlineMatch({
-    roomId: mode === 'multiplayer' && roomId ? roomId : null,
-    gameType: 'ludo',
-    onExit: handleBack,
-  });
-
-  const isPractice = mode === 'practice';
-  const practiceSessionId = useRef(null);
-  const [practiceReady, setPracticeReady] = useState(isPractice);
-
-  useEffect(() => {
-    if (!isPractice) return;
-    let cancelled = false;
-    setPracticeReady(false);
-    practice.ludo
-      .start({ playerCount: 2, diceCount: 1 })
-      .then((res) => {
-        if (cancelled) return;
-        practiceSessionId.current = res?.sessionId || null;
-        setPracticeReady(true);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        Alert.alert(
-          'Could not start practice',
-          err instanceof ApiError ? err.message : 'Practice is temporarily unavailable.',
-        );
-        handleBack();
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPractice]);
-
-  useEffect(() => {
-    if (!localWinBanner) return;
-    const t = setTimeout(() => setLocalWinBanner(''), 3500);
-    return () => clearTimeout(t);
-  }, [localWinBanner]);
-
-const handleWin = (won = true) => {
-    setLocalWinBanner(won ? 'You win!' : 'Match over!');
-    setTimeout(() => {
-      navigation.navigate('GameResult', {
-        isWinner: won,
-        myScore: won ? 56 : 32,
-        opponentScore: won ? 30 : 56,
-        opponentName: m.opponent?.displayName || 'Gamearn Bot 🤖',
-        gameId: 'ludo',
-        gameName: 'Ludo Classic',
-        targetScreen: 'LudoGame',
-        stake: stake,
-        matchSettings: route.params || {},
-      });
-    }, 800);
+  const handleRoll = () => session.move({ action: 'roll_dice' });
+  const handleMove = (pieceId, value) => {
+    const diceValue = value ?? diceValueForMove(viewModel, pieceId);
+    if (diceValue == null) return;
+    session.move({ pieceId, diceValue });
   };
 
-  const [showCoinToss, setShowCoinToss] = useState(true);
-
-  const ludoPlayers = [
-    { id: 0, name: 'You', isUser: true },
-    { id: 1, name: m.opponent?.displayName || 'Gamearn Bot 🤖', isAi: true },
-  ];
+  const statusText =
+    session.status === 'connecting'
+      ? 'Connecting…'
+      : multiplayer
+        ? 'Live match'
+        : 'Practice · vs OBA';
 
   return (
     <View style={styles.container}>
-      <LudoScreen
-        stake={stake}
-        timer={timer}
-        aiDifficulty={params.aiDifficulty}
-        playerCount={params.players || params.playerCount || 2}
-        tokenCount={params.tokens || params.tokenCount || 4}
-        onWin={handleWin}
-        onBack={handleBack}
-      />
-      <CoinTossModal
-        visible={showCoinToss}
-        players={ludoPlayers}
-        gameName="Ludo Classic"
-        onComplete={() => setShowCoinToss(false)}
-      />
-      {isPractice && (
-        <View style={styles.practiceHud} pointerEvents="none">
-          <Text style={styles.practiceTitle}>Ludo â€” Practice</Text>
-          <Text style={styles.practiceSub}>vs Gamearn Bot Â· FREE</Text>
-        </View>
-      )}
-      {mode === 'multiplayer' && roomId && (
-        <View style={styles.hud}>
-          <View style={styles.hudRow}>
-            <Text style={styles.hudOpponent} numberOfLines={1}>
-              {m.opponent?.displayName || 'Live opponent'}
-            </Text>
-            <Text style={styles.hudStatus}>{STATUS_LABEL[m.status] || 'Live match'}</Text>
-          </View>
-          {!!m.banner && <Text style={styles.hudBanner}>{m.banner}</Text>}
-        </View>
-      )}
-      {!!localWinBanner && (
-        <View style={styles.winBanner}>
-          <Text style={styles.winBannerText}>{localWinBanner}</Text>
-        </View>
-      )}
-      {isPractice && !practiceReady && (
+      {viewModel ? (
+        <LudoScreen
+          viewModel={viewModel}
+          isRemote
+          status={session.status}
+          secondsRemaining={session.secondsRemaining}
+          error={session.error}
+          canMove={session.canMove}
+          pending={session.pending}
+          onRoll={handleRoll}
+          onMove={handleMove}
+          onBack={handleBack}
+        />
+      ) : null}
+
+      {!viewModel && (
         <View style={styles.overlay}>
           <ActivityIndicator size="large" color="#00E5FF" />
-          <Text style={styles.overlayText}>Starting practice gameâ€¦</Text>
+          <Text style={styles.overlayText}>
+            {session.error || (multiplayer ? 'Joining match…' : 'Starting practice game…')}
+          </Text>
+        </View>
+      )}
+
+      {!multiplayer && viewModel && (
+        <View style={styles.practiceHud} pointerEvents="none">
+          <Text style={styles.practiceTitle}>Ludo — Practice</Text>
+          <Text style={styles.practiceSub}>{statusText}</Text>
         </View>
       )}
     </View>
@@ -148,9 +110,21 @@ const handleWin = (won = true) => {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B113A',
+  container: { flex: 1, backgroundColor: '#0B113A' },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(11, 17, 58, 0.94)',
+  },
+  overlayText: {
+    marginTop: 16,
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
   practiceHud: {
     position: 'absolute',
@@ -158,97 +132,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 20,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingTop: 48,
-    paddingBottom: 10,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(4, 48, 31, 0.85)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(16, 185, 129, 0.25)',
+    paddingTop: 8,
   },
-  practiceTitle: {
-    color: '#34D399',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  practiceSub: {
-    color: '#A7F3D0',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(11, 17, 58, 0.92)',
-  },
-  overlayText: {
-    marginTop: 14,
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  hud: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-    paddingHorizontal: 16,
-    paddingTop: 46,
-    paddingBottom: 8,
-    backgroundColor: 'rgba(16, 7, 93, 0.85)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 229, 255, 0.25)',
-  },
-  hudRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  hudOpponent: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-    flexShrink: 1,
-    paddingRight: 12,
-  },
-  hudStatus: {
-    color: '#00E5FF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  hudBanner: {
-    color: '#ffd224',
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  winBanner: {
-    position: 'absolute',
-    top: '42%',
-    alignSelf: 'center',
-    zIndex: 25,
-    backgroundColor: 'rgba(16, 7, 93, 0.92)',
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#00E5FF',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-  },
-  winBannerText: {
-    color: '#00E5FF',
-    fontSize: 22,
-    fontWeight: '900',
-  },
+  practiceTitle: { color: '#00E5FF', fontSize: 12, fontWeight: '900', letterSpacing: 1 },
+  practiceSub: { color: '#8ea2c9', fontSize: 11, fontWeight: '700', marginTop: 2 },
 });
-
