@@ -484,12 +484,12 @@ export default function ChallengeHubScreen({ route, navigation }) {
           <View style={styles.summaryRow}>
             <Text style={{ color: theme.textSecondary }}>Winner takes (up to):</Text>
             <Text style={{ color: theme.success, fontWeight: '800' }}>
-              {amountValid || freeChallenge ? (selectedFee === 0 ? 'No prize' : naira(koboToN(Math.floor(selectedFee * 2 * 0.80)))) : '—'}
+              {amountValid || freeChallenge ? (selectedFee === 0 ? 'No prize' : naira(koboToN(Math.floor(selectedFee * 2 * 0.90)))) : '—'}
             </Text>
           </View>
           <Text style={[styles.note, { color: theme.textMuted }]}>
             Open challenges have no expiry. Every player is notified; your match
-            starts once an acceptor joins and you rejoin the room. A 20% platform fee applies to prize payouts. Free challenges have no prize pool.
+            starts once an acceptor joins and you rejoin the room. A 10% platform fee applies to prize payouts. Free challenges have no prize pool.
           </Text>
         </View>
 

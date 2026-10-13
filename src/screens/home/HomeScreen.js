@@ -412,13 +412,13 @@ export default function HomeScreen({ navigation }) {
     const hasPlayers = countNum > 0;
 
     return (
-      <Tap label={`${game.name}, ${hasPlayers ? game.players : '0'} playing. Open game lobby`} onPress={() => launchGame(game)} style={s.gameCard}>
+      <Tap label={`${game.name}, ${hasPlayers ? (game.players || countNum) : '0'} playing. Open game lobby`} onPress={() => launchGame(game)} style={s.gameCard}>
         <Art name={game.id} width={116 * scale} height={81 * scale} style={{ width: '100%' }} />
         <View style={s.gameText}>
           {txt(game.name, 15, s.bold)}
           <View style={s.inline}>
             <View style={[s.dot, { backgroundColor: hasPlayers ? GREEN : '#EF4444' }]} />
-            {txt(hasPlayers ? `${game.players} Playing` : '0 Playing', 11, hasPlayers ? s.muted : { color: '#EF4444', fontWeight: '700' })}
+            {txt(hasPlayers ? `${game.players || countNum} Playing` : '0 Playing', 11, hasPlayers ? s.muted : { color: '#EF4444', fontWeight: '700' })}
           </View>
         </View>
       </Tap>
