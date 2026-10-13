@@ -80,6 +80,47 @@ function effectiveColorIdx(piece, playerIndex) {
   return piece && piece.colorIdx != null ? piece.colorIdx : playerIndex;
 }
 
+// Animation frames for one server 'move' presentation event. The server walks
+// the piece square-by-square (validators/ludo.js movementSteps) and stores each
+// intermediate piece state in event.steps; we map those to board cells so the
+// client can replay the exact path the piece took. The pre-move cell is taken
+// from event.beforePlayers when present, otherwise the first step is the start.
+function moveEventFrames(event, players) {
+  if (!event || event.type !== 'move' || !Array.isArray(event.steps) || !event.steps.length) return null;
+  const playerIndex = players.findIndex((p) => p.uid === event.playerUid);
+  if (playerIndex < 0) return null;
+  const { pieceId } = event;
+  if (!Number.isInteger(pieceId)) return null;
+
+  const colorIdx = event.steps[0] && event.steps[0].colorIdx != null
+    ? event.steps[0].colorIdx
+    : playerIndex;
+  const count = players[playerIndex]?.pieces?.length || 4;
+
+  const cells = [];
+  const beforePiece = event.beforePlayers?.[playerIndex]?.pieces?.[pieceId];
+  if (beforePiece) cells.push(pieceCell(beforePiece, colorIdx, pieceId, count));
+  event.steps.forEach((step) => cells.push(pieceCell(step, colorIdx, pieceId, count)));
+
+  // Drop consecutive duplicates (e.g. overshoot frames collapsing on the centre).
+  const trimmed = cells.filter((cell, i) => (
+    i === 0 || Math.abs(cell.r - cells[i - 1].r) > 1e-6 || Math.abs(cell.c - cells[i - 1].c) > 1e-6
+  ));
+  if (trimmed.length < 2) return null;
+
+  return { id: event.id, playerIndex, pieceId, colorIdx, cells: trimmed };
+}
+
+function buildMoveEvents(snapshot, players) {
+  const events = Array.isArray(snapshot.presentationEvents) ? snapshot.presentationEvents : [];
+  const out = [];
+  events.forEach((event) => {
+    const frames = moveEventFrames(event, players);
+    if (frames) out.push(frames);
+  });
+  return out;
+}
+
 /**
  * Build the render view model from a server snapshot.
  * @param {Object} snapshot  _responseData payload
@@ -127,10 +168,13 @@ export function ludoViewModel(snapshot, myUid) {
       ? [snapshot.diceValue]
       : [];
 
+  const moveEvents = buildMoveEvents(snapshot, players);
+
   return {
     players,
     legalMoves,
     legalPieceIds,
+    moveEvents,
     currentPlayerIndex: snapshot.currentPlayerIndex ?? 0,
     currentPlayerUid: snapshot.currentPlayerUid ?? null,
     myUid: myUid || null,

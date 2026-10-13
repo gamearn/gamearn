@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Pressable } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Pressable, Animated, Easing } from 'react-native';
 import Svg, {
   Rect,
   Circle,
@@ -82,6 +82,66 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
   const myTurn = !!viewModel?.isMyTurn;
   const canPick = myTurn && viewModel?.diceRolled && (viewModel?.legalPieceIds || []).length > 0;
 
+  // Replay each new server 'move' event square-by-square. Frames come straight
+  // from the server (serverAdapter moveEvents); we animate a temporary token
+  // through them and hide the piece's static token for the duration.
+  const moveEvents = viewModel?.moveEvents || [];
+  const queueRef = useRef([]);
+  const processedRef = useRef(null);
+  const animatingRef = useRef(false);
+  const [activeMove, setActiveMove] = useState(null);
+  const progress = useRef(new Animated.Value(0)).current;
+
+  const runQueue = useCallback(() => {
+    if (animatingRef.current) return;
+    const next = queueRef.current.shift();
+    if (!next) return;
+    animatingRef.current = true;
+    const n = next.cells.length - 1;
+    const stepMs = Math.max(90, Math.min(170, Math.round(1400 / n)));
+    progress.setValue(0);
+    setActiveMove(next);
+    Animated.timing(progress, {
+      toValue: n,
+      duration: stepMs * n,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    }).start(() => {
+      animatingRef.current = false;
+      setActiveMove(null);
+      if (queueRef.current.length) runQueue();
+    });
+  }, [progress]);
+
+  useEffect(() => {
+    const maxId = moveEvents.length ? moveEvents[moveEvents.length - 1].id : 0;
+    // Baseline the first board we render so pre-existing history is never
+    // replayed; only moves that arrive after that animate.
+    if (processedRef.current == null) {
+      if (!viewModel) return;
+      processedRef.current = maxId;
+      return;
+    }
+    if (maxId < processedRef.current) {
+      processedRef.current = maxId;
+      queueRef.current = [];
+      animatingRef.current = false;
+      progress.setValue(0);
+      setActiveMove(null);
+      return;
+    }
+    const fresh = moveEvents.filter((event) => event.id > processedRef.current);
+    if (!fresh.length) return;
+    processedRef.current = maxId;
+    queueRef.current.push(...fresh);
+    runQueue();
+  }, [moveEvents, viewModel, progress, runQueue]);
+
+  const active = activeMove;
+  const isAnimating = (token) => (
+    !!active && token.playerIndex === active.playerIndex && token.pieceId === active.pieceId
+  );
+
   // Flatten pieces and fan out stacked pieces sharing a cell.
   const tokens = [];
   (viewModel?.players || []).forEach((player) => {
@@ -120,6 +180,16 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
   });
 
   const cs = size / CELLS;
+  const tokenDiameter = cs * 0.8;
+  const animInput = active ? active.cells.map((_, i) => i) : [0, 1];
+  const animLeft = progress.interpolate({
+    inputRange: animInput,
+    outputRange: active ? active.cells.map((cell) => (cell.c + 0.5) * cs - tokenDiameter / 2) : [0, 0],
+  });
+  const animTop = progress.interpolate({
+    inputRange: animInput,
+    outputRange: active ? active.cells.map((cell) => (cell.r + 0.5) * cs - tokenDiameter / 2) : [0, 0],
+  });
 
   return (
     <View
@@ -246,18 +316,50 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
         <Polygon points={arrow(5.5, 7.5, 'left')} fill="#ffffff" fillOpacity="0.5" />
 
         {/* Pieces */}
-        {tokens.map((t) => (
+        {tokens.map((t) => (isAnimating(t) ? null : (
           <G key={`p-${t.playerIndex}-${t.pieceId}`}>
             {t.legal && <Circle cx={t.x} cy={t.y} r="0.58" fill="none" stroke="#00E5FF" strokeWidth="0.11" />}
             <Circle cx={t.x} cy={t.y} r="0.4" fill={`url(#tk${t.colorIdx ?? 0})`} stroke={t.dark} strokeWidth="0.08" />
             <Circle cx={t.x - 0.11} cy={t.y - 0.13} r="0.1" fill="#ffffff" opacity={0.6} />
           </G>
-        ))}
+        )))}
         <Rect x="0.08" y="0.08" width="14.84" height="14.84" rx="0.28" fill="none" stroke="#102044" strokeWidth="0.16" />
       </Svg>
 
+      {/* Moving token — replays the server's per-square path during a move. */}
+      {active && (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: animLeft,
+            top: animTop,
+            width: tokenDiameter,
+            height: tokenDiameter,
+            borderRadius: tokenDiameter / 2,
+            backgroundColor: COLOR_BY_INDEX[active.colorIdx] || '#ffffff',
+            borderWidth: Math.max(1, cs * 0.08),
+            borderColor: DARK_BY_INDEX[active.colorIdx] || '#000000',
+            elevation: 6,
+          }}
+        >
+          <View
+            style={{
+              position: 'absolute',
+              left: tokenDiameter * 0.24,
+              top: tokenDiameter * 0.16,
+              width: tokenDiameter * 0.22,
+              height: tokenDiameter * 0.22,
+              borderRadius: tokenDiameter * 0.11,
+              backgroundColor: '#ffffff',
+              opacity: 0.6,
+            }}
+          />
+        </Animated.View>
+      )}
+
       {/* Interaction overlay */}
-      {tokens.map((t) => (
+      {tokens.map((t) => (isAnimating(t) ? null : (
         <Pressable
           key={`pt-${t.playerIndex}-${t.pieceId}`}
           accessibilityRole="button"
@@ -273,7 +375,7 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
             borderRadius: cs,
           }}
         />
-      ))}
+      )))}
     </View>
   );
 }
