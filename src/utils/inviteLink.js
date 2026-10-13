@@ -1,6 +1,6 @@
 /**
  * In-memory capture of the referral code arriving via deep link.
- * Shared links are `https://gamearn.app/i/<CODE>` (universal) and
+ * Shared links are `https://api.gamearn.app/i/<CODE>` (universal) and
  * `gamearn://invite/<CODE>` (deep). Patterns matched here cover both,
  * plus bare `?code=` style query params, so the code can be prefilled
  * on the Profile Setup referral field regardless of link shape.

@@ -61,16 +61,16 @@ export const naira = (amount) =>
   `\u20A6${Number(amount).toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
 
 // ── App Store / deep-link identifiers for sharing outside the app ─────────────
-// The universal landing URL (https://gamearn.app/i/<code>) is what goes in every
-// shared invite; that page is configured to open the app when installed (via
-// universal/deep link) and redirect to the correct store when it is not.
+// The universal landing URL (https://api.gamearn.app/i/<code>) is what goes in every
+// shared invite; the backend serves that page and opens the app when installed
+// (via deep link) and redirects to the correct store when it is not.
 export const DEEP_LINK_SCHEME = 'gamearn';
 export const ANDROID_PACKAGE = 'com.gamearn';
 export const IOS_BUNDLE_ID = 'com.gamearn';
 // App Store numeric ID — fill in once Gamearn is live on the App Store.
 // Until then the iOS line of the share message falls back to the universal link.
 export const IOS_APP_STORE_ID = '';
-export const REFERRAL_LANDING_BASE = 'https://gamearn.app/i';
+export const REFERRAL_LANDING_BASE = 'https://api.gamearn.app/i';
 
 export const referralDeepLink = (code) => `${DEEP_LINK_SCHEME}://invite/${code}`;
 export const referralUniversalLink = (code) => `${REFERRAL_LANDING_BASE}/${code}`;
