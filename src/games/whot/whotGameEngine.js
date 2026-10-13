@@ -140,7 +140,7 @@ export function createInitialState(timer = '2m', cardCount = 6, playerCount = 2,
     gameStatus: 'playing',
     winner: null,
     statusMessage: `Your turn! Hand: ${numCardsPerPlayer} cards. Match shape or number.`,
-    coinBalance: 1250,
+    valuePoints: 0,
     dailyBonusSeconds: 8073,
     soundEnabled: true,
     pendingWhotSelection: false,
@@ -211,15 +211,13 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
   // Check victory (Hand emptied!)
   if (updatedHand.length === 0) {
     const isHuman = playerIndex === 0;
-    const bonusCoins = isHuman ? 500 : 0;
     return {
       ...state,
       players: updatedPlayers,
       discardPile: updatedDiscard,
       gameStatus: 'game_over',
       winner: player,
-      coinBalance: state.coinBalance + bonusCoins,
-      statusMessage: `🎉 ${player.name} won the game! ${isHuman ? '+500 Coins rewarded!' : ''}`,
+      statusMessage: `🎉 ${player.name} won the game! ${isHuman ? 'Prize paid to your wallet!' : ''}`,
     };
   }
 
@@ -278,7 +276,6 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
 
     if (drawPile.length === 0) {
       const { winner, minScore } = evaluateCheckup(marketPlayers);
-      const isHumanWinner = winner.id === 0;
       return {
         ...state,
         players: marketPlayers,
@@ -286,7 +283,6 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
         discardPile: currentDiscard,
         gameStatus: 'game_over',
         winner,
-        coinBalance: state.coinBalance + (isHumanWinner ? 500 : 0),
         statusMessage: `🏁 First pile finished! Checkup: ${winner.name} won with lowest card count (${minScore} pts)!`,
       };
     }
@@ -308,7 +304,6 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
   // Check if draw pile finished after playing
   if (drawPile.length === 0) {
     const { winner, minScore } = evaluateCheckup(updatedPlayers);
-    const isHumanWinner = winner.id === 0;
     return {
       ...state,
       players: updatedPlayers,
@@ -316,7 +311,6 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
       drawPile: [],
       gameStatus: 'game_over',
       winner,
-      coinBalance: state.coinBalance + (isHumanWinner ? 500 : 0),
       statusMessage: `🏁 First pile finished! Checkup: ${winner.name} won with lowest card count (${minScore} pts)!`,
     };
   }
@@ -363,8 +357,6 @@ export function drawCard(state, playerIndex) {
   // Market exhausted (First Pile Finished) -> Game ends immediately & Checkup Scoring determines winner!
   if (drawPile.length === 0) {
     const { winner, minScore } = evaluateCheckup(updatedPlayers);
-    const isHumanWinner = winner.id === 0;
-    const bonusCoins = isHumanWinner ? 500 : 0;
     return {
       ...state,
       players: updatedPlayers,
@@ -372,7 +364,6 @@ export function drawCard(state, playerIndex) {
       discardPile,
       gameStatus: 'game_over',
       winner,
-      coinBalance: state.coinBalance + bonusCoins,
       statusMessage: `🏁 First pile finished! Checkup: ${winner.name} won with lowest card count (${minScore} pts)!`,
     };
   }

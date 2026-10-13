@@ -249,7 +249,7 @@ export default function DailyStreakScreen({ navigation }) {
               <View style={[styles.nodeCardBox, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.nodeDayLabelText, { color: theme.primary }]}>DAY 50</Text>
-                  <Text style={[styles.nodeTitleText, { color: theme.textPrimary }]}>Silver Badge + 500 Coins</Text>
+                  <Text style={[styles.nodeTitleText, { color: theme.textPrimary }]}>Silver Badge + 10 Value Points</Text>
                 </View>
                 <Lock size={18} color={theme.textMuted} />
               </View>

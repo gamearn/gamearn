@@ -106,7 +106,7 @@ export default function GameResultScreen({ route, navigation }) {
       // Calculate Game Power (GP) dynamically using official formula
       const newGp = calculateGamePower(newPlayed, newWins, newLosses);
 
-      const userBalance = Number(userProfile?.walletBalance ?? userProfile?.balance ?? userProfile?.coins ?? 0);
+      const userBalance = Number(userProfile?.walletBalance ?? userProfile?.balance ?? userProfile?.valuePoints ?? 0);
       const newVp = calculateValuePoints(userBalance, newPlayed, newWins);
 
       updateProfileData({

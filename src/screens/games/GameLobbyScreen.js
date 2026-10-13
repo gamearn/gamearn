@@ -8,7 +8,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { matchmaking, challenges } from '../../services/api';
 import { GamearnSocket } from '../../services/gamearnSocket';
-import { coinsFromNaira, koboToN, naira, nairaToKobo } from '../../config/appConfig';
+import { valuePointsFromNaira, koboToN, naira, nairaToKobo } from '../../config/appConfig';
 
 // Custom stakes: backend caps entry fees at 500000 kobo.
 const MIN_AMOUNT_N = 50;
@@ -50,7 +50,7 @@ export default function GameLobbyScreen({ route, navigation }) {
   const amountN = parseAmount(amountText);
   const selectedFee = nairaToKobo(amountN);
   const amountValid = amountN >= MIN_AMOUNT_N && amountN <= MAX_AMOUNT_N;
-  const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.coins ?? 0);
+  const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.valuePoints ?? 0);
   const balanceKobo = Math.round(balanceNaira * 100);
 
   const handleBack = () => {
@@ -224,7 +224,7 @@ export default function GameLobbyScreen({ route, navigation }) {
         `This challenge costs ${naira(koboToN(selectedFee))}. Your balance is ${naira(balanceNaira)}.`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Buy Coins', onPress: () => navigation.navigate('BuyCoins') },
+          { text: 'Buy Value Points', onPress: () => navigation.navigate('BuyValuePoints') },
         ]
       );
       return;
@@ -290,7 +290,7 @@ export default function GameLobbyScreen({ route, navigation }) {
       Alert.alert('Sign in required', 'Create an account to top up.');
       return;
     }
-    navigation.navigate('BuyCoins');
+    navigation.navigate('BuyValuePoints');
   };
 
   return (
@@ -456,7 +456,7 @@ export default function GameLobbyScreen({ route, navigation }) {
       </View>
       <Text style={[styles.amountHint, { color: amountValid ? theme.textSecondary : '#EF4444' }]}>
         {amountValid
-          ? `${naira(koboToN(selectedFee))} stake = ${coinsFromNaira(amountN).toLocaleString()} coins (1 coin = ₦50)`
+          ? `${naira(koboToN(selectedFee))} stake = ${valuePointsFromNaira(amountN).toLocaleString()} Value Points (1 VP = ₦50)`
           : `Amount must be between ${naira(MIN_AMOUNT_N)} and ${naira(MAX_AMOUNT_N)}`}
       </Text>
       <View style={styles.quickRow}>

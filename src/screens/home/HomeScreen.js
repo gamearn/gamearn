@@ -173,7 +173,7 @@ export default function HomeScreen({ navigation }) {
             : tournamentResult.value?.tournaments || tournamentResult.value?.data || [];
           setFeaturedTournament(
             list.find((item) =>
-              ['open', 'live', 'registration_open'].includes(String(item.status).toLowerCase())
+              ['open', 'live', 'registration_open', 'in_progress'].includes(String(item.status).toLowerCase())
             ) || null
           );
         }
@@ -313,7 +313,7 @@ export default function HomeScreen({ navigation }) {
       return;
     }
     setSheet(null);
-    navigation?.navigate('BuyCoins');
+    navigation?.navigate('BuyValuePoints');
   };
 
   function Header() {
@@ -360,7 +360,7 @@ export default function HomeScreen({ navigation }) {
           {txt(homeDataLoading ? 'Loading...' : formatNaira(walletBalanceNaira), 24, s.bold)}
           {txt('Live balance from wallet', 13, s.cyan)}
         </Tap>
-        <Tap label="Buy coins" onPress={() => navigation?.navigate('BuyCoins')} style={s.plus}>
+        <Tap label="Buy Value Points" onPress={() => navigation?.navigate('BuyValuePoints')} style={s.plus}>
           {icon('add', 27, '#002741')}
         </Tap>
       </LinearGradient>
@@ -384,7 +384,7 @@ export default function HomeScreen({ navigation }) {
           <View style={s.live}>{txt('Live Now', 13, { color: '#00110a', fontWeight: '800' })}</View>
           <View style={s.playersBadge}>
             {icon('people', 14, '#fff')}
-            {txt(`${Number(tournament.currentPlayers ?? tournament.playersCount ?? 0).toLocaleString()} Players`, 12)}
+            {txt(`${Number(tournament.currentPlayers ?? tournament.currentParticipants ?? tournament.playersCount ?? 0).toLocaleString()} Players`, 12)}
           </View>
         </View>
         {txt(tournament.name || 'Live Tournament', 23, s.tournamentTitle)}

@@ -38,7 +38,7 @@ export default function WalletScreen({ navigation }) {
   const [txLoading, setTxLoading] = useState(true);
   const [streakData, setStreakData] = useState(null);
 
-  const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.coins ?? 0);
+  const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.valuePoints ?? 0);
   const streakDays = Number(streakData?.currentStreak ?? userProfile?.streak ?? 0);
   const usdValue = (balanceNaira / 1500).toFixed(2);
 
@@ -198,9 +198,9 @@ export default function WalletScreen({ navigation }) {
                 activeOpacity={0.8}
                 onPress={() => {
                   setActiveTab(tab);
-                  if (tab === 'Buy') navigation.navigate('BuyCoins');
+                  if (tab === 'Buy') navigation.navigate('BuyValuePoints');
                   if (tab === 'Withdraw') navigation.navigate('Withdraw');
-                  if (tab.trim() === 'Cash out' || tab === 'Sell') navigation.navigate('SellCoins');
+                  if (tab.trim() === 'Cash out' || tab === 'Sell') navigation.navigate('SellValuePoints');
                 }}
                 style={styles.tabNavItem}
               >
@@ -217,7 +217,7 @@ export default function WalletScreen({ navigation }) {
         <View style={styles.ctaButtonsGrid}>
           <TouchableOpacity
             activeOpacity={0.88}
-            onPress={() => navigation.navigate('BuyCoins')}
+            onPress={() => navigation.navigate('BuyValuePoints')}
             style={styles.addFundsBtn}
           >
             <LinearGradient
@@ -233,7 +233,7 @@ export default function WalletScreen({ navigation }) {
 
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={() => navigation.navigate('SellCoins')}
+            onPress={() => navigation.navigate('SellValuePoints')}
             style={[styles.cashOutBtn, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}
           >
             <Banknote size={20} color={theme.primary} style={{ marginRight: 8 }} />
@@ -244,7 +244,7 @@ export default function WalletScreen({ navigation }) {
         {/* Transaction History Section */}
         <View style={styles.txHeaderRow}>
           <Text style={[styles.txHeaderTitle, { color: theme.textPrimary }]}>Transaction History</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('BuyCoins')}>
+          <TouchableOpacity onPress={() => navigation.navigate('BuyValuePoints')}>
             <Text style={[styles.viewAllText, { color: theme.primary }]}>View All</Text>
           </TouchableOpacity>
         </View>

@@ -10,7 +10,7 @@ import { wallet } from '../../services/api';
 const SUCCESS_STATUSES = new Set(['completed', 'successful', 'success', 'paid']);
 
 export default function PaymentScreen({ navigation, route }) {
-  const { txRef, paymentLink, amount, coins } = route.params || {};
+  const { txRef, paymentLink, amount, valuePoints } = route.params || {};
   const { theme, isDark } = useTheme();
   const { refreshWallet } = useAuth();
   const [paying, setPaying] = useState(true);
@@ -58,7 +58,7 @@ export default function PaymentScreen({ navigation, route }) {
 
   const close = () => {
     stopPolling();
-    navigation.canGoBack() ? navigation.goBack() : navigation.navigate('BuyCoins');
+    navigation.canGoBack() ? navigation.goBack() : navigation.navigate('BuyValuePoints');
   };
 
   return (
@@ -105,7 +105,7 @@ export default function PaymentScreen({ navigation, route }) {
           <View style={styles.footerRow}>
             <ActivityIndicator color={theme.primary} size="small" />
             <Text style={[styles.footerText, { color: theme.textPrimary }]}>
-              Complete payment to add {Number(coins || 0).toLocaleString()} coins{amount ? ` (₦${Number(amount).toLocaleString()})` : ''}
+              Complete payment to add {Number(valuePoints || 0).toLocaleString()} Value Points{amount ? ` (₦${Number(amount).toLocaleString()})` : ''}
             </Text>
           </View>
         ) : (

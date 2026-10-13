@@ -1,7 +1,7 @@
 // Shared multiplayer bridge for the Ludo/Ayo/Draughts game screens.
 // Joins a real Gamearn room over socket.io, holds the authoritative server
 // gameState snapshot, relays the human's moves, and surfaces the server
-// verdict (prizes are awarded server-side — the client never mutates coins).
+// verdict (prizes are awarded server-side — the client never mutates Value Points).
 //
 // Contracts: Backend_manager/src/socket/handlers/game.js + gameStateView.js.
 //

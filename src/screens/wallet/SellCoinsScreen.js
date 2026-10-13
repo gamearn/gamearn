@@ -19,16 +19,16 @@ import GAButton from '../../components/GAButton';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
-export default function SellCoinsScreen({ navigation }) {
+export default function SellValuePointsScreen({ navigation }) {
   const { userProfile } = useAuth();
   const { theme, isDark } = useTheme();
-  const coinBalance = userProfile?.coins ?? 0;
+  const valuePointBalance = userProfile?.valuePoints ?? 0;
   const [loading, setLoading] = useState(false);
 
-  const handleSellCoins = () => {
+  const handleSellValuePoints = () => {
     setLoading(true);
-    // The wallet balance is the only cashable money (NGN). Practice coins are
-    // play-only, so this screen simply hands off to the real Withdraw flow.
+    // Value Points are the in-app currency (1 VP = ₦50) and are cashable, so
+    // this screen hands off to the real Withdraw flow to move them to NGN.
     setTimeout(() => {
       setLoading(false);
       navigation.navigate('Withdraw');
@@ -48,7 +48,7 @@ export default function SellCoinsScreen({ navigation }) {
         >
           <ArrowLeft size={20} color={theme.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Sell Coins</Text>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Sell Value Points</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -57,15 +57,15 @@ export default function SellCoinsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Coin Balance Card */}
+        {/* Value Point Balance Card */}
         <View style={styles.topCardsRow}>
           <View style={[styles.balanceCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }, styles.balanceCardCyan]}>
             <View style={styles.cardHeaderRow}>
               <Coins size={16} color={theme.primary} style={{ marginRight: 6 }} />
-              <Text style={[styles.cardHeaderTitle, { color: theme.textSecondary }]}>Coin Balance</Text>
+              <Text style={[styles.cardHeaderTitle, { color: theme.textSecondary }]}>Value Points</Text>
             </View>
-            <Text style={[styles.bigNumTextCyan, { color: theme.primary }]}>{coinBalance.toLocaleString()}</Text>
-            <Text style={[styles.subValText, { color: theme.textMuted }]}>Practice coins for friendly games</Text>
+            <Text style={[styles.bigNumTextCyan, { color: theme.primary }]}>{valuePointBalance.toLocaleString()}</Text>
+            <Text style={[styles.subValText, { color: theme.textMuted }]}>1 Value Point = ₦50</Text>
           </View>
 
           <View style={[styles.balanceCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
@@ -78,13 +78,12 @@ export default function SellCoinsScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Honest note about practice coins vs cash */}
+        {/* Note: Value Points are the in-app currency and cashable */}
         <View style={[styles.sectionWrap, styles.noteCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
           <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Important</Text>
           <Text style={[styles.destSub, { color: theme.textSecondary }]}>
-            Practice coins are earned from bonuses and friendly bot games — they are not real money and
-            cannot be converted to Naira. The money in your Wallet is cashable: use Withdraw to send it to
-            your Nigerian bank account.
+            Value Points are the in-app currency (1 VP = ₦50) used for games and bonuses. Your wallet balance
+            is the NGN equivalent; both can be cashed out in Withdraw to a Nigerian bank account.
           </Text>
         </View>
 
@@ -111,7 +110,7 @@ export default function SellCoinsScreen({ navigation }) {
         {/* CTA */}
         <GAButton
           title="Continue to Withdraw"
-          onPress={handleSellCoins}
+          onPress={handleSellValuePoints}
           loading={loading}
           variant="primary"
           style={styles.cashOutBtn}

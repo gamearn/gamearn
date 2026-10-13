@@ -47,11 +47,13 @@ export const FACEBOOK_APP_ID = '1762055368454928';
 // TODO: REPLACE_WITH_YOUR_APPLE_TEAM_ID
 export const APPLE_TEAM_ID = '8D2897QPB3';
 
-// Coin purchase rate: 1 coin = ₦50. Challenge stakes are configured by the
+// Value Point purchase rate: 1 VP = ₦50. Challenge stakes are configured by the
 // player (custom amount) rather than preset tiers.
-export const NAIRA_PER_COIN = 50;
-export const coinsFromNaira = (n) => Math.max(0, Math.floor(Number(n || 0) / NAIRA_PER_COIN));
-export const coinsFromKobo = (k) => Math.max(0, Math.floor(Number(k || 0) / (100 * NAIRA_PER_COIN)));
+export const NAIRA_PER_VALUE_POINT = 50;
+export const valuePointsFromNaira = (n) =>
+  Math.max(0, Math.floor(Number(n || 0) / NAIRA_PER_VALUE_POINT));
+export const valuePointsFromKobo = (k) =>
+  Math.max(0, Math.floor(Number(k || 0) / (100 * NAIRA_PER_VALUE_POINT)));
 
 export const koboToN = (kobo) => (kobo / 100).toFixed(0);
 export const nairaToKobo = (naira) => Math.round(Number(naira) * 100);

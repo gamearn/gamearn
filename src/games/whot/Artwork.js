@@ -346,7 +346,7 @@ export function Artwork({
   requestedShape,
   activePlayerIndex = 0,
   opponentCounts = [5, 4, 6],
-  coinBalance = 1250,
+  valuePoints = 0,
   statusText,
   undoSecondsLeft = 0,
   canUndo = false,

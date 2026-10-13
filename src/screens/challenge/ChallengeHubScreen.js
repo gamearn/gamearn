@@ -17,7 +17,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { challenges } from '../../services/api';
 import { GamearnSocket } from '../../services/gamearnSocket';
-import { coinsFromKobo, coinsFromNaira, koboToN, naira, nairaToKobo } from '../../config/appConfig';
+import { valuePointsFromKobo, valuePointsFromNaira, koboToN, naira, nairaToKobo } from '../../config/appConfig';
 
 // Challenge amount limits (₦). Backend caps entry fees at 500000 kobo.
 const MIN_AMOUNT_N = 50;
@@ -61,7 +61,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
   const amountN = freeChallenge ? 0 : parseAmount(amountText);
   const selectedFee = nairaToKobo(amountN);
   const amountValid = freeChallenge || (amountN >= MIN_AMOUNT_N && amountN <= MAX_AMOUNT_N);
-  const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.coins ?? 0);
+  const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.valuePoints ?? 0);
   const balanceKobo = Math.round(balanceNaira * 100);
 
   const loadAll = useCallback(async () => {
@@ -161,7 +161,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
         `This challenge costs ${naira(koboToN(fee))}. Your balance is ${naira(balanceNaira)}.`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Buy Coins', onPress: () => navigation.navigate('BuyCoins') },
+          { text: 'Buy Value Points', onPress: () => navigation.navigate('BuyValuePoints') },
         ],
       );
       return;
@@ -216,7 +216,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
         `This challenge costs ${naira(koboToN(selectedFee))}. Your balance is ${naira(balanceNaira)}.`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Buy Coins', onPress: () => navigation.navigate('BuyCoins') },
+          { text: 'Buy Value Points', onPress: () => navigation.navigate('BuyValuePoints') },
         ],
       );
       return;
@@ -271,7 +271,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
           <Text style={[styles.cardAmount, { color: theme.primary }]}>{fee === 0 ? 'FREE' : naira(koboToN(fee))}</Text>
         </View>
         <Text style={[styles.cardSub, { color: theme.textSecondary }]}>
-          {ch.creatorDisplayName || 'A player'} · {ch.gameType} {fee > 0 ? `· ${coinsFromKobo(fee).toLocaleString()} coins` : ''}
+          {ch.creatorDisplayName || 'A player'} · {ch.gameType} {fee > 0 ? `· ${valuePointsFromKobo(fee).toLocaleString()} Value Points` : ''}
         </Text>
         {!!settingsSummary && (
           <Text style={[styles.cardSub, { color: '#00E5FF', fontWeight: '700', marginTop: 2 }]}>
@@ -445,7 +445,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
             </View>
             <Text style={[styles.amountHint, { color: amountValid ? theme.textSecondary : '#EF4444' }]}>
               {amountValid
-                ? `Stake ${coinsFromNaira(amountN).toLocaleString()} coins (1 coin = ₦50)`
+                ? `Stake ${valuePointsFromNaira(amountN).toLocaleString()} Value Points (1 VP = ₦50)`
                 : `Amount must be between ${naira(MIN_AMOUNT_N)} and ${naira(MAX_AMOUNT_N)}`}
             </Text>
             <View style={styles.quickRow}>

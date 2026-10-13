@@ -66,7 +66,7 @@ function Game() {
   const claim=async()=>{
     if(!bonus||Date.now()<bonus.next||bonusLock.current)return;
     bonusLock.current=true;const next={coins:bonus.coins+100,next:Date.now()+86400000};
-    try{await AsyncStorage.setItem(BONUS_KEY,JSON.stringify(next));setBonus(next);Alert.alert('Bonus claimed','100 local practice coins added.');}
+    try{await AsyncStorage.setItem(BONUS_KEY,JSON.stringify(next));setBonus(next);Alert.alert('Bonus claimed','100 local practice Value Points added.');}
     catch{setStorageError('Could not save the bonus. Please try again.');}finally{bonusLock.current=false;}
   };
   // Persist the initial countdown so relaunching does not restart it.
@@ -81,12 +81,12 @@ function Game() {
       <View style={{position:'absolute',left:reverse?undefined:0,right:reverse?0:undefined,width:140*k,height:140*k,borderRadius:70*k,borderWidth:4*k,borderColor:color,overflow:'hidden'}}><Art name={`p${p}`} w={132*k} h={132*k}/></View>
     </Button>;
   }
-  const reset=()=>Alert.alert('Start a new local game?','This clears the current match and undo history. Your bonus coins remain.',[{text:'Cancel',style:'cancel'},{text:'New game',onPress:()=>{if(pause.current!==null)pause.current=Date.now();dispatch({type:'RESET'});setChat([]);show(null);}}]);
+  const reset=()=>Alert.alert('Start a new local game?','This clears the current match and undo history. Your bonus Value Points remain.',[{text:'Cancel',style:'cancel'},{text:'New game',onPress:()=>{if(pause.current!==null)pause.current=Date.now();dispatch({type:'RESET'});setChat([]);show(null);}}]);
   function DialogContent(){
     if(modal==='rules')return <><Text style={ui.title}>Rules</Text><Text style={ui.body}>{RULES}</Text></>;
     if(modal==='menu')return <><Text style={ui.title}>Local game menu</Text><Text style={ui.body}>Room 458721 · 4 local seats{ '\n' }Pass this device between players. The match pauses while this menu is open.</Text><Action label="Resume game" onPress={()=>show(null)}/><Action label="New game" onPress={reset}/><Action label="Read rules" onPress={()=>show('rules')}/></>;
     if(modal==='settings')return <><Text style={ui.title}>Settings</Text><View style={ui.row}><Text style={ui.body}>Move hints</Text><Switch value={hints} onValueChange={setHints} accessibilityLabel="Enable move hints"/></View><Text style={ui.body}>Four-player local mode. Timer: 2:45 per turn. Use the Rules panel for the exact two-dice variant.</Text><Action label="Restart match" onPress={reset}/></>;
-    if(modal==='bonus')return <><Text style={ui.title}>Daily Bonus</Text><Text style={ui.body}>Practice coins: {bonus?.coins??0}{ '\n' }Next bonus: {bonus?clock((bonus.next-Date.now())/1000,true):'Loading…'}{ '\n' }Claim 100 local practice coins every 24 hours. These have no cash value.</Text><Action label="Claim 100 coins" disabled={!bonus||Date.now()<bonus.next} onPress={claim}/>{!!storageError&&<Text style={ui.error}>{storageError}</Text>}</>;
+    if(modal==='bonus')return <><Text style={ui.title}>Daily Bonus</Text><Text style={ui.body}>Practice Value Points: {bonus?.coins??0}{ '\n' }Next bonus: {bonus?clock((bonus.next-Date.now())/1000,true):'Loading…'}{ '\n' }Claim 100 local practice Value Points every 24 hours. These have no cash value.</Text><Action label="Claim 100 Value Points" disabled={!bonus||Date.now()<bonus.next} onPress={claim}/>{!!storageError&&<Text style={ui.error}>{storageError}</Text>}</>;
     if(modal==='chat')return <><Text style={ui.title}>Table Chat · local</Text><Text style={ui.body}>Messages stay on this device for this match. Sending uses the active player’s name.</Text>{chat.length===0&&<Text style={ui.body}>No messages yet.</Text>}{chat.map(m=><View key={m.id} style={ui.message}><Text style={{color:COLORS[m.player],fontWeight:'700'}}>{NAMES[m.player]}</Text><Text style={ui.body}>{m.text}</Text></View>)}<TextInput style={ui.input} value={draft} onChangeText={setDraft} placeholder="Type a message…" placeholderTextColor="#b3bbed" accessibilityLabel="Chat message" maxLength={280}/><Action label="Send message" disabled={!draft.trim()} onPress={()=>{setChat(old=>[...old,{id:`${Date.now()}-${Math.random()}`,player:state.turn,text:draft.trim()}].slice(-100));setDraft('');}}/></>;
     if(modal?.startsWith('player')){const p=Number(modal.slice(-1));return <><Text style={ui.title}>{NAMES[p]}</Text><Text style={ui.body}>Color: {['Red','Green','Yellow','Blue'][p]}{ '\n' }Tokens at home: {state.tokens[p].filter(n=>n===FINISH).length}/4{ '\n' }Tokens in yard: {state.tokens[p].filter(n=>n<0).length}/4{ '\n' }{state.turn===p?'It is your turn.':'Waiting for your turn.'}</Text></>;}
     return null;

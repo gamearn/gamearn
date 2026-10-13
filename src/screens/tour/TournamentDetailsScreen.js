@@ -16,7 +16,7 @@ import { ArrowLeft, Zap, CheckCircle2, Swords, Trophy, Users } from 'lucide-reac
 import { useAuth } from '../../context/AuthContext';
 import { tournaments } from '../../services/api';
 import { ApiError } from '../../services/apiClient';
-import { naira, koboToN } from '../../config/appConfig';
+import { naira, koboToN, nairaToKobo } from '../../config/appConfig';
 
 const GAME_IMAGES = {
   whot: require('../../../assets/games/whot_3d.jpg'),
@@ -148,7 +148,7 @@ export default function TournamentDetailsScreen({ route, navigation }) {
   const meta = STATUS_META[status] || { label: 'PENDING ENTRY', color: '#F59E0B' };
   const entryFee = tour.entryFee || 0;
   const requiredKobo = Math.round(entryFee * 100);
-  const balanceKobo = userProfile?.coins ?? 0;
+  const balanceKobo = nairaToKobo(Number(userProfile?.walletBalance ?? 0));
   const joined = (tour.participants || []).some((p) => p.uid === myUid);
   const fill = Math.min(1, (tour.currentParticipants || 0) / (tour.maxParticipants || 1));
   const banner = GAME_IMAGES[tour.gameType] || GAME_IMAGES.draughts;
@@ -176,7 +176,7 @@ export default function TournamentDetailsScreen({ route, navigation }) {
         `Entry costs ${naira(entryFee)} but your balance is ${naira(koboToN(balanceKobo))}.`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Buy Coins', onPress: () => navigation.navigate('BuyCoins') },
+          { text: 'Buy Value Points', onPress: () => navigation.navigate('BuyValuePoints') },
         ],
       );
       return;

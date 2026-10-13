@@ -24,15 +24,15 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { wallet } from '../../services/api';
-import { NAIRA_PER_COIN, coinsFromNaira } from '../../config/appConfig';
+import { NAIRA_PER_VALUE_POINT, valuePointsFromNaira } from '../../config/appConfig';
 
 export default function WithdrawScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
   const { userProfile, refreshWallet } = useAuth();
 
-  const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.coins ?? 0);
+  const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.valuePoints ?? 0);
   const cashBalance = balanceNaira.toFixed(2);
-  const coinBalance = coinsFromNaira(balanceNaira);
+  const valuePointBalance = valuePointsFromNaira(balanceNaira);
 
   const [step, setStep] = useState(1); // 1: Amount, 2: Account details, 3: Confirm
   const [amountInput, setAmountInput] = useState(String(route?.params?.amount ?? ''));
@@ -177,7 +177,7 @@ export default function WithdrawScreen({ route, navigation }) {
               <Text style={[styles.balanceCardAmount, { color: theme.textPrimary }]}>₦{Number(cashBalance).toLocaleString()}</Text>
               <View style={styles.coinsRow}>
                 <Coins size={15} color={theme.primary} />
-                <Text style={[styles.coinsText, { color: theme.textSecondary }]}>{coinBalance.toLocaleString()} Coins</Text>
+                <Text style={[styles.coinsText, { color: theme.textSecondary }]}>{valuePointBalance.toLocaleString()} Value Points</Text>
               </View>
             </LinearGradient>
 
@@ -199,7 +199,7 @@ export default function WithdrawScreen({ route, navigation }) {
 
               <View style={styles.conversionNoteRow}>
                 <AlertCircle size={14} color="#64748B" />
-                <Text style={styles.conversionNoteText}>1 coin = ₦{NAIRA_PER_COIN} · Withdrawals go to Nigerian bank accounts</Text>
+                <Text style={styles.conversionNoteText}>1 Value Point = ₦{NAIRA_PER_VALUE_POINT} · Withdrawals go to Nigerian bank accounts</Text>
               </View>
             </View>
 

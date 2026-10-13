@@ -139,14 +139,20 @@ function profileFromMe(me, cached) {
     Number(cached?.walletBalance ?? 0)
   );
 
-  const gp = calculateGamePower(gamesPlayed, wins, losses);
+  // GP/VP are server-authoritative (GET /auth/me). Only compute locally as an
+  // offline fallback when the server value is absent, so the app can never show
+  // GP/VP that disagrees with the backend (which tournament standings use).
+  const serverGp = Number(me?.gamePower);
+  const gp = Number.isFinite(serverGp)
+    ? Math.min(100, Math.max(0, Math.round(serverGp)))
+    : calculateGamePower(gamesPlayed, wins, losses);
 
-  const computedVp = calculateValuePoints(rawNaira, gamesPlayed, wins);
-  const vp = Math.max(
-    Number(me?.valuePoints ?? me?.vp ?? 0),
-    Number(cached?.valuePoints ?? cached?.vp ?? 0),
-    computedVp
-  );
+  // Value Points are stored server-side (users.value_points) and kept in sync
+  // with the kobo wallet ledger. Never derive them from the raw balance here.
+  const serverVp = me?.valuePoints ?? me?.vp ?? cached?.valuePoints;
+  const vp = Number.isFinite(Number(serverVp))
+    ? Math.max(0, Math.floor(Number(serverVp)))
+    : calculateValuePoints(rawNaira, gamesPlayed, wins);
 
   const fullName = me?.fullName || cached?.fullName || me?.displayName || cached?.displayName || 'Gamer';
   const username = me?.username || cached?.username || (me?.email ? me.email.split('@')[0] : 'Gamer');
@@ -169,7 +175,6 @@ function profileFromMe(me, cached) {
     bio: me?.bio || cached?.bio || '',
     phone: me?.phoneNumber || me?.phone || cached?.phone || '',
     walletBalance: rawNaira,
-    coins: rawNaira,
     isPremium: !!(me?.premium?.isPremium || me?.isPremium || cached?.isPremium),
     gamesPlayed,
     wins,

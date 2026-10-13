@@ -502,14 +502,13 @@ export function WhotScreen({
 
     if (userProfile?.id || userProfile?.uid) {
       wallet
-        .freeCoins('whot-bonus')
+        .freeValuePoints('whot-bonus')
         .then((res) => {
-          const amount = res?.amountKobo != null ? res.amountKobo / 100 : 500;
+          const amount = res?.valuePoints ?? 2;
           if (res?.granted) {
             setGameState((prev) => ({
               ...prev,
-              coinBalance: prev.coinBalance + amount,
-              statusMessage: `${amount} bonus coins claimed.`,
+              statusMessage: `${amount} bonus Value Points claimed.`,
             }));
             if (refreshProfile) refreshProfile().catch(() => {});
           } else {
@@ -527,8 +526,7 @@ export function WhotScreen({
 
     setGameState((prev) => ({
       ...prev,
-      coinBalance: prev.coinBalance + 500,
-      statusMessage: '500 local bonus coins claimed.',
+      statusMessage: 'Bonus Value Points can only be claimed when signed in.',
     }));
   }
 
@@ -556,7 +554,7 @@ export function WhotScreen({
               last={topDiscard}
               requestedShape={gameState.requestedShape}
               activePlayerIndex={gameState.activePlayerIndex}
-              coinBalance={gameState.coinBalance}
+              valuePoints={userProfile?.valuePoints ?? 0}
               statusText={gameState.statusMessage}
               undoSecondsLeft={undoSecondsLeft}
               canUndo={canUndo}
@@ -743,7 +741,7 @@ export function WhotScreen({
             <Pressable
               key={b.id}
               accessibilityRole="button"
-              accessibilityLabel={b.id === 'whot' ? 'Call WHOT' : b.id === 'coins' ? 'Add coins' : b.id === 'chat' ? 'Compose message' : b.id}
+              accessibilityLabel={b.id === 'whot' ? 'Call WHOT' : b.id === 'valuePoints' ? 'Add Value Points' : b.id === 'chat' ? 'Compose message' : b.id}
               onPress={() => handleAction(b.id)}
               style={({ pressed }) => ({
                 position: 'absolute',
@@ -861,13 +859,13 @@ export function WhotScreen({
                   <Text style={styles.body}>• <Text style={{ fontWeight: '800', color: '#70ddff' }}>20 (WHOT)</Text>: Wild card! Choose any shape to request.</Text>
                 </ScrollView>
               </>
-            ) : dialog === 'coins' ? (
+            ) : dialog === 'valuePoints' ? (
               <>
-                <Text style={styles.title}>💰 Coin Wallet</Text>
-                <Text style={styles.body}>Current Balance: <Text style={{ fontWeight: '900', color: '#ffd224' }}>{gameState.coinBalance.toLocaleString()} Coins</Text></Text>
-                <Text style={styles.body}>Win games to earn +500 coins!</Text>
+                <Text style={styles.title}>💰 Value Points</Text>
+                <Text style={styles.body}>Current Balance: <Text style={{ fontWeight: '900', color: '#ffd224' }}>{(userProfile?.valuePoints ?? 0).toLocaleString()} Value Points</Text></Text>
+                <Text style={styles.body}>Win games to earn Value Points!</Text>
                 <Pressable style={[styles.button, { backgroundColor: '#00d653', marginTop: 16 }]} onPress={handleClaimBonus}>
-                  <Text style={[styles.buttonText, { color: '#fff' }]}>🎁 Claim +500 Free Coins</Text>
+                  <Text style={[styles.buttonText, { color: '#fff' }]}>🎁 Claim +2 Free Value Points</Text>
                 </Pressable>
               </>
             ) : dialog === 'bonus' ? (
@@ -875,7 +873,7 @@ export function WhotScreen({
                 <Text style={styles.title}>🎁 Daily Bonus</Text>
                 <Text style={styles.body}>Next daily reward in: <Text style={{ fontWeight: '800', color: '#70ddff' }}>{bonusText}</Text></Text>
                 <Pressable style={[styles.button, { backgroundColor: '#00d653', marginTop: 16 }]} onPress={handleClaimBonus}>
-                  <Text style={[styles.buttonText, { color: '#fff' }]}>Claim 500 Bonus Coins Now</Text>
+                  <Text style={[styles.buttonText, { color: '#fff' }]}>Claim 2 Bonus Value Points Now</Text>
                 </Pressable>
               </>
             ) : null}

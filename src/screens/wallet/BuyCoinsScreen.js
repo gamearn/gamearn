@@ -14,7 +14,7 @@ import { ArrowLeft, Coins, Sprout, Trees, Mountain, Medal } from 'lucide-react-n
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { wallet } from '../../services/api';
-import { coinsFromNaira } from '../../config/appConfig';
+import { valuePointsFromNaira } from '../../config/appConfig';
 import { ApiError } from '../../services/apiClient';
 
 // Quick-pick presets that load the amount field (₦ amounts).
@@ -33,25 +33,25 @@ function parseAmount(raw) {
   return Number.isFinite(n) ? n : 0;
 }
 
-export default function BuyCoinsScreen({ navigation }) {
+export default function BuyValuePointsScreen({ navigation }) {
   const { userProfile } = useAuth();
   const { theme, isDark } = useTheme();
-  const currentCoins = userProfile?.coins ?? 0;
+  const currentValuePoints = userProfile?.valuePoints ?? 0;
   const [amountText, setAmountText] = useState('');
   const [loading, setLoading] = useState(false);
 
   const amount = parseAmount(amountText);
-  const coins = coinsFromNaira(amount);
+  const valuePoints = valuePointsFromNaira(amount);
   const amountValid = amount >= MIN_AMOUNT && amount <= MAX_AMOUNT;
 
   const preview = useMemo(() => {
     if (!amountText || amount === 0) return null;
     return {
       naira: amount,
-      coins,
+      valuePoints,
       valid: amountValid,
     };
-  }, [amountText, amount, coins, amountValid]);
+  }, [amountText, amount, valuePoints, amountValid]);
 
   const handleStartPayment = async () => {
     if (!amountValid) return;
@@ -65,7 +65,7 @@ export default function BuyCoinsScreen({ navigation }) {
         txRef: res.txRef,
         paymentLink: res.paymentLink,
         amount: res.amount ?? amount,
-        coins,
+        valuePoints,
       });
     } catch (e) {
       Alert.alert('Payment Failed', e?.message || 'Could not start the payment. Please try again.');
@@ -87,7 +87,7 @@ export default function BuyCoinsScreen({ navigation }) {
         >
           <ArrowLeft size={20} color={theme.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Buy Coins</Text>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Buy Value Points</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -103,12 +103,12 @@ export default function BuyCoinsScreen({ navigation }) {
           end={{ x: 1, y: 1 }}
           style={styles.balanceCard}
         >
-          <Text style={[styles.balanceCardLabel, { color: theme.primary }]}>CURRENT BALANCE</Text>
+          <Text style={[styles.balanceCardLabel, { color: theme.primary }]}>CURRENT VALUE POINTS</Text>
           <View style={styles.balanceValueRow}>
             <View style={styles.coinIconCircle}>
               <Coins size={22} color={theme.primary} />
             </View>
-            <Text style={[styles.balanceNumText, { color: theme.textPrimary }]}>{currentCoins.toLocaleString()}</Text>
+            <Text style={[styles.balanceNumText, { color: theme.textPrimary }]}>{currentValuePoints.toLocaleString()}</Text>
             <Text style={[styles.unitsTag, { color: theme.textSecondary }]}>/Units</Text>
           </View>
         </LinearGradient>
@@ -132,12 +132,12 @@ export default function BuyCoinsScreen({ navigation }) {
             <View style={styles.liveWorthRow}>
               <Coins size={18} color="#FF5500" />
               <Text style={[styles.liveWorthText, { color: preview.valid ? theme.textPrimary : '#EF4444' }]}>
-                {preview.valid ? `You get ${preview.coins.toLocaleString()} coins` : 'Minimum ₦50, maximum ₦1,000,000'}
+                {preview.valid ? `You get ${preview.valuePoints.toLocaleString()} Value Points` : 'Minimum ₦50, maximum ₦1,000,000'}
               </Text>
             </View>
           ) : (
             <Text style={[styles.liveWorthHint, { color: theme.textSecondary }]}>
-              1 coin = ₦50. Live worth shows as you type.
+              1 Value Point = ₦50. Live worth shows as you type.
             </Text>
           )}
         </View>
@@ -176,7 +176,7 @@ export default function BuyCoinsScreen({ navigation }) {
         >
           <Coins size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
           <Text style={styles.continueBtnText}>
-            {loading ? 'Processing...' : preview && preview.valid ? `Buy ${preview.coins.toLocaleString()} Coins for ₦${preview.naira.toLocaleString()}` : 'Enter an amount to continue'}
+            {loading ? 'Processing...' : preview && preview.valid ? `Buy ${preview.valuePoints.toLocaleString()} Value Points for ₦${preview.naira.toLocaleString()}` : 'Enter an amount to continue'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

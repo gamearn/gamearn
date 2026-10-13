@@ -82,9 +82,9 @@ verify: (txRef) => apiGet(`/pay/verify/${txRef}`),
     return Array.isArray(res) ? res : res?.data || [];
   },
 
-  // Claim the daily/in-game bonus coin grant (practice coins, not real money).
-  // Idempotent per claim per UTC day — duplicate claims are no-ops.
-  freeCoins: (claim = 'daily-bonus') => apiPost('/wallet/free-coins', { claim }),
+  // Claim the daily/in-game bonus Value Point grant. Idempotent per claim per
+  // UTC day — duplicate claims are no-ops.
+  freeValuePoints: (claim = 'daily-bonus') => apiPost('/wallet/free-points', { claim }),
 };
 
 // ── Premium ───────────────────────────────────────────────────────────────────
@@ -259,7 +259,9 @@ export const practice = {
         gameType: 'ludo',
         playerRating: opts.playerRating || 1200,
         playerCount: opts.playerCount || 2,
-        diceCount: opts.diceCount || 1,
+        diceCount: 2,
+        tokenCount: opts.tokenCount || 4,
+        timer: opts.timer || '2m',
         dualHome: !!opts.dualHome,
       }),
     roll: (sessionId) => apiPost('/practice/ludo/roll', { sessionId }),

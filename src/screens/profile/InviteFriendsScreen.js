@@ -162,7 +162,7 @@ export default function InviteFriendsScreen({ navigation }) {
   const handleShareInvite = async () => {
     const message =
       `Join me on Gamearn — play Whot, Ludo, Ayo & Draughts with friends and earn together! ` +
-      `Use my invite code ${referralCode} to get free bonus coins: ${referralLink}\n\n` +
+      `Use my invite code ${referralCode} to get free bonus Value Points: ${referralLink}\n\n` +
       `Haven't installed the app yet? Grab it here: ${playStoreLink(referralCode)}`;
     try {
       await Share.share({ message });

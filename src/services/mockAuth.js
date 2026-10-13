@@ -9,7 +9,7 @@ const DEFAULT_USER = {
   username: 'ProGamer_99',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
   bio: 'Ready to rule Whot and Ludo!',
-  coins: 2500,
+  valuePoints: 50,
   cashBalance: 5000,
   streak: 0,
   lastStreakDate: null,

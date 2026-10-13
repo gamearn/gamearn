@@ -93,7 +93,7 @@ function buildEngineState(view, meta = {}) {
     gameStatus: finished ? 'game_over' : 'playing',
     winner: finished && view.winner === view.selfUid ? players[0] : finished && view.winner ? players[1] : null,
     statusMessage,
-    coinBalance: 0,
+    valuePoints: 0,
     dailyBonusSeconds: 0,
     soundEnabled: true,
     pendingWhotSelection: false,
@@ -113,8 +113,8 @@ export function practiceSnapshotToEngine(data, opts = {}) {
         handSize: p.handSize || 0,
         name: p.displayName || 'Player',
       }))
-    : [{ handSize: data.botCardCount || 0, name: 'Gamearn Bot' }];
-  const opponentName = opponents[0]?.name || 'Gamearn Bot';
+    : [{ handSize: data.botCardCount || 0, name: 'Oba' }];
+  const opponentName = opponents[0]?.name || 'Oba';
   return buildEngineState(
     {
       self: data.playerHand || [],

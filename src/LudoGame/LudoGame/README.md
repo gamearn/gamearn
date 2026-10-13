@@ -97,11 +97,11 @@ not competitive or money-backed play.
 | Hint | Recommends finish, capture, yard release, then most advanced move |
 | Rules | Full explanation of this reference-board variant |
 | Chat | Local messages attributed to the active player, 280-character limit |
-| Daily Bonus | Persistent countdown, claim 100 local coins every 24 hours |
+| Daily Bonus | Persistent countdown, claim 100 local Value Points every 24 hours |
 | Win state | Announces winner; Roll Dice becomes New Game |
 
 The initial bonus wait is 02:14:33, matching the reference; it is saved so relaunching
-does not restart the countdown. Coins are local practice points with no cash value.
+does not restart the countdown. Value Points here are local practice points with no cash value.
 Only bonus data persists. Current match, chat and hint preference reset on app
 restart. Undo retains the last 40 roll/move snapshots, and is a practice feature.
 
