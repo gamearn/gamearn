@@ -17,7 +17,7 @@ function load(relative, mocks = {}) {
 }
 const presentation = load('src/games/ayo/ayoPresentation.js');
 const whotAdapter = load('src/games/whot/serverAdapter.js', {
-  './whotGameEngine': { SHAPE_COLORS: {}, parseTimerSec: () => 120 },
+  './whotGameEngine': { SHAPE_COLORS: {}, parseTimerSec: (s) => (s === '30s' ? 30 : s === '1m' ? 60 : s === '3m' ? 180 : 120) },
 });
 const draughtsAdapter = load('src/games/checkers/draughtsAdapter.js');
 const checkersEngine = load('src/games/checkers/CheckersEngine.js');
@@ -131,6 +131,55 @@ test('Whot practice snapshot builds the human hand and counts the bot hand', () 
   assert.equal(view.players[1].name, 'Gamearn Bot');
   assert.equal(view.activePlayerIndex, 1);
   assert.equal(view.drawPile.length, 7);
+});
+
+test('Whot adapter strictly preserves match settings: custom cards and turn timer', () => {
+  const data = {
+    players: [
+      { uid: 'me', displayName: 'Me', handSize: 4 },
+      { uid: 'bot_practice_1', displayName: 'Oba', handSize: 4 },
+    ],
+    playerHand: [
+      { number: 5, shape: 'cross' },
+      { number: 7, shape: 'star' },
+      { number: 1, shape: 'circle' },
+      { number: 4, shape: 'triangle' },
+    ],
+    topCard: { number: 2, shape: 'square' },
+    currentPlayerIndex: 0,
+    deckSize: 31,
+    status: 'playing',
+  };
+  const view = whotAdapter.practiceSnapshotToEngine(data, {
+    selfUid: 'me',
+    selfName: 'Me',
+    timer: '30s',
+    startCards: 4,
+    secondsRemaining: 28,
+  });
+  assert.equal(view.players[0].hand.length, 4);
+  assert.equal(view.players[1].hand.length, 4);
+  assert.equal(view.turnTimerSeconds, 30);
+  assert.equal(view.secondsRemaining, 28);
+
+  const socketData = {
+    players: [
+      { uid: 'me', displayName: 'Me', hand: [{ number: 1, shape: 'circle' }] },
+      { uid: 'other', displayName: 'Other', hand: 5 },
+    ],
+    topCard: { number: 8, shape: 'star' },
+    currentPlayerIndex: 0,
+    deckSize: 25,
+    status: 'playing',
+  };
+  const sockView = whotAdapter.socketStateToEngine(socketData, 'me', {
+    timer: '3m',
+    startCards: 5,
+    secondsRemaining: 175,
+  });
+  assert.equal(sockView.players[1].hand.length, 5);
+  assert.equal(sockView.turnTimerSeconds, 180);
+  assert.equal(sockView.secondsRemaining, 175);
 });
 
 test('Draughts maps server piece codes onto the engine board', () => {

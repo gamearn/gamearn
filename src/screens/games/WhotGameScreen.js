@@ -21,19 +21,23 @@ export default function WhotGameScreen({ route, navigation }) {
   const multiplayer = mode === 'multiplayer';
   const practice = mode === 'practice';
   const remoteMode = multiplayer || practice;
-  const isVsOba = !!params.vsOba || practice;
+  const requestedSeats = Number(params.playerCount || params.players);
+  const isVsOba = params.vsOba != null ? !!params.vsOba : (requestedSeats === 2 || (!requestedSeats && practice));
+  const effectiveSeats = requestedSeats >= 2 ? Math.min(4, Math.max(2, requestedSeats)) : (isVsOba ? 2 : 4);
+  const effectiveCards = Math.min(8, Math.max(3, Number(params.cardCount || params.cards || params.startCards || 6)));
   const stake = params.stake || 250;
   const timer = params.timer || '2m';
   const uid = user?.uid;
   const selfName = userProfile?.username || userProfile?.displayName || 'You';
   const entryFee = params.entryFee || 0;
-  const effectiveSeats = isVsOba ? 2 : Math.max(2, Math.min(4, params.playerCount || params.players || 2));
-  const effectiveCards = params.cardCount || params.cards || 6;
 
   const options = useMemo(() => ({
     playerRating: params.playerRating || 1200,
     startCards: effectiveCards,
+    cardCount: effectiveCards,
+    cards: effectiveCards,
     seats: effectiveSeats,
+    playerCount: effectiveSeats,
     timer,
   }), [params.playerRating, effectiveCards, effectiveSeats, timer]);
 
@@ -50,9 +54,21 @@ export default function WhotGameScreen({ route, navigation }) {
   const remote = useMemo(() => {
     if (!snapshot) return null;
     return multiplayer
-      ? socketStateToEngine(snapshot, uid, { selfName, vsOba: isVsOba })
-      : practiceSnapshotToEngine(snapshot, { selfUid: uid, selfName });
-  }, [snapshot, multiplayer, uid, selfName, isVsOba]);
+      ? socketStateToEngine(snapshot, uid, {
+          selfName,
+          vsOba: isVsOba,
+          timer,
+          secondsRemaining: session.secondsRemaining,
+          startCards: effectiveCards,
+        })
+      : practiceSnapshotToEngine(snapshot, {
+          selfUid: uid,
+          selfName,
+          timer,
+          secondsRemaining: session.secondsRemaining,
+          startCards: effectiveCards,
+        });
+  }, [snapshot, multiplayer, uid, selfName, isVsOba, timer, session.secondsRemaining, effectiveCards]);
 
   const navigated = useRef(false);
   useEffect(() => {
@@ -103,6 +119,7 @@ export default function WhotGameScreen({ route, navigation }) {
           aiDifficulty={params.aiDifficulty}
           isRemote={remoteMode && !!remote}
           remote={remote}
+          secondsRemaining={session.secondsRemaining}
           onRemoteMove={(move) => session.move(move)}
           onBack={handleBack}
           onRemoteGameOver={() => {}}

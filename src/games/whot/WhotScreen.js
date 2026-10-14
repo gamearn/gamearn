@@ -95,11 +95,15 @@ export function WhotScreen({
   onRemoteGameOver,
   aiDifficulty = 'auto',
   incomingChats = [],
+  secondsRemaining = null,
 }) {
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
   const [gameState, setGameState] = useState(() =>
     createInitialState(timer, cardCount, vsOba ? 2 : (playerCount || 2), vsOba)
   );
+  const displaySeconds = (isRemote && secondsRemaining != null)
+    ? secondsRemaining
+    : (gameState?.secondsRemaining ?? parseTimerSec(timer));
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [showCoinToss, setShowCoinToss] = useState(true);
@@ -549,7 +553,7 @@ export function WhotScreen({
               width={1024 * scale}
               height={1536 * scale}
               selected={selected}
-              seconds={gameState.secondsRemaining}
+              seconds={displaySeconds}
               bonus={bonusText}
               drawCount={gameState?.drawPile?.length || 0}
               hand={humanHand}

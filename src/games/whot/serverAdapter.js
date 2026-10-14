@@ -48,7 +48,11 @@ const SEAT_NAMES = ['Seat 2', 'Seat 3', 'Seat 4'];
 // Build a full engine gameState from a normalized view. The server decides
 // turns, legality and effects — the engine is only used for rendering here.
 function buildEngineState(view, meta = {}) {
-  const turnSecs = parseTimerSec('2m');
+  const timerRaw = view.timer || meta.timer || (view.turnDurationSeconds ? `${view.turnDurationSeconds}s` : '2m');
+  const turnSecs = parseTimerSec(timerRaw);
+  const secondsRemaining = meta.secondsRemaining != null
+    ? meta.secondsRemaining
+    : (view.secondsRemaining != null ? view.secondsRemaining : turnSecs);
   const selfName = view.selfName || 'You';
   const opps = view.opponents || [];
 
@@ -59,11 +63,11 @@ function buildEngineState(view, meta = {}) {
       ? opps.map((opp, idx) => ({
           id: idx + 1,
           name: opp.name || meta.opponentName || SEAT_NAMES[idx] || `Player ${idx + 2}`,
-          hand: Array.from({ length: opp?.handSize ?? 0 }),
+          hand: Array.from({ length: opp?.handSize ?? meta.startCards ?? 6 }),
           isAi: true,
           avatarIndex: oppAvatarIndices[idx % oppAvatarIndices.length],
         }))
-      : [{ id: 1, name: meta.opponentName || 'Oba 👑', hand: [], isAi: true, avatarIndex: 0 }]
+      : [{ id: 1, name: meta.opponentName || 'Oba 👑', hand: Array.from({ length: meta.startCards ?? 6 }), isAi: true, avatarIndex: 0 }]
     ),
   ];
 
@@ -120,7 +124,7 @@ function buildEngineState(view, meta = {}) {
     requestedShape: view.pendingShape || null,
     pendingDrawPenalty: null,
     turnTimerSeconds: turnSecs,
-    secondsRemaining: turnSecs,
+    secondsRemaining: Math.max(0, secondsRemaining),
     gameStatus: finished ? 'game_over' : 'playing',
     winner,
     statusMessage,
@@ -136,16 +140,18 @@ function buildEngineState(view, meta = {}) {
 export function practiceSnapshotToEngine(data, opts = {}) {
   const selfUid = opts.selfUid || 'practice_anon';
   const selfName = opts.selfName || 'You';
+  const fallbackHandSize = opts.startCards || 6;
   const others = Array.isArray(data.players)
     ? data.players.filter((p) => p.uid !== selfUid)
     : [];
   const opponents = others.length
     ? others.map((p) => ({
-        handSize: p.handSize || 0,
+        handSize: p.handSize ?? fallbackHandSize,
         name: p.username || p.displayName || 'Player',
       }))
-    : [{ handSize: data.botCardCount || 0, name: 'Oba 👑' }];
+    : [{ handSize: data.botCardCount ?? fallbackHandSize, name: 'Oba 👑' }];
   const opponentName = opts.opponentName || opponents[0]?.name || 'Oba 👑';
+  const timer = opts.timer || (data.turnDurationSeconds ? `${data.turnDurationSeconds}s` : '2m');
   return buildEngineState(
     {
       self: data.playerHand || [],
@@ -161,8 +167,11 @@ export function practiceSnapshotToEngine(data, opts = {}) {
       selfUid,
       selfName,
       statusMessage: opts.statusMessage,
+      turnDurationSeconds: data.turnDurationSeconds,
+      timer,
+      secondsRemaining: opts.secondsRemaining,
     },
-    { opponentName },
+    { opponentName, timer, secondsRemaining: opts.secondsRemaining, startCards: opts.startCards },
   );
 }
 
@@ -173,17 +182,19 @@ export function socketStateToEngine(gameState, selfUid, opts = {}) {
   const selfIndex = players.findIndex((p) => p.uid === selfUid);
   const self = selfIndex >= 0 ? players[selfIndex] : null;
   const others = players.filter((p, i) => i !== selfIndex);
+  const fallbackHandSize = opts.startCards || 6;
 
   const isVsOba = opts.vsOba || (players.length === 2 && others.some((p) => p.uid?.startsWith('bot_')));
 
   const opponents = isVsOba
-    ? [{ handSize: handSize(others[0]?.hand ?? 0), name: 'Oba 👑' }]
+    ? [{ handSize: handSize(others[0]?.hand ?? fallbackHandSize), name: 'Oba 👑' }]
     : (others.length ? others : players.slice(1)).map((p, idx) => ({
-        handSize: handSize(p.hand),
+        handSize: handSize(p.hand != null ? p.hand : fallbackHandSize),
         name: p.username || p.displayName || `Player ${idx + 2}`,
       }));
 
   const topCard = gameState.topCard || gameState.discardPile?.[gameState.discardPile.length - 1] || null;
+  const timer = opts.timer || (gameState.turnDurationSeconds ? `${gameState.turnDurationSeconds}s` : '2m');
 
   return buildEngineState(
     {
@@ -199,7 +210,10 @@ export function socketStateToEngine(gameState, selfUid, opts = {}) {
       selfUid,
       selfName: opts.selfName || self?.username || self?.displayName || 'You',
       statusMessage: opts.statusMessage,
+      turnDurationSeconds: gameState.turnDurationSeconds,
+      timer,
+      secondsRemaining: opts.secondsRemaining,
     },
-    { opponentName: opponents[0]?.name },
+    { opponentName: opponents[0]?.name, timer, secondsRemaining: opts.secondsRemaining, startCards: opts.startCards },
   );
 }
