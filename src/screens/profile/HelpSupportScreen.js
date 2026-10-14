@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
+  Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -16,9 +19,12 @@ import {
   Key,
   LifeBuoy,
   ChevronDown,
+  Trash2,
+  X,
 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { content } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { auth, content } from '../../services/api';
 
 const FALLBACK_SECTIONS = [
   {
@@ -88,9 +94,36 @@ function titleCase(str) {
 
 export default function HelpSupportScreen({ navigation }) {
   const { theme, isDark } = useTheme();
+  const { signOut } = useAuth();
   const [sections, setSections] = useState(FALLBACK_SECTIONS);
   const [expanded, setExpanded] = useState({});
   const [loading, setLoading] = useState(true);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deleteText, setDeleteText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  const openDeleteModal = () => {
+    setDeleteText('');
+    setDeleteModal(true);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteText.trim() !== 'DELETE') {
+      Alert.alert('Confirmation required', 'Type DELETE to confirm account deletion.');
+      return;
+    }
+    setDeleting(true);
+    try {
+      await auth.deleteAccount('DELETE');
+      setDeleteModal(false);
+      await signOut();
+      navigation.reset({ index: 0, routes: [{ name: 'Landing' }] });
+    } catch (err) {
+      Alert.alert('Delete failed', err?.message || 'Could not delete your account.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -239,7 +272,76 @@ export default function HelpSupportScreen({ navigation }) {
             <Text style={styles.contactBtnText}>Back to Settings</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Delete Account Danger Zone */}
+        <View style={[styles.dangerCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
+          <View style={styles.dangerHeaderRow}>
+            <View style={[styles.dangerIconSquare, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+              <Trash2 size={20} color={theme.danger || '#EF4444'} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={[styles.dangerTitleText, { color: theme.textPrimary }]}>Account Actions</Text>
+              <Text style={[styles.dangerSubText, { color: theme.textSecondary }]}>
+                Permanently delete your Gamearn account and all associated data.
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={openDeleteModal}
+            style={styles.deleteAccountBtn}
+          >
+            <Trash2 size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.deleteAccountBtnText}>Delete Account</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal visible={deleteModal} transparent animationType="fade" onRequestClose={() => setDeleteModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Delete Account</Text>
+              <TouchableOpacity onPress={() => setDeleteModal(false)} disabled={deleting}>
+                <X size={20} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.modalBody, { color: theme.textSecondary }]}>
+              This permanently removes your profile, wallet, game history, ratings and tournament
+              entries across Gamearn. It cannot be undone. Type DELETE to continue.
+            </Text>
+            <TextInput
+              value={deleteText}
+              onChangeText={setDeleteText}
+              placeholder="Type DELETE"
+              placeholderTextColor={theme.textMuted}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              editable={!deleting}
+              style={[
+                styles.modalInput,
+                { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.textPrimary },
+              ]}
+            />
+            <TouchableOpacity
+              activeOpacity={0.85}
+              disabled={deleting || deleteText.trim() !== 'DELETE'}
+              onPress={handleDeleteAccount}
+              style={[
+                styles.deleteConfirmBtn,
+                (deleting || deleteText.trim() !== 'DELETE') && { opacity: 0.45 },
+              ]}
+            >
+              {deleting ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.deleteConfirmText}>Permanently Delete</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -407,5 +509,94 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+  },
+  dangerCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 20,
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  dangerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dangerIconSquare: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dangerTitleText: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  dangerSubText: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DC2626',
+    borderRadius: 14,
+    paddingVertical: 13,
+  },
+  deleteAccountBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    gap: 12,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  modalBody: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  deleteConfirmBtn: {
+    backgroundColor: '#DC2626',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
   },
 });

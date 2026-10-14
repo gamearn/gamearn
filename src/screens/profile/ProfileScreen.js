@@ -121,13 +121,6 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Username on top of GP & VP */}
-        <View style={{ marginTop: 14, marginBottom: 4, alignItems: 'center' }}>
-          <Text style={{ color: theme.textPrimary, fontSize: 18, fontWeight: '700', letterSpacing: 0.2 }}>
-            {userName}
-          </Text>
-        </View>
-
         {/* Game Power (GP) & Value Points (VP) Row */}
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
           <View
@@ -429,7 +422,7 @@ const styles = StyleSheet.create({
   statsGridRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   statCardBox: {
     flex: 1,

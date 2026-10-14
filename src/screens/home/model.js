@@ -82,9 +82,11 @@ function computeRowGp(wins = 0, played = 0, explicitGp = null) {
   return Math.min(100, Math.max(0, Math.round(100 * (0.75 * WR + 0.25 * expScore))));
 }
 
-function leaderboard(dbRows = [], userProfile = null) {
+function leaderboard(dbRows = [], userProfile = null, period = 'Daily') {
   // Rows arrive pre-ranked by the server (plays DESC, then wins). The client
   // only shapes them; plays is the ranking metric, wins/GP stay visible.
+  const isDaily = period === 'Daily';
+
   const getUserPlays = () => {
     if (!userProfile) return 0;
     const wins = Number(userProfile.wins || userProfile.gamesWon || 0);
@@ -101,7 +103,12 @@ function leaderboard(dbRows = [], userProfile = null) {
   };
 
   if (!Array.isArray(dbRows) || dbRows.length === 0) {
-    if (userProfile?.uid) {
+    if (isDaily) {
+      // Under daily: only display players that have played that day.
+      // If no players have played today, do not show anyone.
+      return [];
+    }
+    if (userProfile?.uid && getUserPlays() > 0) {
       const userGp = getUserGp();
       return [
         {
@@ -121,7 +128,17 @@ function leaderboard(dbRows = [], userProfile = null) {
     return [];
   }
 
-  const list = dbRows.map((row, index) => {
+  // Filter rows so only players who actually recorded plays are included
+  const validRows = dbRows.filter((row) => {
+    const plays = Number(row.plays ?? row.gamesPlayed ?? row.played ?? row.wins ?? 0);
+    return plays > 0;
+  });
+
+  if (isDaily && validRows.length === 0) {
+    return [];
+  }
+
+  const list = validRows.map((row, index) => {
     const isUser = Boolean(userProfile?.uid && (row.id === userProfile.uid || row.uid === userProfile.uid));
     const name = row.username || row.displayName || row.name || 'Gamer';
     const wins = Number(row.wins || 0);
@@ -141,21 +158,24 @@ function leaderboard(dbRows = [], userProfile = null) {
     };
   });
 
-  const hasUserInList = userProfile?.uid && list.some((item) => item.isUser);
-  if (userProfile?.uid && !hasUserInList) {
-    const userGp = getUserGp();
-    list.push({
-      id: userProfile.uid,
-      name: `${userProfile.username || userProfile.displayName || userProfile.name || 'You'} (You)`,
-      plays: getUserPlays(),
-      wins: Number(userProfile.wins || userProfile.gamesWon || 0),
-      gp: userGp,
-      gpText: `${userGp} GP`,
-      xp: userGp,
-      avatar: userProfile.avatar || 'adebayo',
-      isUser: true,
-      rank: list.length + 1,
-    });
+  // Only inject user for non-Daily periods if user has recorded plays
+  if (!isDaily && userProfile?.uid) {
+    const hasUserInList = list.some((item) => item.isUser);
+    if (!hasUserInList && getUserPlays() > 0) {
+      const userGp = getUserGp();
+      list.push({
+        id: userProfile.uid,
+        name: `${userProfile.username || userProfile.displayName || userProfile.name || 'You'} (You)`,
+        plays: getUserPlays(),
+        wins: Number(userProfile.wins || userProfile.gamesWon || 0),
+        gp: userGp,
+        gpText: `${userGp} GP`,
+        xp: userGp,
+        avatar: userProfile.avatar || 'adebayo',
+        isUser: true,
+        rank: list.length + 1,
+      });
+    }
   }
 
   return list;

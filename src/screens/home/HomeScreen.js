@@ -302,8 +302,8 @@ export default function HomeScreen({ navigation }) {
   const txt = (value, size = 18, style) => <Text style={[s.text, { fontSize: size * scale }, style]}>{value}</Text>;
   const icon = (iconName, size = 24, color = CYAN) => <Ionicons name={iconName} size={size * scale} color={color} />;
   const rows = useMemo(
-    () => leaderboard(dbLeaderboardRows, userProfile),
-    [dbLeaderboardRows, userProfile]
+    () => leaderboard(dbLeaderboardRows, userProfile, period),
+    [dbLeaderboardRows, userProfile, period]
   );
 
   const addFunds = () => {
@@ -317,7 +317,6 @@ export default function HomeScreen({ navigation }) {
   };
 
   function Header() {
-    const username = userProfile?.username || userProfile?.displayName || userProfile?.name || state.name || 'Gamer';
     const avatarUri = userProfile?.avatar;
 
     return (
@@ -326,13 +325,12 @@ export default function HomeScreen({ navigation }) {
           <LinearGradient colors={[CYAN, '#146aff', '#ffbb00']} style={s.avatarRing}>
             <Image source={resolveAvatarSource(avatarUri)} style={[s.avatar, { width: 55 * scale, height: 55 * scale, borderRadius: (55 * scale) / 2 }]} />
           </LinearGradient>
-          <View style={{ marginLeft: 15 * scale }}>
-            {txt(username, 20, s.medium)}
-            <View style={[s.inline, { flexWrap: 'wrap', gap: 6 * scale }]}>
-                                          <View style={{ backgroundColor: '#F59E0B22', paddingHorizontal: 6 * scale, paddingVertical: 2 * scale, borderRadius: 6 * scale, borderWidth: 1, borderColor: '#F59E0B66' }}>
+          <View style={{ marginLeft: 12 * scale, justifyContent: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap', gap: 6 * scale }}>
+              <View style={{ backgroundColor: '#F59E0B22', paddingHorizontal: 7 * scale, paddingVertical: 4 * scale, borderRadius: 8 * scale, borderWidth: 1, borderColor: '#F59E0B66' }}>
                 <Text style={{ color: '#F59E0B', fontSize: 11 * scale, fontWeight: '900' }}>⚡ {userProfile?.gpText || '0 GP'}</Text>
               </View>
-              <View style={{ backgroundColor: '#3B82F622', paddingHorizontal: 6 * scale, paddingVertical: 2 * scale, borderRadius: 6 * scale, borderWidth: 1, borderColor: '#3B82F666' }}>
+              <View style={{ backgroundColor: '#3B82F622', paddingHorizontal: 7 * scale, paddingVertical: 4 * scale, borderRadius: 8 * scale, borderWidth: 1, borderColor: '#3B82F666' }}>
                 <Text style={{ color: '#60A5FA', fontSize: 11 * scale, fontWeight: '900' }}>🏆 {userProfile?.vpText || '0 VP'}</Text>
               </View>
             </View>
@@ -482,7 +480,9 @@ export default function HomeScreen({ navigation }) {
         {leaderboardLoading ? (
           <ActivityIndicator color={CYAN} style={{ marginTop: 16 * scale }} />
         ) : rows.length === 0 ? (
-          <Text style={[s.muted, { marginTop: 12 * scale }]}>No active database rankings for this period yet.</Text>
+          <Text style={[s.muted, { marginTop: 12 * scale }]}>
+            {period === 'Daily' ? 'No players have played today yet.' : 'No active database rankings for this period yet.'}
+          </Text>
         ) : rows.map((player, index) => (
           <Tap key={player.id} label={`${index + 1}, ${player.name}, ${player.plays} plays, ${player.wins} wins`} onPress={() => open('player', player)} style={[s.leaderRow, index === 0 && s.firstRow]}>
             <View style={[s.rank, index < 3 && { borderColor: ['#eab51b', '#91a6b9', '#ff8a00'][index], backgroundColor: ['#8f6400', '#526b80', '#bf4004'][index] }]}>
@@ -508,10 +508,10 @@ export default function HomeScreen({ navigation }) {
       <>
         <View style={s.welcomeRow}>
           <View style={{ flex: 1 }}>
-            {txt('Welcome,', 24, s.bold)}
+            {txt('Welcome,', 32, s.bold)}
             <View style={s.inline}>
-              {txt(displayName, 37, [s.bold, s.cyan, { maxWidth: 205 * scale }])}
-              {txt(' \uD83D\uDC4B', 31)}
+              {txt(displayName, 22, [s.bold, s.cyan, { maxWidth: 220 * scale }])}
+              {txt(' \uD83D\uDC4B', 22)}
             </View>
             {txt('Play. Earn. Belong.', 16, s.muted)}
           </View>
@@ -862,7 +862,25 @@ export default function HomeScreen({ navigation }) {
     <View style={[ui.root, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
       <LinearGradient colors={theme.gradientBg} style={StyleSheet.absoluteFillObject} />
-      <ScrollView ref={scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always" keyboardDismissMode="none" contentContainerStyle={[s.content, { paddingTop: insets.top + 10 * scale, paddingBottom: 110 * scale }]}>
+      <ScrollView
+        ref={scroll}
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+        nestedScrollEnabled={true}
+        overScrollMode="always"
+        bounces={true}
+        scrollEventThrottle={16}
+        contentContainerStyle={[
+          s.content,
+          {
+            paddingTop: insets.top + 10 * scale,
+            paddingBottom: Math.max(180, 180 * scale) + insets.bottom,
+            flexGrow: 1,
+          },
+        ]}
+      >
         <Header />
         <ActiveMatchBanner navigation={navigation} />
         {!!storageError && <Text accessibilityLiveRegion="polite" style={ui.error}>{storageError}</Text>}
