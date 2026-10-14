@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Svg from 'react-native-svg';
 import {
   Artwork,
   BUTTONS,
@@ -18,6 +19,19 @@ import {
   Shape,
   getCardCenters,
 } from './Artwork';
+
+const SHAPE_COLORS = {
+  star: '#FFCC00',
+  triangle: '#FF9900',
+  cross: '#F9002C',
+  square: '#00BB50',
+  circle: '#9400DF',
+};
+
+function getShapeColor(shape) {
+  if (!shape) return '#00E5FF';
+  return SHAPE_COLORS[shape.toLowerCase()] || '#00E5FF';
+}
 import {
   AI_CHAT_RESPONSES,
   createInitialState,
@@ -111,12 +125,15 @@ export function WhotScreen({
   const [draft, setDraft] = useState('');
   const knownChatIds = useRef(new Set());
 
+  const isSubmittingMoveRef = useRef(false);
+
   // Remote (server-authoritative) mode: every turn/law/effect comes from the
   // backend. Rehydrate the local render tree wholesale on each new snapshot;
   // human moves are sent to the server, never applied locally.
   useEffect(() => {
     if (!isRemote || !remote) return;
     setGameState(remote);
+    isSubmittingMoveRef.current = false;
   }, [remote, isRemote]);
 
   function sendRemoteMove(move) {
@@ -182,6 +199,10 @@ export function WhotScreen({
         if (prev.activePlayerIndex !== aiIdx || prev.gameStatus === 'game_over') return prev;
         const move = getAiMove(prev, aiIdx, activeDifficulty);
         if (move.action === 'play') {
+          if (move.shape) {
+            const botName = prev.players[aiIdx]?.name || (aiIdx === 1 ? 'Oba 👑' : `Player ${aiIdx}`);
+            showShapeCallPopup(move.shape, botName);
+          }
           return playCard(prev, aiIdx, move.cardId, move.shape);
         } else {
           return drawCard(prev, aiIdx);
@@ -198,6 +219,67 @@ export function WhotScreen({
 
   const [showFormationModal, setShowFormationModal] = useState(true);
   const [formationCountdown, setFormationCountdown] = useState(7);
+
+  // 3-Second Pop-Up for WHOT (20) Requested Shape
+  const [shapeCallPopup, setShapeCallPopup] = useState(null);
+  const popupTimeoutRef = useRef(null);
+  const lastRequestedShapeRef = useRef(null);
+  const lastDiscardLenRef = useRef(0);
+  const lastHumanPlayedWhotRef = useRef(false);
+
+  function showShapeCallPopup(shape, caller, isYou = false) {
+    if (!shape) return;
+    if (popupTimeoutRef.current) clearTimeout(popupTimeoutRef.current);
+    setShapeCallPopup({ shape, caller, isYou, key: Date.now() });
+    popupTimeoutRef.current = setTimeout(() => {
+      setShapeCallPopup(null);
+    }, 3000);
+  }
+
+  // Monitor requestedShape updates across both local and remote matches
+  useEffect(() => {
+    const currentShape = gameState?.requestedShape;
+    const discardLen = gameState?.discardPile?.length || 0;
+
+    if (currentShape && (currentShape !== lastRequestedShapeRef.current || discardLen !== lastDiscardLenRef.current)) {
+      let isYou = false;
+      let caller = 'Opponent';
+
+      if (lastHumanPlayedWhotRef.current) {
+        isYou = true;
+        caller = 'You';
+      } else if (gameState?.pendingShapeCallerName) {
+        caller = gameState.pendingShapeCallerName;
+        isYou = gameState.pendingShapeCallerUid === remote?.selfUid;
+      } else if (gameState?.pendingShapeCallerUid) {
+        isYou = gameState.pendingShapeCallerUid === remote?.selfUid;
+        caller = isYou ? 'You' : (vsOba ? 'Oba 👑' : (gameState?.players?.[1]?.name || 'Oba 👑'));
+      } else if (gameState?.statusMessage?.includes('Oba')) {
+        caller = 'Oba 👑';
+        isYou = false;
+      } else if (gameState?.statusMessage?.includes('QueenBee')) {
+        caller = 'QueenBee';
+        isYou = false;
+      } else if (gameState?.statusMessage?.includes('KingTee')) {
+        caller = 'KingTee';
+        isYou = false;
+      } else {
+        // In vs Oba mode or 2-player game, opponent who played WHOT is Oba!
+        caller = vsOba ? 'Oba 👑' : (gameState?.players?.[1]?.name || 'Oba 👑');
+        isYou = false;
+      }
+
+      showShapeCallPopup(currentShape, caller, isYou);
+    }
+    lastRequestedShapeRef.current = currentShape;
+    lastDiscardLenRef.current = discardLen;
+  }, [gameState?.requestedShape, gameState?.discardPile?.length, gameState?.pendingShapeCallerName, gameState?.pendingShapeCallerUid]);
+
+  useEffect(() => {
+    return () => {
+      if (popupTimeoutRef.current) clearTimeout(popupTimeoutRef.current);
+    };
+  }, []);
 
   // Pre-game 7 seconds Countdown Modal Effect
   useEffect(() => {
@@ -292,28 +374,68 @@ export function WhotScreen({
     setBounds({ width, height });
   }
 
+  // Handle 1-Tap Play & Select
+  function handleCardPress(card) {
+    if (!card) return;
+    if (gameState.activePlayerIndex !== 0) {
+      setGameState((prev) => ({ ...prev, statusMessage: "Wait for your turn!" }));
+      return;
+    }
+    if (isSubmittingMoveRef.current) return;
+
+    const isWhot = Number(card.value) === 20 || card.shape === 'whot';
+    if (isWhot) {
+      setSelected(card.id);
+      setPendingWhotCardId(card.id);
+      setDialog('whot_picker');
+      return;
+    }
+
+    const matchesShape = gameState.requestedShape
+      ? card.shape === gameState.requestedShape
+      : (!topDiscard || card.shape === topDiscard.shape);
+    const matchesValue = topDiscard ? card.value === topDiscard.value : true;
+    const canPlay = matchesShape || matchesValue;
+
+    if (canPlay) {
+      // 1-Tap plays the card immediately!
+      handlePlayCard(card.id);
+    } else {
+      setSelected(card.id);
+      setGameState((prev) => ({
+        ...prev,
+        statusMessage: `Cannot play ${card.value} ${card.shape}. Must match ${gameState.requestedShape ? gameState.requestedShape.toUpperCase() : (topDiscard ? topDiscard.shape.toUpperCase() : '')} or ${topDiscard ? topDiscard.value : ''}.`,
+      }));
+    }
+  }
+
   // Handle Play Action
   function handlePlayCard(cardId) {
     if (gameState.activePlayerIndex !== 0) {
       setGameState((prev) => ({ ...prev, statusMessage: "Wait for your turn!" }));
       return;
     }
+    if (isSubmittingMoveRef.current) return;
 
     const card = humanHand.find((c) => c.id === cardId);
     if (!card) return;
 
+    const isWhot = Number(card.value) === 20 || card.shape === 'whot';
+
     if (isRemote) {
       setSelected(null);
-      if (card.value === 20) {
+      if (isWhot) {
         setPendingWhotCardId(card.id);
         setDialog('whot_picker');
         return;
       }
+      isSubmittingMoveRef.current = true;
+      setTimeout(() => { isSubmittingMoveRef.current = false; }, 1500);
       sendRemoteMove({ card: engineCardToServer(card) });
       return;
     }
 
-    if (!isValidMove(card, topDiscard, gameState.requestedShape, gameState.pendingDrawPenalty)) {
+    if (!isWhot && !isValidMove(card, topDiscard, gameState.requestedShape, gameState.pendingDrawPenalty)) {
       setGameState((prev) => ({
         ...prev,
         statusMessage: `Cannot play ${card.value} ${card.shape}. Must match ${gameState.requestedShape ? gameState.requestedShape.toUpperCase() : topDiscard.shape.toUpperCase()} or ${topDiscard.value}.`,
@@ -321,7 +443,7 @@ export function WhotScreen({
       return;
     }
 
-    if (card.value === 20) {
+    if (isWhot) {
       setPendingWhotCardId(card.id);
       setDialog('whot_picker');
       return;
@@ -402,12 +524,20 @@ export function WhotScreen({
     }
 
     if (id === 'whot') {
-      const whotCard = humanHand.find((c) => c.value === 20);
-      if (whotCard) {
-        setPendingWhotCardId(whotCard.id);
-      } else {
-        setPendingWhotCardId(null);
+      if (gameState.activePlayerIndex !== 0) {
+        setGameState((prev) => ({ ...prev, statusMessage: "Wait for your turn to call WHOT!" }));
+        return;
       }
+      const whotCard = humanHand.find((c) => Number(c?.value) === 20 || c?.shape === 'whot');
+      if (!whotCard) {
+        setGameState((prev) => ({
+          ...prev,
+          statusMessage: "You don't have a WHOT (20) card in your hand!",
+        }));
+        return;
+      }
+      setPendingWhotCardId(whotCard.id);
+      setSelected(whotCard.id);
       setDialog('whot_picker');
       return;
     }
@@ -426,26 +556,40 @@ export function WhotScreen({
   // Handle WHOT Shape Selection
   function handleSelectShape(shape) {
     setDialog(null);
-    if (isRemote) {
-      if (pendingWhotCardId) {
-        const card = humanHand.find((c) => c.id === pendingWhotCardId);
-        setPendingWhotCardId(null);
-        setSelected(null);
-        if (card) sendRemoteMove({ card: engineCardToServer(card), declaredShape: shape });
-      }
-      return;
-    }
-    if (pendingWhotCardId) {
-      setGameState((prev) => playCard(prev, 0, pendingWhotCardId, shape));
+    const whotCard = (pendingWhotCardId && humanHand.find((c) => c.id === pendingWhotCardId))
+      || humanHand.find((c) => Number(c?.value) === 20 || c?.shape === 'whot');
+
+    if (!whotCard) {
       setPendingWhotCardId(null);
       setSelected(null);
-    } else {
       setGameState((prev) => ({
         ...prev,
-        requestedShape: shape,
-        statusMessage: `You called ${shape.toUpperCase()}!`,
+        statusMessage: "You don't have a WHOT (20) card in your hand!",
       }));
+      return;
     }
+
+    lastHumanPlayedWhotRef.current = true;
+    setTimeout(() => {
+      lastHumanPlayedWhotRef.current = false;
+    }, 3000);
+
+    showShapeCallPopup(shape, 'You', true);
+
+    if (isRemote) {
+      setPendingWhotCardId(null);
+      setSelected(null);
+      isSubmittingMoveRef.current = true;
+      setTimeout(() => { isSubmittingMoveRef.current = false; }, 1500);
+      sendRemoteMove({ card: engineCardToServer(whotCard), declaredShape: shape });
+      return;
+    }
+
+    pushHistory(gameState);
+    setGameState((prev) => playCard(prev, 0, whotCard.id, shape));
+    setPendingWhotCardId(null);
+    setSelected(null);
+    onPlay?.(whotCard);
   }
 
   // Handle Chat Message Sending
@@ -613,6 +757,19 @@ export function WhotScreen({
             />
           ))}
 
+          {/* Crown on Bot / Oba Profile Image */}
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: (PORTRAITS[2].x + PORTRAITS[2].w / 2 - 20) * scale,
+              top: (PORTRAITS[2].y - 24) * scale,
+              zIndex: 99,
+            }}
+          >
+            <Text style={{ fontSize: 32 * scale }}>👑</Text>
+          </View>
+
           {/* Status Message Banner Overlay */}
           <View style={{ position: 'absolute', top: 350 * scale, left: 150 * scale, width: 724 * scale, alignItems: 'center' }}>
             <View style={{ backgroundColor: '#000000bb', paddingHorizontal: 20 * scale, paddingVertical: 10 * scale, borderRadius: 20 * scale, borderWidth: 2 * scale, borderColor: '#7042ff' }}>
@@ -682,7 +839,7 @@ export function WhotScreen({
               }}
             >
               <Text style={{ color: '#00E5FF', fontSize: 13 * scale, fontWeight: '900', textAlign: 'center', marginBottom: 6 * scale }}>
-                🔍 MY HAND CARDS ({humanHand.length} Total — Tap to Select, Double Tap to Play)
+                🔍 MY HAND CARDS ({humanHand.length} Total — Tap to Play)
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 * scale, alignItems: 'center' }}>
                 {humanHand.map((card) => {
@@ -692,13 +849,7 @@ export function WhotScreen({
                     <TouchableOpacity
                       key={card.id}
                       activeOpacity={0.8}
-                      onPress={() => {
-                        if (selected === card.id) {
-                          handlePlayCard(card.id);
-                        } else {
-                          setSelected(card.id);
-                        }
-                      }}
+                      onPress={() => handleCardPress(card)}
                       style={{
                         backgroundColor: isSel ? '#7042ff' : '#161b40',
                         borderColor: isSel ? '#00E5FF' : shapeColor,
@@ -737,14 +888,7 @@ export function WhotScreen({
                 accessibilityRole="button"
                 accessibilityLabel={`${card.value} ${card.shape} card`}
                 accessibilityState={{ selected: isSel }}
-                onPress={() => {
-                  if (selected === card.id) {
-                    // Double tap plays card
-                    handlePlayCard(card.id);
-                  } else {
-                    setSelected(card.id);
-                  }
-                }}
+                onPress={() => handleCardPress(card)}
                 style={({ pressed }) => ({
                   position: 'absolute',
                   left: (c.x - (49 * (c.scale || 1))) * scale,
@@ -918,6 +1062,120 @@ export function WhotScreen({
           setGameState((prev) => ({ ...prev, activePlayerIndex: winnerIdx }));
         }}
       />
+
+      {/* 3-Second Pop-Up Overlay for Requested Shape (WHOT 20) */}
+      {shapeCallPopup && (
+        <Pressable
+          onPress={() => setShapeCallPopup(null)}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            backgroundColor: 'rgba(5, 7, 24, 0.72)',
+          }}
+        >
+          <View
+            style={{
+              width: Math.min((bounds.width || 380) * 0.88, 380),
+              backgroundColor: '#140c33',
+              borderRadius: 24,
+              borderWidth: 3,
+              borderColor: getShapeColor(shapeCallPopup.shape),
+              paddingVertical: 26,
+              paddingHorizontal: 20,
+              alignItems: 'center',
+              shadowColor: getShapeColor(shapeCallPopup.shape),
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.9,
+              shadowRadius: 24,
+              elevation: 30,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                paddingHorizontal: 16,
+                paddingVertical: 6,
+                borderRadius: 20,
+                marginBottom: 12,
+              }}
+            >
+              <Text style={{ fontSize: 18 }}>🃏</Text>
+              <Text style={{ color: '#FFD700', fontSize: 15, fontWeight: '900', letterSpacing: 1.5 }}>
+                WHOT 20 CALLED!
+              </Text>
+            </View>
+
+            <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', textAlign: 'center', marginBottom: 14 }}>
+              {shapeCallPopup.isYou || shapeCallPopup.caller === 'You'
+                ? 'You played 20 WHOT and requested:'
+                : `${shapeCallPopup.caller} played 20 WHOT and requested:`}
+            </Text>
+
+            <View
+              style={{
+                width: 105,
+                height: 105,
+                borderRadius: 55,
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                borderWidth: 3,
+                borderColor: getShapeColor(shapeCallPopup.shape),
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 14,
+              }}
+            >
+              <Svg width={70} height={70} viewBox="-35 -35 70 70">
+                <Shape
+                  shape={shapeCallPopup.shape}
+                  x={0}
+                  y={0}
+                  size={65}
+                  color={getShapeColor(shapeCallPopup.shape)}
+                />
+              </Svg>
+            </View>
+
+            <Text
+              style={{
+                color: getShapeColor(shapeCallPopup.shape),
+                fontSize: 34,
+                fontWeight: '900',
+                letterSpacing: 3,
+                textTransform: 'uppercase',
+                marginBottom: 8,
+              }}
+            >
+              {shapeCallPopup.shape}
+            </Text>
+
+            <Text style={{ color: '#E2E8F0', fontSize: 13, fontWeight: '700', textAlign: 'center', marginBottom: 14 }}>
+              All players must match this shape or play WHOT (20)
+            </Text>
+
+            <View
+              style={{
+                backgroundColor: 'rgba(0, 0, 0, 0.45)',
+                paddingHorizontal: 14,
+                paddingVertical: 5,
+                borderRadius: 14,
+              }}
+            >
+              <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '600' }}>
+                ⏱️ Disappears in 3 seconds
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+      )}
     </View>
   );
 }

@@ -26,17 +26,15 @@ export function isDarkSquare(index) {
   return (r + c) % 2 === 1;
 }
 
-/** Get forward directions for piece */
+/** Get directions for piece (all 4 diagonal directions allowed) */
 export function getDirections(piece) {
-  const dirs = [];
-  // White moves down (dr = +1), Black moves up (dr = -1)
-  if (piece.side === 'white' || piece.king) {
-    dirs.push({ dr: 1, dc: -1 }, { dr: 1, dc: 1 });
-  }
-  if (piece.side === 'black' || piece.king) {
-    dirs.push({ dr: -1, dc: -1 }, { dr: -1, dc: 1 });
-  }
-  return dirs;
+  if (!piece) return [];
+  return [
+    { dr: 1, dc: -1 },
+    { dr: 1, dc: 1 },
+    { dr: -1, dc: -1 },
+    { dr: -1, dc: 1 },
+  ];
 }
 
 /** Generate single capture moves for a piece (each step is 2 squares) */
@@ -98,14 +96,14 @@ export function getAllCaptureMoves(board, side, forcedSquare = null) {
   return captureMoves;
 }
 
-/** Get all legal moves for a side (enforcing strict mandatory captures) */
+/** Get all legal moves for a side (allows player to choose both simple moves and captures freely) */
 export function getAllLegalMoves(board, side, forcedSquare = null) {
+  if (!board || !Array.isArray(board)) return [];
   const captures = getAllCaptureMoves(board, side, forcedSquare);
-  if (captures.length > 0) {
-    return captures;
-  }
+
+  // If a piece is currently in a multi-jump sequence, it must continue jumping with that piece
   if (forcedSquare !== null && forcedSquare !== undefined) {
-    return [];
+    return captures;
   }
 
   const simpleMoves = [];
@@ -115,25 +113,43 @@ export function getAllLegalMoves(board, side, forcedSquare = null) {
       const { r, c } = getCoord(i);
       const dirs = getDirections(piece);
       for (const { dr, dc } of dirs) {
-        const destR = r + dr;
-        const destC = c + dc;
-        const destIdx = getIndex(destR, destC);
-        if (destIdx !== null && board[destIdx] === null) {
+        for (let step = 1; step < 8; step++) {
+          const destR = r + dr * step;
+          const destC = c + dc * step;
+          const destIdx = getIndex(destR, destC);
+          if (destIdx === null) break;
+          if (board[destIdx] !== null) {
+            // If opponent piece, check jump over it
+            const landR = destR + dr;
+            const landC = destC + dc;
+            const landIdx = getIndex(landR, landC);
+            if (landIdx !== null && board[landIdx] === null && board[destIdx].side !== piece.side) {
+              captures.push({
+                from: i,
+                to: landIdx,
+                captures: [destIdx],
+                path: [i, landIdx],
+              });
+            }
+            break;
+          }
           simpleMoves.push({
             from: i,
             to: destIdx,
             captures: [],
             path: [i, destIdx],
           });
+          // Regular men can move up to 2 squares diagonally; kings can fly full distance
+          if (!piece.king && step >= 2) break;
         }
       }
     }
   }
 
-  return simpleMoves;
+  return [...captures, ...simpleMoves];
 }
 
-/** Get legal moves starting from a specific square (strictly enforces mandatory capture) */
+/** Get legal moves starting from a specific square */
 export function getLegalMovesForSquare(board, side, squareIndex, forcedSquare = null) {
   return getAllLegalMoves(board, side, forcedSquare).filter((m) => m.from === squareIndex);
 }

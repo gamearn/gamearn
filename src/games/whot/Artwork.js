@@ -314,20 +314,20 @@ export const BUTTONS = [
   { id: 'chat', x: 136, y: 1314, w: 520, h: 62 },
 ];
 
-export function BottomControls() {
+export function BottomControls({ hasWhotCard = true }) {
   return (
     <G>
       {[
         ['draw', 33, 292, 'url(#blue)', '#36d6ff'],
         ['play', 348, 328, 'url(#purple)', '#ed80ff'],
-        ['whot', 699, 292, 'url(#orange)', '#ffd658'],
+        ['whot', 699, 292, hasWhotCard ? 'url(#orange)' : '#261b44', hasWhotCard ? '#ffd658' : '#493a73'],
       ].map(([id, x, w, fill, stroke]) => (
-        <G key={String(id)}>
+        <G key={String(id)} opacity={id === 'whot' && !hasWhotCard ? 0.45 : 1}>
           <Rect x={Number(x)} y="1406" width={Number(w)} height="83" rx="43" fill="#120032" />
           <Rect x={Number(x)} y="1400" width={Number(w)} height="83" rx="43" fill={String(fill)} stroke={String(stroke)} strokeWidth="5" />
-          {id === 'whot' ? <Crown x={777} y={1443} size={57} /> : <Icon x={Number(x) + 100} y={1443} name={id === 'draw' ? 'draw' : 'play'} scale={1.1} />}
-          <T x={Number(x) + (id === 'whot' ? 188 : Number(w) * 0.62)} y="1452" textAnchor="middle" fontFamily={FONT} fontSize={id === 'whot' ? 28 : 36} fontWeight="800" fill="#fff">
-            {id === 'whot' ? 'Call WHOT!' : id === 'draw' ? 'Draw' : 'Play'}
+          {id === 'whot' ? <Crown x={777} y={1443} size={57} color={hasWhotCard ? '#ffcc00' : '#8273a0'} /> : <Icon x={Number(x) + 100} y={1443} name={id === 'draw' ? 'draw' : 'play'} scale={1.1} />}
+          <T x={Number(x) + (id === 'whot' ? 188 : Number(w) * 0.62)} y="1452" textAnchor="middle" fontFamily={FONT} fontSize={id === 'whot' ? 28 : 36} fontWeight="800" fill={id === 'whot' && !hasWhotCard ? '#a89bc4' : '#fff'}>
+            {id === 'whot' ? (hasWhotCard ? 'Call WHOT!' : 'No WHOT 20') : id === 'draw' ? 'Draw' : 'Play'}
           </T>
         </G>
       ))}
@@ -403,6 +403,7 @@ export function Artwork({
 
       {/* Top Player Panel */}
       <Panel x={410} y={253} w={272} h={91} stroke={activePlayerIndex === topPlayerIndex ? '#57faff' : '#7435ff'} />
+      <Crown x={408} y={225} size={50} />
       <T x="493" y="290" fontFamily={FONT} fontSize="24" fontWeight="800" fill="#fff">
         ♟ {topPlayer.name}
       </T>
@@ -499,11 +500,9 @@ export function Artwork({
       <T x="799" y="1352" fontFamily={FONT} fontSize="24" fontWeight="800" fill="#fff">
         {humanName}
       </T>
-      <Circle cx={864} cy="1343" r="8" fill={activePlayerIndex === 0 ? '#00ec5f' : '#ff9900'} />
-      <Crown x={733} y={1295} size={40} />
       <Badge x={951} y={1343} value={safeHand.length} />
 
-      <BottomControls />
+      <BottomControls hasWhotCard={safeHand.some((c) => c && (Number(c.value) === 20 || c.shape === 'whot'))} />
     </Svg>
   );
 }

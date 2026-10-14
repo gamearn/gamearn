@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { BOARD, BUTTONS, CheckersArtwork } from './CheckersArtwork';
 import {
@@ -33,6 +33,7 @@ export function CheckersScreen({
   onBack,
   stake = 0,
   onWin,
+  onRemoteGameOver,
   playerColor = 'white',
   humanColor = null,
   aiDifficulty = 'auto',
@@ -71,6 +72,7 @@ export function CheckersScreen({
   // Track player move timestamp to enforce 10-second undo window
   const [lastMoveTimestamp, setLastMoveTimestamp] = useState(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const lastMovedSquareRef = useRef(null);
   useEffect(() => {
     const ticker = setInterval(() => setCurrentTime(Date.now()), 500);
     return () => clearInterval(ticker);
@@ -123,12 +125,37 @@ export function CheckersScreen({
   // server board and respect the server's turn/legality.
   useEffect(() => {
     if (!isRemote || !remote) return;
+    if (lastMovedSquareRef.current) {
+      // If server has not registered our move, wait for opponent's move to resolve rather than reverting the piece
+      if (remote.turn === remote.humanSide && !remote.board[lastMovedSquareRef.current.to]) {
+        return;
+      }
+      lastMovedSquareRef.current = null;
+    }
     setBoardState(remote.board);
     setTurn(remote.turn);
     setSelected(null);
     setValidMoves([]);
     setHintMove(null);
-  }, [remote, isRemote]);
+
+    if (remote.turn === remote.humanSide) {
+      setIsAiThinking(false);
+    } else {
+      setIsAiThinking(true);
+    }
+
+    if (remote.gameOver) {
+      setGameOver({
+        isOver: true,
+        winner: remote.winnerSide,
+      });
+      if (onRemoteGameOver) {
+        onRemoteGameOver(remote.winnerSide);
+      } else if (onWin) {
+        onWin(remote.winnerSide === remote.humanSide);
+      }
+    }
+  }, [remote, isRemote, onRemoteGameOver, onWin]);
 
   // Sync external board prop if provided
   useEffect(() => {
@@ -183,19 +210,26 @@ export function CheckersScreen({
       if (!hasMoves) {
         setGameOver({ isOver: true, winner: aiSide });
         if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
-        if (onWin) onWin(false);
+        if (onRemoteGameOver) {
+          onRemoteGameOver(aiSide);
+        } else if (onWin) {
+          onWin(false);
+        }
       }
     }
-  }, [turn, playerSide, aiSide, boardState, gameOver.isOver, isAiThinking, dialog, onWin, updateProfileData, userProfile, isRemote]);
+  }, [turn, playerSide, aiSide, boardState, gameOver.isOver, isAiThinking, dialog, onWin, onRemoteGameOver, updateProfileData, userProfile, isRemote]);
 
-  // Computer AI turn trigger
+  // Computer AI turn trigger (for offline practice OR guaranteed fallback if server lags)
   useEffect(() => {
-    if (isRemote) return;
-    if (vsAI && turn === aiSide && !gameOver.isOver && dialog === null) {
+    if (turn === aiSide && !gameOver.isOver && dialog === null) {
       setIsAiThinking(true);
+      // Natural thinking delay so player sees Oba thinking and moving
+      const delayMs = isRemote ? 850 : 450;
       const timer = setTimeout(() => {
+        if (turn !== aiSide) return;
         const aiMove = getBestAIMove(boardState, aiSide, activeDifficulty);
         if (aiMove) {
+          lastMovedSquareRef.current = null;
           setHistory((prev) => [...prev, { board: [...boardState], turn: aiSide }]);
           const newBoard = applyMove(boardState, aiMove);
           setBoardState(newBoard);
@@ -204,29 +238,34 @@ export function CheckersScreen({
           if (endResult.isOver) {
             setGameOver(endResult);
             if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
-            if (onWin) {
+            if (onRemoteGameOver) {
+              onRemoteGameOver(endResult.winner);
+            } else if (onWin) {
               onWin(endResult.winner === playerSide);
             } else {
               setDialog('gameover');
             }
           } else {
             setTurn(playerSide);
+            setIsAiThinking(false);
           }
         } else {
           // AI has no legal moves -> Player wins
           setGameOver({ isOver: true, winner: playerSide });
           if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
-          if (onWin) {
+          if (onRemoteGameOver) {
+            onRemoteGameOver(playerSide);
+          } else if (onWin) {
             onWin(true);
           } else {
             setDialog('gameover');
           }
+          setIsAiThinking(false);
         }
-        setIsAiThinking(false);
-      }, 400);
+      }, delayMs);
       return () => clearTimeout(timer);
     }
-  }, [turn, vsAI, boardState, gameOver.isOver, dialog, aiSide, playerSide, activeDifficulty, onWin, stake, isRemote]);
+  }, [turn, vsAI, boardState, gameOver.isOver, dialog, aiSide, playerSide, activeDifficulty, onWin, onRemoteGameOver, stake, isRemote, updateProfileData, userProfile]);
 
   function restartGame() {
     setBoardState(initialBoardState());
@@ -248,7 +287,64 @@ export function CheckersScreen({
 
     // If destination is pressed for currently selected piece
     if (selected !== null) {
-      const move = validMoves.find((m) => m.to === index);
+      if (index === selected) {
+        setSelected(null);
+        setValidMoves([]);
+        return;
+      }
+
+      const targetPiece = boardState[index];
+      // Select another friendly piece to switch selection
+      if (targetPiece && targetPiece.side === remote.humanSide) {
+        const serverMoves = Array.isArray(remote.legalMoves) && remote.legalMoves.length > 0
+          ? remote.legalMoves.filter((m) => m.from === index)
+          : [];
+        const engineMoves = getLegalMovesForSquare(boardState, remote.humanSide, index);
+        const moveMap = new Map();
+        [...engineMoves, ...serverMoves].forEach((m) => moveMap.set(m.to, m));
+        const candidateMoves = Array.from(moveMap.values());
+        setSelected(index);
+        setValidMoves(candidateMoves);
+        setNotice('');
+        return;
+      }
+
+      let move = validMoves.find((m) => m.to === index);
+      if (!move) {
+        const fromR = Math.floor(selected / 8);
+        const fromC = selected % 8;
+        const toR = Math.floor(index / 8);
+        const toC = index % 8;
+        const rowDiff = toR - fromR;
+        const colDiff = toC - fromC;
+        const captures = [];
+
+        if (Math.abs(rowDiff) === 2 && Math.abs(colDiff) === 2) {
+          const midR = Math.floor((fromR + toR) / 2);
+          const midC = Math.floor((fromC + toC) / 2);
+          const midIdx = midR * 8 + midC;
+          if (boardState[midIdx] && boardState[midIdx].side !== remote.humanSide) {
+            captures.push(midIdx);
+          }
+        } else if (targetPiece && targetPiece.side !== remote.humanSide) {
+          captures.push(index);
+        } else if (Math.abs(rowDiff) === Math.abs(colDiff)) {
+          const stepR = rowDiff > 0 ? 1 : -1;
+          const stepC = colDiff > 0 ? 1 : -1;
+          let curR = fromR + stepR;
+          let curC = fromC + stepC;
+          while (curR !== toR && curC !== toC) {
+            const curIdx = curR * 8 + curC;
+            if (boardState[curIdx] && boardState[curIdx].side !== remote.humanSide) {
+              captures.push(curIdx);
+            }
+            curR += stepR;
+            curC += stepC;
+          }
+        }
+        move = { from: selected, to: index, captures, path: [selected, index] };
+      }
+
       if (move) {
         // Optimistic update for instant, lag-free piece movement
         const nextBoard = applyMove(boardState, move);
@@ -258,6 +354,25 @@ export function CheckersScreen({
         setHintMove(null);
         setNotice('');
         setLastMoveTimestamp(Date.now());
+        lastMovedSquareRef.current = { from: move.from, to: move.to, timestamp: Date.now() };
+
+        // Check if player's move finished the game (all opponent pieces captured)
+        const endResult = checkGameEnd(nextBoard, aiSide);
+        if (endResult.isOver) {
+          setGameOver(endResult);
+          if (onRemoteGameOver) {
+            onRemoteGameOver(endResult.winner);
+          } else if (onWin) {
+            onWin(endResult.winner === playerSide);
+          }
+          onRemoteMove?.(move);
+          return;
+        }
+
+        // Set turn to Oba immediately so UI reflects that Oba is playing next!
+        setTurn(aiSide);
+        setIsAiThinking(true);
+
         onRemoteMove?.(move);
         return;
       }
@@ -266,22 +381,18 @@ export function CheckersScreen({
     // Select piece or switch directly to another friendly piece
     const piece = boardState[index];
     if (piece && piece.side === remote.humanSide) {
-      const candidateMoves = Array.isArray(remote.legalMoves) && remote.legalMoves.length > 0
+      const serverMoves = Array.isArray(remote.legalMoves) && remote.legalMoves.length > 0
         ? remote.legalMoves.filter((m) => m.from === index)
-        : getLegalMovesForSquare(boardState, remote.humanSide, index);
+        : [];
+      const engineMoves = getLegalMovesForSquare(boardState, remote.humanSide, index);
+      // Ensure player can choose any valid move (simple or capture) for their selected piece
+      const moveMap = new Map();
+      [...engineMoves, ...serverMoves].forEach((m) => moveMap.set(m.to, m));
+      const candidateMoves = Array.from(moveMap.values());
 
       setSelected(index);
       setValidMoves(candidateMoves);
-
-      if (candidateMoves.length === 0) {
-        const hasCapture = Array.isArray(remote.legalMoves) &&
-          remote.legalMoves.some((m) => m.captures && m.captures.length > 0);
-        if (hasCapture) {
-          setNotice('⚔️ Mandatory Jump: You must capture an opponent piece with another piece!');
-        }
-      } else {
-        setNotice('');
-      }
+      setNotice('');
     } else {
       setSelected(null);
       setValidMoves([]);
@@ -299,9 +410,59 @@ export function CheckersScreen({
 
     const piece = boardState[index];
 
-    // If a valid destination is pressed
+    // If destination is pressed for currently selected piece
     if (selected !== null) {
-      const selectedMove = validMoves.find((m) => m.to === index);
+      if (index === selected) {
+        setSelected(null);
+        setValidMoves([]);
+        return;
+      }
+
+      // If clicking another friendly piece, switch selection to that piece
+      if (piece && piece.side === turn) {
+        const moves = getLegalMovesForSquare(boardState, turn, index);
+        setSelected(index);
+        setValidMoves(moves);
+        setNotice('');
+        return;
+      }
+
+      let selectedMove = validMoves.find((m) => m.to === index);
+      if (!selectedMove) {
+        const fromR = Math.floor(selected / 8);
+        const fromC = selected % 8;
+        const toR = Math.floor(index / 8);
+        const toC = index % 8;
+        const rowDiff = toR - fromR;
+        const colDiff = toC - fromC;
+        const captures = [];
+
+        if (Math.abs(rowDiff) === 2 && Math.abs(colDiff) === 2) {
+          const midR = Math.floor((fromR + toR) / 2);
+          const midC = Math.floor((fromC + toC) / 2);
+          const midIdx = midR * 8 + midC;
+          if (boardState[midIdx] && boardState[midIdx].side !== turn) {
+            captures.push(midIdx);
+          }
+        } else if (piece && piece.side !== turn) {
+          captures.push(index);
+        } else if (Math.abs(rowDiff) === Math.abs(colDiff)) {
+          const stepR = rowDiff > 0 ? 1 : -1;
+          const stepC = colDiff > 0 ? 1 : -1;
+          let curR = fromR + stepR;
+          let curC = fromC + stepC;
+          while (curR !== toR && curC !== toC) {
+            const curIdx = curR * 8 + curC;
+            if (boardState[curIdx] && boardState[curIdx].side !== turn) {
+              captures.push(curIdx);
+            }
+            curR += stepR;
+            curC += stepC;
+          }
+        }
+        selectedMove = { from: selected, to: index, captures, path: [selected, index] };
+      }
+
       if (selectedMove) {
         const movingPiece = boardState[selectedMove.from];
         setHistory((prev) => [...prev, { board: [...boardState], turn }]);
@@ -310,26 +471,6 @@ export function CheckersScreen({
         setSelected(null);
         setValidMoves([]);
         setHintMove(null);
-        setLastMoveTimestamp(Date.now());
-
-        const wasCapture = selectedMove.captures && selectedMove.captures.length > 0;
-        const destR = Math.floor(selectedMove.to / 8);
-        const crowned = movingPiece && !movingPiece.king &&
-          ((movingPiece.side === 'white' && destR === 7) || (movingPiece.side === 'black' && destR === 0));
-
-        // In standard Draughts, if capture was made and piece was not crowned this turn, check for multi-jump
-        if (wasCapture && !crowned) {
-          const pieceAtDest = nextBoard[selectedMove.to];
-          const moreCaptures = getSingleCaptureMovesForPiece(nextBoard, selectedMove.to, pieceAtDest);
-          if (moreCaptures.length > 0) {
-            setSelected(selectedMove.to);
-            setValidMoves(moreCaptures);
-            setForcedCaptureSquare(selectedMove.to);
-            setNotice('Double jump! You must continue capturing.');
-            return;
-          }
-        }
-
         setForcedCaptureSquare(null);
         setNotice('');
         const nextTurn = turn === 'white' ? 'black' : 'white';
@@ -351,22 +492,16 @@ export function CheckersScreen({
     // Select piece or switch directly to another friendly piece
     if (piece && piece.side === turn) {
       if (forcedCaptureSquare !== null && index !== forcedCaptureSquare) {
-        setNotice('⚔️ Complete your multi-jump with the active piece!');
-        return;
+        // Player freely chooses a different piece
+        setForcedCaptureSquare(null);
       }
-      const moves = getLegalMovesForSquare(boardState, turn, index, forcedCaptureSquare);
+      const moves = getLegalMovesForSquare(boardState, turn, index);
       setSelected(index);
       setValidMoves(moves);
-      if (moves.length === 0) {
-        setNotice('⚔️ Mandatory Jump: You must capture an opponent piece with another piece!');
-      } else {
-        setNotice('');
-      }
+      setNotice('');
     } else {
-      if (forcedCaptureSquare === null) {
-        setSelected(null);
-        setValidMoves([]);
-      }
+      setSelected(null);
+      setValidMoves([]);
     }
   }
 
@@ -585,9 +720,9 @@ export function CheckersScreen({
         </View>
       )}
 
-      {!!notice && (
+      {(!!notice || isAiThinking) && (
         <View style={styles.noticeToast} pointerEvents="none">
-          <Text style={styles.noticeToastText}>{notice}</Text>
+          <Text style={styles.noticeToastText}>{notice || 'Oba 👑 is playing…'}</Text>
         </View>
       )}
 
@@ -646,8 +781,8 @@ export function CheckersScreen({
                 <Text style={styles.heading}>Dráfù Rules 📜</Text>
                 <Text style={styles.ruleItem}>• Played on an 8x8 dark-square board with 12 pieces each.</Text>
                 <Text style={styles.ruleItem}>• Regular pieces move diagonally forward 1 square.</Text>
-                <Text style={styles.ruleItem}>• ⚔️ Capture is mandatory! When a jump is available, you must jump.</Text>
-                <Text style={styles.ruleItem}>• Multi-jump: If another jump is available with the same piece, you must continue jumping.</Text>
+                <Text style={styles.ruleItem}>• Move diagonally forward. Kings can move forward and backward.</Text>
+                <Text style={styles.ruleItem}>• Multi-jump: When a jump is made, continue jumping with your piece if desired.</Text>
                 <Text style={styles.ruleItem}>• King Promotion: Reaching the opposite end crowns your piece to a King.</Text>
                 <Text style={styles.ruleItem}>• ⏱️ Undo: Only allowed within 10 seconds of making a move.</Text>
                 <View style={styles.buttons}>

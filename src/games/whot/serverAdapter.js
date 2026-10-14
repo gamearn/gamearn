@@ -18,14 +18,15 @@ import { SHAPE_COLORS, parseTimerSec } from './whotGameEngine';
 
 let cardSeq = 0;
 
-export function serverCardToEngine(card) {
+export function serverCardToEngine(card, idx = 0) {
   if (!card) return null;
-  cardSeq += 1;
+  const num = Number(card.number);
+  const shape = card.shape || 'whot';
   return {
-    id: `sc_${cardSeq}_${Math.random().toString(36).slice(2, 6)}`,
-    value: card.number,
-    shape: card.shape,
-    color: SHAPE_COLORS[card.shape] || '#555555',
+    id: card.id || `sc_${shape}_${num}_${idx}`,
+    value: isNaN(num) ? 20 : num,
+    shape,
+    color: SHAPE_COLORS[shape] || '#555555',
   };
 }
 
@@ -58,7 +59,7 @@ function buildEngineState(view, meta = {}) {
 
   const oppAvatarIndices = [0, 2, 1];
   const players = [
-    { id: 0, name: selfName, hand: (view.self || []).map(serverCardToEngine), isAi: false, avatarIndex: 3 },
+    { id: 0, name: selfName, hand: (view.self || []).map((c, i) => serverCardToEngine(c, i)), isAi: false, avatarIndex: 3 },
     ...(opps.length > 0
       ? opps.map((opp, idx) => ({
           id: idx + 1,
@@ -73,7 +74,7 @@ function buildEngineState(view, meta = {}) {
 
   const pileFinished = view.deckSize === 0 && view.deckSize !== undefined && (view.self?.length > 0 || opps.some((o) => (o.handSize ?? 0) > 0));
   const finished = view.status === 'completed' || !!view.winner || pileFinished;
-  const topCard = view.topCard ? serverCardToEngine(view.topCard) : null;
+  const topCard = view.topCard ? serverCardToEngine(view.topCard, 'top') : null;
 
   const activePlayerIndex =
     view.currentPlayerIndex == null
@@ -122,6 +123,8 @@ function buildEngineState(view, meta = {}) {
     drawPile: Array.from({ length: view.deckSize || 0 }),
     discardPile: topCard ? [topCard] : [],
     requestedShape: view.pendingShape || null,
+    pendingShapeCallerUid: view.pendingShapeCallerUid || null,
+    pendingShapeCallerName: view.pendingShapeCallerName || null,
     pendingDrawPenalty: null,
     turnTimerSeconds: turnSecs,
     secondsRemaining: Math.max(0, secondsRemaining),
@@ -158,6 +161,8 @@ export function practiceSnapshotToEngine(data, opts = {}) {
       opponents,
       topCard: data.topCard,
       pendingShape: data.pendingShape || null,
+      pendingShapeCallerUid: data.pendingShapeCallerUid || (data.botActions?.some(a => a.declaredShape) ? 'bot_oba' : null),
+      pendingShapeCallerName: data.pendingShapeCallerName || (data.botActions?.some(a => a.declaredShape) ? (opts.opponentName || 'Oba 👑') : null),
       currentPlayerIndex: data.currentPlayerIndex ?? 0,
       selfIndex: 0,
       seatByIndex: [0, 1, 2, 3],
@@ -202,6 +207,8 @@ export function socketStateToEngine(gameState, selfUid, opts = {}) {
       opponents,
       topCard,
       pendingShape: gameState.pendingShape || null,
+      pendingShapeCallerUid: gameState.pendingShapeCallerUid || null,
+      pendingShapeCallerName: gameState.pendingShapeCallerName || null,
       currentPlayerIndex: gameState.currentPlayerIndex ?? 0,
       selfIndex,
       deckSize: gameState.deckSize ?? (Array.isArray(gameState.deck) ? gameState.deck.length : 0),

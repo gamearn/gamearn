@@ -107,12 +107,13 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
     if (!next) return;
     animatingRef.current = true;
     const n = next.cells.length - 1;
-    const stepMs = Math.max(90, Math.min(170, Math.round(1400 / n)));
+    const stepMs = Math.max(120, Math.min(180, Math.round(1500 / Math.max(1, n))));
+    const duration = Math.max(500, stepMs * n);
     progress.setValue(0);
     setActiveMove(next);
     Animated.timing(progress, {
       toValue: n,
-      duration: stepMs * n,
+      duration,
       easing: Easing.linear,
       useNativeDriver: false,
     }).start(() => {

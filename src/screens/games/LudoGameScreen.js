@@ -5,7 +5,7 @@ import { useServerGame } from '../../games/useServerGame';
 import { useAuth } from '../../context/AuthContext';
 import { ludoViewModel, diceValueForMove } from '../../games/ludo/serverAdapter';
 export default function LudoGameScreen({ route, navigation }) {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const params = route.params || {};
   const mode = params.mode === 'multiplayer' ? 'multiplayer' : 'practice';
   const multiplayer = mode === 'multiplayer';
@@ -80,6 +80,7 @@ export default function LudoGameScreen({ route, navigation }) {
         <LudoScreen
           viewModel={viewModel}
           isRemote
+          userProfile={userProfile}
           status={session.status}
           secondsRemaining={session.secondsRemaining}
           error={session.error}
@@ -97,13 +98,6 @@ export default function LudoGameScreen({ route, navigation }) {
           <Text style={styles.overlayText}>
             {session.error || (multiplayer ? 'Joining match…' : 'Starting practice game…')}
           </Text>
-        </View>
-      )}
-
-      {!multiplayer && viewModel && (
-        <View style={styles.practiceHud} pointerEvents="none">
-          <Text style={styles.practiceTitle}>Ludo — Practice</Text>
-          <Text style={styles.practiceSub}>{statusText}</Text>
         </View>
       )}
     </View>

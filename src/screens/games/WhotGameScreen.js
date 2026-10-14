@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, Text, ActivityIndicator } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { WhotScreen } from '../../games/whot/WhotScreen';
@@ -76,26 +76,56 @@ export default function WhotGameScreen({ route, navigation }) {
   }, [snapshot, multiplayer, uid, selfName, isVsOba, timer, session.secondsRemaining, effectiveCards]);
 
   const navigated = useRef(false);
+
+  const navigateResult = useCallback((winnerParam) => {
+    if (navigated.current) return;
+    navigated.current = true;
+    const opponent = snapshot?.players?.find((player) => player.uid !== uid);
+    const opponentName = opponent?.uid?.startsWith('bot_')
+      ? 'Oba 👑'
+      : opponent?.username || opponent?.displayName || (isVsOba ? 'Oba 👑' : 'Opponent');
+
+    let isWinner = false;
+    if (snapshot?.winner != null) {
+      isWinner = snapshot.winner === uid;
+    } else if (remote?.winner != null) {
+      isWinner = remote.winner === uid;
+    } else if (winnerParam !== undefined) {
+      if (typeof winnerParam === 'boolean') {
+        isWinner = winnerParam;
+      } else if (winnerParam && typeof winnerParam === 'object') {
+        isWinner = (winnerParam.id === 0 || winnerParam.uid === uid);
+      } else if (typeof winnerParam === 'string') {
+        isWinner = winnerParam === uid;
+      }
+    }
+
+    const isDraw = snapshot ? snapshot.winner == null && snapshot.status === 'completed' : false;
+
+    navigation.replace('GameResult', {
+      serverConfirmed: true,
+      isWinner,
+      isDraw,
+      completionReason: snapshot?.completionReason || 'normal',
+      myScore: null,
+      opponentScore: null,
+      opponentName,
+      gameId: 'whot',
+      gameName: 'Whot',
+      targetScreen: 'WhotGame',
+      stake: multiplayer ? stake : 0,
+      matchSettings: { ...params, mode, cardCount: effectiveCards, playerCount: effectiveSeats, vsOba: isVsOba, timer },
+    });
+  }, [snapshot, remote, uid, isVsOba, navigation, multiplayer, stake, params, mode, effectiveCards, effectiveSeats, timer]);
+
   useEffect(() => {
-    if (snapshot?.status !== 'completed' || navigated.current || session.pending) return;
+    const isFinished = snapshot?.status === 'completed' || snapshot?.gameOver || remote?.status === 'completed' || remote?.gameOver;
+    if (!isFinished || navigated.current) return;
     const timerId = setTimeout(() => {
-      if (navigated.current) return;
-      navigated.current = true;
-      const opponent = snapshot.players?.find(player => player.uid !== uid);
-      navigation.replace('GameResult', {
-        serverConfirmed: true,
-        isWinner: snapshot.winner === uid,
-        isDraw: snapshot.winner == null,
-        completionReason: snapshot.completionReason || 'normal',
-        myScore: null, opponentScore: null,
-        opponentName: opponent?.uid?.startsWith('bot_') ? 'Oba 👑' : opponent?.username || opponent?.displayName || 'Opponent',
-        gameId: 'whot', gameName: 'Whot', targetScreen: 'WhotGame',
-        stake: multiplayer ? stake : 0,
-        matchSettings: { ...params, mode, cardCount: effectiveCards, playerCount: effectiveSeats, vsOba: isVsOba, timer },
-      });
+      navigateResult();
     }, 800);
     return () => clearTimeout(timerId);
-  }, [snapshot, session.pending, uid, navigation, multiplayer, stake, mode, effectiveCards, effectiveSeats, isVsOba, timer]);
+  }, [snapshot?.status, snapshot?.gameOver, snapshot?.winner, remote?.status, remote?.gameOver, remote?.winner, navigateResult]);
 
   const handleBack = () => {
     if (navigation.canGoBack()) {
@@ -127,8 +157,12 @@ export default function WhotGameScreen({ route, navigation }) {
           secondsRemaining={session.secondsRemaining}
           onRemoteMove={(move) => session.move(move)}
           onBack={handleBack}
-          onRemoteGameOver={() => {}}
-          onWin={() => {}}
+          onRemoteGameOver={(winner) => {
+            setTimeout(() => navigateResult(winner), 800);
+          }}
+          onWin={(won) => {
+            setTimeout(() => navigateResult(won), 800);
+          }}
           onMessage={multiplayer && params.roomId ? (text) => session.sendChat(text) : null}
           incomingChats={multiplayer ? session.chats : []}
         />}

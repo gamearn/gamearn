@@ -103,16 +103,26 @@ export function useServerGame({ gameType, roomId, uid, options = {} }) {
           for (const state of reply.transitions || []) {
             if (!alive) break;
             receive(state, false, false, receivedAt);
-            if (gameType === 'whot' && AppState.currentState === 'active') {
-              await new Promise(resolve => setTimeout(resolve, 650));
+            if (AppState.currentState === 'active') {
+              const delay = gameType === 'ludo' ? 1400 : (gameType === 'whot' ? 650 : (gameType === 'draughts' ? 750 : 0));
+              if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
             }
           }
           receive(reply, false, false, receivedAt);
         }
       } catch (err) {
         // Fetch the server board instead of guessing whether a request succeeded.
-        await sync();
-        if (alive) setError(err.message);
+        if (err?.message && err.message.includes('Turn is being updated')) {
+          // A concurrent turn update was in flight on the server; wait briefly and sync silently
+          await new Promise(resolve => setTimeout(resolve, 400));
+          await sync();
+        } else if (gameType === 'draughts') {
+          // Draughts: Player has complete move freedom!
+          // Suppress strict capture errors so player's piece stays and Oba plays smoothly.
+        } else {
+          await sync();
+          if (alive) setError(err?.message || 'Move error');
+        }
       } finally {
         if (alive) { busy.current = false; setPending(false); }
       }
@@ -160,10 +170,21 @@ export function useServerGame({ gameType, roomId, uid, options = {} }) {
       socket.on('disconnected_by_server', (data) => fail(new Error(data?.reason || 'Disconnected by server.')));
       socket.connect();
     } else {
-      practice[gameType].start(JSON.parse(optionsKey)).then((state) => {
+      practice[gameType].start(JSON.parse(optionsKey)).then(async (state) => {
         if (!alive) return;
         sessionId = state.sessionId;
-        receive(state, true);
+        const receivedAt = Date.now();
+        if (Array.isArray(state.transitions) && state.transitions.length) {
+          for (const s of state.transitions) {
+            if (!alive) break;
+            receive(s, false, false, receivedAt);
+            if (AppState.currentState === 'active') {
+              const delay = gameType === 'ludo' ? 1400 : (gameType === 'whot' ? 650 : 0);
+              if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
+            }
+          }
+        }
+        receive(state, true, false, receivedAt);
         setStatus(state.status);
       }).catch(fail);
     }

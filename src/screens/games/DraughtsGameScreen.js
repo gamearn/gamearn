@@ -18,7 +18,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
 
   const isMultiplayer = mode === 'multiplayer' && !!roomId;
   const isPractice = mode === 'practice';
-  const remoteMode = isMultiplayer || isPractice;
+  const remoteMode = isMultiplayer;
 
   useEffect(() => {
     setActiveMatch({
@@ -58,10 +58,12 @@ export default function DraughtsGameScreen({ route, navigation }) {
   const navigateResult = (won) => {
     const opponent = (snapshot?.players || []).find((p) => p.uid !== uid);
     const vsBot = isPractice || !!opponent?.uid?.startsWith('bot_');
+    const isWinner = won === true;
+    const isDraw = won == null;
     navigation.replace('GameResult', {
       serverConfirmed: true,
-      isWinner: won,
-      isDraw: snapshot?.winner == null,
+      isWinner,
+      isDraw,
       completionReason: snapshot?.completionReason || 'normal',
       myScore: null,
       opponentScore: null,
@@ -152,7 +154,10 @@ export default function DraughtsGameScreen({ route, navigation }) {
         remote={remote}
         onRemoteMove={(move) => session.move(engineMoveToServer(move))}
         onControl={isPractice ? session.control : undefined}
-        onWin={remoteMode ? undefined : handleLocalWin}
+        onWin={handleLocalWin}
+        onRemoteGameOver={(winnerSide) => {
+          setTimeout(() => navigateResult(winnerSide === remote?.humanSide), 800);
+        }}
         onBack={handleBack}
       />
       <CoinTossModal
@@ -170,7 +175,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
         </View>
       )}
 
-      {remoteMode && remote && (session.status === 'connecting' || !!session.error) && (
+      {remoteMode && remote && (session.status === 'connecting' || (!!session.error && !session.error.toLowerCase().includes('path') && !session.error.toLowerCase().includes('capture') && !session.error.toLowerCase().includes('invalid') && !session.error.toLowerCase().includes('move'))) && (
         <View style={styles.banner} pointerEvents="none">
           <Text style={styles.bannerText}>
             {session.status === 'connecting' ? 'Syncing turn…' : session.error}
@@ -180,9 +185,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
 
       {isPractice && (
         <View style={styles.noticeBanner} pointerEvents="none">
-          <Text style={styles.noticeText}>
-            {remote ? 'Practice vs Oba 👑' : 'Starting practice…'}
-          </Text>
+          <Text style={styles.noticeText}>Practice · vs Oba 👑</Text>
         </View>
       )}
 

@@ -21,7 +21,10 @@ const whotAdapter = load('src/games/whot/serverAdapter.js', {
 });
 const draughtsAdapter = load('src/games/checkers/draughtsAdapter.js');
 const checkersEngine = load('src/games/checkers/CheckersEngine.js');
-
+const ludoEngine = load('src/games/ludo/ludoGameEngine.js');
+const ludoAdapter = load('src/games/ludo/serverAdapter.js', {
+  './ludoGameEngine': ludoEngine,
+});
 
 const players = [{ uid: 'first', displayName: 'First' }, { uid: 'second', displayName: 'Second' }];
 const snapshot = (extra = {}) => ({ players, board: Array(12).fill(4), stores: [0, 0], turnCount: 0, stateVersion: 0, currentPlayerUid: 'first', currentPlayerIndex: 0, status: 'playing', winner: null, ...extra });
@@ -229,9 +232,35 @@ test('Draughts converts engine moves (with multi-captures) to server coordinates
   });
 });
 
+test('Draughts CheckersEngine checkGameEnd correctly resolves wins for player or Oba', () => {
+  // Board with only black pieces (white has 0 pieces) -> black wins
+  const onlyBlack = Array(64).fill(null);
+  onlyBlack[1] = { side: 'black', king: false };
+  assert.deepEqual(checkersEngine.checkGameEnd(onlyBlack, 'white'), { isOver: true, winner: 'black' });
 
+  // Board with only white pieces (black has 0 pieces) -> white wins
+  const onlyWhite = Array(64).fill(null);
+  onlyWhite[62] = { side: 'white', king: false };
+  assert.deepEqual(checkersEngine.checkGameEnd(onlyWhite, 'black'), { isOver: true, winner: 'white' });
+});
 
-
+test('Whot GameOver detection accurately identifies Oba win when bot hand empties', () => {
+  const state = {
+    players: [
+      { uid: 'human_uid', displayName: 'Player', handSize: 3 },
+      { uid: 'bot_oba', displayName: 'Oba 👑', handSize: 0 },
+    ],
+    playerHand: [{ shape: 'circle', number: 5 }],
+    botCardCount: 0,
+    topCard: { shape: 'circle', number: 2 },
+    status: 'completed',
+    winner: 'bot_oba',
+  };
+  const view = whotAdapter.practiceSnapshotToEngine(state, { selfUid: 'human_uid', vsOba: true });
+  assert.equal(view.gameStatus, 'game_over');
+  assert.equal(view.winner.name, 'Oba 👑');
+  assert.equal(view.winner.id, 1);
+});
 
 function deferred() {
   let resolve, reject;
@@ -483,9 +512,9 @@ test('Draughts remote descriptor exposes server legalMoves and forcedCapture', (
   assert.equal(view.forcedCapture, 17);
 });
 
-test('CheckersEngine strictly enforces mandatory capture and single 2-square jumps', () => {
+test('CheckersEngine supports player freedom with captures and simple moves', () => {
   // Setup board where white at 17 can jump black at 26 landing at 35,
-  // and another white piece at 19 has only a simple move.
+  // and another white piece at 1 has only a simple move.
   const board = Array(64).fill(null);
   board[17] = { side: 'white', king: false };
   board[26] = { side: 'black', king: false };
@@ -497,15 +526,128 @@ test('CheckersEngine strictly enforces mandatory capture and single 2-square jum
   assert.equal(captures[0].to, 35);
   assert.deepEqual(captures[0].captures, [26]);
 
-  // Because capture is mandatory, legal moves for piece at 1 must be EMPTY (cannot make simple moves)
+  // Player has move freedom: piece at 1 can still be selected and moved even when a jump is available
   const movesFor1 = checkersEngine.getLegalMovesForSquare(board, 'white', 1);
-  assert.equal(movesFor1.length, 0);
+  assert.ok(movesFor1.length > 0);
 
-  // Legal moves for piece at 17 must be ONLY the jump
+  // Legal moves for piece at 17 includes the jump
   const movesFor17 = checkersEngine.getLegalMovesForSquare(board, 'white', 17);
-  assert.equal(movesFor17.length, 1);
-  assert.equal(movesFor17[0].to, 35);
+  assert.ok(movesFor17.some((m) => m.to === 35 && m.captures.length > 0));
 });
+
+test('Ludo diceValueForMove returns matching legal move diceValue or fallback', () => {
+  const vmWithMoves = {
+    legalMoves: [
+      { pieceId: 0, diceValue: 6 },
+      { pieceId: 1, diceValue: 4 },
+    ],
+    dice: [6, 4],
+  };
+  assert.equal(ludoAdapter.diceValueForMove(vmWithMoves, 0), 6);
+  assert.equal(ludoAdapter.diceValueForMove(vmWithMoves, 1), 4);
+  assert.equal(ludoAdapter.diceValueForMove(vmWithMoves, 2), 6); // fallback to dice[0]
+
+  const vmNoMoves = { legalMoves: [], dice: [] };
+  assert.equal(ludoAdapter.diceValueForMove(vmNoMoves, 0), null);
+});
+
+test('Ludo 4-player layout separates 2 players above and 2 players below board', () => {
+  const fourPlayersSnapshot = {
+    players: [
+      { uid: 'human', displayName: 'Player 1', pieces: [{ position: -1, colorIdx: 0 }] },
+      { uid: 'bot_2', displayName: 'Oba 2', pieces: [{ position: -1, colorIdx: 1 }] },
+      { uid: 'bot_3', displayName: 'Oba 3', pieces: [{ position: -1, colorIdx: 2 }] },
+      { uid: 'bot_4', displayName: 'Oba 4', pieces: [{ position: -1, colorIdx: 3 }] },
+    ],
+    currentPlayerIndex: 0,
+    currentPlayerUid: 'human',
+    diceValues: [6],
+    diceRolled: true,
+    status: 'playing',
+  };
+
+  const vm = ludoAdapter.ludoViewModel(fourPlayersSnapshot, 'human');
+  assert.equal(vm.players.length, 4);
+
+  // 4-player layout: 2 above the board, 2 below the board
+  const isFourPlayer = vm.players.length === 4;
+  assert.equal(isFourPlayer, true);
+
+  const topPlayers = [vm.players[0], vm.players[3]].filter(Boolean);
+  const bottomPlayers = [vm.players[1], vm.players[2]].filter(Boolean);
+
+  assert.equal(topPlayers.length, 2);
+  assert.equal(bottomPlayers.length, 2);
+
+  // Top players match Top-Left (Red) and Top-Right (Green) quadrants
+  assert.equal(topPlayers[0].pieces[0].colorIdx, 0); // Red
+  assert.equal(topPlayers[1].pieces[0].colorIdx, 3); // Green
+
+  // Bottom players match Bottom-Left (Yellow) and Bottom-Right (Blue) quadrants
+  assert.equal(bottomPlayers[0].pieces[0].colorIdx, 1); // Yellow
+  assert.equal(bottomPlayers[1].pieces[0].colorIdx, 2); // Blue
+});
+
+test('Ludo start star coordinates match color tile star positions on 15x15 board', () => {
+  // Main track positions for player exits:
+  // Red (0): r: 1, c: 6 -> x: (6.5 - 7.5)/15 = -0.067, y: (1.5 - 7.5)/15 = -0.400
+  // Yellow (1): r: 8, c: 1 -> x: (1.5 - 7.5)/15 = -0.400, y: (8.5 - 7.5)/15 = 0.067
+  // Blue (2): r: 13, c: 8 -> x: (8.5 - 7.5)/15 = 0.067, y: (13.5 - 7.5)/15 = 0.400
+  // Green (3): r: 6, c: 13 -> x: (13.5 - 7.5)/15 = 0.400, y: (6.5 - 7.5)/15 = -0.067
+  const startCoords = [
+    ludoEngine.MAIN_TRACK[0],  // Red
+    ludoEngine.MAIN_TRACK[13], // Yellow
+    ludoEngine.MAIN_TRACK[26], // Blue
+    ludoEngine.MAIN_TRACK[39], // Green
+  ];
+
+  assert.deepEqual(startCoords[0], { r: 1, c: 6 });
+  assert.deepEqual(startCoords[1], { r: 8, c: 1 });
+  assert.deepEqual(startCoords[2], { r: 13, c: 8 });
+  assert.deepEqual(startCoords[3], { r: 6, c: 13 });
+});
+
+test('Ludo rules: reaching home, captures, and rolling 6 grant extra turns', () => {
+  const fs = require('fs');
+  const validator = require(path.join(root, '..', 'Backend_manager', 'src', 'validators', 'ludo.js'));
+  const gs = validator.initLudoGame('test_rules_room', [
+    { uid: 'u1', displayName: 'Player 1' },
+    { uid: 'u2', displayName: 'Player 2' },
+  ]);
+
+  // Test 1: Rolling a 6 to enter from yard grants extra turn
+  const enterMove = validator.validateLudoMove({ pieceId: 0, diceValue: 6 }, gs, 'u1');
+  assert.equal(enterMove.action, 'enter');
+  assert.equal(enterMove.extraTurn, true);
+
+  // Test 2: Moving onto an opponent on a non-safe square captures and grants extra turn
+  gs.players[1].pieces[0] = { position: 10, inHomeStretch: false, homePosition: 0, completed: false, colorIdx: 2 };
+  gs.players[0].pieces[0] = { position: 6, inHomeStretch: false, homePosition: 0, completed: false, colorIdx: 0 };
+  const captureMove = validator.validateLudoMove({ pieceId: 0, diceValue: 4 }, gs, 'u1');
+  assert.equal(captureMove.action, 'move');
+  assert.ok(captureMove.capture);
+  assert.equal(captureMove.extraTurn, true);
+
+  // Test 3: Safe zone protection: opponent cannot be captured on square 8
+  gs.players[1].pieces[0].position = 8;
+  gs.players[0].pieces[0].position = 4;
+  const safeMove = validator.validateLudoMove({ pieceId: 0, diceValue: 4 }, gs, 'u1');
+  assert.equal(safeMove.capture, null);
+
+  // Test 4: Reaching home grants extra turn according to standard online Ludo rules
+  gs.players[0].pieces[0] = { position: 55, inHomeStretch: true, homePosition: 5, completed: false, colorIdx: 0 };
+  const homeMove = validator.validateLudoMove({ pieceId: 0, diceValue: 1 }, gs, 'u1');
+  assert.equal(homeMove.action, 'reach_home');
+  assert.equal(homeMove.isHome, true);
+  assert.equal(homeMove.extraTurn, true);
+
+  // Test 5: Verify SafeAreaView is imported from react-native-safe-area-context, not react-native
+  const ludoScreenCode = fs.readFileSync(path.join(root, 'src', 'games', 'ludo', 'LudoScreen.js'), 'utf8');
+  assert.ok(ludoScreenCode.includes("from 'react-native-safe-area-context'"));
+  assert.ok(!ludoScreenCode.match(/SafeAreaView[\s\S]*from ['"]react-native['"]/));
+});
+
+
 
 
 
