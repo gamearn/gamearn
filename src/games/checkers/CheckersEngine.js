@@ -140,13 +140,18 @@ export function getLegalMovesForSquare(board, side, squareIndex, forcedSquare = 
 
 /** Execute a move on the board and return new board state */
 export function applyMove(board, move) {
+  if (!board || !Array.isArray(board) || !move) return board || [];
   const newBoard = [...board];
+  if (move.from === undefined || move.to === undefined) return newBoard;
   const movingPiece = newBoard[move.from];
   if (!movingPiece) return newBoard;
 
   newBoard[move.from] = null;
-  for (const capIdx of move.captures) {
-    newBoard[capIdx] = null;
+  const captures = Array.isArray(move.captures) ? move.captures : [];
+  for (const capIdx of captures) {
+    if (capIdx !== null && capIdx !== undefined && capIdx >= 0 && capIdx < newBoard.length) {
+      newBoard[capIdx] = null;
+    }
   }
 
   const { r: destR } = getCoord(move.to);
@@ -165,6 +170,7 @@ export function applyMove(board, move) {
 
 /** Evaluate board position score for Minimax AI */
 export function evaluateBoard(board) {
+  if (!board || !Array.isArray(board)) return 0;
   let score = 0;
   for (let i = 0; i < 64; i++) {
     const piece = board[i];
@@ -286,6 +292,7 @@ export function getHintMove(board, side) {
 
 /** Check if game has ended */
 export function checkGameEnd(board, currentTurn) {
+  if (!board || !Array.isArray(board)) return { isOver: false, winner: null };
   const legalMoves = getAllLegalMoves(board, currentTurn);
   const whitePieces = board.filter((p) => p?.side === 'white').length;
   const blackPieces = board.filter((p) => p?.side === 'black').length;

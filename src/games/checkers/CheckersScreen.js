@@ -68,6 +68,17 @@ export function CheckersScreen({
     winner: null,
   });
 
+  // Track player move timestamp to enforce 10-second undo window
+  const [lastMoveTimestamp, setLastMoveTimestamp] = useState(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  useEffect(() => {
+    const ticker = setInterval(() => setCurrentTime(Date.now()), 500);
+    return () => clearInterval(ticker);
+  }, []);
+  const undoSecondsLeft = lastMoveTimestamp
+    ? Math.max(0, 10 - Math.floor((currentTime - lastMoveTimestamp) / 1000))
+    : 0;
+
   // Record daily streak & restore active match session on mount
   const mountStreakRecorded = React.useRef(false);
   useEffect(() => {
@@ -116,6 +127,7 @@ export function CheckersScreen({
     setTurn(remote.turn);
     setSelected(null);
     setValidMoves([]);
+    setHintMove(null);
   }, [remote, isRemote]);
 
   // Sync external board prop if provided
@@ -125,9 +137,10 @@ export function CheckersScreen({
     }
   }, [propBoard]);
 
-  // Reset timer on turn change
+  // Reset timer & clear hint on turn change
   useEffect(() => {
     setSeconds(turnDuration);
+    setHintMove(null);
   }, [turn, turnDuration]);
 
   // Timer countdown
@@ -237,26 +250,37 @@ export function CheckersScreen({
     if (selected !== null) {
       const move = validMoves.find((m) => m.to === index);
       if (move) {
-        onRemoteMove?.(move);
+        // Optimistic update for instant, lag-free piece movement
+        const nextBoard = applyMove(boardState, move);
+        setBoardState(nextBoard);
         setSelected(null);
         setValidMoves([]);
+        setHintMove(null);
+        setNotice('');
+        setLastMoveTimestamp(Date.now());
+        onRemoteMove?.(move);
         return;
       }
     }
 
-    // Select piece
+    // Select piece or switch directly to another friendly piece
     const piece = boardState[index];
     if (piece && piece.side === remote.humanSide) {
       const candidateMoves = Array.isArray(remote.legalMoves) && remote.legalMoves.length > 0
         ? remote.legalMoves.filter((m) => m.from === index)
         : getLegalMovesForSquare(boardState, remote.humanSide, index);
 
-      if (candidateMoves.length > 0) {
-        setSelected(index);
-        setValidMoves(candidateMoves);
+      setSelected(index);
+      setValidMoves(candidateMoves);
+
+      if (candidateMoves.length === 0) {
+        const hasCapture = Array.isArray(remote.legalMoves) &&
+          remote.legalMoves.some((m) => m.captures && m.captures.length > 0);
+        if (hasCapture) {
+          setNotice('⚔️ Mandatory Jump: You must capture an opponent piece with another piece!');
+        }
       } else {
-        setSelected(index);
-        setValidMoves([]);
+        setNotice('');
       }
     } else {
       setSelected(null);
@@ -285,6 +309,8 @@ export function CheckersScreen({
         setBoardState(nextBoard);
         setSelected(null);
         setValidMoves([]);
+        setHintMove(null);
+        setLastMoveTimestamp(Date.now());
 
         const wasCapture = selectedMove.captures && selectedMove.captures.length > 0;
         const destR = Math.floor(selectedMove.to / 8);
@@ -322,18 +348,19 @@ export function CheckersScreen({
       }
     }
 
-    // Select piece
+    // Select piece or switch directly to another friendly piece
     if (piece && piece.side === turn) {
       if (forcedCaptureSquare !== null && index !== forcedCaptureSquare) {
+        setNotice('⚔️ Complete your multi-jump with the active piece!');
         return;
       }
       const moves = getLegalMovesForSquare(boardState, turn, index, forcedCaptureSquare);
-      if (moves.length > 0) {
-        setSelected(index);
-        setValidMoves(moves);
+      setSelected(index);
+      setValidMoves(moves);
+      if (moves.length === 0) {
+        setNotice('⚔️ Mandatory Jump: You must capture an opponent piece with another piece!');
       } else {
-        setSelected(index);
-        setValidMoves([]);
+        setNotice('');
       }
     } else {
       if (forcedCaptureSquare === null) {
@@ -350,12 +377,19 @@ export function CheckersScreen({
   }
 
   function handleUndo() {
+    if (!lastMoveTimestamp || undoSecondsLeft <= 0) {
+      setNotice('Undo is only allowed within 10 seconds of making a move.');
+      setDialog('undo');
+      return;
+    }
+
     if (isRemote) {
       if (onControl) {
         onControl('undo');
         setSelected(null);
         setValidMoves([]);
         setHintMove(null);
+        setLastMoveTimestamp(null);
       }
       return;
     }
@@ -389,6 +423,7 @@ export function CheckersScreen({
     setForcedCaptureSquare(null);
     setNotice('');
     setGameOver({ isOver: false, winner: null });
+    setLastMoveTimestamp(null);
   }
 
   async function handleHint() {
@@ -503,6 +538,7 @@ export function CheckersScreen({
               blackName={blackName}
               time={time}
               muted={!sound}
+              undoSecondsLeft={undoSecondsLeft}
             />
           </View>
           {normalized.map((piece, index) => {
@@ -534,6 +570,7 @@ export function CheckersScreen({
             <Pressable
               key={button.id}
               onPress={() => action(button.id)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={({ pressed }) => ({
                 position: 'absolute',
                 left: button.x * scale,
@@ -548,9 +585,82 @@ export function CheckersScreen({
         </View>
       )}
 
+      {!!notice && (
+        <View style={styles.noticeToast} pointerEvents="none">
+          <Text style={styles.noticeToastText}>{notice}</Text>
+        </View>
+      )}
+
       <Modal visible={!!dialog} transparent animationType="fade" onRequestClose={() => setDialog(null)}>
         <View style={styles.scrim}>
           <View style={styles.dialog}>
+            {dialog === 'settings' && (
+              <>
+                <Text style={styles.heading}>Game Settings ⚙️</Text>
+                <View style={styles.settingRow}>
+                  <Text style={styles.settingLabel}>Sound Effects</Text>
+                  <Switch
+                    value={sound}
+                    onValueChange={toggleSound}
+                    trackColor={{ false: '#334155', true: '#ba8a26' }}
+                    thumbColor={sound ? '#ffd455' : '#94a3b8'}
+                  />
+                </View>
+                <View style={styles.settingRow}>
+                  <Text style={styles.settingLabel}>Dráfù Rules</Text>
+                  <Pressable
+                    onPress={() => setDialog('rules')}
+                    style={[styles.smallBtn, { backgroundColor: '#1e293b' }]}
+                  >
+                    <Text style={[styles.buttonText, { fontSize: 14 }]}>View Rules 📜</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.settingRow}>
+                  <Text style={styles.settingLabel}>Surrender Match</Text>
+                  <Pressable
+                    onPress={() => setDialog('surrender')}
+                    style={[styles.smallBtn, { backgroundColor: '#7f1d1d' }]}
+                  >
+                    <Text style={[styles.buttonText, { color: '#fca5a5', fontSize: 14 }]}>Resign 🏳️</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.settingRow}>
+                  <Text style={styles.settingLabel}>Exit to Lobby</Text>
+                  <Pressable
+                    onPress={() => setDialog('back')}
+                    style={[styles.smallBtn, { backgroundColor: '#334155' }]}
+                  >
+                    <Text style={[styles.buttonText, { color: '#e2e8f0', fontSize: 14 }]}>Exit 🚪</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.buttons}>
+                  <Pressable onPress={() => setDialog(null)} style={[styles.modalButton, styles.primaryBtn]}>
+                    <Text style={[styles.buttonText, { color: '#000' }]}>Done</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+
+            {dialog === 'rules' && (
+              <>
+                <Text style={styles.heading}>Dráfù Rules 📜</Text>
+                <Text style={styles.ruleItem}>• Played on an 8x8 dark-square board with 12 pieces each.</Text>
+                <Text style={styles.ruleItem}>• Regular pieces move diagonally forward 1 square.</Text>
+                <Text style={styles.ruleItem}>• ⚔️ Capture is mandatory! When a jump is available, you must jump.</Text>
+                <Text style={styles.ruleItem}>• Multi-jump: If another jump is available with the same piece, you must continue jumping.</Text>
+                <Text style={styles.ruleItem}>• King Promotion: Reaching the opposite end crowns your piece to a King.</Text>
+                <Text style={styles.ruleItem}>• ⏱️ Undo: Only allowed within 10 seconds of making a move.</Text>
+                <View style={styles.buttons}>
+                  <Pressable onPress={() => setDialog('settings')} style={styles.modalButton}>
+                    <Text style={styles.buttonText}>Settings</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setDialog(null)} style={[styles.modalButton, styles.primaryBtn, { marginLeft: 10 }]}>
+                    <Text style={[styles.buttonText, { color: '#000' }]}>Got it</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+
             {dialog === 'surrender' && (
               <>
                 <Text style={styles.heading}>Surrender Match 🏳️</Text>
@@ -623,8 +733,28 @@ const styles = StyleSheet.create({
   dialog: { width: '100%', maxWidth: 420, borderRadius: 24, backgroundColor: '#111c27', padding: 24, borderWidth: 1, borderColor: '#ba8a26' },
   heading: { fontSize: 24, fontWeight: '700', color: '#ffd455', marginBottom: 16 },
   body: { fontSize: 16, lineHeight: 24, color: '#edf0f4' },
-  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  settingLabel: { fontSize: 16, fontWeight: '600', color: '#f1f5f9' },
+  ruleItem: { fontSize: 14, lineHeight: 22, color: '#cbd5e1', marginBottom: 8 },
+  primaryBtn: { backgroundColor: '#ffd455', borderRadius: 12, paddingHorizontal: 20 },
+  smallBtn: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: '#ba8a2655' },
   buttons: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 22, flexWrap: 'wrap' },
-  modalButton: { paddingVertical: 12, paddingHorizontal: 15, minHeight: 44 },
+  modalButton: { paddingVertical: 12, paddingHorizontal: 15, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
   buttonText: { fontSize: 16, fontWeight: '700', color: '#ffd455' },
+  noticeToast: {
+    position: 'absolute',
+    top: 24,
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    borderWidth: 1.5,
+    borderColor: '#ffd455',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    zIndex: 999,
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  noticeToastText: { color: '#ffd455', fontSize: 13, fontWeight: '700', textAlign: 'center' },
 });

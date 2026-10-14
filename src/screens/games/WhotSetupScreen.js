@@ -36,9 +36,14 @@ export default function WhotSetupScreen({ navigation }) {
   const handleStartGame = () => {
     navigation.navigate('WhotGame', {
       players: playerCount,
+      playerCount: playerCount,
       option: playOption,
       cards: startingCards,
+      cardCount: startingCards,
+      startCards: startingCards,
+      startingCards: startingCards,
       timer: turnTimer,
+      resetKey: Date.now(),
     });
   };
 
@@ -149,11 +154,11 @@ export default function WhotSetupScreen({ navigation }) {
             <View
               style={[
                 styles.sliderTrackFill,
-                { width: `${((startingCards - 4) / 4) * 100}%` },
+                { width: `${((startingCards - 3) / 5) * 100}%` },
               ]}
             />
             <View style={styles.ticksRow}>
-              {[4, 5, 6, 7, 8].map((val) => (
+              {[3, 4, 5, 6, 7, 8].map((val) => (
                 <TouchableOpacity
                   key={val}
                   onPress={() => setStartingCards(val)}

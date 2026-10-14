@@ -245,7 +245,7 @@ export const practice = {
       apiPost('/practice/whot/start', {
         gameType: 'whot',
         playerRating: opts.playerRating || 1200,
-        startCards: opts.startCards || 6,
+        startCards: opts.startCards ?? opts.cardCount ?? opts.cards ?? 6,
         seats: opts.seats || 4,
         timer: opts.timer || '2m',
       }),
@@ -279,7 +279,11 @@ export const practice = {
 
   draughts: {
     start: (opts = {}) =>
-      apiPost('/practice/draughts/start', { playerRating: opts.playerRating || 1200 }),
+      apiPost('/practice/draughts/start', {
+        playerRating: opts.playerRating || 1200,
+        playerColor: opts.playerColor,
+        timer: opts.timer || '2m',
+      }),
     move: (sessionId, move) => apiPost('/practice/draughts/move', { sessionId, ...move }),
     state: (sessionId) => apiGet(`/practice/draughts/state/${sessionId}`),
   },

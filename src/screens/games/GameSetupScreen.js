@@ -46,11 +46,15 @@ export default function GameSetupScreen({ route, navigation }) {
       tokenCount,
       playerColor,
       cardCount,
+      cards: cardCount,
+      startCards: cardCount,
+      startingCards: cardCount,
       enableSpecialCards,
       aiDifficulty: 'auto',
       gameName,
       targetScreen,
       entryFee,
+      resetKey: Date.now(),
     });
   };
 
@@ -162,46 +166,17 @@ export default function GameSetupScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* DRAFT Custom Piece Color Setting */}
+        {/* DRAFT Custom Piece Color Setting removed - coin toss decides */}
         {isDraft && (
           <View style={styles.settingBlock}>
             <View style={styles.settingHeaderRow}>
-              <Text style={styles.settingLabel}>Your Piece Color</Text>
-              <Text style={styles.selectedTimerValue}>{playerColor === 'white' ? '⚪ White (First)' : '⚫ Black (Second)'}</Text>
+              <Text style={styles.settingLabel}>Board Side & 1st Turn</Text>
+              <Text style={styles.selectedTimerValue}>🪙 Coin Toss</Text>
             </View>
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 10 }}>
-              <TouchableOpacity
-                onPress={() => setPlayerColor('white')}
-                style={{
-                  flex: 1,
-                  paddingVertical: 14,
-                  borderRadius: 12,
-                  backgroundColor: playerColor === 'white' ? '#00E5FF' : 'rgba(255,255,255,0.06)',
-                  borderWidth: 1.5,
-                  borderColor: playerColor === 'white' ? '#00E5FF' : 'rgba(255,255,255,0.15)',
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={{ color: playerColor === 'white' ? '#070C1B' : '#FFF', fontWeight: '900', fontSize: 14 }}>
-                  ⚪ Play White
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setPlayerColor('black')}
-                style={{
-                  flex: 1,
-                  paddingVertical: 14,
-                  borderRadius: 12,
-                  backgroundColor: playerColor === 'black' ? '#F59E0B' : 'rgba(255,255,255,0.06)',
-                  borderWidth: 1.5,
-                  borderColor: playerColor === 'black' ? '#F59E0B' : 'rgba(255,255,255,0.15)',
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={{ color: playerColor === 'black' ? '#070C1B' : '#FFF', fontWeight: '900', fontSize: 14 }}>
-                  ⚫ Play Black
-                </Text>
-              </TouchableOpacity>
+            <View style={{ marginTop: 10, padding: 14, borderRadius: 12, backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)' }}>
+              <Text style={{ color: '#F59E0B', fontWeight: '800', fontSize: 14, textAlign: 'center' }}>
+                🪙 The coin toss decides who takes which side and who moves first!
+              </Text>
             </View>
           </View>
         )}

@@ -13,9 +13,11 @@
 const SIDE_BY_SERVER = { 1: 'white', 2: 'white', 3: 'black', 4: 'black' };
 const KING_BY_SERVER = { 2: true, 4: true };
 
-export function serverBoardToEngine(flat) {
+export function serverBoardToEngine(input) {
+  if (!Array.isArray(input)) return Array(64).fill(null);
+  const flat = Array.isArray(input[0]) ? input.flat() : input;
   return Array.from({ length: 64 }, (_, index) => {
-    const piece = Array.isArray(flat) ? flat[index] : 0;
+    const piece = flat[index] || 0;
     if (!piece) return null;
     return { side: SIDE_BY_SERVER[piece] || 'white', king: !!KING_BY_SERVER[piece] };
   });
@@ -23,7 +25,7 @@ export function serverBoardToEngine(flat) {
 
 // Server seat index 0 (top) renders as engine 'white'; seat 1 as engine 'black'.
 export function seatToEngineSide(index) {
-  return index === 0 ? 'white' : 'black';
+  return index === 1 ? 'black' : 'white';
 }
 
 // Build the descriptor consumed by CheckersScreen's remote mode. Returns null
@@ -69,6 +71,7 @@ export function draughtsSnapshotToRemote(snapshot, uid) {
     forcedCapture: snapshot.forcedCapture
       ? snapshot.forcedCapture.row * 8 + snapshot.forcedCapture.col
       : null,
+    coinToss: snapshot.coinToss || null,
   };
 }
 

@@ -182,26 +182,85 @@ export const BUTTONS = [
   { id: 'settings', x: 1156, y: 21, w: 76, h: 77, label: '', icon: 'settings' },
 ];
 
-export function ControlButton({ button, muted }) {
+export function ControlButton({ button, muted, undoSecondsLeft = 0 }) {
   const blue = button.id === 'surrender' || button.id === 'settings';
-  const hasLabel = !!button.label;
+  const isUndo = button.id === 'undo';
+  const undoDisabled = isUndo && undoSecondsLeft <= 0;
+  const label = isUndo
+    ? (undoSecondsLeft > 0 ? `UNDO (${undoSecondsLeft}s)` : 'UNDO')
+    : button.label;
+  const hasLabel = !!label;
+  const opacity = undoDisabled ? 0.45 : 1;
+
   return (
-    <G transform={`translate(${button.x} ${button.y})`}>
+    <G transform={`translate(${button.x} ${button.y})`} opacity={opacity}>
       <Rect y="6" width={button.w} height={button.h} rx="38" fill="#000" opacity={0.4} />
-      <Rect width={button.w} height={button.h} rx="38" fill={button.id === 'surrender' ? 'url(#surrender)' : blue ? 'url(#bluePanel)' : 'url(#panel)'} stroke={blue ? 'url(#blue)' : 'url(#gold)'} strokeWidth="5" />
-      <Rect x="5" y="5" width={button.w - 10} height={button.h - 10} rx="33" fill="none" stroke={blue ? '#0064bf' : '#634611'} strokeWidth="1" />
-      <Icon name={button.id === 'sound' && muted ? 'muted' : button.icon} x={hasLabel ? (button.id === 'surrender' ? 97 : 55) : button.w / 2} y={button.h / 2} color={blue ? '#e5edff' : '#ffd04b'} scale={button.id === 'settings' ? 0.85 : 1} />
-      {hasLabel && <T x={button.id === 'surrender' ? 211 : button.w * 0.65} y={button.h / 2 + 8} textAnchor="middle" fontFamily={FONT} fontWeight="800" fontSize="23" fill="#fff">{button.label}</T>}
+      <Rect
+        width={button.w}
+        height={button.h}
+        rx="38"
+        fill={button.id === 'surrender' ? 'url(#surrender)' : blue ? 'url(#bluePanel)' : 'url(#panel)'}
+        stroke={blue ? 'url(#blue)' : 'url(#gold)'}
+        strokeWidth="5"
+      />
+      <Rect
+        x="5"
+        y="5"
+        width={button.w - 10}
+        height={button.h - 10}
+        rx="33"
+        fill="none"
+        stroke={blue ? '#0064bf' : '#634611'}
+        strokeWidth="1"
+      />
+      <Icon
+        name={button.id === 'sound' && muted ? 'muted' : button.icon}
+        x={hasLabel ? (button.id === 'surrender' ? 97 : isUndo ? 40 : 55) : button.w / 2}
+        y={button.h / 2}
+        color={blue ? '#e5edff' : '#ffd04b'}
+        scale={button.id === 'settings' ? 0.85 : 1}
+      />
+      {hasLabel && (
+        <T
+          x={button.id === 'surrender' ? 211 : isUndo ? button.w * 0.6 : button.w * 0.65}
+          y={button.h / 2 + 8}
+          textAnchor="middle"
+          fontFamily={FONT}
+          fontWeight="800"
+          fontSize={isUndo && undoSecondsLeft > 0 ? '19' : '23'}
+          fill="#fff"
+        >
+          {label}
+        </T>
+      )}
     </G>
   );
 }
 
-export function CheckersArtwork({ size, board, selected, time, muted, validDests = [], hintMove = null, whiteName, blackName }) {
+export function CheckersArtwork({
+  size,
+  board,
+  selected,
+  time,
+  muted,
+  validDests = [],
+  hintMove = null,
+  whiteName,
+  blackName,
+  undoSecondsLeft = 0,
+}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 1254 1254">
-      <Gradients /><Background /><PlayerPanel x={117} blue={false} count={board.filter(p => p?.side === 'white').length} name={whiteName} /><PlayerPanel x={768} blue count={board.filter(p => p?.side === 'black').length} name={blackName} />
-      <TimerPanel time={time} /><BoardFrame /><CheckerBoard board={board} selected={selected} validDests={validDests} hintMove={hintMove} />
-      {BUTTONS.map(button => <ControlButton key={button.id} button={button} muted={muted} />)}
+      <Gradients />
+      <Background />
+      <PlayerPanel x={117} blue={false} count={board.filter((p) => p?.side === 'white').length} name={whiteName} />
+      <PlayerPanel x={768} blue count={board.filter((p) => p?.side === 'black').length} name={blackName} />
+      <TimerPanel time={time} />
+      <BoardFrame />
+      <CheckerBoard board={board} selected={selected} validDests={validDests} hintMove={hintMove} />
+      {BUTTONS.map((button) => (
+        <ControlButton key={button.id} button={button} muted={muted} undoSecondsLeft={undoSecondsLeft} />
+      ))}
     </Svg>
   );
 }

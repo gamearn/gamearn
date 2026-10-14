@@ -5,6 +5,7 @@ import { WhotScreen } from '../../games/whot/WhotScreen';
 import { useServerGame } from '../../games/useServerGame';
 import { useAuth } from '../../context/AuthContext';
 import { practiceSnapshotToEngine, socketStateToEngine } from '../../games/whot/serverAdapter';
+import { clearActiveMatch } from '../../utils/activeMatch';
 
 const STATUS_LABEL = {
   connecting: 'Connecting…',
@@ -24,7 +25,11 @@ export default function WhotGameScreen({ route, navigation }) {
   const requestedSeats = Number(params.playerCount || params.players);
   const isVsOba = params.vsOba != null ? !!params.vsOba : (requestedSeats === 2 || (!requestedSeats && practice));
   const effectiveSeats = requestedSeats >= 2 ? Math.min(4, Math.max(2, requestedSeats)) : (isVsOba ? 2 : 4);
-  const effectiveCards = Math.min(8, Math.max(3, Number(params.cardCount || params.cards || params.startCards || 6)));
+  const effectiveCards = Math.min(8, Math.max(3, Number(params.cardCount || params.cards || params.startCards || params.startingCards || 6)));
+
+  useEffect(() => {
+    clearActiveMatch();
+  }, [params.resetKey, effectiveCards]);
   const stake = params.stake || 250;
   const timer = params.timer || '2m';
   const uid = user?.uid;

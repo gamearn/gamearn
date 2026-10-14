@@ -375,23 +375,14 @@ export default function GameLobbyScreen({ route, navigation }) {
           </>
         )}
 
-        {/* Draft Specific Inline Setup */}
+        {/* Draft Specific Inline Setup - coin toss decides */}
         {isDraft && (
           <View style={styles.setupFieldBlock}>
-            <Text style={styles.setupFieldLabel}>Your Piece Color: <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{playerColor === 'white' ? '⚪ White (First)' : '⚫ Black (Second)'}</Text></Text>
-            <View style={styles.pillsRow}>
-              <TouchableOpacity
-                onPress={() => setPlayerColor('white')}
-                style={[styles.pillBtn, playerColor === 'white' && styles.pillBtnActiveCyan, { flex: 1 }]}
-              >
-                <Text style={[styles.pillBtnText, playerColor === 'white' && styles.pillBtnTextActive]}>⚪ White (First)</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setPlayerColor('black')}
-                style={[styles.pillBtn, playerColor === 'black' && styles.pillBtnActiveYellow, { flex: 1 }]}
-              >
-                <Text style={[styles.pillBtnText, playerColor === 'black' && styles.pillBtnTextActiveDark]}>⚫ Black (Second)</Text>
-              </TouchableOpacity>
+            <Text style={styles.setupFieldLabel}>Board Side & 1st Turn: <Text style={{ color: '#F59E0B', fontWeight: '900' }}>🪙 Coin Toss</Text></Text>
+            <View style={{ marginTop: 8, padding: 12, borderRadius: 10, backgroundColor: 'rgba(245, 158, 11, 0.12)', borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)' }}>
+              <Text style={{ color: '#F59E0B', fontWeight: '800', fontSize: 13, textAlign: 'center' }}>
+                🪙 Pre-match coin toss decides who takes which side and who moves first!
+              </Text>
             </View>
           </View>
         )}

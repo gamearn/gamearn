@@ -54,16 +54,17 @@ export default function CoinTossModal({
 
     setTossResult({ winnerIndex: winnerIdx, winnerPlayer });
 
-    // Coin spin animation
+    // Coin spin animation (useNativeDriver: false is rock-solid across web/mobile/windows for rotateY)
     coinSpinAnim.setValue(0);
-    Animated.loop(
+    const spinLoop = Animated.loop(
       Animated.timing(coinSpinAnim, {
         toValue: 1,
         duration: 800,
         easing: Easing.linear,
-        useNativeDriver: true,
+        useNativeDriver: false,
       })
-    ).start();
+    );
+    spinLoop.start();
 
     // 5-second countdown timer
     setCountdown(5);
@@ -71,14 +72,18 @@ export default function CoinTossModal({
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          onComplete?.(winnerIdx, winnerPlayer);
+          spinLoop.stop();
+          onComplete?.(winnerIdx, winnerPlayer, winnerIdx === 0 ? 'white' : 'black');
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      spinLoop.stop();
+    };
   }, [visible, playersKey]);
 
   if (!visible || !tossResult) return null;
@@ -89,8 +94,9 @@ export default function CoinTossModal({
   });
 
   const winner = tossResult.winnerPlayer;
-  const winnerDisplayName = winner?.isUser
-    ? (userProfile?.username || userProfile?.displayName || 'You (You)')
+  const isHumanWinner = winner?.isUser || tossResult.winnerIndex === 0;
+  const winnerDisplayName = isHumanWinner
+    ? (userProfile?.username || userProfile?.displayName || 'You')
     : (winner?.username || winner?.name || winner?.displayName || 'Opponent');
 
   // Build formation list starting with coin toss winner
@@ -111,13 +117,13 @@ export default function CoinTossModal({
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={() => onComplete?.(tossResult.winnerIndex, tossResult.winnerPlayer)}
+      onRequestClose={() => onComplete?.(tossResult.winnerIndex, tossResult.winnerPlayer, isHumanWinner ? 'white' : 'black')}
     >
       <View style={styles.scrim}>
         <View style={styles.card}>
           {/* Top Header Badge */}
           <View style={styles.badgeRow}>
-            <Text style={styles.badgeText}>🪙 BACKEND COIN TOSS</Text>
+            <Text style={styles.badgeText}>🪙 PRE-MATCH COIN TOSS</Text>
             <View style={styles.timerChip}>
               <Text style={styles.timerChipText}>⏱️ Starts in {countdown}s</Text>
             </View>
@@ -125,25 +131,27 @@ export default function CoinTossModal({
 
           {/* Animated Coin */}
           <View style={styles.coinContainer}>
-            <Animated.Text
-              style={[
-                styles.coinIcon,
-                { transform: [{ rotateY: spinInterpolate }] },
-              ]}
+            <Animated.View
+              style={{
+                transform: [{ perspective: 1000 }, { rotateY: spinInterpolate }],
+              }}
             >
-              🪙
-            </Animated.Text>
+              <Text style={styles.coinIcon}>🪙</Text>
+            </Animated.View>
           </View>
 
           {/* Winner Prompt Announcement */}
-          <Text style={styles.promptTitle}>{gameName} Starting Turn</Text>
+          <Text style={styles.promptTitle}>{gameName} Starting Side & Turn</Text>
           <View style={styles.winnerBox}>
             <Text style={styles.winnerSub}>WINNER OF COIN TOSS</Text>
             <Text style={styles.winnerName} numberOfLines={1}>
               {winnerDisplayName}
             </Text>
             <Text style={styles.winnerAction}>
-              🎉 {winner?.isUser ? 'You won the toss and play 1st!' : `${winnerDisplayName} won the toss and plays 1st!`}
+              🎉 {isHumanWinner ? 'You won the toss! You get White & play 1st!' : `${winnerDisplayName} won the toss and gets White (1st move)!`}
+            </Text>
+            <Text style={[styles.winnerAction, { color: '#94a3b8', fontSize: 13, marginTop: 4 }]}>
+              {isHumanWinner ? 'Opponent gets Black pieces and moves 2nd.' : 'You get Black pieces and move 2nd.'}
             </Text>
           </View>
 
@@ -174,7 +182,7 @@ export default function CoinTossModal({
           {/* Countdown Action Button */}
           <Pressable
             style={styles.actionBtn}
-            onPress={() => onComplete?.(tossResult.winnerIndex, tossResult.winnerPlayer)}
+            onPress={() => onComplete?.(tossResult.winnerIndex, tossResult.winnerPlayer, isHumanWinner ? 'white' : 'black')}
           >
             <Text style={styles.actionBtnText}>
               Start Match Now ({countdown}s)

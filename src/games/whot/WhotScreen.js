@@ -229,18 +229,26 @@ export function WhotScreen({
 
   useEffect(() => {
     let alive = true;
-    getActiveMatch().then((match) => {
-      if (alive && match?.gameId === 'whot' && match?.savedState && match.savedState.gameStatus !== 'game_over') {
-        setGameState(match.savedState);
-      } else {
-        setActiveMatch({
-          gameId: 'whot',
-          gameName: 'Wọ́t Game',
-          targetScreen: 'WhotGame',
-          durationSecs: 120,
-        });
-      }
-    });
+    if (!isRemote) {
+      getActiveMatch().then((match) => {
+        if (
+          alive &&
+          match?.gameId === 'whot' &&
+          match?.savedState &&
+          match.savedState.gameStatus !== 'game_over' &&
+          match.savedState.players?.[0]?.hand?.length === cardCount
+        ) {
+          setGameState(match.savedState);
+        } else {
+          setActiveMatch({
+            gameId: 'whot',
+            gameName: 'Wọ́t Game',
+            targetScreen: 'WhotGame',
+            durationSecs: 120,
+          });
+        }
+      });
+    }
 
     if (!mountStreakRecorded.current) {
       mountStreakRecorded.current = true;
@@ -248,6 +256,15 @@ export function WhotScreen({
     }
     return () => { alive = false; };
   }, []);
+
+  // Ensure gameState always matches the exact requested cardCount
+  useEffect(() => {
+    if (isRemote) return;
+    setGameState((prev) => {
+      if (prev?.players?.[0]?.hand?.length === cardCount) return prev;
+      return createInitialState(timer, cardCount, vsOba ? 2 : (playerCount || 2), vsOba);
+    });
+  }, [cardCount, timer, vsOba, playerCount, isRemote]);
 
   useEffect(() => {
     if (gameState.gameStatus === 'game_over') {

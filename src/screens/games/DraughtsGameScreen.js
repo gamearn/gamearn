@@ -119,6 +119,16 @@ export default function DraughtsGameScreen({ route, navigation }) {
     : opponentEntry?.username || opponentEntry?.displayName || 'Live opponent';
 
   const [showCoinToss, setShowCoinToss] = useState(true);
+  const [assignedSide, setAssignedSide] = useState(null);
+
+  const handleCoinTossComplete = (winnerIdx, winnerPlayer, startingColor) => {
+    setShowCoinToss(false);
+    if (startingColor) {
+      setAssignedSide(startingColor);
+    }
+  };
+
+  const effectiveColor = assignedSide || chosenColor || 'white';
 
   const myName = userProfile?.username || userProfile?.displayName || 'You';
   const draftPlayers = useMemo(
@@ -134,8 +144,8 @@ export default function DraughtsGameScreen({ route, navigation }) {
       <CheckersScreen
         stake={stake}
         timer={timer}
-        playerColor={chosenColor}
-        humanColor={chosenColor}
+        playerColor={effectiveColor}
+        humanColor={effectiveColor}
         aiDifficulty={aiDifficulty}
         secondsRemaining={remoteMode ? session.secondsRemaining : undefined}
         isRemote={remoteMode && !!remote}
@@ -149,7 +159,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
         visible={showCoinToss}
         players={draftPlayers}
         gameName="Dráfù Game"
-        onComplete={() => setShowCoinToss(false)}
+        onComplete={handleCoinTossComplete}
       />
 
       {isMultiplayer && (
