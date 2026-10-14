@@ -395,6 +395,7 @@ export default function LudoScreen({
             values={displayDice}
             rolling={rolling}
             activeColorIdx={activeColorIdx}
+            fadeForPieceMove={Boolean(viewModel?.diceRolled && !rolling)}
             onPress={canRoll ? handleRoll : undefined}
           />
         </View>
