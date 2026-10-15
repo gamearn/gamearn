@@ -18,7 +18,8 @@ export default function DraughtsGameScreen({ route, navigation }) {
 
   const isMultiplayer = mode === 'multiplayer' && !!roomId;
   const isPractice = mode === 'practice';
-  const remoteMode = isMultiplayer;
+  const effectiveUid = uid || (isPractice ? 'practice_anon' : null);
+  const remoteMode = isMultiplayer || (isPractice && !!effectiveUid);
 
   useEffect(() => {
     setActiveMatch({
@@ -45,30 +46,30 @@ export default function DraughtsGameScreen({ route, navigation }) {
   const session = useServerGame({
     gameType: 'draughts',
     roomId: isMultiplayer ? roomId : null,
-    uid: remoteMode ? uid : null,
+    uid: remoteMode ? effectiveUid : null,
     options,
   });
 
   const snapshot = session.snapshot;
   const remote = useMemo(
-    () => (remoteMode ? draughtsSnapshotToRemote(snapshot, uid) : null),
-    [remoteMode, snapshot, uid],
+    () => (remoteMode ? draughtsSnapshotToRemote(snapshot, effectiveUid) : null),
+    [remoteMode, snapshot, effectiveUid],
   );
 
   const navigateResult = (won) => {
-    const opponent = (snapshot?.players || []).find((p) => p.uid !== uid);
-    const vsBot = isPractice || !!opponent?.uid?.startsWith('bot_');
+    const opponent = (snapshot?.players || []).find((p) => p.uid !== effectiveUid);
+    const vsBot = isPractice || !isMultiplayer || !!opponent?.uid?.startsWith('bot_');
     const isWinner = won === true;
     const isDraw = won == null;
     navigation.replace('GameResult', {
-      serverConfirmed: true,
+      serverConfirmed: isMultiplayer,
       isWinner,
       isDraw,
       completionReason: snapshot?.completionReason || 'normal',
-      myScore: null,
-      opponentScore: null,
+      myScore: isWinner ? 12 : 8,
+      opponentScore: isWinner ? 0 : 12,
       opponentName: vsBot ? 'Oba 👑' : opponent?.username || opponent?.displayName || 'Opponent',
-      gameId: 'draughts',
+      gameId: 'draft',
       gameName: 'Dráfù Game',
       targetScreen: 'DraughtsGame',
       stake: isMultiplayer ? stake : 0,
@@ -76,18 +77,22 @@ export default function DraughtsGameScreen({ route, navigation }) {
     });
   };
 
+  const navigateResultRef = useRef(navigateResult);
+  navigateResultRef.current = navigateResult;
+
   const handleLocalWin = (won = true) => {
-    setTimeout(() => navigateResult(won), 800);
+    if (navigated.current) return;
+    navigated.current = true;
+    setTimeout(() => navigateResultRef.current(won), 800);
   };
 
   const navigated = useRef(false);
   useEffect(() => {
-    if (!remoteMode || snapshot?.status !== 'completed' || navigated.current) return;
+    if (!isMultiplayer || snapshot?.status !== 'completed' || navigated.current) return;
     navigated.current = true;
-    const timerId = setTimeout(() => navigateResult(snapshot.winner === uid), 800);
+    const timerId = setTimeout(() => navigateResultRef.current(snapshot.winner === effectiveUid), 800);
     return () => clearTimeout(timerId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remoteMode, snapshot?.status, snapshot?.winner, uid]);
+  }, [isMultiplayer, snapshot?.status, snapshot?.winner, effectiveUid]);
 
   const handleBack = () => {
     if (navigation.canGoBack()) {
@@ -121,16 +126,15 @@ export default function DraughtsGameScreen({ route, navigation }) {
     : opponentEntry?.username || opponentEntry?.displayName || 'Live opponent';
 
   const [showCoinToss, setShowCoinToss] = useState(true);
-  const [assignedSide, setAssignedSide] = useState(null);
+  const [firstPlayer, setFirstPlayer] = useState('player');
 
-  const handleCoinTossComplete = (winnerIdx, winnerPlayer, startingColor) => {
+  const handleCoinTossComplete = (winnerIdx, winnerPlayer) => {
     setShowCoinToss(false);
-    if (startingColor) {
-      setAssignedSide(startingColor);
-    }
+    const obaWon = winnerIdx === 1 || !!winnerPlayer?.isAi;
+    setFirstPlayer(obaWon ? 'oba' : 'player');
   };
 
-  const effectiveColor = assignedSide || chosenColor || 'white';
+  const effectiveColor = chosenColor || 'white';
 
   const myName = userProfile?.username || userProfile?.displayName || 'You';
   const draftPlayers = useMemo(
@@ -149,15 +153,17 @@ export default function DraughtsGameScreen({ route, navigation }) {
         playerColor={effectiveColor}
         humanColor={effectiveColor}
         aiDifficulty={aiDifficulty}
-        secondsRemaining={remoteMode ? session.secondsRemaining : undefined}
-        isRemote={remoteMode && !!remote}
+        secondsRemaining={isMultiplayer ? session.secondsRemaining : undefined}
+        isRemote={isMultiplayer && !!remote && session.status !== 'error'}
         remote={remote}
+        paused={showCoinToss}
+        firstPlayer={firstPlayer}
         onRemoteMove={(move) => session.move(engineMoveToServer(move))}
         onControl={isPractice ? session.control : undefined}
         onWin={handleLocalWin}
-        onRemoteGameOver={(winnerSide) => {
-          setTimeout(() => navigateResult(winnerSide === remote?.humanSide), 800);
-        }}
+        onRemoteGameOver={isMultiplayer ? (winnerSide) => {
+          setTimeout(() => navigateResultRef.current(winnerSide === remote?.humanSide), 800);
+        } : undefined}
         onBack={handleBack}
       />
       <CoinTossModal
@@ -175,7 +181,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
         </View>
       )}
 
-      {remoteMode && remote && (session.status === 'connecting' || (!!session.error && !session.error.toLowerCase().includes('path') && !session.error.toLowerCase().includes('capture') && !session.error.toLowerCase().includes('invalid') && !session.error.toLowerCase().includes('move'))) && (
+      {isMultiplayer && remote && (session.status === 'connecting' || (!!session.error && !session.error.toLowerCase().includes('path') && !session.error.toLowerCase().includes('capture') && !session.error.toLowerCase().includes('invalid') && !session.error.toLowerCase().includes('move'))) && (
         <View style={styles.banner} pointerEvents="none">
           <Text style={styles.bannerText}>
             {session.status === 'connecting' ? 'Syncing turn…' : session.error}
@@ -189,11 +195,11 @@ export default function DraughtsGameScreen({ route, navigation }) {
         </View>
       )}
 
-      {remoteMode && !remote && (
+      {isMultiplayer && !remote && (
         <View style={styles.overlay}>
           {!session.error && <ActivityIndicator size="large" color="#00E5FF" />}
           <Text style={styles.overlayText}>
-            {session.error || (isPractice ? 'Starting practice game…' : 'Joining live room…')}
+            {session.error || 'Joining live room…'}
           </Text>
         </View>
       )}

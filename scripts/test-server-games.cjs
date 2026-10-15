@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const fs = require('node:fs');
 const babel = require('@babel/core');
 const root = path.join(__dirname, '..');
 
@@ -647,7 +648,26 @@ test('Ludo rules: reaching home, captures, and rolling 6 grant extra turns', () 
   assert.ok(!ludoScreenCode.match(/SafeAreaView[\s\S]*from ['"]react-native['"]/));
 });
 
+test('Draughts CheckersEngine Oba AI returns valid moves promptly for white and black', () => {
+  const board = checkersEngine.initialBoardState();
+  const start = Date.now();
+  const whiteMove = checkersEngine.getBestAIMove(board, 'white', 'hard');
+  const elapsedWhite = Date.now() - start;
+  assert.ok(whiteMove && whiteMove.from !== undefined && whiteMove.to !== undefined);
+  assert.ok(elapsedWhite < 200, `Oba white move should take < 200ms, took ${elapsedWhite}ms`);
 
+  const nextBoard = checkersEngine.applyMove(board, whiteMove);
+  const startBlack = Date.now();
+  const blackMove = checkersEngine.getBestAIMove(nextBoard, 'black', 'hard');
+  const elapsedBlack = Date.now() - startBlack;
+  assert.ok(blackMove && blackMove.from !== undefined && blackMove.to !== undefined);
+  assert.ok(elapsedBlack < 200, `Oba black move should take < 200ms, took ${elapsedBlack}ms`);
+});
 
-
+test('DraughtsGameScreen configures remoteMode for practice against Oba', () => {
+  const code = fs.readFileSync(path.join(root, 'src', 'screens', 'games', 'DraughtsGameScreen.js'), 'utf8');
+  assert.ok(code.includes("effectiveUid = uid || (isPractice ? 'practice_anon' : null)"));
+  assert.ok(code.includes('remoteMode = isMultiplayer || (isPractice && !!effectiveUid)'));
+  assert.ok(code.includes('navigateResultRef.current'));
+});
 

@@ -42,6 +42,8 @@ export function CheckersScreen({
   remote = null,
   onRemoteMove,
   onControl = null,
+  paused = false,
+  firstPlayer = 'player',
 }) {
   const { updateProfileData, userProfile } = useAuth();
   const playerSide = playerColor === 'black' ? 'black' : 'white';
@@ -51,7 +53,16 @@ export function CheckersScreen({
   const turnDuration = parseTimerSec(timer);
   const [size, setSize] = useState(0);
   const [boardState, setBoardState] = useState(initialBoardState());
-  const [turn, setTurn] = useState('white');
+  const [turn, setTurn] = useState(() => (firstPlayer === 'oba' || firstPlayer === 'ai' ? aiSide : playerSide));
+
+  useEffect(() => {
+    if (isRemote) return;
+    if (firstPlayer === 'oba' || firstPlayer === 'ai') {
+      setTurn(aiSide);
+    } else {
+      setTurn(playerSide);
+    }
+  }, [firstPlayer, aiSide, playerSide, isRemote]);
   const [selected, setSelected] = useState(null);
   const [validMoves, setValidMoves] = useState([]);
   const [hintMove, setHintMove] = useState(null);
@@ -74,12 +85,32 @@ export function CheckersScreen({
   const [currentTime, setCurrentTime] = useState(Date.now());
   const lastMovedSquareRef = useRef(null);
   useEffect(() => {
-    const ticker = setInterval(() => setCurrentTime(Date.now()), 500);
+    if (!lastMoveTimestamp) return;
+    const elapsed = Date.now() - lastMoveTimestamp;
+    if (elapsed >= 10000) return;
+    setCurrentTime(Date.now());
+    const ticker = setInterval(() => {
+      const now = Date.now();
+      setCurrentTime(now);
+      if (now - lastMoveTimestamp >= 10000) {
+        clearInterval(ticker);
+      }
+    }, 1000);
     return () => clearInterval(ticker);
-  }, []);
+  }, [lastMoveTimestamp]);
   const undoSecondsLeft = lastMoveTimestamp
     ? Math.max(0, 10 - Math.floor((currentTime - lastMoveTimestamp) / 1000))
     : 0;
+
+  // Callback refs to ensure stable references during AI timeouts
+  const onWinRef = useRef(onWin);
+  onWinRef.current = onWin;
+  const onRemoteGameOverRef = useRef(onRemoteGameOver);
+  onRemoteGameOverRef.current = onRemoteGameOver;
+  const updateProfileDataRef = useRef(updateProfileData);
+  updateProfileDataRef.current = updateProfileData;
+  const userProfileRef = useRef(userProfile);
+  userProfileRef.current = userProfile;
 
   // Record daily streak & restore active match session on mount
   const mountStreakRecorded = React.useRef(false);
@@ -126,8 +157,8 @@ export function CheckersScreen({
   useEffect(() => {
     if (!isRemote || !remote) return;
     if (lastMovedSquareRef.current) {
-      // If server has not registered our move, wait for opponent's move to resolve rather than reverting the piece
-      if (remote.turn === remote.humanSide && !remote.board[lastMovedSquareRef.current.to]) {
+      const isStale = Date.now() - (lastMovedSquareRef.current.timestamp || 0) > 2000;
+      if (!isStale && remote.turn === remote.humanSide && !remote.board[lastMovedSquareRef.current.to]) {
         return;
       }
       lastMovedSquareRef.current = null;
@@ -149,13 +180,13 @@ export function CheckersScreen({
         isOver: true,
         winner: remote.winnerSide,
       });
-      if (onRemoteGameOver) {
-        onRemoteGameOver(remote.winnerSide);
-      } else if (onWin) {
-        onWin(remote.winnerSide === remote.humanSide);
+      if (onRemoteGameOverRef.current) {
+        onRemoteGameOverRef.current(remote.winnerSide);
+      } else if (onWinRef.current) {
+        onWinRef.current(remote.winnerSide === remote.humanSide);
       }
     }
-  }, [remote, isRemote, onRemoteGameOver, onWin]);
+  }, [remote, isRemote]);
 
   // Sync external board prop if provided
   useEffect(() => {
@@ -190,7 +221,7 @@ export function CheckersScreen({
       }
       setSeconds(turnDuration);
     }
-  }, [seconds, gameOver.isOver, dialog, turn, playerSide, aiSide, turnDuration, isRemote]);
+  }, [seconds, gameOver.isOver, dialog, turn, playerSide, aiSide, turnDuration, isRemote, opponentName]);
 
   // Check if player has 0 legal moves on their turn
   useEffect(() => {
@@ -209,54 +240,74 @@ export function CheckersScreen({
       }
       if (!hasMoves) {
         setGameOver({ isOver: true, winner: aiSide });
-        if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
-        if (onRemoteGameOver) {
-          onRemoteGameOver(aiSide);
-        } else if (onWin) {
-          onWin(false);
+        if (updateProfileDataRef.current && userProfileRef.current) {
+          recordGameStreak(updateProfileDataRef.current, userProfileRef.current);
+        }
+        if (onRemoteGameOverRef.current) {
+          onRemoteGameOverRef.current(aiSide);
+        } else if (onWinRef.current) {
+          onWinRef.current(false);
         }
       }
     }
-  }, [turn, playerSide, aiSide, boardState, gameOver.isOver, isAiThinking, dialog, onWin, onRemoteGameOver, updateProfileData, userProfile, isRemote]);
+  }, [turn, playerSide, aiSide, boardState, gameOver.isOver, isAiThinking, dialog, isRemote]);
 
-  // Computer AI turn trigger (for offline practice OR guaranteed fallback if server lags)
+  // Computer AI turn trigger (for offline practice)
   useEffect(() => {
-    if (turn === aiSide && !gameOver.isOver && dialog === null) {
+    if (isRemote) return;
+    if (vsAI && turn === aiSide && !gameOver.isOver && dialog === null && !paused) {
       setIsAiThinking(true);
-      // Natural thinking delay so player sees Oba thinking and moving
-      const delayMs = isRemote ? 850 : 450;
+      const delayMs = 100;
       const timer = setTimeout(() => {
         if (turn !== aiSide) return;
         const aiMove = getBestAIMove(boardState, aiSide, activeDifficulty);
         if (aiMove) {
           lastMovedSquareRef.current = null;
           setHistory((prev) => [...prev, { board: [...boardState], turn: aiSide }]);
-          const newBoard = applyMove(boardState, aiMove);
+          let newBoard = applyMove(boardState, aiMove);
+
+          // If Oba's move was a capture, execute any subsequent chain jumps
+          if (aiMove.captures && aiMove.captures.length > 0) {
+            let nextPos = aiMove.to;
+            let chainJumps = getSingleCaptureMovesForPiece(newBoard, nextPos);
+            while (chainJumps.length > 0) {
+              const nextJump = chainJumps[0];
+              newBoard = applyMove(newBoard, nextJump);
+              nextPos = nextJump.to;
+              chainJumps = getSingleCaptureMovesForPiece(newBoard, nextPos);
+            }
+          }
+
           setBoardState(newBoard);
 
           const endResult = checkGameEnd(newBoard, playerSide);
           if (endResult.isOver) {
             setGameOver(endResult);
-            if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
-            if (onRemoteGameOver) {
-              onRemoteGameOver(endResult.winner);
-            } else if (onWin) {
-              onWin(endResult.winner === playerSide);
+            if (updateProfileDataRef.current && userProfileRef.current) {
+              recordGameStreak(updateProfileDataRef.current, userProfileRef.current);
+            }
+            if (onWinRef.current) {
+              onWinRef.current(endResult.winner === playerSide);
+            } else if (onRemoteGameOverRef.current) {
+              onRemoteGameOverRef.current(endResult.winner);
             } else {
               setDialog('gameover');
             }
           } else {
             setTurn(playerSide);
+            setSeconds(turnDuration);
             setIsAiThinking(false);
           }
         } else {
           // AI has no legal moves -> Player wins
           setGameOver({ isOver: true, winner: playerSide });
-          if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
-          if (onRemoteGameOver) {
-            onRemoteGameOver(playerSide);
-          } else if (onWin) {
-            onWin(true);
+          if (updateProfileDataRef.current && userProfileRef.current) {
+            recordGameStreak(updateProfileDataRef.current, userProfileRef.current);
+          }
+          if (onWinRef.current) {
+            onWinRef.current(true);
+          } else if (onRemoteGameOverRef.current) {
+            onRemoteGameOverRef.current(playerSide);
           } else {
             setDialog('gameover');
           }
@@ -265,7 +316,7 @@ export function CheckersScreen({
       }, delayMs);
       return () => clearTimeout(timer);
     }
-  }, [turn, vsAI, boardState, gameOver.isOver, dialog, aiSide, playerSide, activeDifficulty, onWin, onRemoteGameOver, stake, isRemote, updateProfileData, userProfile]);
+  }, [turn, vsAI, boardState, gameOver.isOver, dialog, aiSide, playerSide, activeDifficulty, isRemote, turnDuration, paused]);
 
   function restartGame() {
     setBoardState(initialBoardState());
@@ -282,7 +333,7 @@ export function CheckersScreen({
   }
 
   function handleRemotePress(index) {
-    if (!remote?.canMove) return;
+    if (gameOver.isOver) return;
     setHintMove(null);
 
     // If destination is pressed for currently selected piece
@@ -295,11 +346,11 @@ export function CheckersScreen({
 
       const targetPiece = boardState[index];
       // Select another friendly piece to switch selection
-      if (targetPiece && targetPiece.side === remote.humanSide) {
-        const serverMoves = Array.isArray(remote.legalMoves) && remote.legalMoves.length > 0
+      if (targetPiece && targetPiece.side === remote?.humanSide) {
+        const serverMoves = Array.isArray(remote?.legalMoves) && remote.legalMoves.length > 0
           ? remote.legalMoves.filter((m) => m.from === index)
           : [];
-        const engineMoves = getLegalMovesForSquare(boardState, remote.humanSide, index);
+        const engineMoves = getLegalMovesForSquare(boardState, remote?.humanSide, index);
         const moveMap = new Map();
         [...engineMoves, ...serverMoves].forEach((m) => moveMap.set(m.to, m));
         const candidateMoves = Array.from(moveMap.values());
@@ -309,40 +360,14 @@ export function CheckersScreen({
         return;
       }
 
-      let move = validMoves.find((m) => m.to === index);
-      if (!move) {
-        const fromR = Math.floor(selected / 8);
-        const fromC = selected % 8;
-        const toR = Math.floor(index / 8);
-        const toC = index % 8;
-        const rowDiff = toR - fromR;
-        const colDiff = toC - fromC;
-        const captures = [];
+      // If moving to a destination, verify remote canMove
+      if (!remote?.canMove) return;
 
-        if (Math.abs(rowDiff) === 2 && Math.abs(colDiff) === 2) {
-          const midR = Math.floor((fromR + toR) / 2);
-          const midC = Math.floor((fromC + toC) / 2);
-          const midIdx = midR * 8 + midC;
-          if (boardState[midIdx] && boardState[midIdx].side !== remote.humanSide) {
-            captures.push(midIdx);
-          }
-        } else if (targetPiece && targetPiece.side !== remote.humanSide) {
-          captures.push(index);
-        } else if (Math.abs(rowDiff) === Math.abs(colDiff)) {
-          const stepR = rowDiff > 0 ? 1 : -1;
-          const stepC = colDiff > 0 ? 1 : -1;
-          let curR = fromR + stepR;
-          let curC = fromC + stepC;
-          while (curR !== toR && curC !== toC) {
-            const curIdx = curR * 8 + curC;
-            if (boardState[curIdx] && boardState[curIdx].side !== remote.humanSide) {
-              captures.push(curIdx);
-            }
-            curR += stepR;
-            curC += stepC;
-          }
-        }
-        move = { from: selected, to: index, captures, path: [selected, index] };
+      const move = validMoves.find((m) => m.to === index);
+      if (!move) {
+        setSelected(null);
+        setValidMoves([]);
+        return;
       }
 
       if (move) {
@@ -404,7 +429,7 @@ export function CheckersScreen({
       handleRemotePress(index);
       return;
     }
-    if (gameOver.isOver || isAiThinking || (vsAI && turn === aiSide)) return;
+    if (gameOver.isOver || isAiThinking || (vsAI && turn === aiSide) || paused) return;
     onSquarePress?.(index);
     setHintMove(null);
 
@@ -427,66 +452,51 @@ export function CheckersScreen({
         return;
       }
 
-      let selectedMove = validMoves.find((m) => m.to === index);
+      const selectedMove = validMoves.find((m) => m.to === index);
       if (!selectedMove) {
-        const fromR = Math.floor(selected / 8);
-        const fromC = selected % 8;
-        const toR = Math.floor(index / 8);
-        const toC = index % 8;
-        const rowDiff = toR - fromR;
-        const colDiff = toC - fromC;
-        const captures = [];
-
-        if (Math.abs(rowDiff) === 2 && Math.abs(colDiff) === 2) {
-          const midR = Math.floor((fromR + toR) / 2);
-          const midC = Math.floor((fromC + toC) / 2);
-          const midIdx = midR * 8 + midC;
-          if (boardState[midIdx] && boardState[midIdx].side !== turn) {
-            captures.push(midIdx);
-          }
-        } else if (piece && piece.side !== turn) {
-          captures.push(index);
-        } else if (Math.abs(rowDiff) === Math.abs(colDiff)) {
-          const stepR = rowDiff > 0 ? 1 : -1;
-          const stepC = colDiff > 0 ? 1 : -1;
-          let curR = fromR + stepR;
-          let curC = fromC + stepC;
-          while (curR !== toR && curC !== toC) {
-            const curIdx = curR * 8 + curC;
-            if (boardState[curIdx] && boardState[curIdx].side !== turn) {
-              captures.push(curIdx);
-            }
-            curR += stepR;
-            curC += stepC;
-          }
-        }
-        selectedMove = { from: selected, to: index, captures, path: [selected, index] };
-      }
-
-      if (selectedMove) {
-        const movingPiece = boardState[selectedMove.from];
-        setHistory((prev) => [...prev, { board: [...boardState], turn }]);
-        const nextBoard = applyMove(boardState, selectedMove);
-        setBoardState(nextBoard);
+        // Destination is not in valid legal moves (draughts is diagonal only on dark squares)
         setSelected(null);
         setValidMoves([]);
-        setHintMove(null);
-        setForcedCaptureSquare(null);
-        setNotice('');
-        const nextTurn = turn === 'white' ? 'black' : 'white';
-        const endResult = checkGameEnd(nextBoard, nextTurn);
-        if (endResult.isOver) {
-          setGameOver(endResult);
-          if (onWin) {
-            onWin(endResult.winner === playerSide);
-          } else {
-            setDialog('gameover');
-          }
-        } else {
-          setTurn(nextTurn);
-        }
         return;
       }
+
+      const movingPiece = boardState[selectedMove.from];
+      setHistory((prev) => [...prev, { board: [...boardState], turn }]);
+      const nextBoard = applyMove(boardState, selectedMove);
+      setBoardState(nextBoard);
+      setSelected(null);
+      setValidMoves([]);
+      setHintMove(null);
+      setForcedCaptureSquare(null);
+      setNotice('');
+
+      // Check if subsequent multi-jumps are available for this piece
+      if (selectedMove.captures && selectedMove.captures.length > 0) {
+        const subsequentJumps = getSingleCaptureMovesForPiece(nextBoard, selectedMove.to);
+        if (subsequentJumps.length > 0) {
+          // Player continues chain jump with this piece
+          setSelected(selectedMove.to);
+          setValidMoves(subsequentJumps);
+          setForcedCaptureSquare(selectedMove.to);
+          setNotice('⚡ Multi-jump! Continue capturing!');
+          return;
+        }
+      }
+
+      const nextTurn = turn === 'white' ? 'black' : 'white';
+      const endResult = checkGameEnd(nextBoard, nextTurn);
+      if (endResult.isOver) {
+        setGameOver(endResult);
+        if (onWin) {
+          onWin(endResult.winner === playerSide);
+        } else {
+          setDialog('gameover');
+        }
+      } else {
+        setTurn(nextTurn);
+        setSeconds(turnDuration);
+      }
+      return;
     }
 
     // Select piece or switch directly to another friendly piece
@@ -683,6 +693,8 @@ export function CheckersScreen({
             return (
               <Pressable
                 key={index}
+                delayPressIn={0}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                 onPress={() => handleSquarePress(toDisplay(index))}
                 style={({ pressed }) => ({
                   position: 'absolute',
@@ -704,6 +716,7 @@ export function CheckersScreen({
           {BUTTONS.map((button) => (
             <Pressable
               key={button.id}
+              delayPressIn={0}
               onPress={() => action(button.id)}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={({ pressed }) => ({

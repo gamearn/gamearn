@@ -514,11 +514,13 @@ export default function GameResultScreen({ route, navigation }) {
                 onPress={() => handleJoinTournament(openTour?.id)}
                 style={styles.joinTourPromptBtn}
               >
-                <Trophy size={14} color="#070C1B" style={{ marginRight: 5 }} />
-                <Text style={styles.joinTourPromptBtnText}>
-                  {openTour ? `Join "${openTour.name || gameName}" Tournament` : 'Join Live Tournament 🏆'}
+                <Trophy size={15} color="#070C1B" style={{ flexShrink: 0, marginRight: 6 }} />
+                <Text style={styles.joinTourPromptBtnText} numberOfLines={2}>
+                  {openTour
+                    ? `Join "${openTour.name || gameName}"${/tournament|championship/i.test(openTour?.name || '') ? '' : ' Tournament'}`
+                    : 'Join Live Tournament 🏆'}
                 </Text>
-                <ArrowRight size={14} color="#070C1B" style={{ marginLeft: 5 }} />
+                <ArrowRight size={15} color="#070C1B" style={{ flexShrink: 0, marginLeft: 6 }} />
               </TouchableOpacity>
             </View>
           )}
@@ -861,12 +863,19 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
-    marginTop: 4,
+    marginTop: 6,
+    minHeight: 46,
   },
   joinTourPromptBtnText: {
     color: '#070C1B',
     fontWeight: '900',
-    fontSize: 11,
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    flexShrink: 1,
+    alignSelf: 'center',
   },
   playAgainBtn: {
     flexDirection: 'row',

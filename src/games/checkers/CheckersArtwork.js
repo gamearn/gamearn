@@ -10,7 +10,7 @@ export const initialBoard = () => Array.from({ length: 64 }, (_, i) => {
   return (r + c) % 2 === 0 ? null : r < 3 ? { side: 'white' } : r > 4 ? { side: 'black' } : null;
 });
 
-function Gradients() {
+export const Gradients = React.memo(function Gradients() {
   return (
     <Defs>
       <LinearGradient id="bg"><Stop offset="0" stopColor="#211b0a" /><Stop offset="0.45" stopColor="#071018" /><Stop offset="1" stopColor="#002344" /></LinearGradient>
@@ -30,9 +30,9 @@ function Gradients() {
       <RadialGradient id="avatarBlue"><Stop offset="0" stopColor="#004071" /><Stop offset="1" stopColor="#000611" /></RadialGradient>
     </Defs>
   );
-}
+});
 
-export function Crown({ x, y, color = '#ffd04b', scale = 1 }) {
+export const Crown = React.memo(function Crown({ x, y, color = '#ffd04b', scale = 1 }) {
   return (
     <G transform={`translate(${x} ${y}) scale(${scale})`}>
       <Path d="M-39 -20 L-16 -3 L0 -35 L17 -3 L39 -20 L29 22 Q0 13 -29 22Z" fill={color} />
@@ -40,9 +40,9 @@ export function Crown({ x, y, color = '#ffd04b', scale = 1 }) {
       {[-39, 0, 39].map((cx, i) => <Circle key={cx} cx={cx} cy={i === 1 ? -37 : -21} r="5" fill={color} />)}
     </G>
   );
-}
+});
 
-export function Background() {
+export const Background = React.memo(function Background() {
   return (
     <G>
       <Rect width="1254" height="1254" fill="url(#bg)" />
@@ -56,7 +56,7 @@ export function Background() {
       <G transform="rotate(-13 1190 1025)"><T x="1189" y="1017" textAnchor="middle" fontFamily={SCRIPT} fontSize="48" fontStyle="italic" fill="#ffbd19">Play</T><T x="1189" y="1066" textAnchor="middle" fontFamily={SCRIPT} fontSize="48" fontStyle="italic" fill="#ffbd19">Smart</T></G>
     </G>
   );
-}
+});
 
 export function CheckerPiece({ x, y, size = 82, white, king = false, selected = false }) {
   return (
@@ -74,7 +74,7 @@ export function CheckerPiece({ x, y, size = 82, white, king = false, selected = 
   );
 }
 
-export function Avatar({ x, y, blue = false }) {
+export const Avatar = React.memo(function Avatar({ x, y, blue = false }) {
   return (
     <G transform={`translate(${x} ${y})`}>
       <Circle cy="4" r="57" fill="#000" /><Circle r="55" fill={blue ? 'url(#blue)' : 'url(#gold)'} /><Circle r="49" fill="#020502" /><Circle r="44" fill={blue ? 'url(#avatarBlue)' : 'url(#avatarGold)'} />
@@ -82,9 +82,9 @@ export function Avatar({ x, y, blue = false }) {
       <Path d="M-26 27 Q-25 0 -9 0 Q0 6 9 0 Q25 0 26 27 Q0 45 -26 27Z" fill={blue ? 'url(#blue)' : 'url(#gold)'} />
     </G>
   );
-}
+});
 
-export function PlayerPanel({ x, blue, count, name }) {
+export const PlayerPanel = React.memo(function PlayerPanel({ x, blue, count, name }) {
   return (
     <G transform={`translate(${x} 64)`}>
       <Rect y="7" width="371" height="120" rx="61" fill="#000" opacity={0.5} />
@@ -100,9 +100,9 @@ export function PlayerPanel({ x, blue, count, name }) {
       </G>
     </G>
   );
-}
+});
 
-export function Icon({ name, x, y, color = '#ffd04b', scale = 1 }) {
+export const Icon = React.memo(function Icon({ name, x, y, color = '#ffd04b', scale = 1 }) {
   return (
     <G transform={`translate(${x} ${y}) scale(${scale})`} stroke={color} strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round">
       {name === 'back' && <Path d="M8 -15 L-8 0 L8 15" strokeWidth="10" />}
@@ -115,9 +115,9 @@ export function Icon({ name, x, y, color = '#ffd04b', scale = 1 }) {
       {name === 'timer' && <G><Circle cy="4" r="18" strokeWidth="5" /><Path d="M0 4 L4 -8 M0 -17 V-24 M-6 -24 H6 M13 -13 L18 -18" strokeWidth="4" /></G>}
     </G>
   );
-}
+});
 
-export function TimerPanel({ time }) {
+export const TimerPanel = React.memo(function TimerPanel({ time }) {
   return (
     <G transform="translate(504 55)">
       <Rect width="247" height="128" rx="50" fill="#020607" stroke="#586a80" strokeWidth="4" />
@@ -128,9 +128,9 @@ export function TimerPanel({ time }) {
       <T x="123" y="110" textAnchor="middle" fill="#ffd34b" fontFamily={FONT} fontSize="55" fontWeight="900">{time}</T>
     </G>
   );
-}
+});
 
-export function BoardFrame() {
+export const BoardFrame = React.memo(function BoardFrame() {
   return (
     <G>
       <Path d="M159 417 L127 455 V759 L158 805Z" fill="url(#gold)" stroke="#ffe25b" strokeWidth="3" />
@@ -145,9 +145,9 @@ export function BoardFrame() {
       <Path d="M554 1032 H701 L725 1050 Q730 1056 722 1056 H532 Q525 1056 531 1050Z" fill="url(#gold)" stroke="#8d570b" strokeWidth="3" />
     </G>
   );
-}
+});
 
-export function CheckerBoard({ board, selected, validDests = [], hintMove = null }) {
+export const CheckerBoard = React.memo(function CheckerBoard({ board, selected, validDests = [], hintMove = null }) {
   return (
     <G>
       {Array.from({ length: 64 }, (_, i) => {
@@ -170,7 +170,7 @@ export function CheckerBoard({ board, selected, validDests = [], hintMove = null
       })}
     </G>
   );
-}
+});
 
 export const BUTTONS = [
   { id: 'undo', x: 97, y: 1102, w: 196, h: 77, label: 'UNDO', icon: 'undo' },
@@ -182,7 +182,7 @@ export const BUTTONS = [
   { id: 'settings', x: 1156, y: 21, w: 76, h: 77, label: '', icon: 'settings' },
 ];
 
-export function ControlButton({ button, muted, undoSecondsLeft = 0 }) {
+export const ControlButton = React.memo(function ControlButton({ button, muted, undoSecondsLeft = 0 }) {
   const blue = button.id === 'surrender' || button.id === 'settings';
   const isUndo = button.id === 'undo';
   const undoDisabled = isUndo && undoSecondsLeft <= 0;
@@ -235,9 +235,9 @@ export function ControlButton({ button, muted, undoSecondsLeft = 0 }) {
       )}
     </G>
   );
-}
+});
 
-export function CheckersArtwork({
+export const CheckersArtwork = React.memo(function CheckersArtwork({
   size,
   board,
   selected,
@@ -263,4 +263,4 @@ export function CheckersArtwork({
       ))}
     </Svg>
   );
-}
+});

@@ -26,25 +26,41 @@ export function isDarkSquare(index) {
   return (r + c) % 2 === 1;
 }
 
-/** Get directions for piece (all 4 diagonal directions allowed) */
+/** Get simple movement directions for a piece:
+ * Regular men only move forward diagonally (white moves down dr: 1, black moves up dr: -1).
+ * Kings can move all 4 diagonal directions (both forward and backward).
+ */
 export function getDirections(piece) {
   if (!piece) return [];
-  return [
-    { dr: 1, dc: -1 },
-    { dr: 1, dc: 1 },
-    { dr: -1, dc: -1 },
-    { dr: -1, dc: 1 },
-  ];
+  if (piece.king) {
+    return [
+      { dr: 1, dc: -1 },
+      { dr: 1, dc: 1 },
+      { dr: -1, dc: -1 },
+      { dr: -1, dc: 1 },
+    ];
+  }
+  return piece.side === 'white'
+    ? [{ dr: 1, dc: -1 }, { dr: 1, dc: 1 }]
+    : [{ dr: -1, dc: -1 }, { dr: -1, dc: 1 }];
 }
 
-/** Generate single capture moves for a piece (each step is 2 squares) */
+/** All 4 diagonal directions for jumping and capture moves */
+export const ALL_DIAGONAL_DIRS = [
+  { dr: 1, dc: -1 },
+  { dr: 1, dc: 1 },
+  { dr: -1, dc: -1 },
+  { dr: -1, dc: 1 },
+];
+
+/** Generate single capture moves for a piece (each jump is 2 squares diagonally) */
 export function getSingleCaptureMovesForPiece(board, squareIndex, piece = null) {
   const currentPiece = piece || board[squareIndex];
   if (!currentPiece) return [];
 
   const moves = [];
   const { r, c } = getCoord(squareIndex);
-  const dirs = getDirections(currentPiece);
+  const dirs = ALL_DIAGONAL_DIRS;
 
   for (const { dr, dc } of dirs) {
     const midR = r + dr;
@@ -112,35 +128,19 @@ export function getAllLegalMoves(board, side, forcedSquare = null) {
     if (piece && piece.side === side) {
       const { r, c } = getCoord(i);
       const dirs = getDirections(piece);
+      const maxSteps = piece.king ? 7 : 1;
       for (const { dr, dc } of dirs) {
-        for (let step = 1; step < 8; step++) {
+        for (let step = 1; step <= maxSteps; step++) {
           const destR = r + dr * step;
           const destC = c + dc * step;
           const destIdx = getIndex(destR, destC);
-          if (destIdx === null) break;
-          if (board[destIdx] !== null) {
-            // If opponent piece, check jump over it
-            const landR = destR + dr;
-            const landC = destC + dc;
-            const landIdx = getIndex(landR, landC);
-            if (landIdx !== null && board[landIdx] === null && board[destIdx].side !== piece.side) {
-              captures.push({
-                from: i,
-                to: landIdx,
-                captures: [destIdx],
-                path: [i, landIdx],
-              });
-            }
-            break;
-          }
+          if (destIdx === null || board[destIdx] !== null) break;
           simpleMoves.push({
             from: i,
             to: destIdx,
             captures: [],
             path: [i, destIdx],
           });
-          // Regular men can move up to 2 squares diagonally; kings can fly full distance
-          if (!piece.king && step >= 2) break;
         }
       }
     }
@@ -149,9 +149,40 @@ export function getAllLegalMoves(board, side, forcedSquare = null) {
   return [...captures, ...simpleMoves];
 }
 
-/** Get legal moves starting from a specific square */
+/** Get legal moves starting from a specific square directly and fast */
 export function getLegalMovesForSquare(board, side, squareIndex, forcedSquare = null) {
-  return getAllLegalMoves(board, side, forcedSquare).filter((m) => m.from === squareIndex);
+  if (!board || !Array.isArray(board) || squareIndex == null || squareIndex < 0 || squareIndex >= 64) return [];
+  if (forcedSquare !== null && forcedSquare !== undefined && forcedSquare !== squareIndex) {
+    return [];
+  }
+  const piece = board[squareIndex];
+  if (!piece || piece.side !== side) return [];
+
+  const captures = getSingleCaptureMovesForPiece(board, squareIndex, piece);
+  if (forcedSquare !== null && forcedSquare !== undefined) {
+    return captures;
+  }
+
+  const simpleMoves = [];
+  const { r, c } = getCoord(squareIndex);
+  const dirs = getDirections(piece);
+  const maxSteps = piece.king ? 7 : 1;
+  for (const { dr, dc } of dirs) {
+    for (let step = 1; step <= maxSteps; step++) {
+      const destR = r + dr * step;
+      const destC = c + dc * step;
+      const destIdx = getIndex(destR, destC);
+      if (destIdx === null || board[destIdx] !== null) break;
+      simpleMoves.push({
+        from: squareIndex,
+        to: destIdx,
+        captures: [],
+        path: [squareIndex, destIdx],
+      });
+    }
+  }
+
+  return [...captures, ...simpleMoves];
 }
 
 /** Execute a move on the board and return new board state */
@@ -226,6 +257,9 @@ function minimax(board, depth, alpha, beta, isMaximizing) {
     return { score: evaluateBoard(board), move: null };
   }
 
+  // Prioritize captures first for strategic play and fast alpha-beta pruning
+  legalMoves.sort((a, b) => (b.captures?.length || 0) - (a.captures?.length || 0));
+
   let bestMove = legalMoves[0] || null;
 
   if (isMaximizing) {
@@ -262,9 +296,12 @@ export function getBestAIMove(board, side = 'black', difficulty = 'medium') {
   const legalMoves = getAllLegalMoves(board, side);
   if (legalMoves.length === 0) return null;
 
+  // Prioritize capture moves first
+  legalMoves.sort((a, b) => (b.captures?.length || 0) - (a.captures?.length || 0));
+
   if (difficulty === 'easy') {
-    // 45% chance to play casual random move for beginners
-    if (Math.random() < 0.45) {
+    // 40% chance to play casual random move for beginners
+    if (Math.random() < 0.40) {
       return legalMoves[Math.floor(Math.random() * legalMoves.length)];
     }
     const result = minimax(board, 2, -Infinity, Infinity, side === 'black');
@@ -272,13 +309,13 @@ export function getBestAIMove(board, side = 'black', difficulty = 'medium') {
   }
 
   if (difficulty === 'hard') {
-    // Expert depth 5 minimax
-    const result = minimax(board, 5, -Infinity, Infinity, side === 'black');
+    // Expert depth 3 with capture-first alpha-beta pruning
+    const result = minimax(board, 3, -Infinity, Infinity, side === 'black');
     return result.move || legalMoves[0];
   }
 
-  // Medium depth 3 minimax
-  const result = minimax(board, 3, -Infinity, Infinity, side === 'black');
+  // Medium depth 2 minimax
+  const result = minimax(board, 2, -Infinity, Infinity, side === 'black');
   return result.move || legalMoves[0];
 }
 

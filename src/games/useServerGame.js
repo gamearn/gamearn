@@ -100,11 +100,18 @@ export function useServerGame({ gameType, roomId, uid, options = {} }) {
               : await practice.ludo.move(sessionId, moveData.pieceId, moveData.diceValue)
             : await practice[gameType].move(sessionId, gameType === 'ayo' ? moveData.pitIndex : moveData);
           const receivedAt = Date.now();
-          for (const state of reply.transitions || []) {
+          const transitions = reply.transitions || [];
+          for (let i = 0; i < transitions.length; i++) {
             if (!alive) break;
+            const state = transitions[i];
             receive(state, false, false, receivedAt);
             if (AppState.currentState === 'active') {
-              const delay = gameType === 'ludo' ? 1400 : (gameType === 'whot' ? 650 : (gameType === 'draughts' ? 750 : 0));
+              const isLast = i === transitions.length - 1;
+              const delay = gameType === 'ludo'
+                ? 1400
+                : (gameType === 'whot'
+                  ? 650
+                  : 0);
               if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
             }
           }
