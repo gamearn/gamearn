@@ -34,6 +34,20 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
       - name: Generate React Native Android project
         run: npx expo prebuild --platform android --no-install
+      - name: Install Android NDK
+        run: |
+          NDK_VERSION=27.1.12297006
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          for attempt in 1 2 3; do
+            if "$SDKMANAGER" --install "ndk;$NDK_VERSION"; then
+              exit 0
+            fi
+            echo "NDK install attempt $attempt failed; cleaning partial download and retrying..."
+            rm -rf "$ANDROID_HOME/ndk/$NDK_VERSION" "$ANDROID_HOME/.temp"
+            sleep 10
+          done
+          echo "Failed to install NDK $NDK_VERSION after multiple attempts" >&2
+          exit 1
       - name: Build debug APK
         working-directory: android
         run: |
