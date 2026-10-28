@@ -65,16 +65,16 @@ export default function SellValuePointsScreen({ navigation }) {
               <Text style={[styles.cardHeaderTitle, { color: theme.textSecondary }]}>Value Points</Text>
             </View>
             <Text style={[styles.bigNumTextCyan, { color: theme.primary }]}>{valuePointBalance.toLocaleString()}</Text>
-            <Text style={[styles.subValText, { color: theme.textMuted }]}>1 Value Point = ₦50</Text>
+            <Text style={[styles.subValText, { color: theme.textMuted }]}>1 Value Point = 50 units</Text>
           </View>
 
           <View style={[styles.balanceCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
             <View style={styles.cardHeaderRow}>
               <Wallet size={16} color={theme.textSecondary} style={{ marginRight: 6 }} />
-              <Text style={[styles.cardHeaderTitle, { color: theme.textSecondary }]}>Wallet (NGN)</Text>
+              <Text style={[styles.cardHeaderTitle, { color: theme.textSecondary }]}>Acquired Points</Text>
             </View>
-            <Text style={[styles.bigNumTextWhite, { color: theme.textPrimary }]}>₦{Number(userProfile?.walletBalance ?? 0).toLocaleString()}</Text>
-            <Text style={[styles.subValText, { color: theme.textMuted }]}>Cash out this in Withdraw</Text>
+            <Text style={[styles.bigNumTextWhite, { color: theme.textPrimary }]}>{Math.floor(Number(userProfile?.walletBalance ?? 0) / 50).toLocaleString()} VP</Text>
+            <Text style={[styles.subValText, { color: theme.textMuted }]}>Cash out in Withdraw</Text>
           </View>
         </View>
 
@@ -82,8 +82,7 @@ export default function SellValuePointsScreen({ navigation }) {
         <View style={[styles.sectionWrap, styles.noteCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
           <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Important</Text>
           <Text style={[styles.destSub, { color: theme.textSecondary }]}>
-            Value Points are the in-app currency (1 VP = ₦50) used for games and bonuses. Your wallet balance
-            is the NGN equivalent; both can be cashed out in Withdraw to a Nigerian bank account.
+            Value Points are the in-app currency used for games and bonuses. Your acquired points can be cashed out in Withdraw to your bank account.
           </Text>
         </View>
 

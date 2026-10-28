@@ -1,12 +1,16 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Text, ActivityIndicator } from 'react-native';
 import LudoScreen from '../../games/ludo/LudoScreen';
 import { useServerGame } from '../../games/useServerGame';
 import { useAuth } from '../../context/AuthContext';
 import { ludoViewModel, diceValueForMove } from '../../games/ludo/serverAdapter';
+import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
+import CoinTossModal from '../../components/CoinTossModal';
+
 export default function LudoGameScreen({ route, navigation }) {
   const { user, userProfile } = useAuth();
   const params = route.params || {};
+  const isRejoin = !!params.isRejoin;
   const mode = params.mode === 'multiplayer' ? 'multiplayer' : 'practice';
   const multiplayer = mode === 'multiplayer';
   const roomId = multiplayer ? params.roomId || null : null;
@@ -17,6 +21,20 @@ export default function LudoGameScreen({ route, navigation }) {
   const diceCount = params.diceCount || 2;
   const timer = params.timer || '2m';
 
+  const [showCoinToss, setShowCoinToss] = useState(!isRejoin);
+
+  useEffect(() => {
+    if (!isRejoin) {
+      clearActiveMatch();
+    }
+    setActiveMatch({
+      gameId: 'ludo',
+      gameName: 'Ludo',
+      targetScreen: 'LudoGame',
+      params: route.params,
+    });
+  }, [isRejoin]);
+
   const options = useMemo(
     () => ({ playerCount, diceCount, tokenCount, timer }),
     [playerCount, diceCount, tokenCount, timer],
@@ -26,6 +44,23 @@ export default function LudoGameScreen({ route, navigation }) {
   const snapshot = session.snapshot;
 
   const viewModel = useMemo(() => ludoViewModel(snapshot, uid), [snapshot, uid]);
+
+  const myName = userProfile?.username || userProfile?.displayName || 'You';
+  const ludoPlayers = useMemo(() => {
+    if (snapshot?.players && snapshot.players.length > 0) {
+      return snapshot.players.map((p, idx) => ({
+        id: idx,
+        name: p.uid === uid ? `${myName} (You)` : (p.displayName || p.name || (idx === 1 ? 'Oba 👑' : `Player ${idx + 1}`)),
+        isUser: p.uid === uid,
+        isAi: p.uid !== uid,
+      }));
+    }
+    const players = [{ id: 0, name: `${myName} (You)`, isUser: true }];
+    for (let i = 1; i < playerCount; i++) {
+      players.push({ id: i, name: i === 1 ? 'Oba 👑' : `Player ${i + 1}`, isAi: true });
+    }
+    return players;
+  }, [snapshot?.players, uid, myName, playerCount]);
 
   const navigated = useRef(false);
   useEffect(() => {
@@ -84,13 +119,22 @@ export default function LudoGameScreen({ route, navigation }) {
           status={session.status}
           secondsRemaining={session.secondsRemaining}
           error={session.error}
-          canMove={session.canMove}
+          canMove={session.canMove && !showCoinToss}
           pending={session.pending}
+          paused={showCoinToss}
           onRoll={handleRoll}
           onMove={handleMove}
           onBack={handleBack}
         />
       ) : null}
+
+      <CoinTossModal
+        visible={showCoinToss}
+        players={ludoPlayers}
+        gameName="Lúùdò Game"
+        initialWinnerIndex={snapshot?.coinToss?.winnerIndex}
+        onComplete={() => setShowCoinToss(false)}
+      />
 
       {!viewModel && (
         <View style={styles.overlay}>

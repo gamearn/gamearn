@@ -185,7 +185,7 @@ export default function LudoSetupScreen({ navigation }) {
 
           <View style={styles.summaryColRight}>
             <Text style={styles.summaryLabel}>ENTRY FEE</Text>
-            <Text style={styles.summaryWhiteVal}>$70.00</Text>
+            <Text style={styles.summaryWhiteVal}>Free</Text>
           </View>
         </View>
 

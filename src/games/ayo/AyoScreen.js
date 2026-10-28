@@ -90,9 +90,12 @@ export function AyoScreen({
   onHumanMove,
   aiDifficulty = 'auto',
   opponentName = 'Oba 👑',
+  firstPlayer = 1,
+  paused = false,
+  isRejoin = false,
 }) {
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
-  const [gameState, setGameState] = useState(() => createAyoInitialState(seedCount));
+  const [gameState, setGameState] = useState(() => createAyoInitialState(seedCount, firstPlayer));
   const [selected, setSelected] = useState(null);
   const [activePit, setActivePit] = useState(null);
   const [capturedPits, setCapturedPits] = useState([]);
@@ -106,12 +109,27 @@ export function AyoScreen({
     gameStateRef.current = gameState;
   }, [gameState]);
 
+  // Sync starter if toss resolves after mount and match has not started yet
+  useEffect(() => {
+    if (gameState.gameStatus !== 'playing') return;
+    const isUnmoved = gameState.scores[0] === 0 && gameState.scores[1] === 0;
+    if (isUnmoved && gameState.activePlayer !== firstPlayer) {
+      setGameState((prev) => ({
+        ...prev,
+        activePlayer: firstPlayer,
+        statusMessage: firstPlayer === 2
+          ? `${opponentName} plays first! Preparing opening move…`
+          : 'Your turn! Tap one of your bottom pits (1–6) to sow seeds.',
+      }));
+    }
+  }, [firstPlayer, opponentName]);
+
   const turnDuration = parseTimerSec(timer);
   const [secondsRemaining, setSecondsRemaining] = useState(turnDuration);
 
   // Turn Countdown & Timeout forfeit handling
   useEffect(() => {
-    if (gameState.gameStatus === 'game_over' || isAnimating) return;
+    if (paused || gameState.gameStatus === 'game_over' || isAnimating) return;
     const interval = setInterval(() => {
       setSecondsRemaining((prev) => {
         if (prev <= 1) {
@@ -134,20 +152,19 @@ export function AyoScreen({
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [gameState.gameStatus, isAnimating, turnDuration, opponentName]);
+  }, [paused, gameState.gameStatus, isAnimating, turnDuration, opponentName]);
 
   useEffect(() => {
     setSecondsRemaining(turnDuration);
   }, [gameState.activePlayer, turnDuration]);
 
   const { updateProfileData, userProfile } = useAuth();
-  const mountStreakRecorded = useRef(false);
   const gameOverStreakRecorded = useRef(false);
 
   useEffect(() => {
     let alive = true;
     getActiveMatch().then((match) => {
-      if (alive && match?.gameId === 'ayo' && match?.savedState && match.savedState.gameStatus !== 'game_over') {
+      if (alive && isRejoin && match?.gameId === 'ayo' && match?.savedState && match.savedState.gameStatus !== 'game_over') {
         setGameState(match.savedState);
       } else {
         setActiveMatch({
@@ -159,12 +176,8 @@ export function AyoScreen({
       }
     });
 
-    if (!mountStreakRecorded.current && updateProfileData && userProfile) {
-      mountStreakRecorded.current = true;
-      recordGameStreak(updateProfileData, userProfile);
-    }
     return () => { alive = false; };
-  }, []);
+  }, [isRejoin]);
 
   useEffect(() => {
     return () => {
@@ -216,15 +229,12 @@ export function AyoScreen({
     }, 240);
   };
 
-  // AI Turn Handling & Game Over Streak
+  // AI Turn Handling & Game Over
   useEffect(() => {
     if (gameState.gameStatus === 'game_over') {
       clearActiveMatch();
       if (!gameOverStreakRecorded.current) {
         gameOverStreakRecorded.current = true;
-        if (updateProfileData && userProfile) {
-          recordGameStreak(updateProfileData, userProfile);
-        }
         if (onWin) {
           onWin(gameState.winner === 1, gameState.scores);
         } else {
@@ -237,7 +247,7 @@ export function AyoScreen({
       updateActiveMatchState('ayo', gameState);
     }
 
-    if (gameState.activePlayer === 2 && !isAnimating) {
+    if (gameState.activePlayer === 2 && !isAnimating && !paused) {
       const activeDifficulty = getAiDifficulty(userProfile, aiDifficulty);
       const aiTimer = setTimeout(() => {
         if (gameStateRef.current.activePlayer !== 2 || gameStateRef.current.gameStatus === 'game_over') return;
@@ -249,7 +259,7 @@ export function AyoScreen({
 
       return () => clearTimeout(aiTimer);
     }
-  }, [gameState.activePlayer, gameState.gameStatus, isAnimating, aiDifficulty]);
+  }, [gameState.activePlayer, gameState.gameStatus, isAnimating, aiDifficulty, paused]);
 
   function layout(event) {
     const { width, height } = event.nativeEvent.layout;
@@ -257,7 +267,7 @@ export function AyoScreen({
   }
 
   function handlePitPress(index) {
-    if (isAnimating || gameState.gameStatus === 'game_over') return;
+    if (paused || isAnimating || gameState.gameStatus === 'game_over') return;
     if (gameState.activePlayer !== 1) {
       setGameState((prev) => ({ ...prev, statusMessage: `Wait for ${opponentName}'s turn!` }));
       return;

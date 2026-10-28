@@ -44,7 +44,7 @@ export function useOnlineMatch({ roomId, gameType, onExit }) {
         won ? 'Victory!' : 'Match over',
         won
           ? prize > 0
-            ? `You won the match and \u20A6${prize.toLocaleString()} was paid into your wallet.`
+            ? `You won the match and ${Math.max(1, Math.floor(prize / 50)).toLocaleString()} Value Points was added to your acquired points.`
             : 'You won the match.'
           : p?.winnerDisplayName
             ? `${p.winnerDisplayName} won the match.`

@@ -10,10 +10,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Users, DollarSign, Trophy } from 'lucide-react-native';
+import { ArrowLeft, Users, Trophy, DollarSign } from 'lucide-react-native';
 import { tournaments } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { naira } from '../../config/appConfig';
 
 export default function LiveTournamentScreen({ navigation, route }) {
   const tourId = route.params?.tourId;
@@ -78,8 +77,9 @@ export default function LiveTournamentScreen({ navigation, route }) {
 
   const title = tour?.name || fallbackTitle;
   const activePlayers = tour?.currentParticipants ?? 0;
-  const totalPool = naira(tour?.prizePool || 0);
-  const countdownLabel = tour?.status === 'in_progress' ? 'ENDS IN' : 'STARTS IN';
+  const totalPool = `${tour?.prizePoolVp ?? tour?.prizePool ?? 0} VP`;
+  const isTrulyLive = Boolean((tour?.isLive || tour?.is_live) && tour?.status === 'in_progress');
+  const countdownLabel = isTrulyLive ? 'ENDS IN' : 'STARTS IN';
 
   const bracketByRound = {};
   (tour?.bracket || []).forEach((match) => {
@@ -142,7 +142,7 @@ export default function LiveTournamentScreen({ navigation, route }) {
         >
           <ArrowLeft size={20} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Live Tournament</Text>
+        <Text style={styles.headerTitle}>{isTrulyLive ? 'Live Tournament' : 'Upcoming Tournament'}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -174,7 +174,7 @@ export default function LiveTournamentScreen({ navigation, route }) {
               </View>
 
               <View style={styles.metaBadge}>
-                <DollarSign size={14} color="#00E5FF" />
+                <Trophy size={14} color="#00E5FF" />
                 <Text style={styles.metaText}>{totalPool} Total Pool</Text>
               </View>
             </View>
@@ -242,8 +242,8 @@ export default function LiveTournamentScreen({ navigation, route }) {
         <View style={[styles.leaderboardCard, styles.playersSection]}>
           <View style={styles.lbHeaderRow}>
             <Text style={styles.lbTitle}>LIVE STANDINGS</Text>
-            {standings?.poolKobo != null && (
-              <Text style={styles.standingsPool}>POOL {naira(standings.poolKobo)}</Text>
+            {(standings?.poolVp != null || standings?.pool != null) && (
+              <Text style={styles.standingsPool}>REWARD POOL {standings.poolVp ?? standings.pool} VP</Text>
             )}
           </View>
 

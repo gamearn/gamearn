@@ -120,7 +120,7 @@ export default function SettingsScreen({ navigation }) {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => navigation.navigate('ResetPassword')}
-              style={styles.menuRow}
+              style={[styles.menuRow, { borderBottomWidth: 0 }]}
             >
               <View style={[styles.iconSquare, { backgroundColor: 'rgba(255, 85, 0, 0.12)' }]}>
                 <KeyRound size={20} color="#FF5500" />
@@ -128,21 +128,6 @@ export default function SettingsScreen({ navigation }) {
               <View style={{ flex: 1, marginLeft: 14 }}>
                 <Text style={[styles.menuItemTitle, { color: theme.textPrimary }]}>Reset Password</Text>
                 <Text style={[styles.menuItemSub, { color: theme.textSecondary }]}>Send password reset link</Text>
-              </View>
-              <ChevronRight size={18} color={theme.textMuted} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => navigation.navigate('Withdraw')}
-              style={[styles.menuRow, { borderBottomWidth: 0 }]}
-            >
-              <View style={[styles.iconSquare, { backgroundColor: theme.primaryGlow }]}>
-                <CreditCard size={20} color={theme.primary} />
-              </View>
-              <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={[styles.menuItemTitle, { color: theme.textPrimary }]}>Payout Methods</Text>
-                <Text style={[styles.menuItemSub, { color: theme.textSecondary }]}>Bank accounts & wallets</Text>
               </View>
               <ChevronRight size={18} color={theme.textMuted} />
             </TouchableOpacity>

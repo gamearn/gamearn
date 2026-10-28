@@ -14,7 +14,14 @@ import { ArrowLeft, Crown } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { tournaments } from '../../services/api';
-import { naira, koboToN } from '../../config/appConfig';
+
+const formatVp = (val, isAlreadyVp = false) => {
+  if (val == null) return '—';
+  if (isAlreadyVp) return `${val} VP`;
+  const num = Number(val);
+  if (isNaN(num) || num <= 0) return '—';
+  return `${Math.round(num / 5000)} VP`;
+};
 
 export default function TournamentResultsScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
@@ -49,7 +56,11 @@ export default function TournamentResultsScreen({ route, navigation }) {
   const participants = tour?.participants || [];
   const winner = participants.find((p) => p.uid === tour?.winner);
   const winnerName = winner?.display_name || '—';
-  const prizePool = naira(tour?.prizePool || 0);
+  const prizePool = tour?.prizePoolVp != null
+    ? `${tour.prizePoolVp} VP`
+    : tour?.prizePool != null
+    ? `${tour.prizePool} VP`
+    : '0 VP';
 
   const podium = [
     participants.find((p) => p.final_position === 2),
@@ -67,8 +78,9 @@ export default function TournamentResultsScreen({ route, navigation }) {
       ? `Eliminated R${myEntry.eliminated_at_round}`
       : '#—'
     : '#—';
-  const myReward =
-    myEntry && myEntry.prize_kobo != null ? naira(koboToN(myEntry.prize_kobo)) : '—';
+  const myReward = myEntry && (myEntry.prize_vp != null || myEntry.prize_kobo != null)
+    ? (myEntry.prize_vp != null ? `${myEntry.prize_vp} VP` : formatVp(myEntry.prize_kobo))
+    : '—';
 
   const leaderboard = participants
     .filter((p) => p.final_position != null)
@@ -152,7 +164,11 @@ export default function TournamentResultsScreen({ route, navigation }) {
             const rank = podiumRank[idx];
             const isCenter = rank === 1;
             const name = entry?.display_name || '—';
-            const reward = naira(koboToN(entry?.prize_kobo ?? 0));
+            const reward = entry
+              ? (entry.prize_vp != null
+                  ? `${entry.prize_vp} VP`
+                  : (entry.prize_kobo != null ? formatVp(entry.prize_kobo) : '0 VP'))
+              : '—';
             return (
               <View key={rank} style={isCenter ? styles.podiumItemCenter : styles.podiumItemSide}>
                 {isCenter ? <Crown size={28} color="#F59E0B" fill="#F59E0B" style={{ marginBottom: 4 }} /> : null}
@@ -202,7 +218,9 @@ export default function TournamentResultsScreen({ route, navigation }) {
             ) : (
               leaderboard.map((item) => {
                 const isUser = item.uid === myUid;
-                const prize = item.prize_kobo != null ? naira(koboToN(item.prize_kobo)) : '—';
+                const prize = item.prize_vp != null
+                  ? `${item.prize_vp} VP`
+                  : (item.prize_kobo != null && item.prize_kobo > 0 ? formatVp(item.prize_kobo) : '—');
                 return (
                   <View
                     key={item.uid}

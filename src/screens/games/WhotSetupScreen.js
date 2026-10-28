@@ -28,12 +28,27 @@ export default function WhotSetupScreen({ navigation }) {
   const [startingCards, setStartingCards] = useState(6); // 4..8
   const [turnTimer, setTurnTimer] = useState('2m'); // '30s', '1m', '2m', '3m'
   const [specialCards, setSpecialCards] = useState({
-    1: { nullRule: false, removed: false },
-    2: { nullRule: false, removed: false },
-    5: { nullRule: false, removed: false },
+    1: true,
+    2: true,
+    5: true,
+    8: true,
+    14: true,
+    20: true,
   });
 
+  const toggleSpecialCard = (cardVal) => {
+    setSpecialCards((prev) => ({
+      ...prev,
+      [cardVal]: !prev[cardVal],
+    }));
+  };
+
   const handleStartGame = () => {
+    const nulled = [1, 2, 5, 8, 14]
+      .filter((num) => specialCards[num] === false)
+      .map(String);
+    const removed = specialCards[20] === false ? ['20'] : [];
+
     navigation.navigate('WhotGame', {
       players: playerCount,
       playerCount: playerCount,
@@ -43,22 +58,11 @@ export default function WhotSetupScreen({ navigation }) {
       startCards: startingCards,
       startingCards: startingCards,
       timer: turnTimer,
+      specialCards,
+      nulled,
+      removed,
       resetKey: Date.now(),
     });
-  };
-
-  const toggleSpecialNull = (cardVal) => {
-    setSpecialCards((prev) => ({
-      ...prev,
-      [cardVal]: { ...prev[cardVal], nullRule: !prev[cardVal].nullRule },
-    }));
-  };
-
-  const toggleSpecialRemove = (cardVal) => {
-    setSpecialCards((prev) => ({
-      ...prev,
-      [cardVal]: { ...prev[cardVal], removed: !prev[cardVal].removed },
-    }));
   };
 
   return (
@@ -232,56 +236,109 @@ export default function WhotSetupScreen({ navigation }) {
           <View style={styles.specialHeaderRow}>
             <View style={styles.sectionLabelRow}>
               <Star size={16} color="#FF5500" />
-              <Text style={styles.sectionLabel}>Special Cards</Text>
+              <Text style={styles.sectionLabel}>Special Cards Rules</Text>
             </View>
-            <View style={styles.colHeadersRow}>
-              <Text style={styles.colHeaderText}>Null</Text>
-              <Text style={styles.colHeaderText}>Remove</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => setSpecialCards({ 1: true, 2: true, 5: true, 8: true, 14: true, 20: true })}
+                style={styles.quickToggleBtn}
+              >
+                <Text style={styles.quickToggleText}>All ON</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setSpecialCards({ 1: false, 2: false, 5: false, 8: false, 14: false, 20: false })}
+                style={styles.quickToggleBtn}
+              >
+                <Text style={styles.quickToggleText}>All OFF</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
-          {/* Special Card Items */}
-          {[
-            { num: 1, name: 'Hold On' },
-            { num: 2, name: 'Pick Two' },
-            { num: 5, name: 'Pick Three' },
-          ].map((item) => {
-            const stateObj = specialCards[item.num];
-            return (
-              <View key={item.num} style={styles.specialRowCard}>
-                <View style={styles.numBadge}>
-                  <Text style={styles.numBadgeText}>{item.num}</Text>
-                </View>
-                <Text style={styles.specialName}>{item.name}</Text>
+          <Text style={styles.specialHelpText}>
+            Turn any special card ON or OFF. Turning off a number makes it a normal card with no penalty (e.g. 2 has no pick 2). Turning off Whot 20 removes it entirely from the game for both players and Oba.
+          </Text>
 
-                <View style={styles.checkActionsRow}>
-                  {/* Null Radio Circle */}
-                  <TouchableOpacity
-                    onPress={() => toggleSpecialNull(item.num)}
-                    style={styles.checkActionTouch}
-                  >
-                    {stateObj.nullRule ? (
-                      <CheckCircle2 size={22} color="#00E5FF" />
-                    ) : (
-                      <Circle size={22} color="#334155" />
-                    )}
-                  </TouchableOpacity>
+          {/* Tabulated Special Card Rules */}
+          <View style={styles.tableWrap}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.tableColHeader, { width: 68 }]}>CARD #</Text>
+              <Text style={[styles.tableColHeader, { flex: 1, paddingHorizontal: 6 }]}>SPECIAL RULE</Text>
+              <Text style={[styles.tableColHeader, { width: 104, textAlign: 'center' }]}>CONTROL</Text>
+            </View>
 
-                  {/* Remove Checkbox Square */}
-                  <TouchableOpacity
-                    onPress={() => toggleSpecialRemove(item.num)}
-                    style={styles.checkActionTouch}
-                  >
-                    {stateObj.removed ? (
-                      <CheckSquare size={22} color="#00E5FF" />
-                    ) : (
-                      <Square size={22} color="#334155" />
-                    )}
-                  </TouchableOpacity>
+            {[
+              { num: 1, name: 'Hold On', desc: 'Player plays again immediately' },
+              { num: 2, name: 'Pick Two', desc: 'Next player draws 2 cards' },
+              { num: 5, name: 'Pick Three', desc: 'Next player draws 3 cards' },
+              { num: 8, name: 'Suspension', desc: 'Next player skips their turn' },
+              { num: 14, name: 'General Market', desc: 'All opponents draw 1 card' },
+              { num: 20, name: 'Whot 20 (Wildcard)', desc: 'Call shape (OFF removes 20 from game)' },
+            ].map((item, idx, arr) => {
+              const isEnabled = specialCards[item.num] !== false;
+              const isLast = idx === arr.length - 1;
+              return (
+                <View
+                  key={item.num}
+                  style={[
+                    styles.tableRow,
+                    isLast && { borderBottomWidth: 0 },
+                    !isEnabled && { backgroundColor: 'rgba(239, 68, 68, 0.04)' },
+                  ]}
+                >
+                  <View style={{ width: 68, flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={[styles.tableCardBadge, !isEnabled && styles.tableCardBadgeDisabled]}>
+                      <Text style={[styles.tableCardBadgeText, !isEnabled && { color: '#64748B' }]}>
+                        {item.num}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={{ flex: 1, paddingHorizontal: 6 }}>
+                    <Text style={[styles.tableCardName, !isEnabled && { color: '#94A3B8' }]}>
+                      {item.name}
+                    </Text>
+                    <Text style={[styles.tableCardDesc, !isEnabled && { color: '#EF4444' }]}>
+                      {isEnabled
+                        ? item.desc
+                        : item.num === 20
+                        ? '🚫 Removed from deck for both players and Oba'
+                        : '⚪ Normal card · No special effect'}
+                    </Text>
+                  </View>
+
+                  <View style={{ width: 104, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={styles.toggleSegmentContainer}>
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => setSpecialCards((prev) => ({ ...prev, [item.num]: true }))}
+                        style={[
+                          styles.toggleSegmentBtn,
+                          isEnabled && styles.toggleSegmentBtnOn,
+                        ]}
+                      >
+                        <Text style={[styles.toggleSegmentText, isEnabled && styles.toggleSegmentTextActive]}>
+                          ON
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => setSpecialCards((prev) => ({ ...prev, [item.num]: false }))}
+                        style={[
+                          styles.toggleSegmentBtn,
+                          !isEnabled && styles.toggleSegmentBtnOff,
+                        ]}
+                      >
+                        <Text style={[styles.toggleSegmentText, !isEnabled && styles.toggleSegmentTextActive]}>
+                          OFF
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 </View>
-              </View>
-            );
-          })}
+              );
+            })}
+          </View>
         </View>
 
         {/* Start Game CTA */}
@@ -466,55 +523,115 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-  colHeadersRow: {
-    flexDirection: 'row',
-    gap: 20,
-    paddingRight: 8,
-  },
-  colHeaderText: {
+  specialHelpText: {
     color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '800',
-    width: 44,
-    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 14,
   },
-  specialRowCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 25, 45, 0.6)',
+  quickToggleBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
-    padding: 12,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  quickToggleText: {
+    color: '#00E5FF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  tableWrap: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 229, 255, 0.25)',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
     marginBottom: 10,
   },
-  numBadge: {
+  tableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1.5,
+    borderBottomColor: 'rgba(0, 229, 255, 0.2)',
+  },
+  tableColHeader: {
+    color: '#00E5FF',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  tableCardBadge: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0, 229, 255, 0.12)',
+    borderRadius: 9,
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
-  numBadgeText: {
+  tableCardBadgeDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  tableCardBadgeText: {
     color: '#00E5FF',
     fontSize: 16,
     fontWeight: '900',
   },
-  specialName: {
-    flex: 1,
+  tableCardName: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
   },
-  checkActionsRow: {
+  tableCardDesc: {
+    color: '#00E5FF',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  toggleSegmentContainer: {
     flexDirection: 'row',
-    gap: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 10,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  checkActionTouch: {
-    width: 44,
+  toggleSegmentBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 44,
+  },
+  toggleSegmentBtnOn: {
+    backgroundColor: '#10B981',
+  },
+  toggleSegmentBtnOff: {
+    backgroundColor: '#EF4444',
+  },
+  toggleSegmentText: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  toggleSegmentTextActive: {
+    color: '#FFFFFF',
   },
   primaryOrangeBtn: {
     backgroundColor: '#FF5500',

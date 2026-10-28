@@ -4,7 +4,7 @@ import { CheckersScreen } from '../../games/checkers/CheckersScreen';
 import { useServerGame } from '../../games/useServerGame';
 import { draughtsSnapshotToRemote, engineMoveToServer } from '../../games/checkers/draughtsAdapter';
 import { useAuth } from '../../context/AuthContext';
-import { setActiveMatch } from '../../utils/activeMatch';
+import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 import CoinTossModal from '../../components/CoinTossModal';
 
 export default function DraughtsGameScreen({ route, navigation }) {
@@ -12,6 +12,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
   const mode = route.params?.mode === 'multiplayer' ? 'multiplayer' : 'practice';
   const stake = route.params?.stake || 250;
   const timer = route.params?.timer || '2m';
+  const isRejoin = !!route.params?.isRejoin;
 
   const { user, userProfile } = useAuth();
   const uid = user?.uid;
@@ -22,15 +23,20 @@ export default function DraughtsGameScreen({ route, navigation }) {
   const remoteMode = isMultiplayer || (isPractice && !!effectiveUid);
 
   useEffect(() => {
+    if (!isRejoin) {
+      clearActiveMatch();
+    }
     setActiveMatch({
       gameId: 'draft',
       gameName: 'Dráfù Game',
       targetScreen: 'DraughtsGame',
       params: route.params,
     });
-  }, []);
+  }, [isRejoin]);
 
   const chosenColor = route.params?.playerColor || playerColor || 'white';
+  const [effectiveColor, setEffectiveColor] = useState(chosenColor || 'white');
+  const [firstPlayer, setFirstPlayer] = useState('player');
 
   const options = useMemo(
     () => ({
@@ -125,16 +131,19 @@ export default function DraughtsGameScreen({ route, navigation }) {
     ? 'Oba 👑'
     : opponentEntry?.username || opponentEntry?.displayName || 'Live opponent';
 
-  const [showCoinToss, setShowCoinToss] = useState(true);
-  const [firstPlayer, setFirstPlayer] = useState('player');
+  const [showCoinToss, setShowCoinToss] = useState(!isRejoin);
 
   const handleCoinTossComplete = (winnerIdx, winnerPlayer) => {
     setShowCoinToss(false);
     const obaWon = winnerIdx === 1 || !!winnerPlayer?.isAi;
-    setFirstPlayer(obaWon ? 'oba' : 'player');
+    if (obaWon) {
+      setFirstPlayer('oba');
+      setEffectiveColor('black');
+    } else {
+      setFirstPlayer('player');
+      setEffectiveColor('white');
+    }
   };
-
-  const effectiveColor = chosenColor || 'white';
 
   const myName = userProfile?.username || userProfile?.displayName || 'You';
   const draftPlayers = useMemo(
@@ -158,6 +167,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
         remote={remote}
         paused={showCoinToss}
         firstPlayer={firstPlayer}
+        isRejoin={isRejoin}
         onRemoteMove={(move) => session.move(engineMoveToServer(move))}
         onControl={isPractice ? session.control : undefined}
         onWin={handleLocalWin}

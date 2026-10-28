@@ -5,18 +5,20 @@ module.exports = ({ config }) => {
   if (buildNumber && (!/^[1-9]\d*$/.test(buildNumber) || Number(buildNumber) > 2100000000)) {
     throw new Error('BUILD_NUMBER must be a positive integer below 2100000001.');
   }
-  const hasGoogleServices = fs.existsSync('./google-services.json');
+  const hasAndroidGoogleServices = fs.existsSync('./google-services.json');
+  const hasIosGoogleServices = fs.existsSync('./GoogleService-Info.plist');
   return {
     ...config,
     android: {
       ...config.android,
       ...(buildNumber ? { versionCode: Number(buildNumber) } : {}),
-      ...(hasGoogleServices ? { googleServicesFile: './google-services.json' } : {}),
+      ...(hasAndroidGoogleServices ? { googleServicesFile: './google-services.json' } : {}),
     },
     ios: {
       ...config.ios,
       usesAppleSignIn: true,
       ...(buildNumber ? { buildNumber } : {}),
+      ...(hasIosGoogleServices ? { googleServicesFile: './GoogleService-Info.plist' } : {}),
       ...(process.env.TEAM_ID ? { appleTeamId: process.env.TEAM_ID } : {}),
     },
     plugins: [...(config.plugins || []), './plugins/withReleaseSigning', './plugins/withFixFirebaseIOS'],

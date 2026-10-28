@@ -9,6 +9,7 @@ import {
   Alert,
   StatusBar,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, G } from 'react-native-svg';
@@ -16,7 +17,6 @@ import { ArrowLeft, Zap, CheckCircle2, Swords, Trophy, Users } from 'lucide-reac
 import { useAuth } from '../../context/AuthContext';
 import { tournaments } from '../../services/api';
 import { ApiError } from '../../services/apiClient';
-import { naira, koboToN, nairaToKobo } from '../../config/appConfig';
 
 const GAME_IMAGES = {
   whot: require('../../../assets/games/whot_3d.jpg'),
@@ -26,11 +26,11 @@ const GAME_IMAGES = {
 };
 
 const STATUS_META = {
-  registration_open: { label: 'REGISTRATION OPEN', color: '#00E5FF' },
-  scheduled: { label: 'PENDING ENTRY', color: '#F59E0B' },
-  pending: { label: 'PENDING ENTRY', color: '#F59E0B' },
-  in_progress: { label: 'LIVE NOW', color: '#00E5FF' },
-  completed: { label: 'COMPLETED', color: '#10B981' },
+  registration_open: { label: 'UPCOMING', color: '#00E5FF' },
+  scheduled: { label: 'UPCOMING', color: '#00E5FF' },
+  pending: { label: 'UPCOMING', color: '#00E5FF' },
+  in_progress: { label: 'LIVE NOW', color: '#10B981' },
+  completed: { label: 'COMPLETED', color: '#64748B' },
   cancelled: { label: 'CANCELLED', color: '#EF4444' },
 };
 
@@ -145,10 +145,23 @@ export default function TournamentDetailsScreen({ route, navigation }) {
   }
 
   const status = tour.status;
-  const meta = STATUS_META[status] || { label: 'PENDING ENTRY', color: '#F59E0B' };
-  const entryFee = tour.entryFee || 0;
-  const requiredKobo = Math.round(entryFee * 100);
-  const balanceKobo = nairaToKobo(Number(userProfile?.walletBalance ?? 0));
+  const isTrulyLive = Boolean((tour.isLive || tour.is_live) && status === 'in_progress');
+  const isExpiredUnlaunched = !isTrulyLive && (
+    (tour.launchDeadline && new Date(tour.launchDeadline).getTime() <= Date.now()) ||
+    (tour.createdAt && (Date.now() - new Date(tour.createdAt).getTime()) > 24 * 3600 * 1000)
+  );
+  let meta;
+  if (isTrulyLive) {
+    meta = { label: 'LIVE NOW', color: '#10B981' };
+  } else if (status === 'completed') {
+    meta = { label: 'COMPLETED', color: '#64748B' };
+  } else if (status === 'cancelled' || isExpiredUnlaunched) {
+    meta = { label: 'CANCELLED · EXPIRED (24H)', color: '#EF4444' };
+  } else {
+    meta = { label: 'UPCOMING', color: '#00E5FF' };
+  }
+  const entryFeeVp = tour.entryFeeVp ?? tour.entryFee ?? 0;
+  const userVp = userProfile?.valuePoints ?? userProfile?.vp ?? 0;
   const joined = (tour.participants || []).some((p) => p.uid === myUid);
   const fill = Math.min(1, (tour.currentParticipants || 0) / (tour.maxParticipants || 1));
   const banner = GAME_IMAGES[tour.gameType] || GAME_IMAGES.draughts;
@@ -170,13 +183,16 @@ export default function TournamentDetailsScreen({ route, navigation }) {
     }
     if (joining) return;
 
-    if (entryFee > 0 && balanceKobo < requiredKobo) {
+    if (entryFeeVp > 0 && userVp < entryFeeVp) {
       Alert.alert(
-        'Insufficient Balance',
-        `Entry costs ${naira(entryFee)} but your balance is ${naira(koboToN(balanceKobo))}.`,
+        'Insufficient Value Points',
+        `Entry costs ${entryFeeVp} VP but your acquired points balance is ${userVp} VP.`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Buy Value Points', onPress: () => navigation.navigate('BuyValuePoints') },
+          {
+            text: 'Get Value Point (Get VP)',
+            onPress: () => Linking.openURL('https://www.gamearn.app'),
+          },
         ],
       );
       return;
@@ -185,20 +201,20 @@ export default function TournamentDetailsScreen({ route, navigation }) {
     setJoining(true);
     try {
       const res = await tournaments.register(tourId);
-      await refreshWallet();
+      if (refreshWallet) await refreshWallet();
       setJoining(false);
       if (status === 'in_progress') {
         navigation.replace('LiveTournament', { tourId, title: tour.name });
         return;
       }
-      Alert.alert('Registration Confirmed 🏆', `You're in "${tour.name}". The entry fee of ${naira(entryFee)} was paid from your wallet.`, [
+      Alert.alert('Registration Confirmed 🏆', `You're in "${tour.name}". The entry fee of ${entryFeeVp} VP was committed from your acquired points.`, [
         {
           text: 'View Pending',
           onPress: () =>
             navigation.navigate('TournamentPending', {
               tourId,
               title: tour.name,
-              entryFee: naira(entryFee),
+              entryFee: `${entryFeeVp} VP`,
               startAt: tour.scheduledStart,
             }),
         },
@@ -219,7 +235,7 @@ export default function TournamentDetailsScreen({ route, navigation }) {
     if (status === 'completed') return 'View Results';
     if (status === 'in_progress') return 'View Live Bracket';
     if (joined) return `Registered · Check-ins open soon`;
-    return entryFee > 0 ? `Join Tournament (${naira(entryFee)})` : 'Join Free Tournament';
+    return entryFeeVp > 0 ? `Join Tournament (${entryFeeVp} VP)` : 'Join Free Tournament';
   })();
 
   const onActionPress = () => {
@@ -227,8 +243,12 @@ export default function TournamentDetailsScreen({ route, navigation }) {
       navigation.navigate('TournamentResults', { tourId, title: tour.name });
       return;
     }
-    if (status === 'in_progress') {
+    if (isTrulyLive) {
       navigation.navigate('LiveTournament', { tourId, title: tour.name });
+      return;
+    }
+    if (isExpiredUnlaunched) {
+      Alert.alert('Tournament Expired', 'This tournament exceeded the 24-hour launch deadline and was cancelled.');
       return;
     }
     handleJoinTournament();
@@ -312,12 +332,12 @@ export default function TournamentDetailsScreen({ route, navigation }) {
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>ENTRY FEE</Text>
               <Text style={[styles.statValue, { color: '#F59E0B' }]}>
-                {entryFee > 0 ? naira(entryFee) : 'FREE'}
+                {entryFeeVp > 0 ? `${entryFeeVp} VP` : 'FREE'}
               </Text>
             </View>
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>PRIZE POOL</Text>
-              <Text style={[styles.statValue, { color: '#00E5FF' }]}>{naira(tour.prizePool || 0)}</Text>
+              <Text style={[styles.statValue, { color: '#00E5FF' }]}>{tour.prizePoolVp ?? tour.prizePool ?? 0} VP</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>MATCHES</Text>

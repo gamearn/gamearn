@@ -11,6 +11,7 @@ import {
   StatusBar,
   Modal,
   Share,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
@@ -50,21 +51,22 @@ const PING_TYPE_MAP = {
   'Tournament': 'tournament',
 };
 
-// Normalize the backend referral object into the shape the member cards render.
+// Normalize the backend referral or searched user object into the shape the member cards render.
 const toUiRef = (r) => ({
   id: r.uid,
   uid: r.uid,
-  name: r.displayName || 'Referee',
-  username: r.displayName || 'referee',
-  handle: r.phone || `@${(r.displayName || 'player').toLowerCase()}`,
-  avatar: null,
-  status: r.status,
-  isActiveToday: r.status === 'active',
-  statusLabel: r.status === 'active' ? 'Active' : 'Inactive',
+  name: r.displayName || r.username || 'Player',
+  username: r.username || r.displayName || 'player',
+  handle: r.phone || `@${(r.username || r.displayName || 'player').toLowerCase()}`,
+  avatar: r.avatar || null,
+  status: r.status || (r.streak > 0 ? 'active' : 'inactive'),
+  isActiveToday: r.status === 'active' || r.streak > 0,
+  statusLabel: r.status === 'active' || r.streak > 0 ? 'Active' : 'Inactive',
   totalEarned: Math.round((r.totalCommissionKobo || 0) / PING_RATE),
   yourCommission: r.totalCommissionKobo || 0,
-  activityNote: r.status === 'active' ? (r.streak ? `Streak ${r.streak}` : 'Active') : 'No recent activity',
+  activityNote: (r.status === 'active' || r.streak > 0) ? (r.streak ? `Streak ${r.streak}` : 'Active') : 'No recent activity',
   lastEarnedAt: r.lastEarnedAt,
+  isMyReferral: r.isMyReferral !== false,
   history: r.lastEarnedAt
     ? [
         {
@@ -227,6 +229,49 @@ export default function InviteFriendsScreen({ navigation }) {
   const totalEarnings = totalCommissionKobo || referrals.reduce((sum, r) => sum + (r.yourCommission || 0), 0);
   const todayEarnings = referrals.reduce((sum, r) => sum + (r.todayCommission || 0), 0);
 
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setIsSearchingUsers(true);
+      try {
+        const res = await referral.searchUsers(q);
+        if (!cancelled && res?.data) {
+          const mapped = Array.isArray(res.data) ? res.data.map(toUiRef) : [];
+          setSearchResults(mapped);
+        }
+      } catch (err) {
+        console.log('User search error:', err?.message || err);
+      } finally {
+        if (!cancelled) setIsSearchingUsers(false);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
+
+  const handleInviteUser = async (targetUser) => {
+    const name = targetUser.name || targetUser.username || 'friend';
+    const message =
+      `Hey ${name}! Join my squad on Gamearn — play games and earn rewards together! ` +
+      `Use my referral code ${referralCode}: ${referralLink}`;
+    try {
+      await Share.share({ message });
+    } catch {
+      Alert.alert('Invite Friend', `Share code "${referralCode}" with ${name}!`);
+    }
+  };
+
   const filteredReferrals = referrals.filter((item) => {
     const nameStr = (item.name || item.username || '').toLowerCase();
     const handleStr = (item.handle || '').toLowerCase();
@@ -239,6 +284,23 @@ export default function InviteFriendsScreen({ navigation }) {
     if (activeTab === 'inactive') return item.status === 'inactive' || (!item.status && !item.isActiveToday);
     return true;
   });
+
+  const displayedReferrals = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) {
+      return filteredReferrals;
+    }
+    // Combine local matched referrals + remote user search results by uid
+    const map = new Map();
+    filteredReferrals.forEach((r) => map.set(r.uid || r.id, r));
+    searchResults.forEach((r) => {
+      const id = r.uid || r.id;
+      if (!map.has(id)) {
+        map.set(id, r);
+      }
+    });
+    return Array.from(map.values());
+  }, [searchQuery, filteredReferrals, searchResults]);
 
   return (
     <View style={[styles.screenRoot, { backgroundColor: '#070C1B' }]}>
@@ -449,18 +511,21 @@ export default function InviteFriendsScreen({ navigation }) {
               <Search size={14} color="#64748B" style={{ marginRight: 4 }} />
               <TextInput
                 style={styles.searchInputText}
-                placeholder="Search..."
+                placeholder="Search username or name..."
                 placeholderTextColor="#64748B"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
+              {isSearchingUsers && (
+                <ActivityIndicator size="small" color="#60A5FA" style={{ marginLeft: 4 }} />
+              )}
             </View>
           </View>
 
           {/* Filter Tabs */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterTabRow}>
             {[
-              { key: 'all', label: `All (${referrals.length})` },
+              { key: 'all', label: `All (${displayedReferrals.length})` },
               { key: 'active', label: `Active (${activeCount})` },
               { key: 'risk', label: `At Risk (${riskCount})` },
               { key: 'inactive', label: `Inactive (${inactiveCount})` },
@@ -487,16 +552,20 @@ export default function InviteFriendsScreen({ navigation }) {
 
           {/* Referrals List Cards or Empty State */}
           <View style={{ gap: 10, marginTop: 12 }}>
-            {filteredReferrals.length === 0 ? (
+            {displayedReferrals.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Users size={28} color="#64748B" style={{ marginBottom: 6 }} />
-                <Text style={styles.emptyTitle}>No Referrals Found</Text>
+                <Text style={styles.emptyTitle}>
+                  {searchQuery.trim() ? 'No Players Found' : 'No Referrals Found'}
+                </Text>
                 <Text style={styles.emptySub}>
-                  Share your referral code <Text style={{ color: '#60A5FA', fontWeight: '800' }}>{referralCode}</Text> with friends to build your squad and start earning 5% commission!
+                  {searchQuery.trim()
+                    ? `No registered players found matching "${searchQuery}". Check the username and try again.`
+                    : `Share your referral code ${referralCode} with friends to build your squad and start earning 5% commission!`}
                 </Text>
               </View>
             ) : (
-              filteredReferrals.map((item, index) => (
+              displayedReferrals.map((item, index) => (
                 <View key={item.id || index} style={styles.referralMemberCard}>
                   <View style={styles.memberAvatarWrap}>
                     <Image
@@ -569,7 +638,7 @@ export default function InviteFriendsScreen({ navigation }) {
                     <Text style={styles.streakNoteText}>🔥 {item.activityNote || 'No recent activity'}</Text>
                   </View>
 
-                  {/* Actions (View & Ping) */}
+                  {/* Actions (View & Ping / Invite) */}
                   <View style={{ gap: 4 }}>
                     <TouchableOpacity
                       onPress={() => setViewReferralDetails(item)}
@@ -579,11 +648,11 @@ export default function InviteFriendsScreen({ navigation }) {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={() => setActivePingModal(item)}
-                      style={styles.pingBtnPrimary}
+                      onPress={() => item.isMyReferral !== false ? setActivePingModal(item) : handleInviteUser(item)}
+                      style={[styles.pingBtnPrimary, item.isMyReferral === false && { backgroundColor: '#2563EB' }]}
                     >
                       <Send size={10} color="#FFFFFF" style={{ marginRight: 2 }} />
-                      <Text style={styles.pingBtnText}>Ping</Text>
+                      <Text style={styles.pingBtnText}>{item.isMyReferral !== false ? 'Ping' : 'Invite'}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>

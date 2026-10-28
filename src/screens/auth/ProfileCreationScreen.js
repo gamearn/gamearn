@@ -22,7 +22,7 @@ export default function ProfileCreationScreen({ navigation }) {
   const { updateProfileData, userProfile } = useAuth();
   const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_PRESETS[0]);
   const sanitizeUsername = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const [username, setUsername] = useState(sanitizeUsername(userProfile?.username || 'gamerone'));
+  const [username, setUsername] = useState(sanitizeUsername(userProfile?.username || ''));
   const [bio, setBio] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -37,7 +37,7 @@ export default function ProfileCreationScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const finalUsername = cleanUsername || 'gamerone';
+      const finalUsername = cleanUsername || sanitizeUsername(userProfile?.email?.split('@')[0] || '');
       await updateProfileData({
         username: finalUsername,
         name: finalUsername,
@@ -139,7 +139,7 @@ export default function ProfileCreationScreen({ navigation }) {
               style={styles.textInput}
               value={username}
               onChangeText={(text) => setUsername(sanitizeUsername(text))}
-              placeholder="e.g. gamerone"
+              placeholder="Enter your username"
               placeholderTextColor="#64748B"
               autoCapitalize="none"
               autoCorrect={false}

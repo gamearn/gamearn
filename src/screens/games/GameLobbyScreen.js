@@ -40,7 +40,20 @@ export default function GameLobbyScreen({ route, navigation }) {
   const [playerColor, setPlayerColor] = useState('white');
   const [cardCount, setCardCount] = useState(6);
   const [enableSpecialCards, setEnableSpecialCards] = useState(true);
+  const [specialCards, setSpecialCards] = useState({
+    1: true,
+    2: true,
+    5: true,
+    8: true,
+    14: true,
+    20: true,
+  });
   const [seedCount, setSeedCount] = useState(4);
+
+  const nulled = [1, 2, 5, 8, 14]
+    .filter((num) => specialCards[num] === false)
+    .map(String);
+  const removed = specialCards[20] === false ? ['20'] : [];
 
   const isLudo = gameType === 'ludo' || targetScreen === 'LudoGame' || gameName.toLowerCase().includes('ludo');
   const isDraft = gameType === 'draughts' || gameType === 'draft' || targetScreen === 'DraughtsGame' || gameName.toLowerCase().includes('draft') || gameName.toLowerCase().includes('dráfù');
@@ -89,6 +102,9 @@ export default function GameLobbyScreen({ route, navigation }) {
       playerColor,
       cardCount,
       enableSpecialCards,
+      specialCards,
+      nulled,
+      removed,
       seedCount,
     });
   };
@@ -113,12 +129,8 @@ export default function GameLobbyScreen({ route, navigation }) {
   };
 
   const handlePlayVsOba = () => {
-    if (!amountValid) {
-      Alert.alert('Enter an amount', `Amount must be between ${naira(MIN_AMOUNT_N)} and ${naira(MAX_AMOUNT_N)}.`);
-      return;
-    }
     navigation.navigate(targetScreen, {
-      stake: selectedFee,
+      stake: 0,
       vsOba: true,
       timer: selectedTimer,
       tokenCount,
@@ -242,17 +254,20 @@ export default function GameLobbyScreen({ route, navigation }) {
           playerColor,
           cardCount,
           enableSpecialCards,
+          specialCards,
+          nulled,
+          removed,
           seedCount,
         },
       });
 
       Alert.alert(
         '⚔️ Challenge Created!',
-        `Your ₦${naira(koboToN(selectedFee))} ${gameName} challenge has been published. All online players have been notified to join!`,
+        `Your ${valuePointsFromKobo(selectedFee).toLocaleString()} VP ${gameName} match has been published. All online players have been notified to join!`,
         [
           {
-            text: 'View My Challenges',
-            onPress: () => navigation.navigate('ChallengeHub', { gameType, tab: 'mine' }),
+            text: 'View My Matches',
+            onPress: () => navigation.navigate('MainTabs'),
           },
         ]
       );
@@ -282,6 +297,9 @@ export default function GameLobbyScreen({ route, navigation }) {
       playerColor,
       cardCount,
       enableSpecialCards,
+      specialCards,
+      nulled,
+      removed,
       seedCount,
     });
   };
@@ -304,24 +322,33 @@ export default function GameLobbyScreen({ route, navigation }) {
         <BrandLogo size={48} variant="icon" />
         <Text style={[styles.title, { color: theme.textPrimary }]}>{gameName}</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Configure match settings below and play vs Oba or create a challenge
+          Configure match settings below and play vs Oba or join Quick Match
         </Text>
       </View>
 
-      {/* Wallet balance */}
-      <TouchableOpacity onPress={openDeposit} style={styles.walletRow}>
+      {/* Acquired points */}
+      <View style={styles.walletRow}>
         <Wallet size={18} color={theme.accent} />
         <Text style={[styles.walletText, { color: theme.textPrimary }]}>
-          Wallet: {naira(balanceNaira)}
+          Acquired Value Points: {valuePointsFromNaira(balanceNaira).toLocaleString()} VP
         </Text>
-        <Text style={[styles.walletAction, { color: theme.accent }]}>Top up</Text>
-      </TouchableOpacity>
+      </View>
 
       {/* INLINE CUSTOM SETUP CARD SECTION */}
       <View style={styles.inlineSetupCard}>
-        <View style={styles.inlineSetupHeader}>
-          <Settings size={18} color="#00E5FF" />
-          <Text style={styles.inlineSetupTitle}>Match Settings</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={styles.inlineSetupHeader}>
+            <Settings size={18} color="#00E5FF" />
+            <Text style={styles.inlineSetupTitle}>Match Settings</Text>
+          </View>
+          {isWhot && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('WhotSetup', { gameId, gameName, targetScreen })}
+              style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: 'rgba(0, 229, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(0, 229, 255, 0.25)' }}
+            >
+              <Text style={{ color: '#00E5FF', fontSize: 12, fontWeight: '800' }}>Dedicated Setup ⚙️</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Turn Timer Selector */}
@@ -402,15 +429,111 @@ export default function GameLobbyScreen({ route, navigation }) {
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity
-              onPress={() => setEnableSpecialCards(!enableSpecialCards)}
-              style={styles.toggleRow}
-            >
-              <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }}>Special Cards (1,2,5,8,14,20)</Text>
-              <Text style={{ color: enableSpecialCards ? '#10B981' : '#EF4444', fontWeight: '900', fontSize: 13 }}>
-                {enableSpecialCards ? 'ON ✓' : 'OFF ✕'}
+            <View style={{ marginTop: 14 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={{ color: '#00E5FF', fontWeight: '800', fontSize: 13 }}>Special Cards Rules</Text>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  <TouchableOpacity
+                    onPress={() => setSpecialCards({ 1: true, 2: true, 5: true, 8: true, 14: true, 20: true })}
+                    style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.08)' }}
+                  >
+                    <Text style={{ color: '#00E5FF', fontSize: 11, fontWeight: '800' }}>All ON</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setSpecialCards({ 1: false, 2: false, 5: false, 8: false, 14: false, 20: false })}
+                    style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.08)' }}
+                  >
+                    <Text style={{ color: '#00E5FF', fontSize: 11, fontWeight: '800' }}>All OFF</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <Text style={{ color: '#94A3B8', fontSize: 11, lineHeight: 15, marginBottom: 8 }}>
+                Turning off a card turns it into a normal card (e.g. 2 has no pick 2). Turning off Whot 20 removes it completely from the deck for both players and Oba.
               </Text>
-            </TouchableOpacity>
+
+              {/* Tabulated Special Card Rules */}
+              <View style={styles.tableWrap}>
+                <View style={styles.tableHeaderRow}>
+                  <Text style={[styles.tableColHeader, { width: 62 }]}>CARD #</Text>
+                  <Text style={[styles.tableColHeader, { flex: 1, paddingHorizontal: 6 }]}>SPECIAL RULE</Text>
+                  <Text style={[styles.tableColHeader, { width: 96, textAlign: 'center' }]}>CONTROL</Text>
+                </View>
+
+                {[
+                  { num: 1, name: 'Hold On', desc: 'Plays again immediately' },
+                  { num: 2, name: 'Pick Two', desc: 'Next player draws 2 cards' },
+                  { num: 5, name: 'Pick Three', desc: 'Next player draws 3 cards' },
+                  { num: 8, name: 'Suspension', desc: 'Next player skips turn' },
+                  { num: 14, name: 'General Market', desc: 'All opponents draw 1 card' },
+                  { num: 20, name: 'Whot 20', desc: 'Wildcard (OFF removes from game)' },
+                ].map((item, idx, arr) => {
+                  const isEnabled = specialCards[item.num] !== false;
+                  const isLast = idx === arr.length - 1;
+                  return (
+                    <View
+                      key={item.num}
+                      style={[
+                        styles.tableRow,
+                        isLast && { borderBottomWidth: 0 },
+                        !isEnabled && { backgroundColor: 'rgba(239, 68, 68, 0.04)' },
+                      ]}
+                    >
+                      <View style={{ width: 62, flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={[styles.tableCardBadge, !isEnabled && styles.tableCardBadgeDisabled]}>
+                          <Text style={[styles.tableCardBadgeText, !isEnabled && { color: '#64748B' }]}>
+                            {item.num}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={{ flex: 1, paddingHorizontal: 6 }}>
+                        <Text style={[styles.tableCardName, !isEnabled && { color: '#94A3B8' }]}>
+                          {item.name}
+                        </Text>
+                        <Text style={[styles.tableCardDesc, !isEnabled && { color: '#EF4444' }]}>
+                          {isEnabled
+                            ? item.desc
+                            : item.num === 20
+                            ? '🚫 Removed from deck'
+                            : '⚪ Normal card (No effect)'}
+                        </Text>
+                      </View>
+
+                      <View style={{ width: 96, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                        <View style={styles.toggleSegmentContainer}>
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => setSpecialCards((prev) => ({ ...prev, [item.num]: true }))}
+                            style={[
+                              styles.toggleSegmentBtn,
+                              isEnabled && styles.toggleSegmentBtnOn,
+                            ]}
+                          >
+                            <Text style={[styles.toggleSegmentText, isEnabled && styles.toggleSegmentTextActive]}>
+                              ON
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => setSpecialCards((prev) => ({ ...prev, [item.num]: false }))}
+                            style={[
+                              styles.toggleSegmentBtn,
+                              !isEnabled && styles.toggleSegmentBtnOff,
+                            ]}
+                          >
+                            <Text style={[styles.toggleSegmentText, !isEnabled && styles.toggleSegmentTextActive]}>
+                              OFF
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
           </View>
         )}
 
@@ -433,81 +556,13 @@ export default function GameLobbyScreen({ route, navigation }) {
         )}
       </View>
 
-      <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Challenge Amount</Text>
-
-      <View style={[styles.amountRow, { borderColor: amountValid ? theme.inputBorder : '#EF4444' }]}>
-        <Text style={[styles.amountPrefix, { color: theme.textSecondary }]}>₦</Text>
-        <TextInput
-          value={amountText}
-          onChangeText={setAmountText}
-          keyboardType="numeric"
-          placeholder={`${MIN_AMOUNT_N} - ${MAX_AMOUNT_N}`}
-          placeholderTextColor={theme.textSecondary}
-          style={[styles.amountInput, { color: theme.textPrimary }]}
-        />
-      </View>
-      <Text style={[styles.amountHint, { color: amountValid ? theme.textSecondary : '#EF4444' }]}>
-        {amountValid
-          ? `${naira(koboToN(selectedFee))} stake = ${valuePointsFromNaira(amountN).toLocaleString()} Value Points (1 VP = ₦50)`
-          : `Amount must be between ${naira(MIN_AMOUNT_N)} and ${naira(MAX_AMOUNT_N)}`}
-      </Text>
-      <View style={styles.quickRow}>
-        {QUICK_AMOUNTS.map((amt) => {
-          const active = amountN === amt;
-          return (
-            <TouchableOpacity
-              key={amt}
-              onPress={() => setAmountText(String(amt))}
-              style={[
-                styles.quickChip,
-                { backgroundColor: active ? theme.cardBg : theme.inputBg, borderColor: active ? theme.primary : theme.inputBorder },
-              ]}
-            >
-              <Text style={[styles.quickChipText, { color: active ? theme.accent : theme.textMuted }]}>
-                ₦{amt.toLocaleString()}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <GACard style={styles.summaryCard}>
-        <View style={styles.summaryRow}>
-          <Text style={{ color: theme.textSecondary }}>Challenger Strength:</Text>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            <Text style={{ color: '#F59E0B', fontWeight: '900' }}>⚡ {userProfile?.gpText || '0 GP'}</Text>
-            <Text style={{ color: '#60A5FA', fontWeight: '900' }}>🏆 {userProfile?.vpText || '0 VP'}</Text>
-          </View>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={{ color: theme.textSecondary }}>Entry Fee (escrowed):</Text>
-          <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>{amountValid ? naira(koboToN(selectedFee)) : '—'}</Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={{ color: theme.textSecondary }}>Winner takes (up to):</Text>
-          <Text style={{ color: theme.success, fontWeight: '800' }}>
-            {amountValid ? naira(koboToN(Math.floor(selectedFee * (playerCount || 2) * 0.80))) : '—'}
-          </Text>
-        </View>
-        <Text style={[styles.note, { color: theme.textMuted }]}>
-          Entry fees are debited only when a match starts. A 20% platform fee applies to prize payouts.
-        </Text>
-      </GACard>
-
-      {/* Button 1 (Above): Play vs Oba */}
+      {/* Button 1: Play vs Oba */}
       <GAButton
         title="Play vs Oba 👑"
         onPress={handlePlayVsOba}
         variant="secondary"
         icon={<Cpu size={20} color={theme.primary} />}
-        style={{ marginTop: 20 }}
-      />
-
-      <GAButton
-        title="Create Challenge"
-        onPress={handleCreateChallenge}
-        icon={<Swords size={20} color="#FFF" />}
-        style={{ marginTop: 12 }}
+        style={{ marginTop: 24 }}
       />
 
       {!isSearching ? (
@@ -766,5 +821,96 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  tableWrap: {
+    marginTop: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(10, 16, 32, 0.85)',
+    overflow: 'hidden',
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  tableColHeader: {
+    color: '#00E5FF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  tableCardBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tableCardBadgeDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  tableCardBadgeText: {
+    color: '#00E5FF',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  tableCardName: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  tableCardDesc: {
+    color: '#00E5FF',
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  toggleSegmentContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 8,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  toggleSegmentBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 40,
+  },
+  toggleSegmentBtnOn: {
+    backgroundColor: '#10B981',
+  },
+  toggleSegmentBtnOff: {
+    backgroundColor: '#EF4444',
+  },
+  toggleSegmentText: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  toggleSegmentTextActive: {
+    color: '#FFFFFF',
   },
 });

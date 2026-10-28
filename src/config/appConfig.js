@@ -47,18 +47,25 @@ export const FACEBOOK_APP_ID = '1762055368454928';
 // TODO: REPLACE_WITH_YOUR_APPLE_TEAM_ID
 export const APPLE_TEAM_ID = '8D2897QPB3';
 
-// Value Point purchase rate: 1 VP = ₦50. Challenge stakes are configured by the
-// player (custom amount) rather than preset tiers.
+// Value Point rate: 1 VP = 50 units. No Naira signs are displayed in the application.
 export const NAIRA_PER_VALUE_POINT = 50;
 export const valuePointsFromNaira = (n) =>
   Math.max(0, Math.floor(Number(n || 0) / NAIRA_PER_VALUE_POINT));
 export const valuePointsFromKobo = (k) =>
   Math.max(0, Math.floor(Number(k || 0) / (100 * NAIRA_PER_VALUE_POINT)));
 
+export const formatValuePoints = (nairaOrVp, isVp = false) => {
+  const vp = isVp ? Number(nairaOrVp || 0) : valuePointsFromNaira(nairaOrVp);
+  return `${vp.toLocaleString()} VP`;
+};
+
 export const koboToN = (kobo) => (kobo / 100).toFixed(0);
 export const nairaToKobo = (naira) => Math.round(Number(naira) * 100);
-export const naira = (amount) =>
-  `\u20A6${Number(amount).toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
+// No Naira sign: format as Value Points directly
+export const naira = (amount) => {
+  const vp = valuePointsFromNaira(amount);
+  return `${vp.toLocaleString()} VP`;
+};
 
 // ── App Store / deep-link identifiers for sharing outside the app ─────────────
 // The universal landing URL (https://api.gamearn.app/i/<code>) is what goes in every

@@ -24,8 +24,8 @@ function parseAmount(input) {
 }
 
 function money(kobo) {
-  const [whole, fraction] = (kobo / 100).toFixed(2).split('.');
-  return `₦${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${fraction}`;
+  const vp = Math.max(0, Math.floor(kobo / 5000));
+  return `${vp.toLocaleString()} VP`;
 }
 
 function reducer(state, action) {
@@ -83,10 +83,8 @@ function computeRowGp(wins = 0, played = 0, explicitGp = null) {
 }
 
 function leaderboard(dbRows = [], userProfile = null, period = 'Daily') {
-  // Rows arrive pre-ranked by the server (plays DESC, then wins). The client
-  // only shapes them; plays is the ranking metric, wins/GP stay visible.
-  const isDaily = period === 'Daily';
-
+  // Rows arrive pre-ranked by the server (plays DESC, then wins).
+  // Authenticated players always see themselves on the board (even with 0 plays).
   const getUserPlays = () => {
     if (!userProfile) return 0;
     const wins = Number(userProfile.wins || userProfile.gamesWon || 0);
@@ -102,76 +100,44 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily') {
     return computeRowGp(Number(userProfile.wins || userProfile.gamesWon || 0), getUserPlays());
   };
 
-  if (!Array.isArray(dbRows) || dbRows.length === 0) {
-    if (isDaily) {
-      // Under daily: only display players that have played that day.
-      // If no players have played today, do not show anyone.
-      return [];
-    }
-    if (userProfile?.uid && getUserPlays() > 0) {
-      const userGp = getUserGp();
-      return [
-        {
-          id: userProfile.uid,
-          name: `${userProfile.username || userProfile.displayName || userProfile.name || 'You'} (You)`,
-          plays: getUserPlays(),
-          wins: Number(userProfile.wins || userProfile.gamesWon || 0),
-          gp: userGp,
-          gpText: `${userGp} GP`,
-          xp: userGp,
-          avatar: userProfile.avatar || 'adebayo',
-          isUser: true,
-          rank: 1,
-        }
-      ];
-    }
-    return [];
-  }
-
-  // Filter rows so only players who actually recorded plays are included
-  const validRows = dbRows.filter((row) => {
-    const plays = Number(row.plays ?? row.gamesPlayed ?? row.played ?? row.wins ?? 0);
-    return plays > 0;
-  });
-
-  if (isDaily && validRows.length === 0) {
-    return [];
-  }
-
-  const list = validRows.map((row, index) => {
-    const isUser = Boolean(userProfile?.uid && (row.id === userProfile.uid || row.uid === userProfile.uid));
-    const name = row.username || row.displayName || row.name || 'Gamer';
+  const rows = Array.isArray(dbRows) ? dbRows : [];
+  const list = rows.map((row, index) => {
+    const isUser = Boolean(userProfile?.uid && (row.id === userProfile.uid || row.uid === userProfile.uid || row.isUser));
+    const rawName = row.username || row.displayName || row.name || (isUser ? (userProfile?.username || userProfile?.displayName || 'You') : 'Player');
+    const cleanName = rawName.replace(/\s*\(You\)\s*$/, '');
     const wins = Number(row.wins || 0);
-    const plays = Number(row.plays ?? row.gamesPlayed ?? row.played ?? wins);
+    const plays = Number(row.plays ?? row.gamesPlayed ?? row.played ?? 0);
     const rowGp = isUser ? getUserGp() : computeRowGp(wins, plays, row.gp ?? row.gamePower);
     return {
       id: row.id || row.uid || `player_${index}`,
-      name: isUser ? `${name} (You)` : name,
+      name: isUser ? `${cleanName} (You)` : cleanName,
       plays,
       wins,
       gp: rowGp,
       gpText: `${rowGp} GP`,
       xp: rowGp,
-      avatar: row.avatar || 'adebayo',
+      avatar: row.avatar || (isUser ? userProfile?.avatar : null),
       isUser,
-      rank: index + 1,
+      rank: row.rank || index + 1,
     };
   });
 
-  // Only inject user for non-Daily periods if user has recorded plays
-  if (!isDaily && userProfile?.uid) {
-    const hasUserInList = list.some((item) => item.isUser);
-    if (!hasUserInList && getUserPlays() > 0) {
+  // Always guarantee the authenticated user is visible on the board, even with 0 plays
+  if (userProfile?.uid) {
+    const hasUser = list.some((item) => item.isUser);
+    if (!hasUser) {
       const userGp = getUserGp();
+      const rawName = userProfile.username || userProfile.displayName || userProfile.name || 'You';
+      const cleanName = rawName.replace(/\s*\(You\)\s*$/, '');
       list.push({
         id: userProfile.uid,
-        name: `${userProfile.username || userProfile.displayName || userProfile.name || 'You'} (You)`,
-        plays: getUserPlays(),
-        wins: Number(userProfile.wins || userProfile.gamesWon || 0),
+        name: `${cleanName} (You)`,
+        plays: 0,
+        wins: 0,
         gp: userGp,
         gpText: `${userGp} GP`,
         xp: userGp,
-        avatar: userProfile.avatar || 'adebayo',
+        avatar: userProfile.avatar || null,
         isUser: true,
         rank: list.length + 1,
       });

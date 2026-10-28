@@ -154,10 +154,10 @@ function profileFromMe(me, cached) {
     ? Math.max(0, Math.floor(Number(serverVp)))
     : calculateValuePoints(rawNaira, gamesPlayed, wins);
 
-  const fullName = me?.fullName || cached?.fullName || me?.displayName || cached?.displayName || 'Gamer';
-  const username = me?.username || cached?.username || (me?.email ? me.email.split('@')[0] : 'Gamer');
-  const displayName = username;
-  const name = username;
+  const fullName = me?.fullName || cached?.fullName || me?.displayName || cached?.displayName || '';
+  const username = me?.username || cached?.username || (me?.email ? me.email.split('@')[0] : '');
+  const displayName = me?.displayName || cached?.displayName || fullName || username || '';
+  const name = displayName || username || '';
 
   // Per-game careers are server-authoritative. Only fall back to the local
   // cache when there is no server profile at all (offline), so stale/wrong-keyed
@@ -188,6 +188,9 @@ function profileFromMe(me, cached) {
     lastPlayedDate: newLastStreakDate,
     lastCheckInDate: newLastStreakDate,
     lastStreakPersistedDate,
+    followersCount: Number(me?.followersCount ?? cached?.followersCount ?? 0),
+    followingCount: Number(me?.followingCount ?? cached?.followingCount ?? 0),
+    followingList: Array.isArray(me?.followingList) ? me.followingList : (Array.isArray(cached?.followingList) ? cached.followingList : []),
     gamePower: gp,
     gp,
     gpText: formatGP(gp),
@@ -469,31 +472,37 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfileData = useCallback(async (updates) => {
     const displayName = updates.displayName || updates.username || updates.name;
-    try {
-      if (backendReady && authApi && authApi.updateProfile) {
-        await authApi.updateProfile({
-          ...(updates.fullName ? { fullName: updates.fullName } : {}),
-          ...(displayName ? { displayName } : {}),
-          ...(updates.avatar ? { avatarUrl: updates.avatar } : {}),
-          ...(updates.bio !== undefined ? { bio: updates.bio } : {}),
-          ...(updates.streak !== undefined ? { streak: updates.streak } : {}),
-          ...(updates.gamesPlayed !== undefined ? { gamesPlayed: updates.gamesPlayed } : {}),
-          ...(updates.lastStreakDate !== undefined ? { lastStreakDate: updates.lastStreakDate } : {}),
-          ...(updates.lastCheckInDate !== undefined ? { lastCheckInDate: updates.lastCheckInDate } : {}),
-          ...(updates.lastPlayedDate !== undefined ? { lastPlayedDate: updates.lastPlayedDate } : {}),
-          ...(updates.wins !== undefined ? { wins: updates.wins, gamesWon: updates.wins } : {}),
-          ...(updates.gamesWon !== undefined ? { wins: updates.gamesWon, gamesWon: updates.gamesWon } : {}),
-          ...(updates.losses !== undefined ? { losses: updates.losses, gamesLost: updates.losses } : {}),
-          ...(updates.gamesLost !== undefined ? { losses: updates.gamesLost, gamesLost: updates.gamesLost } : {}),
-          ...(updates.gamePower !== undefined ? { gamePower: updates.gamePower, gp: updates.gamePower } : {}),
-          ...(updates.gp !== undefined ? { gamePower: updates.gp, gp: updates.gp } : {}),
-          ...(updates.valuePoints !== undefined ? { valuePoints: updates.valuePoints, vp: updates.valuePoints } : {}),
-          ...(updates.vp !== undefined ? { valuePoints: updates.vp, vp: updates.vp } : {}),
-          ...(updates.gameStats !== undefined ? { gameStats: updates.gameStats } : {}),
-        });
+    const backendPayload = {
+      ...(updates.fullName ? { fullName: updates.fullName } : {}),
+      ...(displayName ? { displayName } : {}),
+      ...(updates.avatar ? { avatarUrl: updates.avatar } : {}),
+      ...(updates.bio !== undefined ? { bio: updates.bio } : {}),
+      ...(updates.streak !== undefined ? { streak: updates.streak } : {}),
+      ...(updates.gamesPlayed !== undefined ? { gamesPlayed: updates.gamesPlayed } : {}),
+      ...(updates.lastStreakDate !== undefined ? { lastStreakDate: updates.lastStreakDate } : {}),
+      ...(updates.lastCheckInDate !== undefined ? { lastCheckInDate: updates.lastCheckInDate } : {}),
+      ...(updates.lastPlayedDate !== undefined ? { lastPlayedDate: updates.lastPlayedDate } : {}),
+      ...(updates.wins !== undefined ? { wins: updates.wins, gamesWon: updates.wins } : {}),
+      ...(updates.gamesWon !== undefined ? { wins: updates.gamesWon, gamesWon: updates.gamesWon } : {}),
+      ...(updates.losses !== undefined ? { losses: updates.losses, gamesLost: updates.losses } : {}),
+      ...(updates.gamesLost !== undefined ? { losses: updates.gamesLost, gamesLost: updates.gamesLost } : {}),
+      ...(updates.gamePower !== undefined ? { gamePower: updates.gamePower, gp: updates.gamePower } : {}),
+      ...(updates.gp !== undefined ? { gamePower: updates.gp, gp: updates.gp } : {}),
+      ...(updates.valuePoints !== undefined ? { valuePoints: updates.valuePoints, vp: updates.valuePoints } : {}),
+      ...(updates.vp !== undefined ? { valuePoints: updates.vp, vp: updates.vp } : {}),
+      ...(updates.gameStats !== undefined ? { gameStats: updates.gameStats } : {}),
+    };
+
+    if (Object.keys(backendPayload).length > 0) {
+      try {
+        if (backendReady && authApi && authApi.updateProfile) {
+          await authApi.updateProfile(backendPayload);
+        }
+      } catch (err) {
+        if (!err?.message?.includes('No fields to update')) {
+          console.log('Backend profile update notice:', err?.message || err);
+        }
       }
-    } catch (err) {
-      console.log('Backend profile update notice:', err?.message || err);
     }
 
     // Instantly update userProfile state in React context so changes reflect on all screens in real-time
@@ -502,6 +511,9 @@ export const AuthProvider = ({ children }) => {
       const merged = {
         ...(prev || {}),
         ...updates,
+        followersCount: updates.followersCount !== undefined ? updates.followersCount : prev?.followersCount,
+        followingCount: updates.followingCount !== undefined ? updates.followingCount : prev?.followingCount,
+        followingList: updates.followingList !== undefined ? updates.followingList : prev?.followingList,
         fullName: updates.fullName || prev?.fullName,
         lastStreakPersistedDate: updates.lastStreakPersistedDate || (updates.lastStreakDate === getLocalDateString() ? getLocalDateString() : prev?.lastStreakPersistedDate),
         username: updates.username || updates.name || updates.displayName || prev?.username,

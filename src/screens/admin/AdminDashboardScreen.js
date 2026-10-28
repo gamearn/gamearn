@@ -29,7 +29,7 @@ import GACard from '../../components/GACard';
 import { useTheme } from '../../context/ThemeContext';
 import { admin } from '../../services/api';
 
-const formatNaira = (n) => `₦${Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
+const formatNaira = (n) => `${Math.floor(Number(n || 0) / 50).toLocaleString()} VP`;
 const statusColor = (theme, status) => {
   switch (status) {
     case 'active': return theme.success;

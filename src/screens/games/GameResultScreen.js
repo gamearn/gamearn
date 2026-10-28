@@ -25,7 +25,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { tournaments } from '../../services/api';
+import { tournaments, leaderboard as leaderboardApi } from '../../services/api';
 import { naira } from '../../config/appConfig';
 import { clearActiveMatch } from '../../utils/activeMatch';
 import { calculateGamePower, calculateValuePoints, formatGP, formatVP } from '../../utils/gamePower';
@@ -72,6 +72,10 @@ export default function GameResultScreen({ route, navigation }) {
 
     if (recordedRef.current) return;
     recordedRef.current = true;
+
+    // Immediately record match outcome to PostgreSQL so the leaderboard updates without delay
+    const outcome = isWinner ? 'win' : (isDraw ? 'draw' : 'loss');
+    leaderboardApi.recordCompletion(statsKey, outcome, completionReason).catch(() => {});
 
     if (serverConfirmed) {
       refreshProfile().catch(() => {});

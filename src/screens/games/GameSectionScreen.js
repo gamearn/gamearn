@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Wallet, Flame, Users, Play, Trophy } from 'lucide-react-native';
+import { ArrowLeft, Wallet, Flame, Users, Play, Trophy, Settings } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { wallet, tournaments, leaderboard as leaderboardApi } from '../../services/api';
 import { leaderboard } from '../home/model';
@@ -22,29 +22,54 @@ export default function GameSectionScreen({ route, navigation }) {
   const [w, setW] = useState(null);
   const [ts, setTs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState('Daily');
   const [dbLeaderRows, setDbLeaderRows] = useState([]);
   const [leaderLoading, setLeaderLoading] = useState(true);
 
+  const fetchLeaderboard = useCallback(() => {
+    setLeaderLoading(true);
+    leaderboardApi
+      .get(period, key)
+      .then((res) => {
+        const rowsList = Array.isArray(res) ? res : res?.data || [];
+        setDbLeaderRows(rowsList);
+      })
+      .catch(() => {
+        setDbLeaderRows([]);
+      })
+      .finally(() => {
+        setLeaderLoading(false);
+      });
+  }, [period, key]);
+
   useEffect(() => {
     let live = true;
-    Promise.allSettled([wallet.get(), tournaments.list(key), leaderboardApi.get('Daily', key)]).then(([a, c, l]) => {
+    Promise.allSettled([wallet.get(), tournaments.list(key)]).then(([a, c]) => {
       if (!live) return;
       if (a.status === 'fulfilled') setW(a.value);
       if (c.status === 'fulfilled') {
         const list = Array.isArray(c.value) ? c.value : (c.value?.tournaments || c.value?.data || []);
         setTs(list.filter((t) => ['open', 'live', 'registration_open', 'pending', 'scheduled', 'in_progress'].includes(String(t.status || t.state || 'registration_open').toLowerCase())));
       }
-      if (l.status === 'fulfilled') {
-        const rowsList = Array.isArray(l.value) ? l.value : l.value?.data || [];
-        setDbLeaderRows(rowsList);
-      }
       setLoading(false);
-      setLeaderLoading(false);
     });
     return () => { live = false; };
   }, [key]);
 
-  const leaderRows = useMemo(() => leaderboard(dbLeaderRows, userProfile), [dbLeaderRows, userProfile]);
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
+
+  useEffect(() => {
+    if (!navigation) return;
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchLeaderboard();
+      wallet.get().then(setW).catch(() => {});
+    });
+    return unsubscribe;
+  }, [navigation, fetchLeaderboard]);
+
+  const leaderRows = useMemo(() => leaderboard(dbLeaderRows, userProfile, period), [dbLeaderRows, userProfile, period]);
 
   const play = () => navigation.navigate('GameLobby', { gameId: key, gameName: game.title, targetScreen: game.target, setupTarget: 'GameSetup' });
   const balance = Number(w?.balance ?? userProfile?.walletBalance ?? 0);
@@ -77,9 +102,9 @@ export default function GameSectionScreen({ route, navigation }) {
           <View style={[styles.card, { flex: 1 }]}>
             <View style={styles.row}>
               <Wallet size={15} color="#00E5FF" />
-              <Text style={styles.muted}>Wallet Balance</Text>
+              <Text style={styles.muted}>Acquired Value Points</Text>
             </View>
-            <Text style={styles.amount}>₦{balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+            <Text style={styles.amount}>{Math.floor(balance / 50).toLocaleString()} VP</Text>
           </View>
         </View>
 
@@ -98,18 +123,89 @@ export default function GameSectionScreen({ route, navigation }) {
                   <Users size={13} color="#fff" />
                   <Text style={styles.muted}>{t.currentPlayers || t.playerCount || 0} players</Text>
                 </View>
-                <Text style={styles.prize}>Prize: ₦{Number(t.prizePool || 0).toLocaleString('en-NG')}</Text>
+                <Text style={styles.prize}>Prize: {Math.floor(Number(t.prizePool || 0) / 50).toLocaleString()} VP</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
         )}
 
-        <TouchableOpacity onPress={play} style={styles.play}>
-          <Play size={19} color="#fff" fill="#fff" />
-          <Text style={styles.playText}>Play Now</Text>
-        </TouchableOpacity>
+        {key === 'whot' && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('WhotSetup', { gameId: key, gameName: game.title, targetScreen: game.target })}
+            style={{
+              backgroundColor: 'rgba(0, 229, 255, 0.08)',
+              borderWidth: 1.5,
+              borderColor: 'rgba(0, 229, 255, 0.35)',
+              borderRadius: 14,
+              padding: 12,
+              marginTop: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <View style={{ flex: 1, paddingRight: 10 }}>
+              <Text style={{ color: '#00E5FF', fontSize: 13, fontWeight: '900' }}>
+                🎴 Tabulated Special Cards Setup (1, 2, 5, 8, 14, 20)
+              </Text>
+              <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 3 }}>
+                Configure side-by-side [ON] and [OFF] segmented controls for each special card before starting.
+              </Text>
+            </View>
+            <View style={{ backgroundColor: '#00E5FF', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}>
+              <Text style={{ color: '#070C1B', fontWeight: '900', fontSize: 12 }}>Open ⚙️</Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
-        <Text style={styles.section}>LIVE GAME LEADERBOARD</Text>
+        <View style={{ flexDirection: 'row', gap: 10, marginVertical: 14 }}>
+          <TouchableOpacity onPress={play} style={[styles.play, { flex: 1, marginVertical: 0 }]}>
+            <Play size={19} color="#fff" fill="#fff" />
+            <Text style={styles.playText}>Play Now</Text>
+          </TouchableOpacity>
+
+          {key === 'whot' && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('WhotSetup', {
+                gameId: key,
+                gameName: game.title,
+                targetScreen: game.target,
+              })}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderRadius: 14,
+                backgroundColor: 'rgba(0, 229, 255, 0.12)',
+                borderWidth: 1.5,
+                borderColor: '#00E5FF',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+            >
+              <Settings size={18} color="#00E5FF" />
+              <Text style={{ color: '#00E5FF', fontWeight: '900', fontSize: 14 }}>Game Setup ⚙️</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.leaderHeaderRow}>
+          <Text style={styles.section}>LIVE GAME LEADERBOARD</Text>
+          <View style={styles.filters}>
+            {['Daily', 'Weekly', 'Monthly', 'Yearly'].map((p) => (
+              <TouchableOpacity
+                key={p}
+                onPress={() => setPeriod(p)}
+                style={[styles.filterChip, period === p && styles.filterChipActive]}
+              >
+                <Text style={[styles.filterText, period === p && styles.filterTextActive]}>{p}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
         <View style={{ gap: 8, marginTop: 4 }}>
           {leaderLoading ? (
             <ActivityIndicator color="#00E5FF" style={{ padding: 20 }} />
@@ -162,7 +258,39 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   muted: { color: '#94A3B8', fontSize: 12 },
   amount: { color: '#fff', fontSize: 20, fontWeight: '900', marginTop: 8 },
-  section: { color: '#94A3B8', fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 12, marginTop: 10 },
+  section: { color: '#94A3B8', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  leaderHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  filters: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  filterChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  filterChipActive: {
+    backgroundColor: '#00E5FF',
+  },
+  filterText: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  filterTextActive: {
+    color: '#070C1B',
+    fontWeight: '900',
+  },
   empty: { color: '#94A3B8', textAlign: 'center', padding: 24 },
   tour: { width: 235, padding: 16, borderRadius: 16, marginRight: 12, backgroundColor: 'rgba(15,25,45,.8)', borderWidth: 1, borderColor: 'rgba(255,255,255,.1)' },
   live: { color: '#10B981', fontSize: 11, fontWeight: '900' },

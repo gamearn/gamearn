@@ -13,14 +13,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { tournaments } from '../../services/api';
-import { naira } from '../../config/appConfig';
 
 export default function TournamentPendingScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
   const tourId = route.params?.tourId;
 
   const tourTitle = route.params?.title || 'Dráfù Grandmaster Championship';
-  const entryFee = route.params?.entryFee || '₦500.00';
+  const entryFee = route.params?.entryFee || '10 VP';
   const durationDays = route.params?.duration || '14 DAYS';
   const startAt = route.params?.startAt;
 
@@ -28,8 +27,8 @@ export default function TournamentPendingScreen({ route, navigation }) {
   const [loading, setLoading] = useState(!!tourId);
   const [error, setError] = useState('');
 
-  const target = tour?.scheduledStart || startAt || null;
-  const fallbackSeconds = 12 * 3600;
+  const target = tour?.launchDeadline || tour?.scheduledStart || startAt || null;
+  const fallbackSeconds = 24 * 3600;
 
   const [secondsLeft, setSecondsLeft] = useState(() => {
     if (!target) return fallbackSeconds;
@@ -73,7 +72,8 @@ export default function TournamentPendingScreen({ route, navigation }) {
   const seconds = secondsLeft % 60;
 
   const displayTitle = tour?.name || tourTitle;
-  const feeValue = tour ? (tour.entryFee > 0 ? naira(tour.entryFee) : 'FREE') : entryFee;
+  const entryFeeVp = tour ? (tour.entryFeeVp ?? tour.entryFee ?? 0) : null;
+  const feeValue = entryFeeVp !== null ? (entryFeeVp > 0 ? `${entryFeeVp} VP` : 'FREE') : entryFee;
   const participantsTag = tour
     ? `PARTICIPANTS: ${tour.currentParticipants ?? 0} / ${tour.maxParticipants ?? 0} JOINED`
     : 'PARTICIPANTS: AWAITING PLAYERS';
@@ -91,15 +91,15 @@ export default function TournamentPendingScreen({ route, navigation }) {
         >
           <ArrowLeft size={20} color={theme.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Tournament Pending</Text>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Upcoming Tournament</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Pending Badge Pill */}
+        {/* Upcoming Badge Pill */}
         <View style={styles.pendingPillWrap}>
           <View style={styles.pendingPill}>
-            <Text style={styles.pendingPillText}>PENDING</Text>
+            <Text style={styles.pendingPillText}>{secondsLeft === 0 && !tour?.isLive ? 'EXPIRED (24H)' : 'UPCOMING'}</Text>
           </View>
         </View>
 
@@ -181,7 +181,7 @@ export default function TournamentPendingScreen({ route, navigation }) {
 
         {/* Expiry Footnote */}
         <Text style={styles.expiryFootnote}>
-          if criteria is not meet within 24hrs, it will expire and be cancelled
+          24-Hour Launch Policy: If criteria is not met within 24 hours, the tournament is cancelled. Creator retains 50% of committed Value Points (50% forfeited to system), and all participants receive a 100% refund.
         </Text>
       </ScrollView>
     </View>

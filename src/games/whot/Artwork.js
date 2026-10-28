@@ -5,12 +5,12 @@ import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Re
 export const FONT = Platform.OS === 'ios' ? 'Avenir Next' : 'sans-serif-condensed';
 
 export const HAND = [
-  { id: 'red8', value: 8, color: '#f9002c', shape: 'cross' },
-  { id: 'wild20', value: 20, color: '#ffcc00', shape: 'whot' },
-  { id: 'green2', value: 2, color: '#00bb50', shape: 'square' },
-  { id: 'blue4', value: 4, color: '#0065ff', shape: 'cross' },
-  { id: 'purple10', value: 10, color: '#9400df', shape: 'circle' },
-  { id: 'black14', value: 14, color: '#292533', shape: 'triangle' },
+  { id: 'red8', value: 8, color: '#6200bc', shape: 'cross' },
+  { id: 'wild20', value: 20, color: '#6200bc', shape: 'whot' },
+  { id: 'green2', value: 2, color: '#6200bc', shape: 'square' },
+  { id: 'blue4', value: 4, color: '#6200bc', shape: 'cross' },
+  { id: 'purple10', value: 10, color: '#6200bc', shape: 'circle' },
+  { id: 'black14', value: 14, color: '#6200bc', shape: 'triangle' },
 ];
 
 export function getCardCenters(count, selectedIndex = -1) {
@@ -169,21 +169,22 @@ export function PlayingCard({
   white = false,
 }) {
   if (!card) return null;
-  const ink = card.shape === 'whot' ? '#462400' : white ? '#dc0927' : '#fff';
+  const PURPLE_THEME = '#6200bc';
+  const ink = '#fff';
   return (
     <G transform={`translate(${x} ${y}) rotate(${angle}) scale(${scale})`}>
       <Rect x={-w / 2 + 3} y={-h / 2 + 6} width={w} height={h} rx="13" fill="#050028" opacity={0.5} />
       {selected && <Rect x={-w / 2 - 8} y={-h / 2 - 8} width={w + 16} height={h + 16} rx="19" fill="none" stroke="#00e9ff" strokeWidth="8" opacity={0.9} />}
-      <Rect x={-w / 2} y={-h / 2} width={w} height={h} rx="12" fill={white ? '#fffcfc' : card.color} stroke={selected ? '#57faff' : '#f4e9ff'} strokeWidth="4" />
+      <Rect x={-w / 2} y={-h / 2} width={w} height={h} rx="12" fill={white ? '#fffcfc' : PURPLE_THEME} stroke={selected ? '#57faff' : '#f4e9ff'} strokeWidth="4" />
       <Rect x={-w / 2 + 5} y={-h / 2 + 5} width={w - 10} height={h - 10} rx="8" fill="none" stroke={white ? '#006bff' : '#ffffff44'} strokeWidth="2" />
       {!white && <Rect x={-w * 0.37} y={-h * 0.25} width={w * 0.74} height={h * 0.55} rx="14" fill="#ffffffd9" transform="rotate(-7)" />}
-      <Shape x={0} y={9} shape={card.shape} size={w * 0.53} color={card.shape === 'whot' ? '#482700' : white ? '#c60024' : card.color} />
+      <Shape x={0} y={9} shape={card.shape} size={w * 0.53} color={white ? '#c60024' : PURPLE_THEME} />
       {[false, true].map((flip) => (
         <G key={String(flip)} transform={flip ? 'rotate(180)' : ''}>
-          <T x={-w / 2 + 14} y={-h / 2 + 43} fontFamily={FONT} fontSize="39" fontWeight="900" fill={ink}>
+          <T x={-w / 2 + 14} y={-h / 2 + 43} fontFamily={FONT} fontSize="39" fontWeight="900" fill={white ? '#dc0927' : ink}>
             {card.value}
           </T>
-          <T x={-w / 2 + 15} y={-h / 2 + 71} fontFamily={FONT} fontSize="31" fontWeight="900" fill={ink}>
+          <T x={-w / 2 + 15} y={-h / 2 + 71} fontFamily={FONT} fontSize="31" fontWeight="900" fill={white ? '#dc0927' : ink}>
             +
           </T>
         </G>

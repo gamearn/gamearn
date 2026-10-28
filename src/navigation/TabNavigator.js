@@ -59,6 +59,7 @@ export default function TabNavigator() {
           tabBarIcon: ({ color, size }) => <Trophy size={size} color={color} />,
         }}
       />
+      {/* Wallet page commented out per instructions
       <Tab.Screen
         name="WalletTab"
         component={WalletScreen}
@@ -67,6 +68,7 @@ export default function TabNavigator() {
           tabBarIcon: ({ color, size }) => <Wallet size={size} color={color} />,
         }}
       />
+      */}
       <Tab.Screen
         name="ProfileTab"
         component={ProfileScreen}

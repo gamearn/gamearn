@@ -433,20 +433,20 @@ export default function ChallengeHubScreen({ route, navigation }) {
         ) : (
           <View>
             <View style={[styles.amountRow, { borderColor: amountValid ? theme.inputBorder : '#EF4444' }]}>
-              <Text style={[styles.amountPrefix, { color: theme.textSecondary }]}>₦</Text>
+              <Text style={[styles.amountPrefix, { color: theme.textSecondary }]}>VP</Text>
               <TextInput
                 value={amountText}
                 onChangeText={setAmountText}
                 keyboardType="numeric"
-                placeholder={`${MIN_AMOUNT_N} - ${MAX_AMOUNT_N}`}
+                placeholder={`${valuePointsFromNaira(MIN_AMOUNT_N)} - ${valuePointsFromNaira(MAX_AMOUNT_N)}`}
                 placeholderTextColor={theme.textSecondary}
                 style={[styles.amountInput, { color: theme.textPrimary }]}
               />
             </View>
             <Text style={[styles.amountHint, { color: amountValid ? theme.textSecondary : '#EF4444' }]}>
               {amountValid
-                ? `Stake ${valuePointsFromNaira(amountN).toLocaleString()} Value Points (1 VP = ₦50)`
-                : `Amount must be between ${naira(MIN_AMOUNT_N)} and ${naira(MAX_AMOUNT_N)}`}
+                ? `Stake ${valuePointsFromNaira(amountN).toLocaleString()} Value Points`
+                : `Amount must be between ${valuePointsFromNaira(MIN_AMOUNT_N)} VP and ${valuePointsFromNaira(MAX_AMOUNT_N)} VP`}
             </Text>
             <View style={styles.quickRow}>
               {CHALLENGE_QUICK_AMOUNTS.map((amt) => {
@@ -461,7 +461,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
                     ]}
                   >
                     <Text style={[styles.quickChipText, { color: active ? theme.accent : theme.textMuted }]}>
-                      ₦{amt.toLocaleString()}
+                      {valuePointsFromNaira(amt)} VP
                     </Text>
                   </TouchableOpacity>
                 );
@@ -472,8 +472,8 @@ export default function ChallengeHubScreen({ route, navigation }) {
 
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
-            <Text style={{ color: theme.textSecondary }}>Wallet balance:</Text>
-            <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>{naira(balanceNaira)}</Text>
+            <Text style={{ color: theme.textSecondary }}>Acquired Value Points:</Text>
+            <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>{valuePointsFromNaira(balanceNaira).toLocaleString()} VP</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={{ color: theme.textSecondary }}>Entry fee (deducted at match start):</Text>

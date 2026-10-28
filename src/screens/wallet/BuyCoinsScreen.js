@@ -40,12 +40,12 @@ export default function BuyValuePointsScreen({ navigation }) {
   const [amountText, setAmountText] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const amount = parseAmount(amountText);
-  const valuePoints = valuePointsFromNaira(amount);
+  const valuePoints = parseAmount(amountText);
+  const amount = valuePoints * 50;
   const amountValid = amount >= MIN_AMOUNT && amount <= MAX_AMOUNT;
 
   const preview = useMemo(() => {
-    if (!amountText || amount === 0) return null;
+    if (!amountText || valuePoints === 0) return null;
     return {
       naira: amount,
       valuePoints,
@@ -115,9 +115,9 @@ export default function BuyValuePointsScreen({ navigation }) {
 
         {/* Custom Amount Input */}
         <View style={[styles.amountCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
-          <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>ENTER AMOUNT IN NAIRA</Text>
+          <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>ENTER VALUE POINTS</Text>
           <View style={[styles.amountInputRow, { borderColor: amountValid || !amountText ? theme.cardBorderSubtle : '#EF4444' }]}>
-            <Text style={[styles.amountPrefix, { color: theme.textSecondary }]}>₦</Text>
+            <Text style={[styles.amountPrefix, { color: theme.textSecondary }]}>VP</Text>
             <TextInput
               value={amountText}
               onChangeText={setAmountText}
@@ -132,12 +132,12 @@ export default function BuyValuePointsScreen({ navigation }) {
             <View style={styles.liveWorthRow}>
               <Coins size={18} color="#FF5500" />
               <Text style={[styles.liveWorthText, { color: preview.valid ? theme.textPrimary : '#EF4444' }]}>
-                {preview.valid ? `You get ${preview.valuePoints.toLocaleString()} Value Points` : 'Minimum ₦50, maximum ₦1,000,000'}
+                {preview.valid ? `Acquiring ${preview.valuePoints.toLocaleString()} Value Points` : 'Minimum 1 VP, maximum 20,000 VP'}
               </Text>
             </View>
           ) : (
             <Text style={[styles.liveWorthHint, { color: theme.textSecondary }]}>
-              1 Value Point = ₦50. Live worth shows as you type.
+              Acquire Value Points to participate in games and tournaments.
             </Text>
           )}
         </View>
@@ -147,12 +147,13 @@ export default function BuyValuePointsScreen({ navigation }) {
         <View style={styles.chipRow}>
           {PACKAGES.map((pkg) => {
             const IconComponent = pkg.icon;
-            const active = amount === pkg.price;
+            const pkgVp = Math.floor(pkg.price / 50);
+            const active = valuePoints === pkgVp;
             return (
               <TouchableOpacity
                 key={pkg.id}
                 activeOpacity={0.85}
-                onPress={() => setAmountText(String(pkg.price))}
+                onPress={() => setAmountText(String(pkgVp))}
                 style={[
                   styles.chip,
                   { backgroundColor: theme.cardBg, borderColor: active ? '#FF5500' : theme.cardBorderSubtle },
@@ -160,7 +161,7 @@ export default function BuyValuePointsScreen({ navigation }) {
               >
                 <IconComponent size={16} color="#FF5500" />
                 <Text style={[styles.chipName, { color: theme.textPrimary }]}>{pkg.name}</Text>
-                <Text style={[styles.chipPrice, { color: active ? '#FF5500' : theme.primary }]}>₦{pkg.price.toLocaleString()}</Text>
+                <Text style={[styles.chipPrice, { color: active ? '#FF5500' : theme.primary }]}>{pkgVp.toLocaleString()} VP</Text>
                 {pkg.popular && <Text style={styles.chipBadge}>{pkg.badgeText}</Text>}
               </TouchableOpacity>
             );
@@ -176,7 +177,7 @@ export default function BuyValuePointsScreen({ navigation }) {
         >
           <Coins size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
           <Text style={styles.continueBtnText}>
-            {loading ? 'Processing...' : preview && preview.valid ? `Buy ${preview.valuePoints.toLocaleString()} Value Points for ₦${preview.naira.toLocaleString()}` : 'Enter an amount to continue'}
+            {loading ? 'Processing...' : preview && preview.valid ? `Acquire ${preview.valuePoints.toLocaleString()} Value Points` : 'Enter Value Points to continue'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

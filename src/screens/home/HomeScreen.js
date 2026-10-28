@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -119,7 +119,7 @@ export default function HomeScreen({ navigation }) {
   const [dbLeaderboardRows, setDbLeaderboardRows] = useState([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchLeaderboard = useCallback(() => {
     let active = true;
     setLeaderboardLoading(true);
     leaderboardApi
@@ -139,6 +139,19 @@ export default function HomeScreen({ navigation }) {
       active = false;
     };
   }, [period]);
+
+  useEffect(() => {
+    const cancel = fetchLeaderboard();
+    return cancel;
+  }, [fetchLeaderboard]);
+
+  useEffect(() => {
+    if (!navigation) return;
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchLeaderboard();
+    });
+    return unsubscribe;
+  }, [navigation, fetchLeaderboard]);
   const pendingWrites = useRef(Promise.resolve());
   const mounted = useRef(true);
   const depositLock = useRef(false);
@@ -168,14 +181,26 @@ export default function HomeScreen({ navigation }) {
         if (!active) return;
         if (walletResult.status === 'fulfilled') setBackendWallet(walletResult.value);
         if (tournamentResult.status === 'fulfilled') {
-          const list = Array.isArray(tournamentResult.value)
+          const rawList = Array.isArray(tournamentResult.value)
             ? tournamentResult.value
             : tournamentResult.value?.tournaments || tournamentResult.value?.data || [];
-          setFeaturedTournament(
-            list.find((item) =>
-              ['open', 'live', 'registration_open', 'in_progress'].includes(String(item.status).toLowerCase())
-            ) || null
-          );
+          const now = Date.now();
+          const validList = rawList.filter((item) => {
+            const st = String(item.status || '').toLowerCase();
+            if (['cancelled', 'completed'].includes(st)) return false;
+            const isLive = Boolean((item.isLive || item.is_live) && st === 'in_progress');
+            if (!isLive) {
+              if (item.launchDeadline && new Date(item.launchDeadline).getTime() <= now) return false;
+              if (item.createdAt && (now - new Date(item.createdAt).getTime()) > 24 * 3600 * 1000) return false;
+            }
+            return true;
+          });
+          const featured =
+            validList.find((item) => (item.isLive || item.is_live) && String(item.status).toLowerCase() === 'in_progress') ||
+            validList.find((item) => ['open', 'registration_open', 'scheduled'].includes(String(item.status).toLowerCase())) ||
+            validList[0] ||
+            null;
+          setFeaturedTournament(featured);
         }
         if (myTournamentsResult.status === 'fulfilled') {
           const myList = Array.isArray(myTournamentsResult.value)
@@ -244,9 +269,13 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  // The backend returns `balance` in naira. Keep accounting kobo out of the UI.
+  // Value Points rate: 1 VP = 50 units. We display Acquired Points everywhere instead of Naira.
   const walletBalanceNaira = Number(backendWallet?.balance ?? userProfile?.walletBalance ?? 0);
-  const formatNaira = (value) => `\u20A6${Number(value || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatPoints = (value) => {
+    const vp = Math.max(0, Math.floor(Number(value || 0) / 50));
+    return `${vp.toLocaleString()} VP`;
+  };
+  const formatNaira = formatPoints;
   const streakDays = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
 
   const displayName = userProfile?.username || userProfile?.displayName || userProfile?.name || state.name || 'Gamer';
@@ -309,7 +338,7 @@ export default function HomeScreen({ navigation }) {
   const addFunds = () => {
     const parsed = parseAmount(amount);
     if (parsed === null) {
-      setFormError('Enter ₦100â€“₦1,000,000, using no more than two decimal places.');
+      setFormError('Enter 2 VP–20,000 VP, using whole numbers.');
       return;
     }
     setSheet(null);
@@ -351,16 +380,13 @@ export default function HomeScreen({ navigation }) {
     return (
       <LinearGradient colors={['#003a72', '#001324', '#00101e']} style={[s.card, s.wallet]}>
         <View style={s.walletIcon}>{icon('wallet-outline', 34)}</View>
-          <Tap label={`Open wallet, balance ${formatNaira(walletBalanceNaira)}`} onPress={() => navigation?.navigate('WalletTab')} style={{ flex: 1 }}>
+        <View style={{ flex: 1, paddingVertical: 4 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            {txt('Wallet Balance', 13, s.muted)}
+            {txt('Acquired Value Points', 13, s.muted)}
           </View>
-          {txt(homeDataLoading ? 'Loading...' : formatNaira(walletBalanceNaira), 24, s.bold)}
-          {txt('Live balance from wallet', 13, s.cyan)}
-        </Tap>
-        <Tap label="Buy Value Points" onPress={() => navigation?.navigate('BuyValuePoints')} style={s.plus}>
-          {icon('add', 27, '#002741')}
-        </Tap>
+          {txt(homeDataLoading ? 'Loading...' : formatPoints(walletBalanceNaira), 24, s.bold)}
+          {txt('Total acquired value points', 13, s.cyan)}
+        </View>
       </LinearGradient>
     );
   }
@@ -373,28 +399,42 @@ export default function HomeScreen({ navigation }) {
       tournament?.id &&
       myTournaments.some((t) => String(t.id || t.tournamentId) === String(tournament.id))
     );
+    const isLive = Boolean(
+      (tournament?.isLive || tournament?.is_live) &&
+      String(tournament?.status).toLowerCase() === 'in_progress'
+    );
 
     return (
       <LinearGradient colors={['#172019', '#170b19', '#001b30']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.tournament}>
         <Art name="tournament" width={320 * scale} height={168 * scale} style={s.trophyArt} />
         <LinearGradient colors={['#001321', '#001321b0', '#00132100']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFillObject} />
         <View style={s.badges}>
-          <View style={s.live}>{txt('Live Now', 13, { color: '#00110a', fontWeight: '800' })}</View>
+          <View style={isLive ? s.live : s.upcoming}>
+            {txt(isLive ? 'Live Now' : 'Upcoming', 13, { color: isLive ? '#00110a' : (theme ? theme.primary : CYAN), fontWeight: '800' })}
+          </View>
           <View style={s.playersBadge}>
             {icon('people', 14, '#fff')}
             {txt(`${Number(tournament.currentPlayers ?? tournament.currentParticipants ?? tournament.playersCount ?? 0).toLocaleString()} Players`, 12)}
           </View>
         </View>
-        {txt(tournament.name || 'Live Tournament', 23, s.tournamentTitle)}
-        {txt(tournament.description || 'Join an active tournament.', 15, s.muted)}
+        {txt(tournament.name || (isLive ? 'Live Tournament' : 'Upcoming Tournament'), 23, s.tournamentTitle)}
+        {txt(tournament.description || (isLive ? 'Join an active tournament.' : 'Register and compete to win.'), 15, s.muted)}
         <View style={s.prizeRow}>
           <View>
             {txt('Prize Pool', 13, s.muted)}
-            {txt(tournament.prizePool ? `₦${Number(tournament.prizePool).toLocaleString()}` : 'Prize pool unavailable', 25, [s.bold, s.cyan])}
+            {txt(tournament.prizePool ? `${Math.floor(Number(tournament.prizePool) / 50).toLocaleString()} VP` : (tournament.prizePoolVp ? `${tournament.prizePoolVp} VP` : 'Prize pool pending'), 25, [s.bold, s.cyan])}
           </View>
           <GradientButton
             title={isJoined ? 'Joined' : 'Join Now'}
-            onPress={() => navigation.navigate(isJoined ? 'LiveTournament' : 'TournamentDetails', { tourId: tournament.id, title: tournament.name })}
+            onPress={() => {
+              if (isLive) {
+                navigation.navigate('LiveTournament', { tourId: tournament.id, title: tournament.name });
+              } else if (isJoined) {
+                navigation.navigate('TournamentPending', { tourId: tournament.id, title: tournament.name });
+              } else {
+                navigation.navigate('TournamentDetails', { tourId: tournament.id, title: tournament.name });
+              }
+            }}
             style={{ width: 148 * scale }}
             compact
             scale={scale}
@@ -441,7 +481,7 @@ export default function HomeScreen({ navigation }) {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled style={s.milestoneScroller} contentContainerStyle={s.milestones}>
           <View style={s.milestoneTrack}>
             <View style={s.track} />
-            <View style={[s.track, { width: `${Math.min(streakDays / 90, 1) * 32}%`, backgroundColor: CYAN }]} />
+            <View style={[s.track, { width: `${Math.min(streakDays / 90, 1) * 100}%`, backgroundColor: CYAN }]} />
             {[7, 14, 30, 50, 90].map((day) => {
               const done = streakDays >= day;
               return (
@@ -449,8 +489,14 @@ export default function HomeScreen({ navigation }) {
                   <View style={[s.milestoneCircle, done && s.done]}>
                     {icon(done ? 'checkmark' : 'lock-closed', 19, done ? '#fff' : '#d8e4ef')}
                   </View>
-                  {txt(String(day), 13, { marginTop: 6 * scale, color: '#fff' })}
-                  {txt('Days', 12, { color: '#ced6e8' })}
+                  {txt(`${day} Days`, 12, { marginTop: 6 * scale, color: done ? '#00E5FF' : '#fff', fontWeight: '700' })}
+                  {txt(
+                    done
+                      ? (day === 7 ? 'Unlocked! (+1 VP)' : 'Unlocked')
+                      : (day === 7 ? '7-Day Lock' : 'Locked'),
+                    11,
+                    { color: done ? '#10B981' : '#64748B', fontWeight: done ? '800' : '600' }
+                  )}
                 </View>
               );
             })}
@@ -484,7 +530,7 @@ export default function HomeScreen({ navigation }) {
             {period === 'Daily' ? 'No players have played today yet.' : 'No active database rankings for this period yet.'}
           </Text>
         ) : rows.map((player, index) => (
-          <Tap key={player.id} label={`${index + 1}, ${player.name}, ${player.plays} plays, ${player.wins} wins`} onPress={() => open('player', player)} style={[s.leaderRow, index === 0 && s.firstRow]}>
+          <Tap key={player.id} label={`${index + 1}, ${player.name}, ${player.plays} plays, ${player.wins} wins`} onPress={() => open('player', player)} style={[s.leaderRow, index === 0 && s.firstRow, player.isUser && { borderColor: '#00E5FF', borderWidth: 1.5, backgroundColor: 'rgba(0, 229, 255, 0.08)' }]}>
             <View style={[s.rank, index < 3 && { borderColor: ['#eab51b', '#91a6b9', '#ff8a00'][index], backgroundColor: ['#8f6400', '#526b80', '#bf4004'][index] }]}>
               {index < 3 && <View style={s.medalRibbon} />}
               {txt(String(index + 1), 17, index === 0 && { color: '#fff676' })}
@@ -591,10 +637,10 @@ export default function HomeScreen({ navigation }) {
     if (tab === 'Wallet')
       return (
         <>
-          <Text style={ui.pageTitle}>Wallet</Text>
+          <Text style={ui.pageTitle}>Points</Text>
           <View style={ui.panel}>
-            <Text style={ui.body}>Wallet balance</Text>
-            <Text style={ui.balance}>{formatNaira(walletBalanceNaira)}</Text>
+            <Text style={ui.body}>Acquired Points</Text>
+            <Text style={ui.balance}>{formatPoints(walletBalanceNaira)}</Text>
             <GradientButton title="Add funds" onPress={() => open('deposit')} />
           </View>
           <Text style={ui.heading}>Transaction history</Text>
@@ -621,7 +667,7 @@ export default function HomeScreen({ navigation }) {
       <>
         <Text style={ui.pageTitle}>Profile</Text>
         <View style={[ui.panel, { alignItems: 'center' }]}>
-          <Art name="adebayo" width={80} height={80} style={{ borderRadius: 40 }} />
+          <Image source={resolveAvatarSource(userProfile?.avatar)} style={{ width: 80, height: 80, borderRadius: 40 }} />
           <Text style={ui.pageTitle}>{displayName}</Text>
           <Text style={ui.credit}>â— Active Member</Text>
           <Text style={ui.body}>
@@ -727,9 +773,9 @@ export default function HomeScreen({ navigation }) {
               maxLength={12}
             />
             <View style={ui.quickAmounts}>
-              {['500', '1000', '5000'].map((value) => (
-                <Tap key={value} label={`Set amount to ${value} naira`} onPress={() => setAmount(value)} style={ui.chip}>
-                  <Text style={ui.label}>₦{Number(value).toLocaleString('en-US')}</Text>
+              {['10', '20', '100'].map((value) => (
+                <Tap key={value} label={`Set amount to ${value} Value Points`} onPress={() => setAmount(String(Number(value) * 50))} style={ui.chip}>
+                  <Text style={ui.label}>{value} VP</Text>
                 </Tap>
               ))}
             </View>
@@ -742,7 +788,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={ui.heading}>Ayo á»Œpá»Ìn Grandmaster Tournament</Text>
             <Art name="tournament" width={280} height={146} style={{ alignSelf: 'center', borderRadius: 12 }} />
             <Text style={ui.body}>
-              Prize pool: ₦5,000.00{'\n'}
+              Prize pool: 100 VP{'\n'}
               Players: 1,240 (players){'\n'}
               Entry fee: Free
             </Text>
@@ -781,12 +827,12 @@ export default function HomeScreen({ navigation }) {
             <Art name={sheet.data.id} width={174} height={122} style={{ alignSelf: 'center', borderRadius: 16 }} />
             <Text style={ui.body}>{sheet.data.description}</Text>
             <Text style={ui.label}>Daily activity</Text>
-            <Text style={ui.body}>Roll a 4, 5, or 6 to complete today's streak challenge, or launch the game lobby directly below.</Text>
+            <Text style={ui.body}>Roll a 4, 5, or 6 to complete today's daily streak activity, or launch the game lobby directly below.</Text>
             {roll !== null && <Text accessibilityLiveRegion="polite" style={ui.dice}>{['âš€', 'âš', 'âš‚', 'âšƒ', 'âš„', 'âš…'][roll - 1]}  {roll}</Text>}
-            {demoComplete && <Text accessibilityLiveRegion="polite" style={ui.credit}>Challenge complete! Today's streak activity is saved.</Text>}
+            {demoComplete && <Text accessibilityLiveRegion="polite" style={ui.credit}>Daily streak complete! Today's streak activity is saved.</Text>}
             <GradientButton
               disabled={demoComplete}
-              title={demoComplete ? "Completed today's challenge" : roll ? 'Roll again' : 'Roll the dice'}
+              title={demoComplete ? "Completed today's streak" : roll ? 'Roll again' : 'Roll the dice'}
               onPress={() => {
                 const result = 1 + Math.floor(Math.random() * 6);
                 setRoll(result);
@@ -816,7 +862,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={ui.heading}>{state.streak} Day Streak {'\uD83D\uDD25'}</Text>
             <Text style={ui.body}>Complete a qualifying game each day. Opening the app alone does not count. Complete a qualifying game to advance your streak.</Text>
             <Text style={ui.body}>Milestones: 7, 14, 30, 50, 90, 100, 120, 150, 180, 200, 250, 270, 300, 350, and 365 days. A day counts only after a completed game.</Text>
-            <Text style={ui.caption}>Last activity: {state.lastPlayed || 'No completed daily challenge yet'}</Text>
+            <Text style={ui.caption}>Last activity: {state.lastPlayed || 'No completed daily activity yet'}</Text>
             <GradientButton title="Choose a game" onPress={() => open('games')} />
           </>
         );
@@ -953,6 +999,7 @@ function makeStyles(k, theme, isDark) {
     trophyArt: { position: 'absolute', right: 0, top: 0 },
     badges: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 7 },
     live: { backgroundColor: GREEN, paddingHorizontal: 16, paddingVertical: 5, borderRadius: 18 },
+    upcoming: { backgroundColor: isDark ? 'rgba(0, 229, 255, 0.15)' : 'rgba(0, 180, 216, 0.15)', borderWidth: 1, borderColor: theme ? theme.primary : CYAN, paddingHorizontal: 14, paddingVertical: 5, borderRadius: 18 },
     playersBadge: { backgroundColor: isDark ? '#162131' : 'rgba(0,0,0,0.06)', flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 18 },
     tournamentTitle: { fontWeight: '700', lineHeight: 24, marginBottom: 5, width: 300, color: theme ? theme.textPrimary : '#FFFFFF' },
     prizeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },

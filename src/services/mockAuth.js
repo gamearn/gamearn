@@ -6,7 +6,7 @@ const STORAGE_KEY_USERS = '@gamearn_users_db';
 const DEFAULT_USER = {
   uid: 'user_demo_123',
   email: 'player@gamearn.com',
-  username: 'ProGamer_99',
+  username: '',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
   bio: 'Ready to rule Whot and Ludo!',
   valuePoints: 50,

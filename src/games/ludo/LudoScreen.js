@@ -90,6 +90,7 @@ export default function LudoScreen({
   error = '',
   canMove = false,
   pending = false,
+  paused = false,
   onRoll,
   onMove,
   onBack,
@@ -176,6 +177,7 @@ export default function LudoScreen({
   }, [viewModel, selectedValue]);
 
   const canRoll = !!(
+    !paused &&
     isRemote &&
     viewModel &&
     viewModel.status === 'playing' &&
@@ -193,6 +195,7 @@ export default function LudoScreen({
   };
 
   const handlePick = (pieceId) => {
+    if (paused) return;
     if (!viewModel?.diceRolled) {
       showNotice('Please roll the dice first');
       return;

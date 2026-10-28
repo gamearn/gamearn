@@ -21,6 +21,7 @@ export default function CoinTossModal({
   players = [],
   onComplete,
   gameName = 'Match',
+  initialWinnerIndex = null,
 }) {
   const { userProfile } = useAuth();
   const [countdown, setCountdown] = useState(5);
@@ -45,7 +46,12 @@ export default function CoinTossModal({
     const roster = playersRef.current || [];
     // Determine coin toss winner (backend decision / randomized coin toss)
     const count = Math.max(1, roster.length || 2);
-    const winnerIdx = Math.floor(Math.random() * count);
+    let winnerIdx;
+    if (initialWinnerIndex != null && initialWinnerIndex >= 0 && initialWinnerIndex < count) {
+      winnerIdx = initialWinnerIndex;
+    } else {
+      winnerIdx = Math.floor(Math.random() * count);
+    }
     const winnerPlayer = roster[winnerIdx] || {
       id: winnerIdx,
       name: winnerIdx === 0 ? (userProfile?.username || 'You') : `Player ${winnerIdx + 1}`,
@@ -84,7 +90,7 @@ export default function CoinTossModal({
       clearInterval(interval);
       spinLoop.stop();
     };
-  }, [visible, playersKey]);
+  }, [visible, playersKey, initialWinnerIndex]);
 
   if (!visible || !tossResult) return null;
 
@@ -97,7 +103,9 @@ export default function CoinTossModal({
   const isHumanWinner = winner?.isUser || tossResult.winnerIndex === 0;
   const winnerDisplayName = isHumanWinner
     ? (userProfile?.username || userProfile?.displayName || 'You')
-    : (winner?.username || winner?.name || winner?.displayName || 'Opponent');
+    : (winner?.username || winner?.name || winner?.displayName || 'Oba');
+
+  const isCheckers = /dr[aá]f[uù]|checker/i.test(gameName);
 
   // Build formation list starting with coin toss winner
   const turnOrderList = [];
@@ -147,12 +155,25 @@ export default function CoinTossModal({
             <Text style={styles.winnerName} numberOfLines={1}>
               {winnerDisplayName}
             </Text>
-            <Text style={styles.winnerAction}>
-              🎉 {isHumanWinner ? 'You won the toss! You get White & play 1st!' : `${winnerDisplayName} won the toss and gets White (1st move)!`}
-            </Text>
-            <Text style={[styles.winnerAction, { color: '#94a3b8', fontSize: 13, marginTop: 4 }]}>
-              {isHumanWinner ? 'Opponent gets Black pieces and moves 2nd.' : 'You get Black pieces and move 2nd.'}
-            </Text>
+            {isCheckers ? (
+              <>
+                <Text style={styles.winnerAction}>
+                  🎉 {isHumanWinner ? 'You won the toss! You are White & play 1st!' : `👑 ${winnerDisplayName} won the toss! ${winnerDisplayName} is White & plays 1st!`}
+                </Text>
+                <Text style={[styles.winnerAction, { color: '#94a3b8', fontSize: 13, marginTop: 4 }]}>
+                  {isHumanWinner ? 'Opponent is Black and plays 2nd.' : 'You are Black and play 2nd.'}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.winnerAction}>
+                  🎉 {isHumanWinner ? 'You won the toss! You play 1st!' : `👑 ${winnerDisplayName} won the toss and plays 1st!`}
+                </Text>
+                <Text style={[styles.winnerAction, { color: '#94a3b8', fontSize: 13, marginTop: 4 }]}>
+                  {isHumanWinner ? 'Opponent plays 2nd.' : 'You play 2nd.'}
+                </Text>
+              </>
+            )}
           </View>
 
           {/* Formation Turn Order */}
@@ -184,9 +205,7 @@ export default function CoinTossModal({
             style={styles.actionBtn}
             onPress={() => onComplete?.(tossResult.winnerIndex, tossResult.winnerPlayer, isHumanWinner ? 'white' : 'black')}
           >
-            <Text style={styles.actionBtnText}>
-              Start Match Now ({countdown}s)
-            </Text>
+            <Text style={styles.actionBtnText}>START MATCH ({countdown}s)</Text>
           </Pressable>
         </View>
       </View>

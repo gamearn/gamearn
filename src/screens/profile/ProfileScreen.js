@@ -1,20 +1,194 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, StatusBar } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, StatusBar, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Flame, CheckCircle2, Search } from 'lucide-react-native';
+import { ArrowLeft, Flame, CheckCircle2, Search, UserPlus, Check } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { getStreakInfo } from '../../utils/recordGameStreak';
 import { resolveAvatarSource } from '../../utils/avatarPresets';
+import { referral, leaderboard } from '../../services/api';
+import { formatGP } from '../../utils/gamePower';
 
 export default function ProfileScreen({ navigation }) {
-  const { userProfile } = useAuth();
+  const { userProfile, updateProfileData, refreshProfile } = useAuth();
   const { theme, isDark } = useTheme();
   const streakInfo = getStreakInfo(userProfile);
-  const userName = userProfile?.username || userProfile?.displayName || userProfile?.name || 'Adebayo';
+  const userName = userProfile?.displayName || userProfile?.fullName || userProfile?.name || (userProfile?.username ? `@${userProfile.username}` : '');
   const [searchQuery, setSearchQuery] = useState('');
-  const friendsList = userProfile?.friends || [];
-  const onlineCount = friendsList.filter((f) => f.isOnline).length;
+  const [searchResults, setSearchResults] = useState([]);
+  const [communityUsers, setCommunityUsers] = useState([]);
+  const [loadingCommunity, setLoadingCommunity] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
+  const [followedUids, setFollowedUids] = useState(() => new Set(userProfile?.followingList || []));
+
+  // Sync followedUids whenever userProfile updates
+  useEffect(() => {
+    if (Array.isArray(userProfile?.followingList)) {
+      setFollowedUids(new Set(userProfile.followingList));
+    }
+  }, [userProfile?.followingList]);
+
+  // Refresh profile from server on mount & focus
+  useEffect(() => {
+    if (refreshProfile) refreshProfile().catch(() => {});
+  }, [refreshProfile]);
+
+  // Helper to merge lists of players deduplicating by uid/id
+  const mergePlayers = useCallback((baseList, ...extraLists) => {
+    const map = new Map();
+    const currentUid = userProfile?.uid;
+
+    const addPlayer = (item) => {
+      if (!item) return;
+      const uid = item.uid || item.id;
+      if (!uid || uid === currentUid) return;
+
+      const existing = map.get(uid);
+      const displayName = item.displayName || item.name || item.username || existing?.displayName || '';
+      const username = item.username || (displayName ? displayName.replace(/\s+/g, '').toLowerCase() : '') || existing?.username || '';
+      const avatar = item.avatar || item.avatarUrl || existing?.avatar || null;
+      const plays = Number(item.gamesPlayed ?? item.plays ?? existing?.gamesPlayed ?? 0);
+      const wins = Number(item.wins ?? item.gamesWon ?? existing?.wins ?? 0);
+      const gp = item.gp != null
+        ? Number(item.gp)
+        : (existing?.gp != null
+          ? existing.gp
+          : (plays > 0
+            ? Math.min(100, Math.max(10, Math.round(100 * (0.75 * (wins / plays) + 0.25 * Math.min(1, Math.log10(plays + 1) / 3)))))
+            : 35));
+
+      map.set(uid, {
+        uid,
+        id: uid,
+        displayName,
+        name: displayName,
+        username,
+        avatar,
+        avatarUrl: avatar,
+        gp,
+        streak: item.streak ?? existing?.streak ?? 0,
+        gamesPlayed: plays,
+        wins,
+      });
+    };
+
+    (baseList || []).forEach(addPlayer);
+    extraLists.forEach((list) => (list || []).forEach(addPlayer));
+    return Array.from(map.values());
+  }, [userProfile?.uid]);
+
+  // Load real community players directly from database and active leaderboards
+  const loadAllCommunity = useCallback(async () => {
+    setLoadingCommunity(true);
+    try {
+      const [refRes, dailyRes, weeklyRes] = await Promise.allSettled([
+        referral.searchUsers(''),
+        leaderboard.get('Daily'),
+        leaderboard.get('Weekly'),
+      ]);
+
+      const refList = refRes.status === 'fulfilled'
+        ? (Array.isArray(refRes.value?.data) ? refRes.value.data : (Array.isArray(refRes.value) ? refRes.value : []))
+        : [];
+      const dailyList = dailyRes.status === 'fulfilled'
+        ? (Array.isArray(dailyRes.value?.data) ? dailyRes.value.data : (Array.isArray(dailyRes.value) ? dailyRes.value : []))
+        : [];
+      const weeklyList = weeklyRes.status === 'fulfilled'
+        ? (Array.isArray(weeklyRes.value?.data) ? weeklyRes.value.data : (Array.isArray(weeklyRes.value) ? weeklyRes.value : []))
+        : [];
+
+      const combined = mergePlayers(refList, dailyList, weeklyList);
+      setCommunityUsers(combined);
+    } catch {
+      // Keep existing list
+    } finally {
+      setLoadingCommunity(false);
+    }
+  }, [mergePlayers]);
+
+  useEffect(() => {
+    loadAllCommunity();
+  }, [loadAllCommunity]);
+
+  useEffect(() => {
+    if (!navigation) return;
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (refreshProfile) refreshProfile().catch(() => {});
+      loadAllCommunity();
+    });
+    return unsubscribe;
+  }, [navigation, refreshProfile, loadAllCommunity]);
+
+  // Search real users in database and active leaderboard
+  useEffect(() => {
+    const rawQ = searchQuery.trim();
+    const cleanQ = rawQ.replace(/^@+/, '').trim().toLowerCase();
+    if (!cleanQ) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    // Instantly filter existing community & leaderboard players
+    const instantMatches = communityUsers.filter((u) => {
+      const uName = (u.username || '').toLowerCase();
+      const dName = (u.displayName || u.name || '').toLowerCase();
+      return uName.includes(cleanQ) || dName.includes(cleanQ);
+    });
+    setSearchResults(instantMatches);
+
+    let cancelled = false;
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await referral.searchUsers(cleanQ);
+        if (!cancelled) {
+          const serverList = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+          const merged = mergePlayers(instantMatches, serverList);
+          setSearchResults(merged);
+        }
+      } catch {
+        // Keep instant matches
+      } finally {
+        if (!cancelled) setIsSearching(false);
+      }
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, communityUsers, mergePlayers]);
+
+  const toggleFollow = useCallback((person) => {
+    const pUid = person.uid || person.id;
+    if (!pUid) return;
+    const isCurrentlyFollowing = followedUids.has(pUid);
+    const nextSet = new Set(followedUids);
+    const currentFollowers = Number(userProfile?.followersCount ?? 0);
+    const currentFollowing = Number(userProfile?.followingCount ?? 0);
+
+    if (isCurrentlyFollowing) {
+      nextSet.delete(pUid);
+      setFollowedUids(nextSet);
+      updateProfileData({
+        followersCount: Math.max(0, currentFollowers - 1),
+        followingCount: Math.max(0, currentFollowing - 1),
+        followingList: Array.from(nextSet),
+      }).catch(() => {});
+    } else {
+      nextSet.add(pUid);
+      setFollowedUids(nextSet);
+      updateProfileData({
+        followersCount: currentFollowers + 1,
+        followingCount: currentFollowing + 1,
+        followingList: Array.from(nextSet),
+      }).catch(() => {});
+    }
+  }, [followedUids, userProfile, updateProfileData]);
+
+  const cleanQ = searchQuery.trim().replace(/^@+/, '').trim();
+  const displayedUsers = cleanQ ? searchResults : communityUsers;
 
   return (
     <View style={[styles.screenRoot, { backgroundColor: theme.bg }]}>
@@ -44,7 +218,18 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.onlineDot} />
           </View>
 
-          <Text style={[styles.userNameText, { color: theme.textPrimary }]}>{userName}</Text>
+          <Text style={[styles.userNameText, { color: theme.textPrimary }]}>
+            {userProfile?.displayName || userProfile?.fullName || userProfile?.name || (userProfile?.username ? `@${userProfile.username}` : '')}
+          </Text>
+          {Boolean(
+            userProfile?.username &&
+            (userProfile?.displayName || userProfile?.fullName || userProfile?.name) &&
+            userProfile.username.toLowerCase() !== String(userProfile?.displayName || userProfile?.fullName || userProfile?.name).toLowerCase()
+          ) && (
+            <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '700', marginTop: 4 }}>
+              @{userProfile.username.replace(/^@+/, '')}
+            </Text>
+          )}
         </View>
 
         {/* Action Buttons (Edit Profile & Wallet) */}
@@ -52,11 +237,12 @@ export default function ProfileScreen({ navigation }) {
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => navigation.navigate('EditProfile')}
-            style={styles.editProfileBtn}
+            style={[styles.editProfileBtn, { flex: 1 }]}
           >
             <Text style={styles.editProfileText}>Edit Profile</Text>
           </TouchableOpacity>
 
+          {/* Wallet page commented out
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => navigation.navigate('WalletTab')}
@@ -64,6 +250,7 @@ export default function ProfileScreen({ navigation }) {
           >
             <Text style={[styles.walletBtnText, { color: theme.textPrimary }]}>Wallet</Text>
           </TouchableOpacity>
+          */}
         </View>
 
         {/* Stats Row (Followers, Following, Day Streak) */}
@@ -255,51 +442,73 @@ export default function ProfileScreen({ navigation }) {
             style={[styles.searchInput, { color: theme.textPrimary }]}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Search Friends"
+            placeholder="Search username or name"
             placeholderTextColor={theme.textMuted}
           />
+          {isSearching && <ActivityIndicator size="small" color="#00E5FF" />}
         </View>
 
         {/* Active Friends List Section */}
         <View style={styles.friendsSectionHeader}>
-          <Text style={[styles.friendsTitle, { color: theme.textSecondary }]}>ACTIVE FRIENDS</Text>
-          <Text style={styles.onlineCountText}>{onlineCount} Online</Text>
+          <Text style={[styles.friendsTitle, { color: theme.textSecondary }]}>
+            {searchQuery.trim() ? 'SEARCH RESULTS' : 'COMMUNITY PLAYERS'}
+          </Text>
+          <Text style={styles.onlineCountText}>{displayedUsers.length} Players</Text>
         </View>
 
         <View style={styles.friendsList}>
-          {friendsList.length === 0 ? (
-            <View style={{ paddingVertical: 16, alignItems: 'center' }}>
-              <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '600' }}>No active friends yet.</Text>
+          {displayedUsers.length === 0 ? (
+            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+              <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '600' }}>
+                {searchQuery.trim() ? `No player found matching "${searchQuery}"` : (loadingCommunity ? 'Loading players from database...' : 'No other players registered yet.')}
+              </Text>
             </View>
           ) : (
-            friendsList.filter((f) => (f.name || f.username || '').toLowerCase().includes(searchQuery.toLowerCase())).map((friend) => (
-              <View key={friend.id} style={[styles.friendCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
-                <View style={styles.friendAvatarWrap}>
-                  <Image source={{ uri: friend.avatar }} style={styles.friendAvatarImg} />
-                  <View style={styles.friendOnlineDot} />
-                </View>
+            displayedUsers.map((person) => {
+              const pUid = person.uid || person.id;
+              const isFollowed = followedUids.has(pUid);
+              const pName = person.displayName || person.name || '';
+              const pUsername = person.username || '';
+              const pGp = person.gp != null ? person.gp : (person.gamePower || 0);
 
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={[styles.friendNameText, { color: theme.textPrimary }]}>{friend.name || friend.username}</Text>
-                    {friend.badge && (
-                      <View style={[styles.badgePill, { backgroundColor: 'rgba(255, 85, 0, 0.2)' }]}>
-                        <Text style={[styles.badgePillText, { color: friend.badgeColor || '#FF5500' }]}>{friend.badge}</Text>
-                      </View>
-                    )}
+              const primaryTitle = pName || (pUsername ? `@${pUsername.replace(/^@+/, '')}` : 'Player');
+              const showSubtitle = Boolean(pUsername && pName && pUsername.toLowerCase() !== pName.toLowerCase());
+
+              return (
+                <View key={pUid} style={[styles.friendCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
+                  <View style={styles.friendAvatarWrap}>
+                    <Image source={resolveAvatarSource(person.avatar || person.avatarUrl)} style={styles.friendAvatarImg} />
+                    <View style={styles.friendOnlineDot} />
                   </View>
-                  <Text style={[styles.friendRankText, { color: theme.textSecondary }]}>{friend.rank || 'Gamer'}</Text>
-                </View>
 
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => alert(`Invite sent to ${friend.name || friend.username}!`)}
-                  style={styles.inviteBtn}
-                >
-                  <Text style={styles.inviteBtnText}>Invite</Text>
-                </TouchableOpacity>
-              </View>
-            ))
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.friendNameText, { color: theme.textPrimary }]} numberOfLines={1}>
+                      {primaryTitle}
+                    </Text>
+                    {showSubtitle && (
+                      <Text style={[styles.friendRankText, { color: theme.textSecondary }]}>
+                        @{pUsername.replace(/^@+/, '')}
+                      </Text>
+                    )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                      <View style={styles.gpBadge}>
+                        <Text style={styles.gpBadgeText}>⚡ {pGp} GP</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => toggleFollow(person)}
+                    style={[styles.followBtn, isFollowed ? styles.followingBtn : styles.followBtnActive]}
+                  >
+                    <Text style={[styles.followBtnText, isFollowed ? styles.followingBtnText : styles.followBtnActiveText]}>
+                      {isFollowed ? 'Following ✓' : 'Follow'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -556,6 +765,45 @@ const styles = StyleSheet.create({
   },
   inviteBtnText: {
     color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  gpBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  gpBadgeText: {
+    color: '#F59E0B',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  followBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 88,
+  },
+  followBtnActive: {
+    backgroundColor: '#10B981',
+  },
+  followBtnActiveText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  followingBtn: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+  },
+  followingBtnText: {
+    color: '#10B981',
     fontSize: 13,
     fontWeight: '800',
   },

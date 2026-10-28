@@ -101,6 +101,8 @@ export const premium = {
 
 export const referral = {
   me: () => apiGet('/referral/me'),
+  // Search registered users by username or display name across the app
+  searchUsers: (query) => apiGet(`/referral/search?q=${encodeURIComponent(query || '')}`),
   // Sends real referral pings: { refereeUids: string[], type: 'streak' | 'challenge' | 'tournament' }.
   ping: ({ refereeUids = [], type = 'streak' } = {}) => apiPost('/referral/ping', { refereeUids, type }),
 };
@@ -163,6 +165,8 @@ export const tournaments = {
       tournamentType: body.tournamentType || 'win',
       maxPlayers: body.maxPlayers || 32,
       topWinners: body.topWinners || 3,
+      entryFeeVp: body.entryFeeVp != null ? Number(body.entryFeeVp) : 0,
+      committedVp: body.committedVp != null ? Number(body.committedVp) : 100,
     }),
 
   list: (gameType) =>
@@ -189,6 +193,20 @@ export const leaderboard = {
     if (normalized) qs.set('gameType', normalized);
     const res = await apiGet(`/leaderboard?${qs.toString()}`);
     return res?.data || res || [];
+  },
+  recordCompletion: async (gameType, outcome = 'win', completionReason = 'normal', matchId = null) => {
+    try {
+      const normalized = gameType ? GAME_TYPE_ALIASES[String(gameType).toLowerCase()] || gameType : null;
+      return await apiPost('/leaderboard/record-completion', {
+        gameType: normalized,
+        outcome,
+        completionReason,
+        matchId,
+      });
+    } catch {
+      // Endpoint is optional depending on backend deployment version; fail silently
+      return null;
+    }
   },
 };
 
@@ -248,6 +266,9 @@ export const practice = {
         startCards: opts.startCards ?? opts.cardCount ?? opts.cards ?? 6,
         seats: opts.seats || 4,
         timer: opts.timer || '2m',
+        nulled: opts.nulled,
+        removed: opts.removed,
+        specialCards: opts.specialCards,
       }),
     move: (sessionId, move) => apiPost('/practice/whot/move', { sessionId, move }),
     state: (sessionId) => apiGet(`/practice/whot/state/${sessionId}`),

@@ -1,13 +1,16 @@
-export function createAyoInitialState(seedCount = 4) {
+export function createAyoInitialState(seedCount = 4, firstPlayer = 1) {
   const count = typeof seedCount === 'number' && seedCount > 0 ? seedCount : 4;
+  const starter = firstPlayer === 2 ? 2 : 1;
   return {
     pits: Array(12).fill(count),
     scores: [0, 0], // Index 0: Player 1 (You), Index 1: Player 2 (Oba)
-    activePlayer: 1, // 1: You (bottom row: pits 0..5), 2: Oba (top row: pits 6..11)
+    activePlayer: starter, // 1: You (bottom row: pits 0..5), 2: Oba (top row: pits 6..11)
     gameStatus: 'playing',
     winner: null,
     seedCount: count,
-    statusMessage: 'Your turn! Tap one of your bottom pits (1–6) to sow seeds.',
+    statusMessage: starter === 2
+      ? 'Oba plays first! Preparing opening move…'
+      : 'Your turn! Tap one of your bottom pits (1–6) to sow seeds.',
   };
 }
 

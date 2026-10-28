@@ -105,7 +105,7 @@ export default function PaymentScreen({ navigation, route }) {
           <View style={styles.footerRow}>
             <ActivityIndicator color={theme.primary} size="small" />
             <Text style={[styles.footerText, { color: theme.textPrimary }]}>
-              Complete payment to add {Number(valuePoints || 0).toLocaleString()} Value Points{amount ? ` (₦${Number(amount).toLocaleString()})` : ''}
+              Complete payment to acquire {Number(valuePoints || 0).toLocaleString()} Value Points
             </Text>
           </View>
         ) : (

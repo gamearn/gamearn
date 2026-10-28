@@ -171,7 +171,7 @@ export default function EditProfileScreen({ navigation }) {
               style={[styles.textInput, { color: theme.textPrimary }]}
               value={fullName}
               onChangeText={setFullName}
-              placeholder="e.g. Adebayo Johnson"
+              placeholder="Enter your full name"
               placeholderTextColor={theme.textMuted}
               autoCapitalize="words"
             />
@@ -186,7 +186,7 @@ export default function EditProfileScreen({ navigation }) {
               style={[styles.textInput, { color: theme.textPrimary }]}
               value={username}
               onChangeText={(text) => setUsername(sanitizeUsername(text))}
-              placeholder="e.g. gamerone"
+              placeholder="Enter your username"
               placeholderTextColor={theme.textMuted}
               autoCapitalize="none"
               autoCorrect={false}

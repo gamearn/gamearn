@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Gamepad2, Play, Square } from 'lucide-react-native';
-import { getActiveMatch, clearActiveMatch } from '../utils/activeMatch';
+import { Gamepad2, Play } from 'lucide-react-native';
+import { getActiveMatch } from '../utils/activeMatch';
 
 export default function ActiveMatchBanner({ navigation }) {
   const [activeMatch, setActiveMatchState] = useState(null);
@@ -26,11 +26,6 @@ export default function ActiveMatchBanner({ navigation }) {
     }
   };
 
-  const handleEndGame = async () => {
-    await clearActiveMatch();
-    setActiveMatchState(null);
-  };
-
   return (
     <View style={styles.bannerRoot}>
       {/* Top Section: Word / Title & Game Name above buttons */}
@@ -45,16 +40,11 @@ export default function ActiveMatchBanner({ navigation }) {
         </View>
       </View>
 
-      {/* Bottom Section: Action Buttons below words */}
+      {/* Bottom Section: Rejoin Action */}
       <View style={styles.btnRow}>
         <TouchableOpacity activeOpacity={0.85} onPress={handleRejoin} style={styles.rejoinBtn}>
           <Play size={14} color="#000000" fill="#000000" />
           <Text style={styles.rejoinBtnText}>REJOIN MATCH</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity activeOpacity={0.85} onPress={handleEndGame} style={styles.endGameBtn}>
-          <Square size={14} color="#FFFFFF" fill="#FFFFFF" />
-          <Text style={styles.endGameBtnText}>END GAME</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -120,21 +110,6 @@ const styles = StyleSheet.create({
   },
   rejoinBtnText: {
     color: '#000000',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  endGameBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#EF4444',
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  endGameBtnText: {
-    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '900',
   },

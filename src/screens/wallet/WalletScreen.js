@@ -1,3 +1,12 @@
+import React from 'react';
+
+// Entire WalletScreen is commented out per instructions.
+export default function WalletScreen() {
+  return null;
+}
+
+/*
+Entire Wallet Page Commented Out as requested:
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -30,7 +39,7 @@ function formatTxDate(iso) {
   }
 }
 
-export default function WalletScreen({ navigation }) {
+export function OriginalWalletScreen({ navigation }) {
   const { userProfile, refreshWallet } = useAuth();
   const { theme, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState('Overview');
@@ -72,7 +81,6 @@ export default function WalletScreen({ navigation }) {
 
   useEffect(() => {
     refreshWallet().catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -80,7 +88,6 @@ export default function WalletScreen({ navigation }) {
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
       <LinearGradient colors={theme.gradientBg} style={StyleSheet.absoluteFillObject} />
 
-      {/* Screen Title */}
       <View style={styles.topHeader}>
         {navigation.canGoBack() ? (
           <TouchableOpacity
@@ -96,7 +103,6 @@ export default function WalletScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Neon Circle Chart & Balance Header */}
         <View style={styles.heroCenterBlock}>
           <View style={styles.circleGraphicContainer}>
             <Svg width={140} height={140}>
@@ -121,7 +127,6 @@ export default function WalletScreen({ navigation }) {
               />
             </Svg>
 
-            {/* Neon Abstract Ribbon inner graphic */}
             <View style={styles.innerNeonRibbonWrap}>
               <LinearGradient
                 colors={['#FF00E5', '#00E5FF']}
@@ -133,14 +138,12 @@ export default function WalletScreen({ navigation }) {
 
           </View>
 
-          {/* Balance Unit Display */}
           <View style={styles.balanceTextRow}>
             <Text style={[styles.balanceNum, { color: theme.textPrimary }]}>₦{balanceNaira.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
           </View>
 
           <Text style={[styles.usdEquivalentText, { color: theme.textSecondary }]}>${usdValue} USD Equivalent</Text>
 
-          {/* GP (Game Power) & VP (Value Points) Pills */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, justifyContent: 'center' }}>
             <View style={{ backgroundColor: '#1E1B4B', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: '#6366F1AA', flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '900' }}>⚡ {userProfile?.gpText || '0 GP'}</Text>
@@ -188,7 +191,6 @@ export default function WalletScreen({ navigation }) {
           })()}
         </View>
 
-        {/* Tab Navigation */}
         <View style={[styles.tabNavRow, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)' }]}>
           {['Overview', 'Buy', 'Cash out', 'Withdraw'].map((tab) => {
             const isSelected = activeTab === tab;
@@ -213,7 +215,6 @@ export default function WalletScreen({ navigation }) {
           })}
         </View>
 
-        {/* CTA Buttons (+ Add Funds & Cash Out) */}
         <View style={styles.ctaButtonsGrid}>
           <TouchableOpacity
             activeOpacity={0.88}
@@ -241,7 +242,6 @@ export default function WalletScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Transaction History Section */}
         <View style={styles.txHeaderRow}>
           <Text style={[styles.txHeaderTitle, { color: theme.textPrimary }]}>Transaction History</Text>
           <TouchableOpacity onPress={() => navigation.navigate('BuyValuePoints')}>
@@ -549,4 +549,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+*/
+
 

@@ -29,8 +29,7 @@ const SHAPE_COLORS = {
 };
 
 function getShapeColor(shape) {
-  if (!shape) return '#00E5FF';
-  return SHAPE_COLORS[shape.toLowerCase()] || '#00E5FF';
+  return '#6200bc';
 }
 import {
   AI_CHAT_RESPONSES,
@@ -110,10 +109,13 @@ export function WhotScreen({
   aiDifficulty = 'auto',
   incomingChats = [],
   secondsRemaining = null,
+  isRejoin = false,
+  nulled = [],
+  removed = [],
 }) {
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
   const [gameState, setGameState] = useState(() =>
-    createInitialState(timer, cardCount, vsOba ? 2 : (playerCount || 2), vsOba)
+    createInitialState(timer, cardCount, vsOba ? 2 : (playerCount || 2), vsOba, { nulled, removed })
   );
   const displaySeconds = (isRemote && secondsRemaining != null)
     ? secondsRemaining
@@ -189,6 +191,7 @@ export function WhotScreen({
   // AI Turn Execution
   useEffect(() => {
     if (isRemote) return; // opponent turns arrive via server snapshots
+    if (showCoinToss) return; // wait for pre-match coin toss to finish
     if (gameState.gameStatus === 'game_over') return;
     if (gameState.activePlayerIndex === 0) return; // Human turn
 
@@ -311,7 +314,7 @@ export function WhotScreen({
 
   useEffect(() => {
     let alive = true;
-    if (!isRemote) {
+    if (!isRemote && isRejoin) {
       getActiveMatch().then((match) => {
         if (
           alive &&
@@ -321,23 +324,19 @@ export function WhotScreen({
           match.savedState.players?.[0]?.hand?.length === cardCount
         ) {
           setGameState(match.savedState);
-        } else {
-          setActiveMatch({
-            gameId: 'whot',
-            gameName: 'Wọ́t Game',
-            targetScreen: 'WhotGame',
-            durationSecs: 120,
-          });
         }
+      });
+    } else if (!isRemote) {
+      setActiveMatch({
+        gameId: 'whot',
+        gameName: 'Wọ́t Game',
+        targetScreen: 'WhotGame',
+        durationSecs: 120,
       });
     }
 
-    if (!mountStreakRecorded.current) {
-      mountStreakRecorded.current = true;
-      recordGameStreak(updateProfileData, userProfile);
-    }
     return () => { alive = false; };
-  }, []);
+  }, [isRejoin]);
 
   // Ensure gameState always matches the exact requested cardCount
   useEffect(() => {
@@ -353,7 +352,6 @@ export function WhotScreen({
       clearActiveMatch();
       if (!gameOverHandled.current) {
         gameOverHandled.current = true;
-        recordGameStreak(updateProfileData, userProfile);
         if (isRemote) {
           onRemoteGameOver?.(gameState.winner);
           return;
@@ -1057,6 +1055,7 @@ export function WhotScreen({
         visible={showCoinToss}
         players={gameState.players}
         gameName="Wọńt Game"
+        initialWinnerIndex={remote?.coinToss?.winnerIndex ?? gameState?.coinToss?.winnerIndex}
         onComplete={(winnerIdx) => {
           setShowCoinToss(false);
           setGameState((prev) => ({ ...prev, activePlayerIndex: winnerIdx }));

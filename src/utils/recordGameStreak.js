@@ -56,21 +56,32 @@ export async function recordGameStreak(updateProfileData, userProfile, isWinner 
     newWinStreak = 0;
   }
 
-  const currentGamesPlayed = Number(userProfile?.gamesPlayed ?? userProfile?.stats?.gamesPlayed ?? (Number(userProfile?.wins || 0) + Number(userProfile?.losses || 0)));
-  const newGamesPlayed = currentGamesPlayed + 1;
+  // 3. 7-Day Streak Unlock & +1 Value Point Reward
+  let extraVpAward = 0;
+  const lastAwardedMilestone = Number(userProfile?.lastStreakMilestoneAwarded ?? 0);
+  if (newDailyStreak >= 7 && lastAwardedMilestone < 7) {
+    extraVpAward = 1;
+  }
+
+  const currentValuePoints = Number(userProfile?.valuePoints ?? 0);
 
   try {
-    await updateProfileData({
+    const payload = {
       dailyPlayStreak: newDailyStreak,
       streak: newDailyStreak,
       currentStreak: newDailyStreak,
       winStreak: newWinStreak,
       currentWinStreak: newWinStreak,
-      gamesPlayed: newGamesPlayed,
       lastPlayedDate: todayStr,
       lastStreakDate: todayStr,
       lastCheckInDate: todayStr,
-    });
+      streak7Unlocked: newDailyStreak >= 7,
+    };
+    if (extraVpAward > 0) {
+      payload.valuePoints = currentValuePoints + extraVpAward;
+      payload.lastStreakMilestoneAwarded = 7;
+    }
+    await updateProfileData(payload);
   } catch (err) {
     console.log('Notice: Could not record game streak:', err?.message || err);
   }

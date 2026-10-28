@@ -27,14 +27,26 @@ export default function WhotGameScreen({ route, navigation }) {
   const effectiveSeats = requestedSeats >= 2 ? Math.min(4, Math.max(2, requestedSeats)) : (isVsOba ? 2 : 4);
   const effectiveCards = Math.min(8, Math.max(3, Number(params.cardCount || params.cards || params.startCards || params.startingCards || 6)));
 
+  const isRejoin = !!params.isRejoin;
+
   useEffect(() => {
-    clearActiveMatch();
-  }, [params.resetKey, effectiveCards]);
+    if (!isRejoin) {
+      clearActiveMatch();
+    }
+  }, [params.resetKey, effectiveCards, isRejoin]);
   const stake = params.stake || 250;
   const timer = params.timer || '2m';
   const uid = user?.uid;
-  const selfName = userProfile?.username || userProfile?.displayName || 'You';
+  const selfName = userProfile?.displayName || userProfile?.username || userProfile?.name || 'You';
   const entryFee = params.entryFee || 0;
+
+  const specialCardsParam = params.specialCards || {};
+  const nulled = Array.isArray(params.nulled)
+    ? params.nulled
+    : [1, 2, 5, 8, 14].filter((num) => specialCardsParam[num] === false).map(String);
+  const removed = Array.isArray(params.removed)
+    ? params.removed
+    : (specialCardsParam[20] === false ? ['20'] : []);
 
   const options = useMemo(() => ({
     playerRating: params.playerRating || 1200,
@@ -44,7 +56,10 @@ export default function WhotGameScreen({ route, navigation }) {
     seats: effectiveSeats,
     playerCount: effectiveSeats,
     timer,
-  }), [params.playerRating, effectiveCards, effectiveSeats, timer]);
+    nulled,
+    removed,
+    specialCards: specialCardsParam,
+  }), [params.playerRating, effectiveCards, effectiveSeats, timer, nulled, removed, specialCardsParam]);
 
   // Shared server session controller: owns transport (practice REST or
   // multiplayer socket), the turn clock, and every authoritative move.
@@ -151,7 +166,10 @@ export default function WhotGameScreen({ route, navigation }) {
           cardCount={effectiveCards}
           playerCount={effectiveSeats}
           vsOba={isVsOba}
+          nulled={nulled}
+          removed={removed}
           aiDifficulty={params.aiDifficulty}
+          isRejoin={isRejoin}
           isRemote={remoteMode && !!remote}
           remote={remote}
           secondsRemaining={session.secondsRemaining}
@@ -180,7 +198,7 @@ export default function WhotGameScreen({ route, navigation }) {
         </View>
         {multiplayer && entryFee > 0 && (
           <View style={styles.stakeTag}>
-            <Text style={styles.stakeText}>{`Stake \u20A6${((entryFee || 0) / 100).toLocaleString()}`}</Text>
+            <Text style={styles.stakeText}>{`Stake ${Math.max(1, Math.floor((entryFee || 0) / 5000)).toLocaleString()} VP`}</Text>
           </View>
         )}
       </View>

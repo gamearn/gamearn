@@ -44,6 +44,7 @@ export function CheckersScreen({
   onControl = null,
   paused = false,
   firstPlayer = 'player',
+  isRejoin = false,
 }) {
   const { updateProfileData, userProfile } = useAuth();
   const playerSide = playerColor === 'black' ? 'black' : 'white';
@@ -116,7 +117,7 @@ export function CheckersScreen({
   const mountStreakRecorded = React.useRef(false);
   useEffect(() => {
     let alive = true;
-    if (!isRemote) {
+    if (!isRemote && isRejoin) {
       getActiveMatch().then((match) => {
         if (alive && match?.gameId === 'draft' && match?.savedState && !match.savedState?.isOver) {
           const s = match.savedState;
@@ -124,23 +125,19 @@ export function CheckersScreen({
           if (s.turn) setTurn(s.turn);
           if (s.history) setHistory(s.history);
           if (s.seconds !== undefined) setSeconds(s.seconds);
-        } else {
-          setActiveMatch({
-            gameId: 'draft',
-            gameName: 'Checkers / Draughts',
-            targetScreen: 'DraughtsGame',
-            durationSecs: 120,
-          });
         }
+      });
+    } else if (!isRemote) {
+      setActiveMatch({
+        gameId: 'draft',
+        gameName: 'Checkers / Draughts',
+        targetScreen: 'DraughtsGame',
+        durationSecs: 120,
       });
     }
 
-    if (!mountStreakRecorded.current && updateProfileData && userProfile) {
-      mountStreakRecorded.current = true;
-      recordGameStreak(updateProfileData, userProfile);
-    }
     return () => { alive = false; };
-  }, []);
+  }, [isRejoin]);
 
   // Persist ongoing state changes to active match session
   useEffect(() => {
@@ -240,9 +237,6 @@ export function CheckersScreen({
       }
       if (!hasMoves) {
         setGameOver({ isOver: true, winner: aiSide });
-        if (updateProfileDataRef.current && userProfileRef.current) {
-          recordGameStreak(updateProfileDataRef.current, userProfileRef.current);
-        }
         if (onRemoteGameOverRef.current) {
           onRemoteGameOverRef.current(aiSide);
         } else if (onWinRef.current) {
@@ -283,9 +277,6 @@ export function CheckersScreen({
           const endResult = checkGameEnd(newBoard, playerSide);
           if (endResult.isOver) {
             setGameOver(endResult);
-            if (updateProfileDataRef.current && userProfileRef.current) {
-              recordGameStreak(updateProfileDataRef.current, userProfileRef.current);
-            }
             if (onWinRef.current) {
               onWinRef.current(endResult.winner === playerSide);
             } else if (onRemoteGameOverRef.current) {
@@ -301,9 +292,6 @@ export function CheckersScreen({
         } else {
           // AI has no legal moves -> Player wins
           setGameOver({ isOver: true, winner: playerSide });
-          if (updateProfileDataRef.current && userProfileRef.current) {
-            recordGameStreak(updateProfileDataRef.current, userProfileRef.current);
-          }
           if (onWinRef.current) {
             onWinRef.current(true);
           } else if (onRemoteGameOverRef.current) {
@@ -825,7 +813,6 @@ export function CheckersScreen({
                         return;
                       }
                       setGameOver({ isOver: true, winner: aiSide });
-                      if (updateProfileData && userProfile) recordGameStreak(updateProfileData, userProfile);
                       if (onWin) onWin(false);
                     }}
                     style={[styles.modalButton, { marginLeft: 12 }]}

@@ -93,12 +93,12 @@ export default function WithdrawScreen({ route, navigation }) {
       await refreshWallet();
       Alert.alert(
         'Withdrawal Submitted 🎉',
-        `Your payout request of ₦${parsedAmount.toLocaleString()} to ${
+        `Your payout request of ${Math.floor(parsedAmount / 50).toLocaleString()} VP to ${
           bank.name
         } •••• ${accountNumber.slice(-4)} has been submitted.`,
         [
           {
-            text: 'Return to Wallet',
+            text: 'Done',
             onPress: () => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')),
           },
         ],
@@ -173,8 +173,8 @@ export default function WithdrawScreen({ route, navigation }) {
               end={{ x: 1, y: 1 }}
               style={styles.balanceCard}
             >
-              <Text style={[styles.balanceCardLabel, { color: theme.primary }]}>Available Balance</Text>
-              <Text style={[styles.balanceCardAmount, { color: theme.textPrimary }]}>₦{Number(cashBalance).toLocaleString()}</Text>
+              <Text style={[styles.balanceCardLabel, { color: theme.primary }]}>Acquired Points</Text>
+              <Text style={[styles.balanceCardAmount, { color: theme.textPrimary }]}>{Math.floor(Number(cashBalance) / 50).toLocaleString()} VP</Text>
               <View style={styles.coinsRow}>
                 <Coins size={15} color={theme.primary} />
                 <Text style={[styles.coinsText, { color: theme.textSecondary }]}>{valuePointBalance.toLocaleString()} Value Points</Text>
@@ -183,23 +183,23 @@ export default function WithdrawScreen({ route, navigation }) {
 
             <View style={styles.sectionWrap}>
               <Text style={styles.sectionHeaderTitle}>Withdrawal Amount</Text>
-              <Text style={[styles.inputLabelText, { color: theme.textSecondary }]}>Enter Amount (NGN)</Text>
+              <Text style={[styles.inputLabelText, { color: theme.textSecondary }]}>Enter Amount (Value Points)</Text>
 
               <View style={styles.amountInputBox}>
-                <Text style={styles.currencySymbol}>₦</Text>
+                <Text style={styles.currencySymbol}>VP</Text>
                 <TextInput
                   style={styles.amountTextInput}
                   value={amountInput}
                   onChangeText={setAmountInput}
                   keyboardType="decimal-pad"
-                  placeholder="0.00"
+                  placeholder="0"
                   placeholderTextColor="#64748B"
                 />
               </View>
 
               <View style={styles.conversionNoteRow}>
                 <AlertCircle size={14} color="#64748B" />
-                <Text style={styles.conversionNoteText}>1 Value Point = ₦{NAIRA_PER_VALUE_POINT} · Withdrawals go to Nigerian bank accounts</Text>
+                <Text style={styles.conversionNoteText}>1 Value Point = 50 units · Withdrawals go to verified bank accounts</Text>
               </View>
             </View>
 
@@ -276,7 +276,7 @@ export default function WithdrawScreen({ route, navigation }) {
 
               <View style={styles.reviewRowMain}>
                 <Text style={styles.reviewMainLabel}>Withdrawal Amount</Text>
-                <Text style={styles.reviewMainVal}>₦{parsedAmount.toLocaleString()}</Text>
+                <Text style={styles.reviewMainVal}>{Math.floor(parsedAmount / 50).toLocaleString()} VP</Text>
               </View>
 
               <View style={styles.reviewDivider} />

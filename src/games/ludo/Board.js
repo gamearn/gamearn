@@ -99,7 +99,21 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
   const processedRef = useRef(null);
   const animatingRef = useRef(false);
   const [activeMove, setActiveMove] = useState(null);
+  const [animStep, setAnimStep] = useState(1);
   const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const id = progress.addListener(({ value }) => {
+      if (activeMove && activeMove.cells && activeMove.cells.length > 1) {
+        const total = activeMove.cells.length - 1;
+        const current = Math.min(total, Math.max(1, Math.floor(value + 0.5)));
+        setAnimStep(current);
+      }
+    });
+    return () => {
+      progress.removeListener(id);
+    };
+  }, [progress, activeMove]);
 
   const runQueue = useCallback(() => {
     if (animatingRef.current) return;
@@ -107,8 +121,10 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
     if (!next) return;
     animatingRef.current = true;
     const n = next.cells.length - 1;
-    const stepMs = Math.max(120, Math.min(180, Math.round(1500 / Math.max(1, n))));
-    const duration = Math.max(500, stepMs * n);
+    // Slow down square-by-square movement (~380ms per cell) so players can count along.
+    const stepMs = 380;
+    const duration = Math.max(400, stepMs * n);
+    setAnimStep(1);
     progress.setValue(0);
     setActiveMove(next);
     Animated.timing(progress, {
@@ -201,6 +217,13 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
     inputRange: animInput,
     outputRange: active ? active.cells.map((cell) => (cell.r + 0.5) * cs - tokenDiameter / 2) : [0, 0],
   });
+
+  const currentCellIndex = Math.min(
+    (active?.cells?.length || 1) - 1,
+    Math.max(0, animStep)
+  );
+  const currentCell = active?.cells ? active.cells[currentCellIndex] : null;
+  const isNearTop = currentCell && currentCell.r <= 1;
 
   return (
     <View
@@ -371,6 +394,79 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
             justifyContent: 'center',
           }}
         >
+          {/* Floating Arrow & Step Counter (Counts 1 to 6 / N steps above the moving seed) */}
+          {active.cells && active.cells.length > 1 && (
+            <View
+              style={{
+                position: 'absolute',
+                ...(isNearTop
+                  ? { top: tokenDiameter + 4 }
+                  : { bottom: tokenDiameter + 4 }),
+                left: (tokenDiameter - 74) / 2,
+                width: 74,
+                alignItems: 'center',
+                zIndex: 1000,
+              }}
+            >
+              {isNearTop && (
+                <View
+                  style={{
+                    width: 0,
+                    height: 0,
+                    borderLeftWidth: 6,
+                    borderRightWidth: 6,
+                    borderBottomWidth: 8,
+                    borderLeftColor: 'transparent',
+                    borderRightColor: 'transparent',
+                    borderBottomColor: '#00E5FF',
+                    marginBottom: 2,
+                  }}
+                />
+              )}
+              <View
+                style={{
+                  backgroundColor: '#070C1B',
+                  borderColor: '#00E5FF',
+                  borderWidth: 1.5,
+                  borderRadius: 10,
+                  paddingHorizontal: 7,
+                  paddingVertical: 3,
+                  alignItems: 'center',
+                  shadowColor: '#00E5FF',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.9,
+                  shadowRadius: 5,
+                  elevation: 10,
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#00E5FF',
+                    fontWeight: '900',
+                    fontSize: Math.max(11, cs * 0.35),
+                  }}
+                >
+                  Step {animStep}
+                </Text>
+              </View>
+              {!isNearTop && (
+                <View
+                  style={{
+                    width: 0,
+                    height: 0,
+                    borderLeftWidth: 6,
+                    borderRightWidth: 6,
+                    borderTopWidth: 8,
+                    borderLeftColor: 'transparent',
+                    borderRightColor: 'transparent',
+                    borderTopColor: '#00E5FF',
+                    marginTop: 2,
+                  }}
+                />
+              )}
+            </View>
+          )}
+
           <View
             style={{
               position: 'absolute',

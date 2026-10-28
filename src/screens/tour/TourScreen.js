@@ -15,23 +15,22 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { tournaments } from '../../services/api';
 import { ApiError } from '../../services/apiClient';
-import { naira } from '../../config/appConfig';
 
 const STATUS_META = {
-  registration_open: { label: 'REGISTRATION OPEN', color: '#00E5FF' },
-  scheduled: { label: 'PENDING ENTRY', color: '#F59E0B' },
-  pending: { label: 'PENDING ENTRY', color: '#F59E0B' },
-  in_progress: { label: 'LIVE NOW', color: '#00E5FF' },
-  completed: { label: 'COMPLETED', color: '#10B981' },
+  registration_open: { label: 'UPCOMING', color: '#00E5FF' },
+  scheduled: { label: 'UPCOMING', color: '#00E5FF' },
+  pending: { label: 'UPCOMING', color: '#00E5FF' },
+  in_progress: { label: 'LIVE NOW', color: '#10B981' },
+  completed: { label: 'COMPLETED', color: '#64748B' },
   cancelled: { label: 'CANCELLED', color: '#EF4444' },
 };
 
-const GAME_LABELS = { whot: 'Wọ́t', ludo: 'Lúùdò', ayo: 'Ayò Ọ̀pọ́n', draughts: 'Dráfù' };
+const GAME_LABELS = { all: 'All Games 🏆', whot: 'Wọ́t', ludo: 'Lúùdò', ayo: 'Ayò Ọ̀pọ́n', draughts: 'Dráfù' };
 
 export default function TourScreen({ navigation }) {
   const { userProfile } = useAuth();
   const { theme, isDark } = useTheme();
-  const userName = userProfile?.name || userProfile?.username || 'Adebayo';
+  const userName = userProfile?.name || userProfile?.username || '';
 
   const [upcoming, setUpcoming] = useState([]);
   const [mine, setMine] = useState([]);
@@ -42,7 +41,20 @@ export default function TourScreen({ navigation }) {
   const load = useCallback(async () => {
     try {
       const [list, myTours] = await Promise.all([tournaments.list(), tournaments.my()]);
-      setUpcoming(list || []);
+      const now = Date.now();
+      const rawUpcoming = list || [];
+      const filteredUpcoming = rawUpcoming.filter((item) => {
+        const st = String(item.status || '').toLowerCase();
+        if (['cancelled', 'completed'].includes(st)) return false;
+        const isLive = Boolean((item.isLive || item.is_live) && st === 'in_progress');
+        // Unlaunched tournaments over 24 hours must disappear
+        if (!isLive) {
+          if (item.launchDeadline && new Date(item.launchDeadline).getTime() <= now) return false;
+          if (item.createdAt && (now - new Date(item.createdAt).getTime()) > 24 * 3600 * 1000) return false;
+        }
+        return true;
+      });
+      setUpcoming(filteredUpcoming);
       setMine(myTours || []);
       setError('');
     } catch (err) {
@@ -63,10 +75,10 @@ export default function TourScreen({ navigation }) {
   };
 
   const openTournament = (item) => {
-    const status = item.status;
-    if (status === 'in_progress') {
+    const isTrulyLive = Boolean((item.isLive || item.is_live) && item.status === 'in_progress');
+    if (isTrulyLive) {
       navigation.navigate('LiveTournament', { tourId: item.id, title: item.name });
-    } else if (status === 'completed') {
+    } else if (item.status === 'completed') {
       navigation.navigate('TournamentResults', { tourId: item.id, title: item.name });
     } else {
       navigation.navigate('TournamentDetails', { tourId: item.id, title: item.name });
@@ -74,12 +86,23 @@ export default function TourScreen({ navigation }) {
   };
 
   const renderCard = (item, rightLabel) => {
-    const meta = STATUS_META[item.status] || { label: 'PENDING ENTRY', color: '#F59E0B' };
+    const isTrulyLive = Boolean((item.isLive || item.is_live) && item.status === 'in_progress');
+    let meta;
+    if (isTrulyLive) {
+      meta = { label: 'LIVE NOW', color: '#10B981' };
+    } else if (item.status === 'completed') {
+      meta = { label: 'COMPLETED', color: '#64748B' };
+    } else if (item.status === 'cancelled') {
+      meta = { label: 'CANCELLED', color: '#EF4444' };
+    } else {
+      meta = { label: 'UPCOMING', color: '#00E5FF' };
+    }
     const slot = `${item.currentParticipants} / ${item.maxParticipants}`;
     const game = GAME_LABELS[item.gameType] || item.gameType || 'Game';
     const isCompleted = item.status === 'completed';
     const isCancelled = item.status === 'cancelled';
-    const prize = isCompleted || item.prizePool > 0 ? item.prizePool : null;
+    const feeVp = item.entryFeeVp ?? item.entryFee ?? 0;
+    const poolVp = item.prizePoolVp ?? item.prizePool ?? (item.rewardPoolVp ?? 0);
 
     return (
       <View key={item.id} style={styles.tourCard}>
@@ -95,7 +118,7 @@ export default function TourScreen({ navigation }) {
 
             <View style={[styles.gcBadge, { backgroundColor: isDark ? 'rgba(0, 229, 255, 0.1)' : 'rgba(0, 180, 216, 0.1)' }]}>
               <Coins size={14} color={theme.primary} style={{ marginRight: 4 }} />
-              <Text style={[styles.gcBadgeText, { color: theme.primary }]}>{item.entryFee > 0 ? naira(item.entryFee) : 'FREE'}</Text>
+              <Text style={[styles.gcBadgeText, { color: theme.primary }]}>{feeVp > 0 ? `${feeVp} VP` : 'FREE'}</Text>
             </View>
           </View>
 
@@ -104,8 +127,8 @@ export default function TourScreen({ navigation }) {
             {game.toUpperCase()} · WIN-BASED
           </Text>
 
-          {prize !== null && (
-            <Text style={styles.prizeLine}>Prize pool: {naira(prize)}</Text>
+          {poolVp > 0 && (
+            <Text style={styles.prizeLine}>Reward pool: {poolVp} VP</Text>
           )}
           {isCancelled && <Text style={styles.cancelLine}>This tournament was cancelled.</Text>}
 

@@ -20,7 +20,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gamearn",
-      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "Gamearn uses the camera to update your profile photo.",
         "NSPhotoLibraryUsageDescription": "Gamearn accesses your photo library so you can set a profile photo."
@@ -35,8 +34,7 @@
       },
       "package": "com.gamearn",
       "versionCode": 27,
-      "softwareKeyboardLayoutMode": "resize",
-      "googleServicesFile": "./google-services.json"
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "./assets/logos/logo_dark.png",

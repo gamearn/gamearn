@@ -21,16 +21,19 @@ export default function AyoGameScreen({ route, navigation }) {
   const params = route.params || {};
   const isMultiplayer = params.mode === 'multiplayer' && !!params.roomId;
   const isPractice = params.mode === 'practice' || !isMultiplayer;
-  const timer = params.timer || '2m';
+  const isRejoin = !!params.isRejoin;
 
   useEffect(() => {
+    if (!isRejoin) {
+      clearActiveMatch();
+    }
     setActiveMatch({
       gameId: 'ayo',
       gameName: 'Ayò Ọ̀pọ́n',
       targetScreen: 'AyoGame',
       params: route.params,
     });
-  }, []);
+  }, [isRejoin]);
 
   const m = useOnlineMatch({
     roomId: isMultiplayer ? params.roomId : null,
@@ -40,6 +43,7 @@ export default function AyoGameScreen({ route, navigation }) {
 
   const [winBanner, setWinBanner] = useState(false);
   const [showCoinToss, setShowCoinToss] = useState(true);
+  const [firstPlayer, setFirstPlayer] = useState(1);
 
   const myName = userProfile?.username || userProfile?.displayName || 'You';
   const opponentDisplayName = isMultiplayer
@@ -53,6 +57,11 @@ export default function AyoGameScreen({ route, navigation }) {
     ],
     [myName, opponentDisplayName, isMultiplayer],
   );
+
+  const handleCoinTossComplete = (winnerIdx) => {
+    setFirstPlayer(winnerIdx === 1 ? 2 : 1);
+    setShowCoinToss(false);
+  };
 
   const handleHumanMove = (pitIndex) => {
     if (isMultiplayer && typeof pitIndex === 'number') {
@@ -99,6 +108,9 @@ export default function AyoGameScreen({ route, navigation }) {
         seedCount={params.seedCount || 4}
         aiDifficulty={params.aiDifficulty || 'auto'}
         opponentName={opponentDisplayName}
+        firstPlayer={firstPlayer}
+        paused={showCoinToss}
+        isRejoin={isRejoin}
         onWin={handleWin}
         onBack={handleBack}
         onHumanMove={handleHumanMove}
@@ -108,7 +120,7 @@ export default function AyoGameScreen({ route, navigation }) {
         visible={showCoinToss}
         players={ayoPlayers}
         gameName="Ayò Ọ̀pọ́n"
-        onComplete={() => setShowCoinToss(false)}
+        onComplete={handleCoinTossComplete}
       />
 
       {isPractice && (

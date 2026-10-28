@@ -1,10 +1,10 @@
 export const SHAPE_COLORS = {
-  cross: '#f9002c',
-  square: '#00bb50',
-  circle: '#9400df',
-  triangle: '#292533',
-  star: '#ff5e00',
-  whot: '#ffcc00',
+  cross: '#6200bc',
+  square: '#6200bc',
+  circle: '#6200bc',
+  triangle: '#6200bc',
+  star: '#6200bc',
+  whot: '#6200bc',
 };
 
 // Official Whot Card Point Values for Checkup Scoring
@@ -19,44 +19,57 @@ export function calculateHandPoints(hand) {
   return (hand || []).reduce((sum, c) => sum + getCardPoints(c), 0);
 }
 
-// Generate full standard Nigerian WHOT deck (54 cards)
-export function createDeck() {
+// Generate full standard Nigerian WHOT deck (54 cards), minus any removed card values
+export function createDeck(removed = []) {
+  const strip = new Set((removed || []).map(String));
   const deck = [];
   let cardId = 1;
 
-  // Circles: 1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14 (12 cards)
+  // Circles: 1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14
   const circles = [1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14];
   circles.forEach((val) => {
-    deck.push({ id: `c_${cardId++}`, value: val, color: SHAPE_COLORS.circle, shape: 'circle' });
+    if (!strip.has(String(val))) {
+      deck.push({ id: `c_${cardId++}`, value: val, color: SHAPE_COLORS.circle, shape: 'circle' });
+    }
   });
 
-  // Triangles: 1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14 (12 cards)
+  // Triangles: 1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14
   const triangles = [1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14];
   triangles.forEach((val) => {
-    deck.push({ id: `t_${cardId++}`, value: val, color: SHAPE_COLORS.triangle, shape: 'triangle' });
+    if (!strip.has(String(val))) {
+      deck.push({ id: `t_${cardId++}`, value: val, color: SHAPE_COLORS.triangle, shape: 'triangle' });
+    }
   });
 
-  // Crosses: 1, 2, 3, 5, 7, 10, 11, 13, 14 (9 cards)
+  // Crosses: 1, 2, 3, 5, 7, 10, 11, 13, 14
   const crosses = [1, 2, 3, 5, 7, 10, 11, 13, 14];
   crosses.forEach((val) => {
-    deck.push({ id: `cr_${cardId++}`, value: val, color: SHAPE_COLORS.cross, shape: 'cross' });
+    if (!strip.has(String(val))) {
+      deck.push({ id: `cr_${cardId++}`, value: val, color: SHAPE_COLORS.cross, shape: 'cross' });
+    }
   });
 
-  // Squares: 1, 2, 3, 5, 7, 10, 11, 13, 14 (9 cards)
+  // Squares: 1, 2, 3, 5, 7, 10, 11, 13, 14
   const squares = [1, 2, 3, 5, 7, 10, 11, 13, 14];
   squares.forEach((val) => {
-    deck.push({ id: `sq_${cardId++}`, value: val, color: SHAPE_COLORS.square, shape: 'square' });
+    if (!strip.has(String(val))) {
+      deck.push({ id: `sq_${cardId++}`, value: val, color: SHAPE_COLORS.square, shape: 'square' });
+    }
   });
 
-  // Stars: 1, 2, 3, 4, 5, 7, 8 (7 cards)
+  // Stars: 1, 2, 3, 4, 5, 7, 8
   const stars = [1, 2, 3, 4, 5, 7, 8];
   stars.forEach((val) => {
-    deck.push({ id: `st_${cardId++}`, value: val, color: SHAPE_COLORS.star, shape: 'star' });
+    if (!strip.has(String(val))) {
+      deck.push({ id: `st_${cardId++}`, value: val, color: SHAPE_COLORS.star, shape: 'star' });
+    }
   });
 
-  // WHOT Wild cards: 5 cards with value 20
-  for (let i = 0; i < 5; i++) {
-    deck.push({ id: `w_${cardId++}`, value: 20, color: SHAPE_COLORS.whot, shape: 'whot' });
+  // WHOT Wild cards (value 20) — completely omitted if 20 is removed
+  if (!strip.has('20')) {
+    for (let i = 0; i < 5; i++) {
+      deck.push({ id: `w_${cardId++}`, value: 20, color: SHAPE_COLORS.whot, shape: 'whot' });
+    }
   }
 
   // Shuffle deck using Fisher-Yates
@@ -76,8 +89,10 @@ export function parseTimerSec(timerStr) {
   return 120;
 }
 
-export function createInitialState(timer = '2m', cardCount = 6, playerCount = 2, vsOba = false) {
-  const fullDeck = createDeck();
+export function createInitialState(timer = '2m', cardCount = 6, playerCount = 2, vsOba = false, options = {}) {
+  const nulled = Array.isArray(options.nulled) ? options.nulled.map(String) : [];
+  const removed = Array.isArray(options.removed) ? options.removed.map(String) : [];
+  const fullDeck = createDeck(removed);
   const turnSecs = parseTimerSec(timer);
 
   const numCardsPerPlayer = Math.min(8, Math.max(3, Number(cardCount) || 6));
@@ -145,6 +160,8 @@ export function createInitialState(timer = '2m', cardCount = 6, playerCount = 2,
     soundEnabled: true,
     pendingWhotSelection: false,
     messages: initialMsgs,
+    nulled,
+    removed,
   };
 }
 
@@ -217,7 +234,7 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
       discardPile: updatedDiscard,
       gameStatus: 'game_over',
       winner: player,
-      statusMessage: `🎉 ${player.name} won the game! ${isHuman ? 'Prize paid to your wallet!' : ''}`,
+      statusMessage: `🎉 ${player.name} won the game! ${isHuman ? 'Value Points added to your acquired points!' : ''}`,
     };
   }
 
@@ -246,23 +263,25 @@ export function playCard(state, playerIndex, cardId, chosenShape) {
     requestedShape = null;
   }
 
-  // Handle Action Cards
-  if (card.value === 1) {
+  // Handle Action Cards (honor nulled cards as normal cards without special action)
+  const isNulled = (val) => Array.isArray(state.nulled) && state.nulled.includes(String(val));
+
+  if (card.value === 1 && !isNulled(1)) {
     nextIdx = playerIndex;
     msg = `${player.name} played 1 (Hold On)! Plays again.`;
-  } else if (card.value === 2) {
+  } else if (card.value === 2 && !isNulled(2)) {
     const currentCount = pendingPenalty?.cardValue === 2 ? pendingPenalty.count : 0;
     pendingPenalty = { count: currentCount + 2, cardValue: 2 };
     msg = `${player.name} played Pick Two! Next player must draw ${pendingPenalty.count} or counter.`;
-  } else if (card.value === 5) {
+  } else if (card.value === 5 && !isNulled(5)) {
     const currentCount = pendingPenalty?.cardValue === 5 ? pendingPenalty.count : 0;
     pendingPenalty = { count: currentCount + 3, cardValue: 5 };
     msg = `${player.name} played Pick Three! Next player must draw ${pendingPenalty.count} or counter.`;
-  } else if (card.value === 8) {
+  } else if (card.value === 8 && !isNulled(8)) {
     const skippedPlayer = state.players[nextIdx];
     nextIdx = nextPlayerIndex(nextIdx, 1, numPlayers);
     msg = `${player.name} played 8 (Suspension)! ${skippedPlayer.name}'s turn skipped.`;
-  } else if (card.value === 14) {
+  } else if (card.value === 14 && !isNulled(14)) {
     let currentDiscard = updatedDiscard;
     const marketPlayers = updatedPlayers.map((p, idx) => {
       if (idx === playerIndex) return p;
