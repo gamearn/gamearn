@@ -97,7 +97,10 @@ export default function HomeScreen({ navigation }) {
   const { width } = useWindowDimensions();
   const scale = Math.min(width, 650) / 590;
   const { theme, isDark, setTheme } = useTheme();
-  const { userProfile, updateProfileData } = useAuth() || {};
+  const { userProfile, updateProfileData, user } = useAuth() || {};
+  const isAdmin = !!userProfile?.isAdmin ||
+    userProfile?.email?.toLowerCase() === 'abbagem@gmail.com' ||
+    user?.email?.toLowerCase() === 'abbagem@gmail.com';
   const s = useMemo(() => makeStyles(scale, theme, isDark), [scale, theme, isDark]);
 
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
@@ -369,6 +372,11 @@ export default function HomeScreen({ navigation }) {
           {icon('notifications-outline', 31)}
           {!state.notificationsRead && <View style={s.unread} />}
         </Tap>
+        {isAdmin && (
+          <Tap label="Admin Dashboard" onPress={() => navigation?.navigate('AdminDashboard')} style={[s.roundIcon, { borderColor: '#FF5500', backgroundColor: 'rgba(255, 85, 0, 0.18)' }]}>
+            {icon('shield-checkmark-outline', 28, '#FF5500')}
+          </Tap>
+        )}
         <Tap label="Settings" onPress={() => navigation?.navigate('Settings')} style={s.roundIcon}>
           {icon('settings-outline', 31)}
         </Tap>

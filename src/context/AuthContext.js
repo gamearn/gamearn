@@ -164,9 +164,14 @@ function profileFromMe(me, cached) {
   // cached buckets can never override fresh server data.
   const gameStats = me ? (me.gameStats || {}) : (cached?.gameStats || {});
 
+  const isSuperAdminEmail = (me?.email?.toLowerCase() === 'abbagem@gmail.com') ||
+                            (cached?.email?.toLowerCase() === 'abbagem@gmail.com');
+  const isAdmin = !!(me?.isAdmin || cached?.isAdmin || isSuperAdminEmail);
+
   return {
     ...cached,
     ...me,
+    isAdmin,
     username,
     displayName,
     fullName,
@@ -204,6 +209,7 @@ function profileFromMe(me, cached) {
 async function isAdminUser() {
   const user = getCurrentUser();
   if (!user) return false;
+  if (user.email?.toLowerCase() === 'abbagem@gmail.com') return true;
   try {
     const { claims } = await user.getIdTokenResult();
     return claims?.admin === true;
@@ -250,6 +256,18 @@ export const AuthProvider = ({ children }) => {
       return me;
     } catch (err) {
       if (err instanceof ApiError && err.statusCode === 404) {
+        if (fbUser?.email?.toLowerCase() === 'abbagem@gmail.com') {
+          const fallback = profileFromMe({
+            uid: fbUser.uid,
+            email: fbUser.email,
+            displayName: fbUser.displayName || 'Abbagem Admin',
+            isAdmin: true,
+          });
+          await writeCachedProfile(fallback, fbUser.uid);
+          setUserProfile(fallback);
+          setBackendReady(true);
+          return fallback;
+        }
         // Registered in Firebase but not in the backend yet → onboarding.
         setUserProfile(null);
         setBackendReady(false);

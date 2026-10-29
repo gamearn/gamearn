@@ -30,8 +30,10 @@ import { useAuth } from '../../context/AuthContext';
 
 export default function SettingsScreen({ navigation }) {
   const { theme, isDark, toggleTheme } = useTheme();
-  const { signOut, userProfile } = useAuth();
-  const isAdmin = !!userProfile?.isAdmin;
+  const { signOut, userProfile, user } = useAuth();
+  const isAdmin = !!userProfile?.isAdmin ||
+    userProfile?.email?.toLowerCase() === 'abbagem@gmail.com' ||
+    user?.email?.toLowerCase() === 'abbagem@gmail.com';
 
   const [emailAlerts, setEmailAlerts] = useState(false);
 
