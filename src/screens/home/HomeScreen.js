@@ -29,6 +29,8 @@ import { settings as settingsApi, wallet, tournaments, leaderboard as leaderboar
 import { getStreakInfo, DAILY_STREAK_MILESTONES, checkAndTriggerStreak4hNotification } from '../../utils/recordGameStreak';
 import { checkAndTriggerVp5Notification } from '../../utils/vpNotification';
 import { resolveAvatarSource } from '../../utils/avatarPresets';
+import { TELEGRAM_COMMUNITY_LINK, WHATSAPP_COMMUNITY_LINK } from '../../config/appConfig';
+const GAMEARN_LOGO = require('../../../assets/logos/gamearn_g_logo.png');
 import ActiveMatchBanner from '../../components/ActiveMatchBanner';
 const { INITIAL_STATE, reducer, parseAmount, money, localDay, leaderboard } = require('./model');
 
@@ -125,6 +127,7 @@ export default function HomeScreen({ navigation }) {
   const [dbLeaderboardRows, setDbLeaderboardRows] = useState([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
   const [notificationsList, setNotificationsList] = useState([]);
+  const [showWelcomeCommunityModal, setShowWelcomeCommunityModal] = useState(false);
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -156,6 +159,114 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     loadNotifications();
   }, [loadNotifications]);
+
+  // 3. Persistent Welcome Dashboard In-App Notification (Community Prompt)
+  // Appears whenever the user launches GAMEARN or logs in, and continues appearing
+  // until the user clicks either the Telegram or WhatsApp community button.
+  useEffect(() => {
+    const uid = userProfile?.uid || user?.uid;
+    if (!uid) return;
+    let active = true;
+    (async () => {
+      try {
+        const localClicked = await AsyncStorage.getItem(`@gamearn_community_link_clicked_${uid}`);
+        const serverClicked = Boolean(
+          userProfile?.welcomeCommunityClicked ||
+          userProfile?.settings?.communityLinkClicked
+        );
+        if (localClicked === 'true' || serverClicked) {
+          if (localClicked !== 'true') {
+            await AsyncStorage.setItem(`@gamearn_community_link_clicked_${uid}`, 'true');
+          }
+          if (active) setShowWelcomeCommunityModal(false);
+        } else if (active) {
+          setShowWelcomeCommunityModal(true);
+        }
+      } catch {
+        if (active) setShowWelcomeCommunityModal(true);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [userProfile?.uid, user?.uid, userProfile?.welcomeCommunityClicked, userProfile?.settings?.communityLinkClicked]);
+
+  const handleCommunityButtonClick = useCallback(async (platform, url) => {
+    const uid = userProfile?.uid || user?.uid;
+    setShowWelcomeCommunityModal(false);
+    try {
+      if (uid) {
+        await AsyncStorage.setItem(`@gamearn_community_link_clicked_${uid}`, 'true');
+      }
+      if (userProfile) {
+        settingsApi.patch({ communityLinkClicked: true, communityLinkPlatform: platform }).catch(() => {});
+        if (typeof updateProfileData === 'function') {
+          updateProfileData({
+            welcomeCommunityClicked: true,
+            welcomeCommunityPlatform: platform,
+          }).catch(() => {});
+        }
+      }
+    } catch {}
+    try {
+      await Linking.openURL(url);
+    } catch {}
+  }, [userProfile, user?.uid, updateProfileData]);
+
+
+  // 3. Persistent Welcome Dashboard In-App Notification (Community Prompt)
+  // Appears whenever the user launches GAMEARN or logs in, and continues appearing
+  // until the user clicks either the Telegram or WhatsApp community button.
+  useEffect(() => {
+    const uid = userProfile?.uid || user?.uid;
+    if (!uid) return;
+    let active = true;
+    (async () => {
+      try {
+        const localClicked = await AsyncStorage.getItem(`@gamearn_community_link_clicked_${uid}`);
+        const serverClicked = Boolean(
+          userProfile?.welcomeCommunityClicked ||
+          userProfile?.settings?.communityLinkClicked
+        );
+        if (localClicked === 'true' || serverClicked) {
+          if (localClicked !== 'true') {
+            await AsyncStorage.setItem(`@gamearn_community_link_clicked_${uid}`, 'true');
+          }
+          if (active) setShowWelcomeCommunityModal(false);
+        } else if (active) {
+          setShowWelcomeCommunityModal(true);
+        }
+      } catch {
+        if (active) setShowWelcomeCommunityModal(true);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [userProfile?.uid, user?.uid, userProfile?.welcomeCommunityClicked, userProfile?.settings?.communityLinkClicked]);
+
+  const handleCommunityButtonClick = useCallback(async (platform, url) => {
+    const uid = userProfile?.uid || user?.uid;
+    setShowWelcomeCommunityModal(false);
+    try {
+      if (uid) {
+        await AsyncStorage.setItem(`@gamearn_community_link_clicked_${uid}`, 'true');
+      }
+      if (userProfile) {
+        settingsApi.patch({ communityLinkClicked: true, communityLinkPlatform: platform }).catch(() => {});
+        if (typeof updateProfileData === 'function') {
+          updateProfileData({
+            welcomeCommunityClicked: true,
+            welcomeCommunityPlatform: platform,
+          }).catch(() => {});
+        }
+      }
+    } catch {}
+    try {
+      await Linking.openURL(url);
+    } catch {}
+  }, [userProfile, user?.uid, updateProfileData]);
+
 
   const fetchLeaderboard = useCallback(() => {
     let active = true;
@@ -801,7 +912,7 @@ export default function HomeScreen({ navigation }) {
                     const payload = item.actionPayload || {};
                     if (act === 'referral') {
                       navigation?.navigate('InviteFriends');
-                    } else if (act === 'tournament' || item.type === 'tournament_available' || item.type === 'tournament_ended') {
+                    } else if (act === 'tournament' || item.type === 'tournament_available' || item.type === 'tournament_ended' || item.type === 'tournament_ping') {
                       if (payload.tournamentId) {
                         const targetScreen = payload.screen || (item.type === 'tournament_ended' ? 'TournamentResults' : 'TournamentDetails');
                         navigation?.navigate(targetScreen, { tournamentId: payload.tournamentId });
@@ -815,9 +926,9 @@ export default function HomeScreen({ navigation }) {
                   const iconName =
                     item.type === 'follow' || item.type === 'referral'
                       ? 'person-add'
-                      : item.type === 'tournament' || item.type === 'tournament_available' || item.type === 'tournament_ended'
+                      : item.type === 'tournament' || item.type === 'tournament_available' || item.type === 'tournament_ended' || item.type === 'tournament_ping'
                       ? 'trophy'
-                      : item.type === 'streak_reminder'
+                      : item.type === 'streak_reminder' || item.type === 'streak_ping'
                       ? 'flame'
                       : 'notifications';
                   return (
@@ -1100,6 +1211,45 @@ export default function HomeScreen({ navigation }) {
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 3. Persistent Welcome Dashboard In-App Prompt (Telegram / WhatsApp Community) */}
+      <Modal
+        transparent
+        visible={showWelcomeCommunityModal}
+        animationType="fade"
+        onRequestClose={() => {}}
+        statusBarTranslucent
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(2, 10, 24, 0.85)', alignItems: 'center', justifyContent: 'center', padding: 22 }}>
+          <View style={{ width: '100%', maxWidth: 420, backgroundColor: '#07182E', borderRadius: 22, borderWidth: 1.5, borderColor: '#00d9ff55', padding: 24, alignItems: 'center', shadowColor: '#00d9ff', shadowOpacity: 0.35, shadowRadius: 20, elevation: 12 }}>
+            <Image source={GAMEARN_LOGO} style={{ width: 64, height: 64, borderRadius: 16, marginBottom: 14 }} resizeMode="contain" />
+            <Text style={{ color: '#FFFFFF', fontSize: 21, fontWeight: '800', textAlign: 'center', marginBottom: 10 }}>
+              Welcome to GAMEARN! 🎉
+            </Text>
+            <Text style={{ color: '#C9D8E8', fontSize: 14.5, lineHeight: 22, textAlign: 'center', marginBottom: 22 }}>
+              Hello {(displayName || 'Player').trim().split(/\s+/)[0]}! Welcome to GAMEARN! We're excited to have you here. Join our official GAMEARN community to receive first-hand information, important announcements, exciting updates and opportunities to connect and interact with other players. Be part of the community. Stay informed. Never miss out!
+            </Text>
+            <View style={{ width: '100%', gap: 12 }}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => handleCommunityButtonClick('telegram', TELEGRAM_COMMUNITY_LINK)}
+                style={{ width: '100%', backgroundColor: '#229ED9', paddingVertical: 14, paddingHorizontal: 18, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+              >
+                <Ionicons name="paper-plane" size={20} color="#FFFFFF" />
+                <Text style={{ color: '#FFFFFF', fontSize: 15.5, fontWeight: '800' }}>Join Telegram Community</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => handleCommunityButtonClick('whatsapp', WHATSAPP_COMMUNITY_LINK)}
+                style={{ width: '100%', backgroundColor: '#25D366', paddingVertical: 14, paddingHorizontal: 18, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+              >
+                <Ionicons name="logo-whatsapp" size={20} color="#FFFFFF" />
+                <Text style={{ color: '#FFFFFF', fontSize: 15.5, fontWeight: '800' }}>Join WhatsApp Community</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );

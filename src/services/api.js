@@ -118,7 +118,13 @@ export const referral = {
   // Search registered users by username or display name across the app
   searchUsers: (query) => apiGet(`/referral/search?q=${encodeURIComponent(query || '')}`),
   // Sends real referral pings: { refereeUids: string[], type: 'streak' | 'challenge' | 'tournament' }.
-  ping: ({ refereeUids = [], type = 'streak' } = {}) => apiPost('/referral/ping', { refereeUids, type }),
+  ping: ({ refereeUids = [], type = 'streak', tournamentId, tournamentName } = {}) =>
+    apiPost('/referral/ping', {
+      refereeUids,
+      type,
+      ...(tournamentId ? { tournamentId } : {}),
+      ...(tournamentName ? { tournamentName } : {}),
+    }),
 };
 
 // ── User settings ─────────────────────────────────────────────────────────────

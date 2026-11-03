@@ -87,3 +87,9 @@ export const appStoreLink = (code) =>
   IOS_APP_STORE_ID
     ? `https://apps.apple.com/app/id${IOS_APP_STORE_ID}`
     : referralUniversalLink(code);
+
+// Official GAMEARN Community Links (used in Welcome Dashboard Modal & Welcome Email)
+export const TELEGRAM_COMMUNITY_LINK =
+  process.env.EXPO_PUBLIC_TELEGRAM_LINK || 'https://t.me/gamearn';
+export const WHATSAPP_COMMUNITY_LINK =
+  process.env.EXPO_PUBLIC_WHATSAPP_LINK || 'https://chat.whatsapp.com/gamearn';

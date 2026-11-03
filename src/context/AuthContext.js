@@ -203,6 +203,8 @@ function profileFromMe(me, cached) {
     vp,
     vpText: formatVP(vp),
     gameStats,
+    welcomeCommunityClicked: Boolean(me?.welcomeCommunityClicked || cached?.welcomeCommunityClicked || me?.settings?.communityLinkClicked || cached?.settings?.communityLinkClicked),
+    welcomeCommunityPlatform: me?.welcomeCommunityPlatform || cached?.welcomeCommunityPlatform || null,
   };
 }
 
@@ -535,6 +537,8 @@ export const AuthProvider = ({ children }) => {
       ...(updates.valuePoints !== undefined ? { valuePoints: updates.valuePoints, vp: updates.valuePoints } : {}),
       ...(updates.vp !== undefined ? { valuePoints: updates.vp, vp: updates.vp } : {}),
       ...(updates.gameStats !== undefined ? { gameStats: updates.gameStats } : {}),
+      ...(updates.welcomeCommunityClicked !== undefined ? { welcomeCommunityClicked: updates.welcomeCommunityClicked } : {}),
+      ...(updates.welcomeCommunityPlatform !== undefined ? { welcomeCommunityPlatform: updates.welcomeCommunityPlatform } : {}),
     };
 
     if (Object.keys(backendPayload).length > 0) {

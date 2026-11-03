@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -36,7 +36,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { referral } from '../../services/api';
+import { referral, tournaments as tournamentsApi } from '../../services/api';
 import {
   referralUniversalLink,
   referralDeepLink,
@@ -52,33 +52,73 @@ const PING_TYPE_MAP = {
 };
 
 // Normalize the backend referral or searched user object into the shape the member cards render.
-const toUiRef = (r) => ({
-  id: r.uid,
-  uid: r.uid,
-  name: r.displayName || r.username || 'Player',
-  username: r.username || r.displayName || 'player',
-  handle: r.phone || `@${(r.username || r.displayName || 'player').toLowerCase()}`,
-  avatar: r.avatar || null,
-  status: r.status || (r.streak > 0 ? 'active' : 'inactive'),
-  isActiveToday: r.status === 'active' || r.streak > 0,
-  statusLabel: r.status === 'active' || r.streak > 0 ? 'Active' : 'Inactive',
-  totalEarned: Math.round((r.totalCommissionKobo || 0) / PING_RATE),
-  yourCommission: r.totalCommissionKobo || 0,
-  activityNote: (r.status === 'active' || r.streak > 0) ? (r.streak ? `Streak ${r.streak}` : 'Active') : 'No recent activity',
-  lastEarnedAt: r.lastEarnedAt,
-  isMyReferral: r.isMyReferral !== false,
-  history: r.lastEarnedAt
-    ? [
-        {
-          id: `h_${r.uid}`,
-          source: 'Referral earnings',
-          date: r.lastEarnedAt,
-          commission: r.totalCommissionKobo || 0,
-          amount: Math.round((r.totalCommissionKobo || 0) / PING_RATE),
-        },
-      ]
-    : [],
-});
+const toUiRef = (r) => {
+  const streakCount = Number(r.streak || 0);
+  const tournamentsCount = Number(r.tournamentsCount || 0);
+  const tournamentWins = Number(r.tournamentWins || 0);
+  const activeTournamentName = r.activeTournamentName || null;
+  const latestTournamentName = r.latestTournamentName || null;
+  const status = r.status || (streakCount > 0 ? 'active' : 'inactive');
+  const isActiveToday = Boolean(r.isActiveToday || status === 'active');
+  const statusLabel = r.statusLabel || (status === 'risk' ? 'At Risk' : isActiveToday ? 'Active Today' : 'Inactive');
+
+  const streakSummary =
+    r.streakSummary ||
+    (streakCount > 0
+      ? `Streak: Day ${streakCount}${status === 'risk' ? ' (At Risk)' : ''}`
+      : 'Streak: Day 0');
+
+  const tournamentSummary =
+    r.tournamentSummary ||
+    (activeTournamentName
+      ? `Tournament: ${activeTournamentName} (Active)`
+      : latestTournamentName
+      ? `Tournament: ${latestTournamentName}`
+      : tournamentsCount > 0
+      ? `Tournaments: ${tournamentsCount} joined`
+      : 'No tournament yet');
+
+  return {
+    id: r.uid,
+    uid: r.uid,
+    name: r.displayName || r.username || 'Player',
+    username: r.username || r.displayName || 'player',
+    handle: r.phone || `@${(r.username || r.displayName || 'player').toLowerCase()}`,
+    avatar: r.avatar || null,
+    streak: streakCount,
+    gamesPlayed: Number(r.gamesPlayed || 0),
+    tournamentsCount,
+    tournamentWins,
+    activeTournamentId: r.activeTournamentId || null,
+    activeTournamentName,
+    latestTournamentName,
+    status,
+    isActiveToday,
+    statusLabel,
+    streakSummary,
+    tournamentSummary,
+    totalEarned: Math.round((r.totalCommissionKobo || 0) / PING_RATE),
+    yourCommission: r.totalCommissionKobo || 0,
+    todayCommission: r.todayCommissionKobo || 0,
+    activityNote: `${streakSummary} • ${tournamentSummary}`,
+    lastEarnedAt: r.lastEarnedAt,
+    isMyReferral: r.isMyReferral !== false,
+    history:
+      Array.isArray(r.history) && r.history.length > 0
+        ? r.history
+        : r.lastEarnedAt
+        ? [
+            {
+              id: `h_${r.uid}`,
+              source: 'Referral earnings',
+              date: new Date(r.lastEarnedAt).toLocaleDateString(),
+              commission: r.totalCommissionKobo || 0,
+              amount: Math.round((r.totalCommissionKobo || 0) / PING_RATE),
+            },
+          ]
+        : [],
+  };
+};
 
 export default function InviteFriendsScreen({ navigation }) {
   const { userProfile, updateProfileData } = useAuth();
@@ -122,36 +162,51 @@ export default function InviteFriendsScreen({ navigation }) {
 
   const [referrals, setReferrals] = useState([]);
   const [totalCommissionKobo, setTotalCommissionKobo] = useState(0);
+  const [todayCommissionKobo, setTodayCommissionKobo] = useState(0);
+  const [featuredTournament, setFeaturedTournament] = useState(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        const res = await referral.me();
-        if (isMounted && res) {
-          if (res.data?.referralCode) setServerCode(res.data.referralCode);
-          if (typeof res.data?.totalCommissionKobo === 'number') setTotalCommissionKobo(res.data.totalCommissionKobo);
-          const list = res.data?.referrals || res.referrals || [];
-          if (Array.isArray(list)) {
-            setReferrals(list.map(toUiRef));
-          } else if (Array.isArray(res.data)) {
-            setReferrals(res.data.map(toUiRef));
-          }
-        }
-      } catch {
-        if (isMounted && Array.isArray(userProfile?.referredUsers)) {
-          setReferrals(userProfile.referredUsers);
+  const fetchReferrals = useCallback(async () => {
+    try {
+      const [res, tourRes] = await Promise.all([
+        referral.me(),
+        tournamentsApi.list().catch(() => null),
+      ]);
+      if (res) {
+        const payload = res.data || res;
+        if (payload?.referralCode) setServerCode(payload.referralCode);
+        if (typeof payload?.totalCommissionKobo === 'number') setTotalCommissionKobo(payload.totalCommissionKobo);
+        if (typeof payload?.todayCommissionKobo === 'number') setTodayCommissionKobo(payload.todayCommissionKobo);
+        const list = payload?.referrals || (Array.isArray(payload) ? payload : []);
+        if (Array.isArray(list)) {
+          setReferrals(list.map(toUiRef));
         }
       }
-    })();
-    return () => {
-      isMounted = false;
-    };
+      if (tourRes) {
+        const rawT = Array.isArray(tourRes) ? tourRes : tourRes?.tournaments || tourRes?.data || [];
+        const activeT = rawT.find((t) => !['cancelled', 'completed'].includes(String(t?.status || '').toLowerCase()));
+        if (activeT) setFeaturedTournament(activeT);
+      }
+    } catch {
+      if (Array.isArray(userProfile?.referredUsers)) {
+        setReferrals(userProfile.referredUsers.map(toUiRef));
+      }
+    }
   }, [userProfile]);
+
+  useEffect(() => {
+    fetchReferrals();
+  }, [fetchReferrals]);
+
+  useEffect(() => {
+    if (!navigation?.addListener) return;
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchReferrals();
+    });
+    return unsubscribe;
+  }, [navigation, fetchReferrals]);
 
   const handleCopyCode = async () => {
     try {
-      // Real clipboard write via expo-clipboard.
       await Clipboard.setStringAsync(referralCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -186,34 +241,76 @@ export default function InviteFriendsScreen({ navigation }) {
     setActivePingModal(null);
     const targetUid = refItem?.uid || refItem?.id;
     if (!targetUid) {
-      Alert.alert('Ping Failed', 'This referee is not linked to your account yet.');
+      Alert.alert('Ping Failed', 'This user is not linked yet.');
       return;
     }
+    const mappedType = PING_TYPE_MAP[pingType] || 'streak';
+    const tourName =
+      refItem?.activeTournamentName ||
+      featuredTournament?.name ||
+      refItem?.latestTournamentName ||
+      'featured GAMEARN';
+    const tourId = refItem?.activeTournamentId || featuredTournament?.id || undefined;
     try {
-      await referral.ping({ refereeUids: [targetUid], type: PING_TYPE_MAP[pingType] || 'streak' });
-      Alert.alert(
-        'Ping Sent',
-        `Sent a ${pingType} reminder for ${refItem.name || refItem.username || 'your squad'}. They will get a push notification.`
-      );
+      await referral.ping({
+        refereeUids: [targetUid],
+        type: mappedType,
+        ...(mappedType === 'tournament' ? { tournamentId: tourId, tournamentName: tourName } : {}),
+      });
+      const friendLabel = refItem.name || refItem.username || 'your friend';
+      if (mappedType === 'streak') {
+        Alert.alert(
+          'Streak Ping Sent! 🔥',
+          `${friendLabel} was notified: "${userName} is reminding you to keep your daily streak alive on GAMEARN!"`
+        );
+      } else if (mappedType === 'tournament') {
+        Alert.alert(
+          'Tournament Ping Sent! 🏆',
+          `${friendLabel} was invited to check out the ${tourName} tournament on GAMEARN!`
+        );
+      } else {
+        Alert.alert(
+          'Ping Sent',
+          `Sent a ${pingType} reminder to ${friendLabel}.`
+        );
+      }
+      fetchReferrals();
     } catch (err) {
       Alert.alert('Ping Failed', err?.message || 'Could not send ping. Please try again.');
     }
   };
 
-  const handlePingAll = async () => {
+  const handleCategoryPing = async (type = 'streak') => {
     if (referrals.length === 0) {
-      Alert.alert('Squad Ping', 'You currently have no active referrals to ping. Share your invite code to build your squad!');
+      Alert.alert('Squad Ping', 'You currently have no referrals to ping. Share your invite code to build your squad!');
       return;
     }
-    const uids = referrals.map((r) => r.uid || r.id).filter(Boolean);
-    if (uids.length === 0) {
-      Alert.alert('Squad Ping', 'No linked referees to ping yet.');
-      return;
-    }
+    const targetList =
+      type === 'streak'
+        ? (referrals.filter((r) => r.status === 'risk' || !r.isActiveToday).length > 0
+            ? referrals.filter((r) => r.status === 'risk' || !r.isActiveToday)
+            : referrals)
+        : referrals;
+    const uids = targetList.map((r) => r.uid || r.id).filter(Boolean);
+    if (uids.length === 0) return;
+
     try {
-      const res = await referral.ping({ refereeUids: uids, type: 'streak' });
-      const sent = res?.data?.sent || uids.length;
-      Alert.alert('Squad Ping', `Sent activity reminders to ${sent} squad member(s)!`);
+      const tourName = featuredTournament?.name || 'featured GAMEARN';
+      const tourId = featuredTournament?.id || undefined;
+      const res = await referral.ping({
+        refereeUids: uids,
+        type,
+        ...(type === 'tournament' ? { tournamentId: tourId, tournamentName: tourName } : {}),
+      });
+      const sent = res?.data?.sent || res?.sent || uids.length;
+      if (type === 'streak') {
+        Alert.alert('Streak Ping Sent! 🔥', `Reminded ${sent} friend(s) to keep their daily streak alive on GAMEARN!`);
+      } else if (type === 'tournament') {
+        Alert.alert('Tournament Ping Sent! 🏆', `Invited ${sent} friend(s) to join the ${tourName} tournament on GAMEARN!`);
+      } else {
+        Alert.alert('Squad Ping Sent!', `Sent ${type} reminders to ${sent} squad member(s)!`);
+      }
+      fetchReferrals();
     } catch (err) {
       if (err?.message?.includes('limit')) {
         Alert.alert('Daily Limit', 'You have reached the daily ping limit of 50. Try again tomorrow.');
@@ -223,11 +320,13 @@ export default function InviteFriendsScreen({ navigation }) {
     }
   };
 
+  const handlePingAll = () => handleCategoryPing('streak');
+
   const activeCount = referrals.filter((r) => r.status === 'active' || r.isActiveToday).length;
   const riskCount = referrals.filter((r) => r.status === 'risk').length;
   const inactiveCount = referrals.filter((r) => r.status === 'inactive' || (!r.status && !r.isActiveToday)).length;
   const totalEarnings = totalCommissionKobo || referrals.reduce((sum, r) => sum + (r.yourCommission || 0), 0);
-  const todayEarnings = referrals.reduce((sum, r) => sum + (r.todayCommission || 0), 0);
+  const todayEarnings = todayCommissionKobo || referrals.reduce((sum, r) => sum + (r.todayCommission || 0), 0);
 
   const [searchResults, setSearchResults] = useState([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
@@ -465,7 +564,10 @@ export default function InviteFriendsScreen({ navigation }) {
           {/* 3 Ping Action Categories */}
           <View style={styles.pingCategoryRow}>
             <TouchableOpacity
-              onPress={() => setActiveTab('risk')}
+              onPress={() => {
+                setActiveTab(riskCount > 0 ? 'risk' : 'all');
+                if (referrals.length > 0) handleCategoryPing('streak');
+              }}
               style={[styles.pingCategoryBox, { borderColor: '#EF444444' }]}
             >
               <Flame size={16} color="#EF4444" fill="#EF4444" />
@@ -476,7 +578,10 @@ export default function InviteFriendsScreen({ navigation }) {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => setActiveTab('inactive')}
+              onPress={() => {
+                setActiveTab(inactiveCount > 0 ? 'inactive' : 'all');
+                if (referrals.length > 0) handleCategoryPing('challenge');
+              }}
               style={[styles.pingCategoryBox, { borderColor: '#F59E0B44' }]}
             >
               <Gamepad2 size={16} color="#F59E0B" />
@@ -487,13 +592,16 @@ export default function InviteFriendsScreen({ navigation }) {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => setActiveTab('inactive')}
+              onPress={() => {
+                setActiveTab('all');
+                if (referrals.length > 0) handleCategoryPing('tournament');
+              }}
               style={[styles.pingCategoryBox, { borderColor: '#3B82F644' }]}
             >
               <Trophy size={16} color="#60A5FA" />
               <View style={{ marginLeft: 6 }}>
                 <Text style={styles.pingCatTitle}>Tournament Ping</Text>
-                <Text style={[styles.pingCatVal, { color: '#60A5FA' }]}>{inactiveCount} inactive</Text>
+                <Text style={[styles.pingCatVal, { color: '#60A5FA' }]}>{referrals.length} squad</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -635,7 +743,8 @@ export default function InviteFriendsScreen({ navigation }) {
                       <Text style={styles.yourCommissionVal}>{item.yourCommission || 0}</Text>
                       <Text style={styles.yourCommissionLabel}>Your 5%</Text>
                     </View>
-                    <Text style={styles.streakNoteText}>🔥 {item.activityNote || 'No recent activity'}</Text>
+                    <Text style={styles.streakNoteText}>🔥 {item.streakSummary || `Streak: Day ${item.streak || 0}`}</Text>
+                    <Text style={[styles.streakNoteText, { color: '#60A5FA', marginTop: 1 }]}>🏆 {item.tournamentSummary || 'No tournament yet'}</Text>
                   </View>
 
                   {/* Actions (View & Ping / Invite) */}
@@ -734,7 +843,10 @@ export default function InviteFriendsScreen({ navigation }) {
             </TouchableOpacity>
 
             <Text style={styles.modalTitle}>{viewReferralDetails?.name || viewReferralDetails?.username}'s Log</Text>
-            <Text style={styles.modalSub}>Your 5% referral commission breakdown:</Text>
+            <Text style={styles.modalSub}>
+              🔥 {viewReferralDetails?.streakSummary || `Streak: Day ${viewReferralDetails?.streak || 0}`}  •  🏆 {viewReferralDetails?.tournamentSummary || 'No tournament yet'}
+            </Text>
+            <Text style={[styles.modalSub, { marginTop: 2 }]}>Your 5% referral commission breakdown:</Text>
 
             <ScrollView style={{ maxHeight: 200, width: '100%', marginVertical: 10 }}>
               {(viewReferralDetails?.history || []).length === 0 ? (
