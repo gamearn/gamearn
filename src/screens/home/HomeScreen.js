@@ -13,6 +13,8 @@ import {
   Switch,
   Text,
   TextInput,
+  TouchableOpacity,
+  Linking,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -23,8 +25,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { reference, regions } from './art';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { settings as settingsApi, wallet, tournaments, leaderboard as leaderboardApi } from '../../services/api';
-import { getStreakInfo } from '../../utils/recordGameStreak';
+import { settings as settingsApi, wallet, tournaments, leaderboard as leaderboardApi, notifications as notificationsApi } from '../../services/api';
+import { getStreakInfo, DAILY_STREAK_MILESTONES, checkAndTriggerStreak4hNotification } from '../../utils/recordGameStreak';
+import { checkAndTriggerVp5Notification } from '../../utils/vpNotification';
 import { resolveAvatarSource } from '../../utils/avatarPresets';
 import ActiveMatchBanner from '../../components/ActiveMatchBanner';
 const { INITIAL_STATE, reducer, parseAmount, money, localDay, leaderboard } = require('./model');
@@ -121,6 +124,38 @@ export default function HomeScreen({ navigation }) {
   const [homeDataLoading, setHomeDataLoading] = useState(true);
   const [dbLeaderboardRows, setDbLeaderboardRows] = useState([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
+  const [notificationsList, setNotificationsList] = useState([]);
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const uid = userProfile?.uid || user?.uid || 'me';
+      const [userNotifsRaw, globalNotifsRaw, serverNotifs] = await Promise.all([
+        AsyncStorage.getItem(`@gamearn_notifications_${uid}`),
+        AsyncStorage.getItem('@gamearn_notifications_all'),
+        userProfile?.uid ? notificationsApi.list(50).catch(() => []) : Promise.resolve([]),
+      ]);
+      const userNotifs = userNotifsRaw ? JSON.parse(userNotifsRaw) : [];
+      const globalNotifs = globalNotifsRaw ? JSON.parse(globalNotifsRaw) : [];
+      const combined = [
+        ...(Array.isArray(serverNotifs) ? serverNotifs : []),
+        ...(Array.isArray(userNotifs) ? userNotifs : []),
+        ...(Array.isArray(globalNotifs) ? globalNotifs : []),
+      ];
+      const seen = new Set();
+      const unique = [];
+      for (const n of combined) {
+        if (!n?.id || seen.has(n.id)) continue;
+        seen.add(n.id);
+        unique.push(n);
+      }
+      unique.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      setNotificationsList(unique);
+    } catch {}
+  }, [userProfile?.uid, user?.uid]);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
 
   const fetchLeaderboard = useCallback(() => {
     let active = true;
@@ -275,11 +310,31 @@ export default function HomeScreen({ navigation }) {
   // Value Points rate: 1 VP = 50 units. We display Acquired Points everywhere instead of Naira.
   const walletBalanceNaira = Number(backendWallet?.balance ?? userProfile?.walletBalance ?? 0);
   const formatPoints = (value) => {
-    const vp = Math.max(0, Math.floor(Number(value || 0) / 50));
-    return `${vp.toLocaleString()} VP`;
+    const rawVp = Number(userProfile?.valuePoints ?? userProfile?.vp ?? (Number(value || 0) / 50));
+    const rounded = Math.round(rawVp * 10) / 10;
+    return `${rounded.toLocaleString()} VP`;
   };
   const formatNaira = formatPoints;
   const streakDays = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
+
+  // Trigger 10 VP withdrawal milestone (1.4 & 2.2) and <4h Daily Streak reminder (2.3)
+  useEffect(() => {
+    const rawVp = Number(userProfile?.valuePoints ?? userProfile?.vp ?? (Number(walletBalanceNaira || 0) / 50));
+    if (rawVp >= 10 && userProfile?.uid) {
+      checkAndTriggerVp5Notification(
+        rawVp,
+        userProfile.uid,
+        userProfile?.username || userProfile?.displayName || userProfile?.name
+      ).then((triggered) => {
+        if (triggered) loadNotifications();
+      });
+    }
+    if (userProfile?.uid) {
+      checkAndTriggerStreak4hNotification(userProfile).then((triggered) => {
+        if (triggered) loadNotifications();
+      });
+    }
+  }, [userProfile?.valuePoints, userProfile?.vp, userProfile?.uid, userProfile?.streak, userProfile?.lastPlayedDate, walletBalanceNaira, loadNotifications]);
 
   const displayName = userProfile?.username || userProfile?.displayName || userProfile?.name || state.name || 'Gamer';
 
@@ -322,7 +377,11 @@ export default function HomeScreen({ navigation }) {
     setDemoComplete(false);
     depositLock.current = false;
     if (type === 'profile') setName(displayName);
-    if (type === 'notifications') dispatch({ type: 'READ_NOTIFICATIONS' });
+    if (type === 'notifications') {
+      dispatch({ type: 'READ_NOTIFICATIONS' });
+      if (userProfile?.uid) notificationsApi.markRead().catch(() => {});
+      loadNotifications();
+    }
     setSheet({ type, data });
   };
 
@@ -370,7 +429,7 @@ export default function HomeScreen({ navigation }) {
         </Tap>
         <Tap label={state.notificationsRead ? 'Notifications' : 'Notifications, unread messages'} onPress={() => open('notifications')} style={s.roundIcon}>
           {icon('notifications-outline', 31)}
-          {!state.notificationsRead && <View style={s.unread} />}
+          {(!state.notificationsRead || notificationsList.some((n) => !n.read)) && <View style={s.unread} />}
         </Tap>
         {isAdmin && (
           <Tap label="Admin Dashboard" onPress={() => navigation?.navigate('AdminDashboard')} style={[s.roundIcon, { borderColor: '#FF5500', backgroundColor: 'rgba(255, 85, 0, 0.18)' }]}>
@@ -385,15 +444,42 @@ export default function HomeScreen({ navigation }) {
   }
 
   function WalletCard() {
+    const currentVp = Math.max(
+      0,
+      Number(userProfile?.valuePoints ?? userProfile?.vp ?? (Number(walletBalanceNaira || 0) / 50))
+    );
+    const canWithdraw = currentVp >= 5;
+
+    const handleWithdraw = () => {
+      navigation.navigate('Withdraw', { amount: walletBalanceNaira });
+    };
+
     return (
       <LinearGradient colors={['#003a72', '#001324', '#00101e']} style={[s.card, s.wallet]}>
         <View style={s.walletIcon}>{icon('wallet-outline', 34)}</View>
         <View style={{ flex: 1, paddingVertical: 4 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            {txt('Acquired Value Points', 13, s.muted)}
-          </View>
+          {txt('Acquired Value Points', 13, s.muted)}
           {txt(homeDataLoading ? 'Loading...' : formatPoints(walletBalanceNaira), 24, s.bold)}
-          {txt('Total acquired value points', 13, s.cyan)}
+          {canWithdraw ? (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleWithdraw}
+              style={s.withdrawRewardsBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Withdraw Rewards"
+            >
+              <LinearGradient
+                colors={['#00E5FF', '#0284C7']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={s.withdrawRewardsGrad}
+              >
+                <Ionicons name="cash-outline" size={14 * scale} color="#001824" style={{ marginRight: 5 * scale }} />
+                <Text style={s.withdrawRewardsText}>Withdraw Rewards</Text>
+                <Ionicons name="arrow-forward" size={13 * scale} color="#001824" style={{ marginLeft: 5 * scale }} />
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </LinearGradient>
     );
@@ -492,6 +578,7 @@ export default function HomeScreen({ navigation }) {
             <View style={[s.track, { width: `${Math.min(streakDays / 90, 1) * 100}%`, backgroundColor: CYAN }]} />
             {[7, 14, 30, 50, 90].map((day) => {
               const done = streakDays >= day;
+              const milestoneData = DAILY_STREAK_MILESTONES.find((m) => m.day === day);
               return (
                 <View key={day} style={s.milestone}>
                   <View style={[s.milestoneCircle, done && s.done]}>
@@ -500,17 +587,20 @@ export default function HomeScreen({ navigation }) {
                   {txt(`${day} Days`, 12, { marginTop: 6 * scale, color: done ? '#00E5FF' : '#fff', fontWeight: '700' })}
                   {txt(
                     done
-                      ? (day === 7 ? 'Unlocked! (+1 VP)' : 'Unlocked')
-                      : (day === 7 ? '7-Day Lock' : 'Locked'),
+                      ? `Unlocked (+${milestoneData?.incrementalVp} VP)`
+                      : `${milestoneData?.cumulativeVp} VP`,
                     11,
                     { color: done ? '#10B981' : '#64748B', fontWeight: done ? '800' : '600' }
                   )}
+                  <Text style={{ color: '#94A3B8', fontSize: 9 * scale, marginTop: 2 * scale }}>
+                    {milestoneData?.rateText || ''}
+                  </Text>
                 </View>
               );
             })}
             <View style={s.reward}>
               <Art name="gift" width={48 * scale} height={55 * scale} style={s.gift} />
-              {txt(`90-Day\nReward\n${streakDays >= 90 ? 'Unlocked' : 'Locked'}`, 12, { textAlign: 'center', lineHeight: 14 * scale })}
+              {txt(`90-Day\n174.5 VP\n${streakDays >= 90 ? 'Unlocked' : 'Locked'}`, 11, { textAlign: 'center', lineHeight: 13 * scale, fontWeight: '700' })}
             </View>
           </View>
         </ScrollView>
@@ -697,7 +787,60 @@ export default function HomeScreen({ navigation }) {
         return (
           <>
             <Text style={ui.heading}>Notifications</Text>
-            <Text style={ui.caption}>No new notifications</Text>
+            {notificationsList.length === 0 ? (
+              <Text style={ui.caption}>No new notifications</Text>
+            ) : (
+              <View style={{ gap: 8, marginTop: 4 }}>
+                {notificationsList.map((item) => {
+                  const handleNotificationPress = () => {
+                    setSheet(null);
+                    if (userProfile?.uid && item.id) {
+                      notificationsApi.markRead(item.id).catch(() => {});
+                    }
+                    const act = item.actionType || item.type;
+                    const payload = item.actionPayload || {};
+                    if (act === 'referral') {
+                      navigation?.navigate('InviteFriends');
+                    } else if (act === 'tournament' || item.type === 'tournament_available' || item.type === 'tournament_ended') {
+                      if (payload.tournamentId) {
+                        const targetScreen = payload.screen || (item.type === 'tournament_ended' ? 'TournamentResults' : 'TournamentDetails');
+                        navigation?.navigate(targetScreen, { tournamentId: payload.tournamentId });
+                      } else {
+                        changeTab('Tournaments');
+                      }
+                    } else {
+                      changeTab('Home');
+                    }
+                  };
+                  const iconName =
+                    item.type === 'follow' || item.type === 'referral'
+                      ? 'person-add'
+                      : item.type === 'tournament' || item.type === 'tournament_available' || item.type === 'tournament_ended'
+                      ? 'trophy'
+                      : item.type === 'streak_reminder'
+                      ? 'flame'
+                      : 'notifications';
+                  return (
+                    <Tap
+                      key={item.id}
+                      label={item.title || 'Notification'}
+                      onPress={handleNotificationPress}
+                      style={[ui.panel, { padding: 14, marginVertical: 4, flexDirection: 'row', alignItems: 'center' }]}
+                    >
+                      <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0, 217, 255, 0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <Ionicons name={iconName} size={18} color="#00d9ff" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[ui.label, { fontSize: 14, fontWeight: '700' }]}>{item.title || 'Notification'}</Text>
+                        <Text style={[ui.body, { fontSize: 13, marginVertical: 2, color: '#bfcbdc' }]}>{item.message}</Text>
+                        <Text style={[ui.caption, { fontSize: 11 }]}>{new Date(item.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="#00d9ff" style={{ marginLeft: 8 }} />
+                    </Tap>
+                  );
+                })}
+              </View>
+            )}
           </>
         );
       case 'settings':
@@ -983,9 +1126,13 @@ function makeStyles(k, theme, isDark) {
     welcomeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
     promoWrap: { width: 241, borderRadius: 17, borderColor: isDark ? '#83581f' : 'rgba(0, 0, 0, 0.1)', borderWidth: 1, overflow: 'hidden' },
     promo: { flexDirection: 'row', alignItems: 'center', height: 78, paddingHorizontal: 10 },
-    stats: { flexDirection: 'row', gap: 10, marginBottom: 9 },
-    card: { flex: 1, height: 85, borderWidth: 1, borderColor: isDark ? '#086d96' : 'rgba(0, 0, 0, 0.08)', borderRadius: 12, flexDirection: 'row', alignItems: 'center' },
-    wallet: { paddingHorizontal: 10 },
+    card: { flex: 1, minHeight: 85, borderWidth: 1, borderColor: isDark ? '#086d96' : 'rgba(0, 0, 0, 0.08)', borderRadius: 12, flexDirection: 'row', alignItems: 'center' },
+    wallet: { paddingHorizontal: 10, paddingVertical: 6 },
+    withdrawRewardsBtn: { marginTop: 5, borderRadius: 8, overflow: 'hidden', alignSelf: 'flex-start' },
+    withdrawRewardsGrad: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+    withdrawRewardsText: { color: '#001824', fontSize: 11, fontWeight: '900', letterSpacing: 0.3 },
+    claimBtn: { backgroundColor: '#00d9ff', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 3 },
+    claimBtnText: { color: '#001824', fontSize: 11, fontWeight: '800' },
     walletIcon: { width: 52, height: 56, backgroundColor: isDark ? '#003155' : 'rgba(0, 180, 216, 0.15)', borderRadius: 25, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
     plus: { width: 35, height: 35, borderRadius: 18, backgroundColor: isDark ? '#00baf2' : '#00B4D8', alignItems: 'center', justifyContent: 'center', marginLeft: 5 },
     streakSummary: { paddingHorizontal: 8, backgroundColor: isDark ? '#001522' : '#FFFFFF' },

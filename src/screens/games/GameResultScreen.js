@@ -29,7 +29,13 @@ import { tournaments, leaderboard as leaderboardApi } from '../../services/api';
 import { naira } from '../../config/appConfig';
 import { clearActiveMatch } from '../../utils/activeMatch';
 import { calculateGamePower, calculateValuePoints, formatGP, formatVP } from '../../utils/gamePower';
-import { recordGameStreak, getWinStreakInfo } from '../../utils/recordGameStreak';
+import {
+  recordGameStreak,
+  getWinStreakInfo,
+  getGameWinStreakState,
+  WIN_STREAK_TIERS,
+} from '../../utils/recordGameStreak';
+import { checkAndTriggerVp5Notification } from '../../utils/vpNotification';
 
 export default function GameResultScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
@@ -57,13 +63,15 @@ export default function GameResultScreen({ route, navigation }) {
   const [loadingTournaments, setLoadingTournaments] = useState(true);
   const [activeStandings, setActiveStandings] = useState(null);
   const [previewStandings, setPreviewStandings] = useState(null);
+  const [claimingStreak, setClaimingStreak] = useState(false);
+  const [streakClaimMessage, setStreakClaimMessage] = useState(null);
 
   const recordedRef = React.useRef(false);
 
   // The per-game careers map (`userProfile.gameStats`) is keyed by the backend
   // game enum ("draughts"), but the UI route passes "draft" for Draughts. Map
   // UI ids to their stats bucket so the right career record is read/written.
-  const GAME_STATS_KEY = { draft: 'draughts' };
+  const GAME_STATS_KEY = { draft: 'draughts', checkers: 'draughts', draught: 'draughts', draughts: 'draughts' };
   const statsKey = GAME_STATS_KEY[String(gameId).toLowerCase()] || gameId;
 
   useEffect(() => {
@@ -77,10 +85,6 @@ export default function GameResultScreen({ route, navigation }) {
     const outcome = isWinner ? 'win' : (isDraw ? 'draw' : 'loss');
     leaderboardApi.recordCompletion(statsKey, outcome, completionReason).catch(() => {});
 
-    if (serverConfirmed) {
-      refreshProfile().catch(() => {});
-      return;
-    }
     if (updateProfileData && userProfile) {
       const currentWins = Number(userProfile?.wins ?? userProfile?.gamesWon ?? 0);
       const currentLosses = Number(userProfile?.losses ?? userProfile?.gamesLost ?? 0);
@@ -90,28 +94,47 @@ export default function GameResultScreen({ route, navigation }) {
       const newLosses = !isWinner ? currentLosses + 1 : currentLosses;
       const newPlayed = Math.max(currentPlayed + 1, newWins + newLosses);
 
-      // Per-Game stats calculation (e.g. Ludo: 4 games, Ayo: 3 games)
+      // Per-Game stats calculation (e.g. Draughts/Checkers, Ludo, Ayo, Whot)
       const existingGameStats = userProfile?.gameStats || {};
-      const currentThisGame = existingGameStats[statsKey] || { gamesPlayed: 0, wins: 0, losses: 0 };
+      const currentThisGame = existingGameStats[statsKey] || existingGameStats.draft || existingGameStats.draughts || { gamesPlayed: 0, wins: 0, losses: 0, winStreak: 0, claimedWinStreakTier: 0 };
 
       const thisGamePlayed = Number(currentThisGame.gamesPlayed || 0) + 1;
       const thisGameWins = Number(currentThisGame.wins || 0) + (isWinner ? 1 : 0);
       const thisGameLosses = Number(currentThisGame.losses || 0) + (!isWinner ? 1 : 0);
 
+      // Consecutive win streak for THIS specific game:
+      // Increments on win, resets to 0 on loss, preserved on draw
+      const currentThisGameWinStreak = Number(currentThisGame.winStreak || 0);
+      const newThisGameWinStreak = isWinner ? currentThisGameWinStreak + 1 : (isDraw ? currentThisGameWinStreak : 0);
+      const claimedTier = Number(currentThisGame.claimedWinStreakTier || 0);
+
+      const isCheckers = statsKey === 'draughts' || statsKey === 'draft' || statsKey === 'checkers';
+      const updatedThisGame = {
+        ...currentThisGame,
+        gamesPlayed: thisGamePlayed,
+        wins: thisGameWins,
+        losses: thisGameLosses,
+        winStreak: newThisGameWinStreak,
+        claimedWinStreakTier: claimedTier,
+      };
+
       const updatedGameStats = {
         ...existingGameStats,
-        [statsKey]: {
-          gamesPlayed: thisGamePlayed,
-          wins: thisGameWins,
-          losses: thisGameLosses,
-        },
+        [statsKey]: updatedThisGame,
       };
+
+      if (isCheckers) {
+        updatedGameStats.draft = updatedThisGame;
+        updatedGameStats.draughts = updatedThisGame;
+      }
 
       // Calculate Game Power (GP) dynamically using official formula
       const newGp = calculateGamePower(newPlayed, newWins, newLosses);
 
       const userBalance = Number(userProfile?.walletBalance ?? userProfile?.balance ?? userProfile?.valuePoints ?? 0);
-      const newVp = calculateValuePoints(userBalance, newPlayed, newWins);
+      const calculatedVp = calculateValuePoints(userBalance, newPlayed, newWins);
+      const currentStoredVp = Number(userProfile?.valuePoints ?? userProfile?.vp ?? 0);
+      const newVp = Math.max(currentStoredVp, calculatedVp);
 
       updateProfileData({
         wins: newWins,
@@ -131,10 +154,72 @@ export default function GameResultScreen({ route, navigation }) {
       // Record Win Streak: increments if isWinner=true, resets to 0 if isWinner=false
       recordGameStreak(updateProfileData, userProfile, isWinner).catch(() => {});
     }
+
+    if (serverConfirmed) {
+      refreshProfile().catch(() => {});
+    }
   }, []);
 
+  const gameWinStreak = getGameWinStreakState(userProfile, statsKey);
+
+  const handleClaimWinStreak = async (tierToClaim) => {
+    if (!tierToClaim || claimingStreak) return;
+    setClaimingStreak(true);
+    setStreakClaimMessage(null);
+    try {
+      const reward = Number(tierToClaim.rewardVp);
+      const currentVp = Number(userProfile?.valuePoints ?? userProfile?.vp ?? 0);
+      const newVp = Math.round((currentVp + reward) * 10) / 10;
+
+      const existingGameStats = userProfile?.gameStats || {};
+      const thisGameStats = existingGameStats[statsKey] || existingGameStats.draft || existingGameStats.draughts || {};
+
+      const updatedThisGame = {
+        ...thisGameStats,
+        claimedWinStreakTier: tierToClaim.tier,
+      };
+
+      const isCheckers = statsKey === 'draughts' || statsKey === 'draft' || statsKey === 'checkers';
+      const updatedStats = {
+        ...existingGameStats,
+        [statsKey]: updatedThisGame,
+      };
+      if (isCheckers) {
+        updatedStats.draft = updatedThisGame;
+        updatedStats.draughts = updatedThisGame;
+      }
+
+      await updateProfileData({
+        valuePoints: newVp,
+        vp: newVp,
+        vpText: formatVP(newVp),
+        gameStats: updatedStats,
+      });
+
+      const nextTier = WIN_STREAK_TIERS[tierToClaim.tier];
+      if (nextTier) {
+        setStreakClaimMessage(`🎉 Claimed +${reward} VP! Unlocked next target: ${nextTier.label} (${nextTier.rewardVp} VP)`);
+      } else {
+        setStreakClaimMessage(`🎉 Claimed +${reward} VP! You completed all 1-10 streak milestones! 🏆`);
+      }
+
+      if (newVp >= 10) {
+        checkAndTriggerVp5Notification(
+          newVp,
+          userProfile?.uid,
+          userProfile?.username || userProfile?.displayName || userProfile?.name
+        );
+      }
+    } catch (err) {
+      console.log('Error claiming win streak reward:', err?.message || err);
+      Alert.alert('Notice', 'Could not claim streak reward at this time.');
+    } finally {
+      setClaimingStreak(false);
+    }
+  };
+
   // Per-game specific stats for display on this result screen
-  const currentGameStats = userProfile?.gameStats?.[statsKey] || {};
+  const currentGameStats = userProfile?.gameStats?.[statsKey] || userProfile?.gameStats?.draft || userProfile?.gameStats?.draughts || {};
   const thisGamePlayed = Number(currentGameStats.gamesPlayed ?? 0);
   const thisGameWins = Number(currentGameStats.wins ?? 0);
   const thisGameLosses = Number(currentGameStats.losses ?? 0);
@@ -376,29 +461,115 @@ export default function GameResultScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Match Win Streak Card */}
-        {!serverConfirmed && (() => {
-          const winStreakInfo = getWinStreakInfo(userProfile);
+        {/* Progressive Match Win Streak Card (Per-Game) */}
+        {(() => {
+          const { winStreak, claimedTier, activeTier, isCompletedAll, canClaim, winsNeeded } = gameWinStreak;
+          const targetWins = activeTier ? activeTier.targetWins : 10;
+          const progressPercent = Math.min(100, Math.max(0, Math.round((winStreak / targetWins) * 100)));
+
           return (
             <View style={styles.cardContainer}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              {/* Header row */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 }}>
                   <View style={[styles.gpShieldIcon, { backgroundColor: isWinner ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)' }]}>
                     <Flame size={18} color={isWinner ? '#10B981' : '#EF4444'} fill={isWinner ? '#10B981' : 'none'} />
                   </View>
-                  <View>
-                    <Text style={styles.cardTitle}>Match Win Streak</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cardTitle}>{gameName} Winning Streak</Text>
                     <Text style={styles.cardSub}>
-                      {isWinner ? `${winStreakInfo.winCount} consecutive win${winStreakInfo.winCount === 1 ? '' : 's'}!` : 'Streak reset on loss'}
+                      {isWinner
+                        ? `${winStreak} consecutive win${winStreak === 1 ? '' : 's'} in ${gameName}!`
+                        : 'Streak reset to 0 on match loss'}
                     </Text>
                   </View>
                 </View>
                 <View style={[styles.liveBadge, { backgroundColor: isWinner ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', borderColor: isWinner ? '#10B981' : '#EF4444' }]}>
                   <Text style={[styles.liveBadgeText, { color: isWinner ? '#10B981' : '#EF4444' }]}>
-                    {isWinner ? `🔥 ${winStreakInfo.winCount} WIN STREAK` : 'RESET TO 0'}
+                    {isWinner ? `🔥 ${winStreak} WIN STREAK` : 'RESET TO 0'}
                   </Text>
                 </View>
               </View>
+
+              {/* Progressive Milestones Section */}
+              {isCompletedAll ? (
+                <View style={styles.streakCompletedBox}>
+                  <Text style={styles.streakCompletedTitle}>🏆 All Streak Rewards Claimed!</Text>
+                  <Text style={styles.streakCompletedSub}>
+                    Grand Champion! You have conquered all consecutive win milestones (1-10) for {gameName}.
+                  </Text>
+                </View>
+              ) : activeTier ? (
+                <View style={styles.streakProgressBox}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <Text style={styles.streakTargetLabel}>
+                      Current Milestone: <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{activeTier.label}</Text>
+                    </Text>
+                    <View style={styles.rewardBadge}>
+                      <Text style={styles.rewardBadgeText}>+{activeTier.rewardVp} VP</Text>
+                    </View>
+                  </View>
+
+                  {/* Progress Bar */}
+                  <View style={styles.progressBarTrack}>
+                    <LinearGradient
+                      colors={['#10B981', '#00E5FF']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
+                    />
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                    <Text style={styles.gpSubText}>
+                      {winStreak} / {activeTier.targetWins} Consecutive Wins ({progressPercent}%)
+                    </Text>
+                    {!canClaim && (
+                      <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '700' }}>
+                        {winsNeeded} more win{winsNeeded === 1 ? '' : 's'} needed
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Claim Button when active target is reached */}
+                  {canClaim && (
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => handleClaimWinStreak(activeTier)}
+                      disabled={claimingStreak}
+                      style={styles.claimStreakBtn}
+                    >
+                      <LinearGradient
+                        colors={['#10B981', '#059669']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.claimStreakBtnGrad}
+                      >
+                        {claimingStreak ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <>
+                            <Trophy size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                            <Text style={styles.claimStreakBtnText}>
+                              Claim {activeTier.rewardVp} VP Reward
+                            </Text>
+                            <ArrowRight size={15} color="#FFFFFF" style={{ marginLeft: 6 }} />
+                          </>
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
+
+                  {streakClaimMessage && (
+                    <View style={styles.streakSuccessNotice}>
+                      <Text style={styles.streakSuccessText}>{streakClaimMessage}</Text>
+                    </View>
+                  )}
+
+                  <Text style={styles.streakGatingHint}>
+                    ⚡ Progressive: Claim {activeTier.shortLabel} to unlock the next milestone!
+                  </Text>
+                </View>
+              ) : null}
             </View>
           );
         })()}
@@ -917,5 +1088,88 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  streakProgressBox: {
+    backgroundColor: 'rgba(11, 19, 43, 0.7)',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.2)',
+    marginTop: 4,
+  },
+  streakTargetLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  rewardBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+  },
+  rewardBadgeText: {
+    color: '#10B981',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  claimStreakBtn: {
+    marginTop: 10,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  claimStreakBtnGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  claimStreakBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  streakSuccessNotice: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: '#10B981',
+    borderWidth: 1,
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  streakSuccessText: {
+    color: '#10B981',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  streakGatingHint: {
+    color: '#64748B',
+    fontSize: 10,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  streakCompletedBox: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+  },
+  streakCompletedTitle: {
+    color: '#F59E0B',
+    fontSize: 13,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  streakCompletedSub: {
+    color: '#CBD5E1',
+    fontSize: 11,
+    lineHeight: 15,
   },
 });

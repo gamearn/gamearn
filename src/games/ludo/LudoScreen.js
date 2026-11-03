@@ -164,12 +164,52 @@ export default function LudoScreen({
       const msg = `🎲 ${opp} rolled ${numbers}`;
       setLastBotAnnouncement(msg);
       showNotice(msg);
+      if (viewModel?.dice?.length) setLastDice(viewModel.dice);
     }
     const timer = setTimeout(() => {
       setRolling(false);
     }, 750);
     return () => clearTimeout(timer);
   }, [lastBotRollSig, viewModel?.players, viewModel?.currentPlayerIndex, viewModel?.dice]);
+
+  // Transparent tracking of Oba's turn from backend snapshot
+  const lastBotTurn = viewModel?.lastBotTurn;
+  const lastBotRoll = viewModel?.lastBotRoll;
+  const lastBotSig = lastBotTurn
+    ? `${lastBotTurn.playerUid}-${(lastBotTurn.roll || []).join(',')}-${(lastBotTurn.actions || []).length}`
+    : (lastBotRoll && Array.isArray(lastBotRoll) ? lastBotRoll.join(',') : null);
+
+  useEffect(() => {
+    if (!lastBotSig) return;
+    const opp = lastBotTurn?.botName || 'Oba 👑';
+    const rollVals = lastBotRoll || lastBotTurn?.roll || [];
+    const rollStr = rollVals.length ? rollVals.join(' & ') : '';
+    
+    // Check actions performed by Oba
+    const acts = lastBotTurn?.actions || [];
+    let actionDesc = '';
+    if (acts.some((a) => a.action === 'enter')) {
+      actionDesc = 'brought token out of yard 🚪';
+    } else if (acts.some((a) => a.capture)) {
+      actionDesc = 'captured a piece! 💥';
+    } else if (acts.some((a) => a.action === 'reach_home')) {
+      actionDesc = 'got a piece home! 🏁';
+    } else if (acts.some((a) => a.action === 'move' || a.action === 'home_stretch_move')) {
+      const moved = acts.find((a) => a.action === 'move' || a.action === 'home_stretch_move');
+      actionDesc = `moved token ${moved?.diceValue ?? ''} squares 🏃`;
+    } else if (acts.some((a) => a.action === 'skip')) {
+      actionDesc = 'no legal moves, passed turn ⏩';
+    }
+
+    if (rollStr) {
+      const msg = `👑 ${opp} rolled [${rollStr}]${actionDesc ? ` • ${actionDesc}` : ''}`;
+      setLastBotAnnouncement(msg);
+      showNotice(msg);
+      if (rollVals.length) {
+        setLastDice(rollVals);
+      }
+    }
+  }, [lastBotSig, lastBotTurn, lastBotRoll]);
 
   const legalIds = useMemo(() => {
     if (selectedValue != null) return legalPieceIdsForValue(viewModel, selectedValue);
@@ -388,6 +428,18 @@ export default function LudoScreen({
             {label.text}
           </Text>
         </View>
+
+        {/* Oba Transparency Live Tracker */}
+        {!!lastBotAnnouncement && (
+          <View style={styles.transparencyBar}>
+            <View style={styles.transparencyBadge}>
+              <Text style={styles.transparencyBadgeText}>OBA ACTION</Text>
+            </View>
+            <Text style={styles.transparencyText} numberOfLines={1}>
+              {lastBotAnnouncement}
+            </Text>
+          </View>
+        )}
 
         {/* Board & Animated Dice Container */}
         <View style={[styles.boardWrapper, { width: boardSize, height: boardSize }]}>
@@ -820,6 +872,37 @@ const styles = StyleSheet.create({
   },
   turnTextThem: {
     color: '#CBD5E1',
+  },
+  transparencyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 184, 0, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 184, 0, 0.4)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    marginVertical: 2,
+    gap: 8,
+    maxWidth: '92%',
+  },
+  transparencyBadge: {
+    backgroundColor: '#FFB800',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  transparencyBadgeText: {
+    color: '#070B28',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  transparencyText: {
+    color: '#FDE68A',
+    fontSize: 12,
+    fontWeight: '700',
+    flexShrink: 1,
   },
   boardWrapper: {
     alignItems: 'center',

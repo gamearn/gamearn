@@ -94,11 +94,11 @@ export default function DraughtsGameScreen({ route, navigation }) {
 
   const navigated = useRef(false);
   useEffect(() => {
-    if (!isMultiplayer || snapshot?.status !== 'completed' || navigated.current) return;
+    if (snapshot?.status !== 'completed' || navigated.current) return;
     navigated.current = true;
     const timerId = setTimeout(() => navigateResultRef.current(snapshot.winner === effectiveUid), 800);
     return () => clearTimeout(timerId);
-  }, [isMultiplayer, snapshot?.status, snapshot?.winner, effectiveUid]);
+  }, [snapshot?.status, snapshot?.winner, effectiveUid]);
 
   const handleBack = () => {
     if (navigation.canGoBack()) {

@@ -69,7 +69,7 @@ export default function GameSectionScreen({ route, navigation }) {
     return unsubscribe;
   }, [navigation, fetchLeaderboard]);
 
-  const leaderRows = useMemo(() => leaderboard(dbLeaderRows, userProfile, period), [dbLeaderRows, userProfile, period]);
+  const leaderRows = useMemo(() => leaderboard(dbLeaderRows, userProfile, period, key), [dbLeaderRows, userProfile, period, key]);
 
   const play = () => navigation.navigate('GameLobby', { gameId: key, gameName: game.title, targetScreen: game.target, setupTarget: 'GameSetup' });
   const balance = Number(w?.balance ?? userProfile?.walletBalance ?? 0);

@@ -184,6 +184,10 @@ export function ludoViewModel(snapshot, myUid) {
     tokenCount: snapshot.tokenCount || 4,
     status: snapshot.status || 'playing',
     winner: snapshot.winner || null,
+    lastBotTurn: snapshot.lastBotTurn || null,
+    lastBotRoll: snapshot.lastBotRoll || snapshot.lastBotTurn?.roll || null,
+    botActions: Array.isArray(snapshot.botActions) ? snapshot.botActions : [],
+    presentationEvents: Array.isArray(snapshot.presentationEvents) ? snapshot.presentationEvents : [],
   };
 }
 

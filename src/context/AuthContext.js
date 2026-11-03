@@ -151,7 +151,7 @@ function profileFromMe(me, cached) {
   // with the kobo wallet ledger. Never derive them from the raw balance here.
   const serverVp = me?.valuePoints ?? me?.vp ?? cached?.valuePoints;
   const vp = Number.isFinite(Number(serverVp))
-    ? Math.max(0, Math.floor(Number(serverVp)))
+    ? Math.max(0, Math.round(Number(serverVp) * 10) / 10)
     : calculateValuePoints(rawNaira, gamesPlayed, wins);
 
   const fullName = me?.fullName || cached?.fullName || me?.displayName || cached?.displayName || '';
@@ -247,8 +247,34 @@ export const AuthProvider = ({ children }) => {
       await authApi.login({});
       const me = await authApi.me();
       const isAdmin = await isAdminUser();
-      await writeCachedProfile({ ...me, isAdmin }, uid);
-      const profile = profileFromMe({ ...me, isAdmin }, cached);
+
+      let permFollowing = [];
+      let permFollowers = 0;
+      try {
+        const rawF = await AsyncStorage.getItem(`@gamearn_permanent_following_${uid}`);
+        if (rawF) permFollowing = JSON.parse(rawF);
+        const rawFollowers = await AsyncStorage.getItem(`@gamearn_permanent_followers_${uid}`);
+        if (rawFollowers) permFollowers = Number(JSON.parse(rawFollowers)) || 0;
+      } catch {}
+
+      const mergedFollowingList = Array.from(new Set([
+        ...(Array.isArray(me?.followingList) ? me.followingList : []),
+        ...(Array.isArray(cached?.followingList) ? cached.followingList : []),
+        ...(Array.isArray(permFollowing) ? permFollowing : []),
+      ]));
+      const mergedFollowingCount = Math.max(Number(me?.followingCount ?? cached?.followingCount ?? 0), mergedFollowingList.length);
+      const mergedFollowersCount = Math.max(Number(me?.followersCount ?? cached?.followersCount ?? 0), permFollowers);
+
+      const mergedMe = {
+        ...me,
+        isAdmin,
+        followingList: mergedFollowingList,
+        followingCount: mergedFollowingCount,
+        followersCount: mergedFollowersCount,
+      };
+
+      await writeCachedProfile(mergedMe, uid);
+      const profile = profileFromMe(mergedMe, cached);
       setUserProfile(profile);
       setBackendReady(true);
 

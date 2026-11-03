@@ -8,6 +8,7 @@ import { getStreakInfo } from '../../utils/recordGameStreak';
 import { resolveAvatarSource } from '../../utils/avatarPresets';
 import { referral, leaderboard } from '../../services/api';
 import { formatGP } from '../../utils/gamePower';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ProfileScreen({ navigation }) {
   const { userProfile, updateProfileData, refreshProfile } = useAuth();
@@ -24,9 +25,24 @@ export default function ProfileScreen({ navigation }) {
   // Sync followedUids whenever userProfile updates
   useEffect(() => {
     if (Array.isArray(userProfile?.followingList)) {
-      setFollowedUids(new Set(userProfile.followingList));
+      setFollowedUids((prev) => new Set([...prev, ...userProfile.followingList]));
     }
   }, [userProfile?.followingList]);
+
+  // Load permanent for-life following list from device storage
+  useEffect(() => {
+    const uid = userProfile?.uid || 'me';
+    AsyncStorage.getItem(`@gamearn_permanent_following_${uid}`).then((raw) => {
+      if (raw) {
+        try {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list) && list.length) {
+            setFollowedUids((prev) => new Set([...prev, ...list]));
+          }
+        } catch {}
+      }
+    });
+  }, [userProfile?.uid]);
 
   // Refresh profile from server on mount & focus
   useEffect(() => {
@@ -160,31 +176,70 @@ export default function ProfileScreen({ navigation }) {
     };
   }, [searchQuery, communityUsers, mergePlayers]);
 
-  const toggleFollow = useCallback((person) => {
+  const handleFollow = useCallback(async (person) => {
     const pUid = person.uid || person.id;
     if (!pUid) return;
-    const isCurrentlyFollowing = followedUids.has(pUid);
-    const nextSet = new Set(followedUids);
-    const currentFollowers = Number(userProfile?.followersCount ?? 0);
-    const currentFollowing = Number(userProfile?.followingCount ?? 0);
-
-    if (isCurrentlyFollowing) {
-      nextSet.delete(pUid);
-      setFollowedUids(nextSet);
-      updateProfileData({
-        followersCount: Math.max(0, currentFollowers - 1),
-        followingCount: Math.max(0, currentFollowing - 1),
-        followingList: Array.from(nextSet),
-      }).catch(() => {});
-    } else {
-      nextSet.add(pUid);
-      setFollowedUids(nextSet);
-      updateProfileData({
-        followersCount: currentFollowers + 1,
-        followingCount: currentFollowing + 1,
-        followingList: Array.from(nextSet),
-      }).catch(() => {});
+    if (followedUids.has(pUid)) {
+      // Permanent follow: once it counts, it is for life and never uncounts
+      return;
     }
+
+    const nextSet = new Set(followedUids);
+    nextSet.add(pUid);
+    setFollowedUids(nextSet);
+
+    const currentFollowing = Number(userProfile?.followingCount ?? 0);
+    const newFollowingCount = currentFollowing + 1;
+    const uid = userProfile?.uid || 'me';
+    const followingArr = Array.from(nextSet);
+
+    // Save permanently for life across all logouts and logins
+    try {
+      await AsyncStorage.setItem(`@gamearn_permanent_following_${uid}`, JSON.stringify(followingArr));
+      
+      // Increment target player's permanent followers count
+      const targetFollowerKey = `@gamearn_permanent_followers_${pUid}`;
+      const existingRaw = await AsyncStorage.getItem(targetFollowerKey);
+      const existingCount = existingRaw ? Number(JSON.parse(existingRaw)) || 0 : Number(person.followersCount || 0);
+      await AsyncStorage.setItem(targetFollowerKey, JSON.stringify(existingCount + 1));
+
+      // Post notification to the person followed: "@username followed you"
+      const senderRaw = userProfile?.username || userProfile?.displayName || userProfile?.name || 'A player';
+      const cleanSender = String(senderRaw).replace(/^@+/, '');
+      const notif = {
+        id: `follow_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        type: 'follow',
+        title: 'New Follower',
+        message: `@${cleanSender} followed you`,
+        fromUser: cleanSender,
+        fromUid: uid,
+        createdAt: Date.now(),
+        read: false,
+      };
+
+      const keyTarget = `@gamearn_notifications_${pUid}`;
+      const keyAll = '@gamearn_notifications_all';
+      const [tRaw, aRaw] = await Promise.all([
+        AsyncStorage.getItem(keyTarget),
+        AsyncStorage.getItem(keyAll),
+      ]);
+      const tList = tRaw ? JSON.parse(tRaw) : [];
+      const aList = aRaw ? JSON.parse(aRaw) : [];
+      tList.unshift(notif);
+      aList.unshift(notif);
+      await Promise.all([
+        AsyncStorage.setItem(keyTarget, JSON.stringify(tList.slice(0, 50))),
+        AsyncStorage.setItem(keyAll, JSON.stringify(aList.slice(0, 50))),
+      ]);
+    } catch (e) {
+      console.log('Follow storage error:', e);
+    }
+
+    // Instantly update userProfile state in React context
+    updateProfileData({
+      followingCount: newFollowingCount,
+      followingList: followingArr,
+    }).catch(() => {});
   }, [followedUids, userProfile, updateProfileData]);
 
   const cleanQ = searchQuery.trim().replace(/^@+/, '').trim();
@@ -499,7 +554,8 @@ export default function ProfileScreen({ navigation }) {
 
                   <TouchableOpacity
                     activeOpacity={0.85}
-                    onPress={() => toggleFollow(person)}
+                    disabled={isFollowed}
+                    onPress={() => handleFollow(person)}
                     style={[styles.followBtn, isFollowed ? styles.followingBtn : styles.followBtnActive]}
                   >
                     <Text style={[styles.followBtnText, isFollowed ? styles.followingBtnText : styles.followBtnActiveText]}>

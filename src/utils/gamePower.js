@@ -42,6 +42,6 @@ export function calculateValuePoints(naira = 0, _played = 0, _wins = 0) {
 }
 
 export function formatVP(vpValue) {
-  const val = typeof vpValue === 'number' && !isNaN(vpValue) ? vpValue : 0;
-  return `${val.toLocaleString()} VP`;
+  const num = typeof vpValue === 'number' && !isNaN(vpValue) ? Math.round(vpValue * 10) / 10 : (parseFloat(vpValue) || 0);
+  return `${num.toLocaleString()} VP`;
 }

@@ -47,7 +47,7 @@ export const auth = {
 
   deleteAccount: (confirmation) => apiPost('/auth/delete-account', { confirmation }),
 
-mfaStatus: () => apiGet('/auth/mfa/status'),
+  mfaStatus: () => apiGet('/auth/mfa/status'),
 
   mfaEnroll: (factor, value) => apiPost('/auth/mfa/enroll', { factor, ...(value ? { value } : {}) }),
 
@@ -75,7 +75,7 @@ export const wallet = {
     return apiGet(`/wallet/transactions?${qs.toString()}`);
   },
 
-verify: (txRef) => apiGet(`/pay/verify/${txRef}`),
+  verify: (txRef) => apiGet(`/pay/verify/${txRef}`),
 
   banks: async () => {
     const res = await apiGet('/pay/banks');
@@ -85,6 +85,20 @@ verify: (txRef) => apiGet(`/pay/verify/${txRef}`),
   // Claim the daily/in-game bonus Value Point grant. Idempotent per claim per
   // UTC day — duplicate claims are no-ops.
   freeValuePoints: (claim = 'daily-bonus') => apiPost('/wallet/free-points', { claim }),
+
+  // Trigger email & push/in-app notification for reaching 10+ VP withdrawal milestone
+  notifyVpMilestone: () => apiPost('/wallet/notify-vp-milestone', {}),
+};
+
+// ── Notifications (In-App Notification History) ───────────────────────────────
+
+export const notifications = {
+  list: async (limit = 50) => {
+    const res = await apiGet(`/notifications?limit=${limit}`);
+    return res?.notifications || res?.data?.notifications || (Array.isArray(res) ? res : []);
+  },
+  markRead: (notificationId = null) =>
+    apiPost('/notifications/mark-read', notificationId ? { notificationId } : {}),
 };
 
 // ── Premium ───────────────────────────────────────────────────────────────────
@@ -184,7 +198,12 @@ export const tournaments = {
 // ── Leaderboard ───────────────────────────────────────────────────────────────
 
 // The UI key for Draughts is "draft"; the backend enum is "draughts".
-const GAME_TYPE_ALIASES = { draft: 'draughts' };
+const GAME_TYPE_ALIASES = {
+  draft: 'draughts',
+  checkers: 'draughts',
+  draught: 'draughts',
+  draughts: 'draughts',
+};
 
 export const leaderboard = {
   get: async (period = 'Daily', gameType = null) => {

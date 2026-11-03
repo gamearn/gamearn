@@ -82,22 +82,42 @@ function computeRowGp(wins = 0, played = 0, explicitGp = null) {
   return Math.min(100, Math.max(0, Math.round(100 * (0.75 * WR + 0.25 * expScore))));
 }
 
-function leaderboard(dbRows = [], userProfile = null, period = 'Daily') {
+function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType = null) {
   // Rows arrive pre-ranked by the server (plays DESC, then wins).
   // Authenticated players always see themselves on the board (even with 0 plays).
-  const getUserPlays = () => {
-    if (!userProfile) return 0;
-    const wins = Number(userProfile.wins || userProfile.gamesWon || 0);
-    const losses = Number(userProfile.losses || userProfile.gamesLost || 0);
-    const draws = Number(userProfile.draws || userProfile.gamesDrawn || 0);
-    return Number(userProfile.gamesPlayed ?? userProfile.plays ?? (wins + losses + draws)) || 0;
+  const getRelevantUserStats = () => {
+    if (!userProfile) return { plays: 0, wins: 0 };
+    if (gameType) {
+      const gKey = String(gameType).toLowerCase();
+      const candidates = (gKey === 'draft' || gKey === 'checkers' || gKey === 'draught' || gKey === 'draughts')
+        ? ['draughts', 'draft', 'checkers']
+        : [gKey];
+
+      for (const k of candidates) {
+        const stat = userProfile?.gameStats?.[k];
+        if (stat) {
+          const w = Number(stat.wins || 0);
+          const p = Number(stat.gamesPlayed ?? stat.plays ?? (w + Number(stat.losses || 0)));
+          return { plays: Math.max(p, w), wins: w };
+        }
+      }
+    }
+    const totalWins = Number(userProfile.wins ?? userProfile.gamesWon ?? 0);
+    const totalLosses = Number(userProfile.losses ?? userProfile.gamesLost ?? 0);
+    const totalDraws = Number(userProfile.draws ?? userProfile.gamesDrawn ?? 0);
+    const totalPlays = Number(userProfile.gamesPlayed ?? userProfile.plays ?? (totalWins + totalLosses + totalDraws));
+    return { plays: Math.max(totalPlays, totalWins), wins: totalWins };
   };
+
+  const userStats = getRelevantUserStats();
+
+  const getUserPlays = () => userStats.plays;
 
   const getUserGp = () => {
     if (!userProfile) return 0;
     if (userProfile.gp !== undefined && userProfile.gp !== null) return Number(userProfile.gp);
     if (userProfile.gamePower !== undefined && userProfile.gamePower !== null) return Number(userProfile.gamePower);
-    return computeRowGp(Number(userProfile.wins || userProfile.gamesWon || 0), getUserPlays());
+    return computeRowGp(userStats.wins, userStats.plays);
   };
 
   const rows = Array.isArray(dbRows) ? dbRows : [];
@@ -105,8 +125,8 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily') {
     const isUser = Boolean(userProfile?.uid && (row.id === userProfile.uid || row.uid === userProfile.uid || row.isUser));
     const rawName = row.username || row.displayName || row.name || (isUser ? (userProfile?.username || userProfile?.displayName || 'You') : 'Player');
     const cleanName = rawName.replace(/\s*\(You\)\s*$/, '');
-    const wins = Number(row.wins || 0);
-    const plays = Number(row.plays ?? row.gamesPlayed ?? row.played ?? 0);
+    const wins = isUser ? Math.max(Number(row.wins || 0), userStats.wins) : Number(row.wins || 0);
+    const plays = isUser ? Math.max(Number(row.plays ?? row.gamesPlayed ?? row.played ?? 0), userStats.plays, wins) : Number(row.plays ?? row.gamesPlayed ?? row.played ?? 0);
     const rowGp = isUser ? getUserGp() : computeRowGp(wins, plays, row.gp ?? row.gamePower);
     return {
       id: row.id || row.uid || `player_${index}`,
@@ -122,7 +142,7 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily') {
     };
   });
 
-  // Always guarantee the authenticated user is visible on the board, even with 0 plays
+  // Always guarantee the authenticated user is visible on the board, with accurate stats
   if (userProfile?.uid) {
     const hasUser = list.some((item) => item.isUser);
     if (!hasUser) {
@@ -132,8 +152,8 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily') {
       list.push({
         id: userProfile.uid,
         name: `${cleanName} (You)`,
-        plays: 0,
-        wins: 0,
+        plays: userStats.plays,
+        wins: userStats.wins,
         gp: userGp,
         gpText: `${userGp} GP`,
         xp: userGp,
@@ -143,6 +163,16 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily') {
       });
     }
   }
+
+  // Sort so any player with higher plays and wins takes their proper rank
+  list.sort((a, b) => {
+    if (b.plays !== a.plays) return b.plays - a.plays;
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+  list.forEach((item, idx) => {
+    item.rank = idx + 1;
+  });
 
   return list;
 }

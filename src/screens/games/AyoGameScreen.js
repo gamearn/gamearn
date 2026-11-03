@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, ActivityIndicator } from 'react-native';
 import { AyoScreen } from '../../games/ayo/AyoScreen';
 import { useAuth } from '../../context/AuthContext';
 import { useOnlineMatch } from '../../games/useOnlineMatch';
-import { setActiveMatch } from '../../utils/activeMatch';
+import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 import CoinTossModal from '../../components/CoinTossModal';
 
 const STATUS_TEXT = {
@@ -22,6 +22,7 @@ export default function AyoGameScreen({ route, navigation }) {
   const isMultiplayer = params.mode === 'multiplayer' && !!params.roomId;
   const isPractice = params.mode === 'practice' || !isMultiplayer;
   const isRejoin = !!params.isRejoin;
+  const timer = params.timer || '2m';
 
   useEffect(() => {
     if (!isRejoin) {
