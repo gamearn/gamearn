@@ -90,6 +90,6 @@ export const appStoreLink = (code) =>
 
 // Official GAMEARN Community Links (used in Welcome Dashboard Modal & Welcome Email)
 export const TELEGRAM_COMMUNITY_LINK =
-  process.env.EXPO_PUBLIC_TELEGRAM_LINK || 'https://t.me/gamearn';
+  process.env.EXPO_PUBLIC_TELEGRAM_LINK || 'https://t.me/GAMEARNAPP';
 export const WHATSAPP_COMMUNITY_LINK =
-  process.env.EXPO_PUBLIC_WHATSAPP_LINK || 'https://chat.whatsapp.com/gamearn';
+  process.env.EXPO_PUBLIC_WHATSAPP_LINK || 'https://whatsapp.com/channel/0029VbEKR6m9cDDhIo972c0B';
