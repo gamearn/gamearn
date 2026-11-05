@@ -84,34 +84,76 @@ function computeRowGp(wins = 0, played = 0, explicitGp = null) {
 
 function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType = null) {
   // Rows arrive pre-ranked by the server (plays DESC, then wins).
-  // Authenticated players always see themselves on the board (even with 0 plays).
+  // Authenticated players always see themselves on the board with accurate plays.
+  const isPeriodFiltered = period === 'Daily' || period === 'Weekly' || period === 'Monthly';
+
+  const todayStr = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+
+  const playedToday = Boolean(
+    userProfile?.lastPlayedDate === todayStr ||
+    userProfile?.lastStreakDate === todayStr ||
+    userProfile?.lastDailyPlayDate === todayStr
+  );
+
   const getRelevantUserStats = () => {
-    if (!userProfile) return { plays: 0, wins: 0 };
+    if (!userProfile) return { plays: 0, wins: 0, dailyPlays: 0, dailyWins: 0 };
     if (gameType) {
       const gKey = String(gameType).toLowerCase();
       const candidates = (gKey === 'draft' || gKey === 'checkers' || gKey === 'draught' || gKey === 'draughts')
         ? ['draughts', 'draft', 'checkers']
         : [gKey];
 
+      let maxW = 0;
+      let maxP = 0;
+      let maxDailyP = 0;
+      let maxDailyW = 0;
+      let foundStat = false;
       for (const k of candidates) {
         const stat = userProfile?.gameStats?.[k];
         if (stat) {
+          foundStat = true;
           const w = Number(stat.wins || 0);
           const p = Number(stat.gamesPlayed ?? stat.plays ?? (w + Number(stat.losses || 0)));
-          return { plays: Math.max(p, w), wins: w };
+          if (w > maxW) maxW = w;
+          if (Math.max(p, w) > maxP) maxP = Math.max(p, w);
+          if (stat.dailyPlays !== undefined) maxDailyP = Math.max(maxDailyP, Number(stat.dailyPlays || 0));
+          if (stat.dailyWins !== undefined) maxDailyW = Math.max(maxDailyW, Number(stat.dailyWins || 0));
         }
+      }
+      if (foundStat) {
+        const finalDailyP = maxDailyP > 0 ? maxDailyP : (playedToday && maxP > 0 ? 1 : 0);
+        const finalDailyW = maxDailyW > 0 ? maxDailyW : (playedToday && maxW > 0 ? 1 : 0);
+        return { plays: Math.max(maxP, maxW), wins: maxW, dailyPlays: finalDailyP, dailyWins: finalDailyW };
       }
     }
     const totalWins = Number(userProfile.wins ?? userProfile.gamesWon ?? 0);
     const totalLosses = Number(userProfile.losses ?? userProfile.gamesLost ?? 0);
     const totalDraws = Number(userProfile.draws ?? userProfile.gamesDrawn ?? 0);
     const totalPlays = Number(userProfile.gamesPlayed ?? userProfile.plays ?? (totalWins + totalLosses + totalDraws));
-    return { plays: Math.max(totalPlays, totalWins), wins: totalWins };
+    const globalDailyP = Number(userProfile.dailyPlays ?? (playedToday && totalPlays > 0 ? 1 : 0));
+    const globalDailyW = Number(userProfile.dailyWins ?? (playedToday && totalWins > 0 ? 1 : 0));
+    return { plays: Math.max(totalPlays, totalWins), wins: totalWins, dailyPlays: globalDailyP, dailyWins: globalDailyW };
   };
 
   const userStats = getRelevantUserStats();
 
-  const getUserPlays = () => userStats.plays;
+  const getEffectiveUserStats = () => {
+    if (period === 'Daily') {
+      return { plays: userStats.dailyPlays, wins: userStats.dailyWins };
+    }
+    if (isPeriodFiltered) {
+      return {
+        plays: userStats.dailyPlays > 0 ? userStats.dailyPlays : userStats.plays,
+        wins: userStats.dailyWins > 0 ? userStats.dailyWins : userStats.wins,
+      };
+    }
+    return { plays: userStats.plays, wins: userStats.wins };
+  };
+
+  const effectiveStats = getEffectiveUserStats();
 
   const getUserGp = () => {
     if (!userProfile) return 0;
@@ -125,8 +167,17 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
     const isUser = Boolean(userProfile?.uid && (row.id === userProfile.uid || row.uid === userProfile.uid || row.isUser));
     const rawName = row.username || row.displayName || row.name || (isUser ? (userProfile?.username || userProfile?.displayName || 'You') : 'Player');
     const cleanName = rawName.replace(/\s*\(You\)\s*$/, '');
-    const wins = isUser ? Math.max(Number(row.wins || 0), userStats.wins) : Number(row.wins || 0);
-    const plays = isUser ? Math.max(Number(row.plays ?? row.gamesPlayed ?? row.played ?? 0), userStats.plays, wins) : Number(row.plays ?? row.gamesPlayed ?? row.played ?? 0);
+    let wins = Number(row.wins || 0);
+    let plays = Number(row.plays ?? row.gamesPlayed ?? row.played ?? 0);
+    if (isUser) {
+      if (period === 'Daily') {
+        plays = Math.max(plays, effectiveStats.plays);
+        wins = Math.max(wins, effectiveStats.wins);
+      } else {
+        wins = Math.max(wins, effectiveStats.wins);
+        plays = Math.max(plays, effectiveStats.plays, wins);
+      }
+    }
     const rowGp = isUser ? getUserGp() : computeRowGp(wins, plays, row.gp ?? row.gamePower);
     return {
       id: row.id || row.uid || `player_${index}`,
@@ -142,7 +193,7 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
     };
   });
 
-  // Always guarantee the authenticated user is visible on the board, with accurate stats
+  // Always guarantee the authenticated user is visible on the board, with accurate stats for the period
   if (userProfile?.uid) {
     const hasUser = list.some((item) => item.isUser);
     if (!hasUser) {
@@ -152,8 +203,8 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
       list.push({
         id: userProfile.uid,
         name: `${cleanName} (You)`,
-        plays: userStats.plays,
-        wins: userStats.wins,
+        plays: effectiveStats.plays,
+        wins: effectiveStats.wins,
         gp: userGp,
         gpText: `${userGp} GP`,
         xp: userGp,

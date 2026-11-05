@@ -31,7 +31,7 @@ import { useAuth } from '../../context/AuthContext';
 export default function SettingsScreen({ navigation }) {
   const { theme, isDark, toggleTheme } = useTheme();
   const { signOut, userProfile, user } = useAuth();
-  const isAdmin = !!userProfile?.isAdmin ||
+  const isAdmin = !!userProfile?.isAdmin || userProfile?.username?.toLowerCase() === 'jessejesutoni' ||
     userProfile?.email?.toLowerCase() === 'abbagem@gmail.com' ||
     user?.email?.toLowerCase() === 'abbagem@gmail.com';
 

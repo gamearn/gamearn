@@ -65,9 +65,13 @@ export default function GameSectionScreen({ route, navigation }) {
     const unsubscribe = navigation.addListener('focus', () => {
       fetchLeaderboard();
       wallet.get().then(setW).catch(() => {});
+      tournaments.list(key).then((val) => {
+        const list = Array.isArray(val) ? val : (val?.tournaments || val?.data || []);
+        setTs(list.filter((t) => ['open', 'live', 'registration_open', 'pending', 'scheduled', 'in_progress'].includes(String(t.status || t.state || 'registration_open').toLowerCase())));
+      }).catch(() => {});
     });
     return unsubscribe;
-  }, [navigation, fetchLeaderboard]);
+  }, [navigation, fetchLeaderboard, key]);
 
   const leaderRows = useMemo(() => leaderboard(dbLeaderRows, userProfile, period, key), [dbLeaderRows, userProfile, period, key]);
 
@@ -129,37 +133,7 @@ export default function GameSectionScreen({ route, navigation }) {
           </ScrollView>
         )}
 
-        {key === 'whot' && (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('WhotSetup', { gameId: key, gameName: game.title, targetScreen: game.target })}
-            style={{
-              backgroundColor: 'rgba(0, 229, 255, 0.08)',
-              borderWidth: 1.5,
-              borderColor: 'rgba(0, 229, 255, 0.35)',
-              borderRadius: 14,
-              padding: 12,
-              marginTop: 12,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <View style={{ flex: 1, paddingRight: 10 }}>
-              <Text style={{ color: '#00E5FF', fontSize: 13, fontWeight: '900' }}>
-                🎴 Tabulated Special Cards Setup (1, 2, 5, 8, 14, 20)
-              </Text>
-              <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 3 }}>
-                Configure side-by-side [ON] and [OFF] segmented controls for each special card before starting.
-              </Text>
-            </View>
-            <View style={{ backgroundColor: '#00E5FF', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}>
-              <Text style={{ color: '#070C1B', fontWeight: '900', fontSize: 12 }}>Open ⚙️</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-
-        <View style={{ flexDirection: 'row', gap: 10, marginVertical: 14 }}>
+                <View style={{ flexDirection: 'row', gap: 10, marginVertical: 14 }}>
           <TouchableOpacity onPress={play} style={[styles.play, { flex: 1, marginVertical: 0 }]}>
             <Play size={19} color="#fff" fill="#fff" />
             <Text style={styles.playText}>Play Now</Text>

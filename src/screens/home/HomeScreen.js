@@ -103,7 +103,7 @@ export default function HomeScreen({ navigation }) {
   const scale = Math.min(width, 650) / 590;
   const { theme, isDark, setTheme } = useTheme();
   const { userProfile, updateProfileData, user } = useAuth() || {};
-  const isAdmin = !!userProfile?.isAdmin ||
+  const isAdmin = !!userProfile?.isAdmin || userProfile?.username?.toLowerCase() === 'jessejesutoni' ||
     userProfile?.email?.toLowerCase() === 'abbagem@gmail.com' ||
     user?.email?.toLowerCase() === 'abbagem@gmail.com';
   const s = useMemo(() => makeStyles(scale, theme, isDark), [scale, theme, isDark]);
@@ -125,6 +125,9 @@ export default function HomeScreen({ navigation }) {
   const [myTournaments, setMyTournaments] = useState([]);
   const [homeDataLoading, setHomeDataLoading] = useState(true);
   const [dbLeaderboardRows, setDbLeaderboardRows] = useState([]);
+  const [winnersList, setWinnersList] = useState([]);
+  const [winnersLoading, setWinnersLoading] = useState(true);
+  const [winnersPeriod, setWinnersPeriod] = useState('Daily');
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
   const [notificationsList, setNotificationsList] = useState([]);
   const [showWelcomeCommunityModal, setShowWelcomeCommunityModal] = useState(false);
@@ -214,59 +217,24 @@ export default function HomeScreen({ navigation }) {
   }, [userProfile, user?.uid, updateProfileData]);
 
 
-  // 3. Persistent Welcome Dashboard In-App Notification (Community Prompt)
-  // Appears whenever the user launches GAMEARN or logs in, and continues appearing
-  // until the user clicks either the Telegram or WhatsApp community button.
+  const fetchWinners = useCallback(() => {
+    setWinnersLoading(true);
+    leaderboardApi
+      .getWinners()
+      .then((data) => {
+        setWinnersList(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        setWinnersList([]);
+      })
+      .finally(() => {
+        setWinnersLoading(false);
+      });
+  }, []);
+
   useEffect(() => {
-    const uid = userProfile?.uid || user?.uid;
-    if (!uid) return;
-    let active = true;
-    (async () => {
-      try {
-        const localClicked = await AsyncStorage.getItem(`@gamearn_community_link_clicked_${uid}`);
-        const serverClicked = Boolean(
-          userProfile?.welcomeCommunityClicked ||
-          userProfile?.settings?.communityLinkClicked
-        );
-        if (localClicked === 'true' || serverClicked) {
-          if (localClicked !== 'true') {
-            await AsyncStorage.setItem(`@gamearn_community_link_clicked_${uid}`, 'true');
-          }
-          if (active) setShowWelcomeCommunityModal(false);
-        } else if (active) {
-          setShowWelcomeCommunityModal(true);
-        }
-      } catch {
-        if (active) setShowWelcomeCommunityModal(true);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [userProfile?.uid, user?.uid, userProfile?.welcomeCommunityClicked, userProfile?.settings?.communityLinkClicked]);
-
-  const handleCommunityButtonClick = useCallback(async (platform, url) => {
-    const uid = userProfile?.uid || user?.uid;
-    setShowWelcomeCommunityModal(false);
-    try {
-      if (uid) {
-        await AsyncStorage.setItem(`@gamearn_community_link_clicked_${uid}`, 'true');
-      }
-      if (userProfile) {
-        settingsApi.patch({ communityLinkClicked: true, communityLinkPlatform: platform }).catch(() => {});
-        if (typeof updateProfileData === 'function') {
-          updateProfileData({
-            welcomeCommunityClicked: true,
-            welcomeCommunityPlatform: platform,
-          }).catch(() => {});
-        }
-      }
-    } catch {}
-    try {
-      await Linking.openURL(url);
-    } catch {}
-  }, [userProfile, user?.uid, updateProfileData]);
-
+    fetchWinners();
+  }, [fetchWinners]);
 
   const fetchLeaderboard = useCallback(() => {
     let active = true;
@@ -298,9 +266,10 @@ export default function HomeScreen({ navigation }) {
     if (!navigation) return;
     const unsubscribe = navigation.addListener('focus', () => {
       fetchLeaderboard();
+      fetchWinners();
     });
     return unsubscribe;
-  }, [navigation, fetchLeaderboard]);
+  }, [navigation, fetchLeaderboard, fetchWinners]);
   const pendingWrites = useRef(Promise.resolve());
   const mounted = useRef(true);
   const depositLock = useRef(false);
@@ -508,6 +477,7 @@ export default function HomeScreen({ navigation }) {
     [dbLeaderboardRows, userProfile, period]
   );
 
+  /* Wallet commented out (no wallet in project)
   const addFunds = () => {
     const parsed = parseAmount(amount);
     if (parsed === null) {
@@ -517,6 +487,7 @@ export default function HomeScreen({ navigation }) {
     setSheet(null);
     navigation?.navigate('BuyValuePoints');
   };
+  */
 
   function Header() {
     const avatarUri = userProfile?.avatar;
@@ -559,10 +530,18 @@ export default function HomeScreen({ navigation }) {
       0,
       Number(userProfile?.valuePoints ?? userProfile?.vp ?? (Number(walletBalanceNaira || 0) / 50))
     );
-    const canWithdraw = currentVp >= 5;
+    const canClaimReward = currentVp >= 5;
 
+    /* Wallet withdrawal commented out (no wallet in project)
     const handleWithdraw = () => {
       navigation.navigate('Withdraw', { amount: walletBalanceNaira });
+    };
+    */
+
+    const handleClaimReward = () => {
+      Linking.openURL('https://www.gamearn.app').catch(() => {
+        Alert.alert('Claim Reward', 'Please visit https://www.gamearn.app to claim your reward.');
+      });
     };
 
     return (
@@ -571,13 +550,13 @@ export default function HomeScreen({ navigation }) {
         <View style={{ flex: 1, paddingVertical: 4 }}>
           {txt('Acquired Value Points', 13, s.muted)}
           {txt(homeDataLoading ? 'Loading...' : formatPoints(walletBalanceNaira), 24, s.bold)}
-          {canWithdraw ? (
+          {canClaimReward ? (
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={handleWithdraw}
+              onPress={handleClaimReward}
               style={s.withdrawRewardsBtn}
               accessibilityRole="button"
-              accessibilityLabel="Withdraw Rewards"
+              accessibilityLabel="Claim Reward"
             >
               <LinearGradient
                 colors={['#00E5FF', '#0284C7']}
@@ -585,8 +564,8 @@ export default function HomeScreen({ navigation }) {
                 end={{ x: 1, y: 0 }}
                 style={s.withdrawRewardsGrad}
               >
-                <Ionicons name="cash-outline" size={14 * scale} color="#001824" style={{ marginRight: 5 * scale }} />
-                <Text style={s.withdrawRewardsText}>Withdraw Rewards</Text>
+                <Ionicons name="gift-outline" size={14 * scale} color="#001824" style={{ marginRight: 5 * scale }} />
+                <Text style={s.withdrawRewardsText}>Claim Reward</Text>
                 <Ionicons name="arrow-forward" size={13 * scale} color="#001824" style={{ marginLeft: 5 * scale }} />
               </LinearGradient>
             </TouchableOpacity>
@@ -695,27 +674,251 @@ export default function HomeScreen({ navigation }) {
                   <View style={[s.milestoneCircle, done && s.done]}>
                     {icon(done ? 'checkmark' : 'lock-closed', 19, done ? '#fff' : '#d8e4ef')}
                   </View>
-                  {txt(`${day} Days`, 12, { marginTop: 6 * scale, color: done ? '#00E5FF' : '#fff', fontWeight: '700' })}
-                  {txt(
-                    done
-                      ? `Unlocked (+${milestoneData?.incrementalVp} VP)`
-                      : `${milestoneData?.cumulativeVp} VP`,
-                    11,
-                    { color: done ? '#10B981' : '#64748B', fontWeight: done ? '800' : '600' }
-                  )}
-                  <Text style={{ color: '#94A3B8', fontSize: 9 * scale, marginTop: 2 * scale }}>
-                    {milestoneData?.rateText || ''}
-                  </Text>
+                  {txt(`${day} Days`, 12, { marginTop: 6 * scale })}
+                  {done && milestoneData ? (
+                    txt(`+${milestoneData.incrementalVp} VP`, 10, { color: '#10B981', fontWeight: '800' })
+                  ) : null}
                 </View>
               );
             })}
             <View style={s.reward}>
               <Art name="gift" width={48 * scale} height={55 * scale} style={s.gift} />
-              {txt(`90-Day\n174.5 VP\n${streakDays >= 90 ? 'Unlocked' : 'Locked'}`, 11, { textAlign: 'center', lineHeight: 13 * scale, fontWeight: '700' })}
+              {txt(streakDays >= 90 ? '90-Day\n174.5 VP\nUnlocked' : '90-Day\nReward\nLocked', 11, { textAlign: 'center', lineHeight: 13 * scale, fontWeight: '700' })}
             </View>
           </View>
         </ScrollView>
       </LinearGradient>
+    );
+  }
+
+  function WreathMedal({ rank }) {
+    const colors = {
+      1: { bg: '#92400E', ring: '#F59E0B', text: '#FEF3C7', leaf: '#FBBF24' },
+      2: { bg: '#334155', ring: '#94A3B8', text: '#F8FAFC', leaf: '#CBD5E1' },
+      3: { bg: '#78350F', ring: '#D97706', text: '#FEF3C7', leaf: '#F59E0B' },
+    };
+    const c = colors[rank] || colors[1];
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: 44 * scale, height: 38 * scale }}>
+        <Text style={{ fontSize: 16 * scale, color: c.leaf, marginRight: -4 * scale }}>🌿</Text>
+        <View
+          style={{
+            width: 24 * scale,
+            height: 24 * scale,
+            borderRadius: 12 * scale,
+            backgroundColor: c.bg,
+            borderWidth: 1.5,
+            borderColor: c.ring,
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2,
+          }}
+        >
+          <Text style={{ color: c.text, fontWeight: '900', fontSize: 12 * scale }}>{rank}</Text>
+        </View>
+        <Text style={{ fontSize: 16 * scale, color: c.leaf, marginLeft: -4 * scale, transform: [{ scaleX: -1 }] }}>🌿</Text>
+      </View>
+    );
+  }
+
+  function LeaderboardWinners() {
+    const periodWinners = (winnersList || [])
+      .filter((w) => w.period === winnersPeriod)
+      .sort((a, b) => a.rank - b.rank);
+
+    const getPeriodSubtitle = (p) => {
+      const match = (winnersList || []).find((w) => w.period === p && w.periodDate);
+      if (match?.periodDate) return match.periodDate;
+      const now = new Date();
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      if (p === 'Daily') return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+      if (p === 'Weekly') {
+        const wk = Math.ceil(now.getDate() / 7);
+        return `Week ${wk}, ${months[now.getMonth()]} ${now.getFullYear()}`;
+      }
+      if (p === 'Monthly') return `${months[now.getMonth()]} ${now.getFullYear()}`;
+      return `${now.getFullYear()}`;
+    };
+
+    return (
+      <View
+        style={{
+          backgroundColor: 'rgba(8, 16, 40, 0.85)',
+          borderWidth: 1.5,
+          borderColor: 'rgba(0, 229, 255, 0.28)',
+          borderRadius: 18 * scale,
+          padding: 14 * scale,
+          marginTop: 18 * scale,
+          shadowColor: '#00E5FF',
+          shadowOpacity: 0.15,
+          shadowRadius: 10,
+          elevation: 6,
+        }}
+      >
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ fontSize: 20 * scale, marginRight: 8 * scale }}>🏆</Text>
+          <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 18 * scale, letterSpacing: 0.3 }}>
+            Leaderboard Winners
+          </Text>
+        </View>
+
+        {/* Period Selector Tabs with Subtitle Dates */}
+        <View
+          style={{
+            flexDirection: 'row',
+            backgroundColor: 'rgba(4, 9, 24, 0.85)',
+            borderRadius: 12 * scale,
+            padding: 3 * scale,
+            marginTop: 10 * scale,
+            marginBottom: 12 * scale,
+          }}
+        >
+          {['Daily', 'Weekly', 'Monthly', 'Yearly'].map((p) => {
+            const on = winnersPeriod === p;
+            return (
+              <TouchableOpacity
+                key={p}
+                activeOpacity={0.8}
+                onPress={() => setWinnersPeriod(p)}
+                style={{
+                  flex: 1,
+                  paddingVertical: 7 * scale,
+                  paddingHorizontal: 2 * scale,
+                  borderRadius: 9 * scale,
+                  backgroundColor: on ? '#00E5FF' : 'transparent',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    color: on ? '#00172D' : '#FFFFFF',
+                    fontWeight: '900',
+                    fontSize: 11 * scale,
+                  }}
+                >
+                  {p}
+                </Text>
+                <Text
+                  style={{
+                    color: on ? '#002B49' : '#64748B',
+                    fontSize: 8 * scale,
+                    fontWeight: '700',
+                    marginTop: 2 * scale,
+                  }}
+                  numberOfLines={1}
+                >
+                  {getPeriodSubtitle(p)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Winners List */}
+        {winnersLoading ? (
+          <ActivityIndicator color={CYAN} style={{ marginVertical: 18 * scale }} />
+        ) : periodWinners.length === 0 ? (
+          <View style={{ paddingVertical: 18 * scale, alignItems: 'center' }}>
+            <Text style={[s.muted, { fontSize: 13 * scale, textAlign: 'center' }]}>
+              No winners awarded for this period yet.
+            </Text>
+          </View>
+        ) : (
+          periodWinners.map((w, idx) => {
+            const isUser = Boolean(userProfile?.uid && w.uid === userProfile.uid);
+            return (
+              <View
+                key={w.id || idx}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: isUser ? 'rgba(0, 229, 255, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                  borderColor: isUser ? '#00E5FF' : 'rgba(255, 255, 255, 0.08)',
+                  borderWidth: 1,
+                  borderRadius: 12 * scale,
+                  paddingHorizontal: 8 * scale,
+                  paddingVertical: 10 * scale,
+                  marginBottom: idx < periodWinners.length - 1 ? 8 * scale : 0,
+                }}
+              >
+                {/* Left: Medal + Avatar + Name */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  <WreathMedal rank={w.rank || idx + 1} />
+                  <Image
+                    source={resolveAvatarSource(w.avatar)}
+                    style={{
+                      width: 32 * scale,
+                      height: 32 * scale,
+                      borderRadius: (32 * scale) / 2,
+                      marginRight: 8 * scale,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    }}
+                  />
+                  <Text
+                    style={{
+                      color: '#FFFFFF',
+                      fontWeight: '800',
+                      fontSize: 12 * scale,
+                      maxWidth: 85 * scale,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {w.name || w.displayName || 'Player'}{isUser ? ' (You)' : ''}
+                  </Text>
+                </View>
+
+                {/* Middle: Stats (GP, Played, Won) */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 4 * scale }}>
+                  <View style={{ alignItems: 'center', paddingHorizontal: 5 * scale, borderRightWidth: 1, borderRightColor: 'rgba(255, 255, 255, 0.1)' }}>
+                    <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 11 * scale }}>{w.gp || 0} GP</Text>
+                    <Text style={{ color: '#64748B', fontSize: 8 * scale, fontWeight: '700' }}>Game Power</Text>
+                  </View>
+                  <View style={{ alignItems: 'center', paddingHorizontal: 5 * scale, borderRightWidth: 1, borderRightColor: 'rgba(255, 255, 255, 0.1)' }}>
+                    <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 11 * scale }}>{w.plays || 0}</Text>
+                    <Text style={{ color: '#64748B', fontSize: 8 * scale, fontWeight: '700' }}>Played</Text>
+                  </View>
+                  <View style={{ alignItems: 'center', paddingHorizontal: 5 * scale }}>
+                    <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 11 * scale }}>{w.wins || 0}</Text>
+                    <Text style={{ color: '#64748B', fontSize: 8 * scale, fontWeight: '700' }}>Won</Text>
+                  </View>
+                </View>
+
+                {/* Right: Golden Reward Ticket Voucher */}
+                <View
+                  style={{
+                    backgroundColor: 'rgba(168, 85, 0, 0.28)',
+                    borderColor: '#F59E0B',
+                    borderWidth: 1,
+                    borderRadius: 8 * scale,
+                    paddingHorizontal: 7 * scale,
+                    paddingVertical: 5 * scale,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: 12 * scale, marginRight: 4 * scale }}>🎁</Text>
+                  <Text
+                    style={{
+                      color: '#FBBF24',
+                      fontWeight: '900',
+                      fontSize: 10 * scale,
+                      maxWidth: 85 * scale,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {w.reward || 'Prize'}
+                  </Text>
+                </View>
+              </View>
+            );
+          })
+        )}
+      </View>
     );
   }
 
@@ -812,7 +1015,6 @@ export default function HomeScreen({ navigation }) {
           </View>
           <GradientButton title="Play Now" onPress={() => open('games')} style={{ width: 155 * scale }} compact scale={scale} />
         </View>
-        <TournamentCard />
         <View style={[s.sectionRow, { marginTop: 12 * scale, marginBottom: 6 * scale }]}>
           {txt('Games', 20, s.bold)}
           <Tap label="See all games" onPress={() => open('games')} style={s.inline}>
@@ -825,6 +1027,7 @@ export default function HomeScreen({ navigation }) {
             <GameCard key={game.id} game={game} />
           ))}
         </View>
+        <LeaderboardWinners />
         <Leaderboard />
       </>
     );
@@ -843,6 +1046,7 @@ export default function HomeScreen({ navigation }) {
           </View>
         </>
       );
+    /* Wallet tab commented out (no wallet in project)
     if (tab === 'Wallet')
       return (
         <>
@@ -872,6 +1076,7 @@ export default function HomeScreen({ navigation }) {
           )}
         </>
       );
+    */
     return (
       <>
         <Text style={ui.pageTitle}>Profile</Text>
@@ -1015,6 +1220,7 @@ export default function HomeScreen({ navigation }) {
             />
           </>
         );
+      /* Wallet deposit sheet commented out (no wallet in project)
       case 'deposit':
         return (
           <>
@@ -1044,6 +1250,7 @@ export default function HomeScreen({ navigation }) {
             <GradientButton title="Add virtual funds" onPress={addFunds} />
           </>
         );
+      */
       case 'tournament':
         return (
           <>
@@ -1276,6 +1483,7 @@ function makeStyles(k, theme, isDark) {
     welcomeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
     promoWrap: { width: 241, borderRadius: 17, borderColor: isDark ? '#83581f' : 'rgba(0, 0, 0, 0.1)', borderWidth: 1, overflow: 'hidden' },
     promo: { flexDirection: 'row', alignItems: 'center', height: 78, paddingHorizontal: 10 },
+    stats: { flexDirection: 'row', alignItems: 'stretch', gap: 11, marginBottom: 15 },
     card: { flex: 1, minHeight: 85, borderWidth: 1, borderColor: isDark ? '#086d96' : 'rgba(0, 0, 0, 0.08)', borderRadius: 12, flexDirection: 'row', alignItems: 'center' },
     wallet: { paddingHorizontal: 10, paddingVertical: 6 },
     withdrawRewardsBtn: { marginTop: 5, borderRadius: 8, overflow: 'hidden', alignSelf: 'flex-start' },
@@ -1287,19 +1495,19 @@ function makeStyles(k, theme, isDark) {
     plus: { width: 35, height: 35, borderRadius: 18, backgroundColor: isDark ? '#00baf2' : '#00B4D8', alignItems: 'center', justifyContent: 'center', marginLeft: 5 },
     streakSummary: { paddingHorizontal: 8, backgroundColor: isDark ? '#001522' : '#FFFFFF' },
     activeBadge: { marginLeft: 10, borderRadius: 15, backgroundColor: GREEN, paddingHorizontal: 12, height: 26, flexDirection: 'row', alignItems: 'center', gap: 3 },
-    streak: { borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#087f94' : 'rgba(0, 0, 0, 0.08)', paddingHorizontal: 16, paddingTop: 7, height: 140, backgroundColor: isDark ? 'transparent' : '#FFFFFF', overflow: 'visible' },
+    streak: { borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#087f94' : 'rgba(0, 0, 0, 0.08)', paddingHorizontal: 16, paddingTop: 7, height: 126, backgroundColor: isDark ? 'transparent' : '#FFFFFF', overflow: 'visible' },
     sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     milestoneScroller: { marginTop: 8, flex: 1, overflow: 'visible' },
     milestones: { flexGrow: 1, overflow: 'visible' },
-    milestoneTrack: { flexDirection: 'row', alignItems: 'flex-start', minWidth: 5 * 45 + 79, position: 'relative', paddingTop: 16, overflow: 'visible' },
+    milestoneTrack: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flex: 1, minWidth: 5 * 45 + 79, position: 'relative', paddingTop: 16, overflow: 'visible' },
     track: { position: 'absolute', top: 32, left: 17, right: 78, height: 4, backgroundColor: isDark ? '#3c455e' : '#CBD5E1' },
-    milestone: { width: 37, alignItems: 'center' },
+    milestone: { width: 45, alignItems: 'center' },
     milestoneCircle: { width: 33, height: 33, borderRadius: 17, borderWidth: 2, borderColor: isDark ? '#64778f' : '#94A3B8', backgroundColor: isDark ? '#142035' : '#E2E8F0', alignItems: 'center', justifyContent: 'center' },
     done: { backgroundColor: '#07872f', borderColor: '#33ff3e', shadowColor: GREEN, shadowRadius: 8, shadowOpacity: 0.9, shadowOffset: { width: 0, height: 0 } },
     gold: { backgroundColor: '#a86a00', borderColor: '#ffe537', shadowColor: '#ffb500', shadowRadius: 7, shadowOpacity: 0.85, shadowOffset: { width: 0, height: 0 } },
     reward: { width: 79, height: 68, borderRadius: 9, borderWidth: 1, borderColor: isDark ? '#946d39' : 'rgba(0,0,0,0.1)', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 3, backgroundColor: isDark ? '#07162b' : '#F1F5F9', marginTop: 5, overflow: 'visible' },
     gift: { position: 'absolute', top: -22 },
-    playStrip: { marginTop: 9, marginBottom: 9, height: 49, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', borderRadius: 10, backgroundColor: isDark ? '#09152f' : 'rgba(0, 180, 216, 0.12)' },
+    playStrip: { marginTop: 9, marginBottom: 9, height: 64, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', borderRadius: 10, backgroundColor: isDark ? '#09152f' : 'rgba(0, 180, 216, 0.12)' },
     tournament: { height: 187, borderRadius: 13, borderWidth: 1, borderColor: isDark ? '#ac7427' : 'rgba(0, 0, 0, 0.1)', overflow: 'hidden', paddingHorizontal: 21, paddingVertical: 9 },
     trophyArt: { position: 'absolute', right: 0, top: 0 },
     badges: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 7 },

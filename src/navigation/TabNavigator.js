@@ -1,9 +1,9 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, Trophy, Wallet, User } from 'lucide-react-native';
+import { Home, Trophy, /* Wallet, */ User } from 'lucide-react-native';
 import HomeScreen from '../screens/home/HomeScreen';
 import TourScreen from '../screens/tour/TourScreen';
-import WalletScreen from '../screens/wallet/WalletScreen';
+// import WalletScreen from '../screens/wallet/WalletScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import { useTheme } from '../context/ThemeContext';
 

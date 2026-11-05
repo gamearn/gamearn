@@ -214,7 +214,7 @@ export function WhotScreen({
     }, 1300);
 
     return () => clearTimeout(timer);
-  }, [isRemote, gameState?.activePlayerIndex, gameState?.gameStatus, gameState?.discardPile?.length, aiDifficulty]);
+  }, [isRemote, showCoinToss, gameState?.activePlayerIndex, gameState?.gameStatus, gameState?.discardPile?.length, aiDifficulty]);
 
   const { updateProfileData, userProfile, refreshProfile } = useAuth();
   const mountStreakRecorded = useRef(false);
@@ -338,14 +338,41 @@ export function WhotScreen({
     return () => { alive = false; };
   }, [isRejoin]);
 
-  // Ensure gameState always matches the exact requested cardCount
+  const configRef = useRef({
+    cardCount,
+    timer,
+    vsOba,
+    playerCount,
+    nulled: JSON.stringify((nulled || []).map(String)),
+    removed: JSON.stringify((removed || []).map(String)),
+  });
+
+  // Re-initialize gameState ONLY if game configuration props genuinely change from setup
   useEffect(() => {
     if (isRemote) return;
-    setGameState((prev) => {
-      if (prev?.players?.[0]?.hand?.length === cardCount) return prev;
-      return createInitialState(timer, cardCount, vsOba ? 2 : (playerCount || 2), vsOba);
-    });
-  }, [cardCount, timer, vsOba, playerCount, isRemote]);
+    const nextNulled = JSON.stringify((nulled || []).map(String));
+    const nextRemoved = JSON.stringify((removed || []).map(String));
+    const prevConfig = configRef.current;
+    const configChanged =
+      prevConfig.cardCount !== cardCount ||
+      prevConfig.timer !== timer ||
+      prevConfig.vsOba !== vsOba ||
+      prevConfig.playerCount !== playerCount ||
+      prevConfig.nulled !== nextNulled ||
+      prevConfig.removed !== nextRemoved;
+
+    if (configChanged) {
+      configRef.current = {
+        cardCount,
+        timer,
+        vsOba,
+        playerCount,
+        nulled: nextNulled,
+        removed: nextRemoved,
+      };
+      setGameState(createInitialState(timer, cardCount, vsOba ? 2 : (playerCount || 2), vsOba, { nulled, removed }));
+    }
+  }, [cardCount, timer, vsOba, playerCount, isRemote, nulled, removed]);
 
   useEffect(() => {
     if (gameState.gameStatus === 'game_over') {
@@ -653,7 +680,7 @@ export function WhotScreen({
 
   // Restart Game
   function handleRestart() {
-    setGameState(createInitialState(timer, cardCount, vsOba ? 2 : (playerCount || 2), vsOba));
+    setGameState(createInitialState(timer, cardCount, vsOba ? 2 : (playerCount || 2), vsOba, { nulled, removed }));
     setSelected(null);
     setDialog(null);
     setFormationCountdown(7);

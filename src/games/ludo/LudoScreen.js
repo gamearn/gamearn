@@ -68,13 +68,29 @@ function turnLabel(viewModel, status, selectedValue, lastBotAnnouncement = '') {
   }
 
   const current = viewModel.players?.[viewModel.currentPlayerIndex];
-  const name = current?.name || 'Oba 👑';
-  if (viewModel.mustPass) {
-    return { text: `⚠️ ${name} rolled ${viewModel.dice?.join(' & ') || ''} — no legal moves!`, tone: 'them' };
+  const name = viewModel.botName || current?.name || 'Oba 👑';
+  const shownRoll = (viewModel.botRoll?.length ? viewModel.botRoll : (viewModel.rolledDice?.length ? viewModel.rolledDice : viewModel.dice)) || [];
+  if (viewModel.botPhase === 'rolling' || !viewModel.diceRolled) {
+    return { text: `🎲 ${name} is rolling the dice…`, tone: 'them' };
   }
-  if (viewModel.diceRolled && Array.isArray(viewModel.dice) && viewModel.dice.length) {
+  if (viewModel.mustPass) {
+    return { text: `🎲 ${name} rolled ${shownRoll.join(' & ')} — no legal moves!`, tone: 'them' };
+  }
+  if (viewModel.botPhase === 'moved' && shownRoll.length) {
+    const act = viewModel.lastBotAction;
+    const desc = act?.action === 'enter'
+      ? 'brought a piece out of yard!'
+      : act?.capture
+        ? 'captured a piece!'
+        : `moved piece ${act?.diceValue || ''} steps!`;
     return {
-      text: `🎲 ${name} rolled ${viewModel.dice.join(' & ')} — moving piece!`,
+      text: `🎲 ${name} rolled ${shownRoll.join(' & ')} • ${desc}`,
+      tone: 'them',
+    };
+  }
+  if (shownRoll.length) {
+    return {
+      text: `🎲 ${name} rolled ${shownRoll.join(' & ')}!`,
       tone: 'them',
     };
   }
@@ -131,8 +147,13 @@ export default function LudoScreen({
   const sawPending = useRef(false);
 
   useEffect(() => {
-    if (Array.isArray(viewModel?.dice) && viewModel.dice.length) setLastDice(viewModel.dice);
-  }, [viewModel?.dice]);
+    const latest = viewModel?.rolledDice?.length
+      ? viewModel.rolledDice
+      : viewModel?.botRoll?.length
+        ? viewModel.botRoll
+        : viewModel?.dice;
+    if (Array.isArray(latest) && latest.length) setLastDice(latest);
+  }, [viewModel?.rolledDice, viewModel?.botRoll, viewModel?.dice]);
 
   // Selectable dice options (two dice expose each die plus the sum).
   const options = useMemo(() => diceOptions(viewModel), [viewModel]);
@@ -150,27 +171,32 @@ export default function LudoScreen({
     setSelectedValue(movable.length === 1 ? movable[0] : (uniqueValues.length === 1 ? uniqueValues[0] : null));
   }, [diceSig, viewModel?.diceRolled, viewModel?.currentPlayerIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When opponent/Oba rolls, announce and trigger animated dice tumbling
-  const lastBotRollSig = !viewModel?.isMyTurn && viewModel?.diceRolled
-    ? `${viewModel?.currentPlayerIndex}-${(viewModel?.dice || []).join(',')}`
+  // When opponent/Oba rolls, announce the exact numbers rolled
+  const activeBotRoll = !viewModel?.isMyTurn && viewModel?.diceRolled
+    ? (viewModel?.botRoll?.length ? viewModel.botRoll : (viewModel?.rolledDice?.length ? viewModel.rolledDice : viewModel?.dice))
+    : null;
+  const lastBotRollSig = !viewModel?.isMyTurn
+    ? `${viewModel?.currentPlayerIndex}-${viewModel?.botPhase || ''}-${(activeBotRoll || []).join(',')}`
     : null;
 
   useEffect(() => {
-    if (!lastBotRollSig) return;
-    setRolling(true);
-    const opp = viewModel?.players?.[viewModel?.currentPlayerIndex]?.name || 'Oba 👑';
-    const numbers = (viewModel?.dice || []).join(' & ');
+    if (!lastBotRollSig || paused) return;
+    const opp = viewModel?.botName || viewModel?.players?.[viewModel?.currentPlayerIndex]?.name || 'Oba 👑';
+    if (viewModel?.botPhase === 'rolling' || !viewModel?.diceRolled) {
+      const msg = `🎲 ${opp} is rolling the dice…`;
+      setLastBotAnnouncement(msg);
+      return;
+    }
+    const numbers = (activeBotRoll || []).join(' & ');
     if (numbers) {
-      const msg = `🎲 ${opp} rolled ${numbers}`;
+      const msg = viewModel?.mustPass
+        ? `🎲 ${opp} rolled [${numbers}] • No legal moves`
+        : `🎲 ${opp} rolled [${numbers}]`;
       setLastBotAnnouncement(msg);
       showNotice(msg);
-      if (viewModel?.dice?.length) setLastDice(viewModel.dice);
+      if (activeBotRoll?.length) setLastDice(activeBotRoll);
     }
-    const timer = setTimeout(() => {
-      setRolling(false);
-    }, 750);
-    return () => clearTimeout(timer);
-  }, [lastBotRollSig, viewModel?.players, viewModel?.currentPlayerIndex, viewModel?.dice]);
+  }, [lastBotRollSig, paused]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Transparent tracking of Oba's turn from backend snapshot
   const lastBotTurn = viewModel?.lastBotTurn;
@@ -283,17 +309,33 @@ export default function LudoScreen({
     return () => clearTimeout(t);
   }, [rolling]);
 
+  const isObaRolling = Boolean(
+    !paused &&
+    viewModel &&
+    viewModel.status === 'playing' &&
+    !viewModel.isMyTurn &&
+    (viewModel.botPhase === 'rolling' || !viewModel.diceRolled)
+  );
+  const effectiveRolling = Boolean(rolling || isObaRolling);
+
   const diceCount = viewModel?.diceCount === 1 ? 1 : 2;
-  const rawDice = rolling ? [] : viewModel?.dice?.length ? viewModel.dice : (lastDice.length ? lastDice : [5, 2]);
-  const displayDice = diceCount === 2 && rawDice.length === 1
-    ? [rawDice[0], rawDice[0] === 6 ? 6 : Math.min(6, rawDice[0] + 1)]
-    : rawDice;
+  const settledDice =
+    (viewModel?.rolledDice?.length ? viewModel.rolledDice : null) ||
+    (viewModel?.botRoll?.length ? viewModel.botRoll : null) ||
+    (viewModel?.dice?.length ? viewModel.dice : null) ||
+    (lastDice.length ? lastDice : [5, 2]);
+  const displayDice = effectiveRolling ? [] : settledDice;
   const label = turnLabel(viewModel, status, selectedValue, lastBotAnnouncement);
 
   let buttonLabel = 'ROLL DICE';
   if (!viewModel?.isMyTurn) {
-    const oppName = viewModel?.players?.[viewModel?.currentPlayerIndex]?.name || 'OBA';
-    buttonLabel = viewModel?.diceRolled ? `${oppName.toUpperCase()} IS PLAYING…` : `${oppName.toUpperCase()} IS ROLLING…`;
+    const oppName = viewModel?.botName || viewModel?.players?.[viewModel?.currentPlayerIndex]?.name || 'OBA';
+    const oppRoll = (viewModel?.botRoll?.length ? viewModel.botRoll : viewModel?.rolledDice) || [];
+    buttonLabel = isObaRolling
+      ? `🎲 ${oppName.toUpperCase()} IS ROLLING…`
+      : oppRoll.length
+        ? `🎲 ${oppName.toUpperCase()} ROLLED ${oppRoll.join(' & ')}`
+        : `${oppName.toUpperCase()} IS PLAYING…`;
   } else if (viewModel?.diceRolled) {
     buttonLabel = selectedValue == null ? 'CHOOSE A NUMBER' : 'SELECT A PIECE';
   }
@@ -448,10 +490,12 @@ export default function LudoScreen({
             boardSize={boardSize}
             count={diceCount}
             values={displayDice}
-            rolling={rolling}
+            rolling={effectiveRolling}
             activeColorIdx={activeColorIdx}
-            fadeForPieceMove={Boolean(viewModel?.diceRolled && !rolling)}
+            fadeForPieceMove={Boolean(viewModel?.isMyTurn && viewModel?.diceRolled && selectedValue != null && !effectiveRolling)}
             onPress={canRoll ? handleRoll : undefined}
+            isBotRoll={Boolean(!viewModel?.isMyTurn)}
+            rollerName={viewModel?.botName || viewModel?.players?.[viewModel?.currentPlayerIndex]?.name || 'Oba 👑'}
           />
         </View>
 

@@ -1,3 +1,11 @@
+import React from 'react';
+
+// Entire PaymentScreen is commented out (no wallet in project).
+export default function PaymentScreen() {
+  return null;
+}
+
+/*
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, BackHandler, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -200,3 +208,4 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 });
+*/

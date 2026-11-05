@@ -1,3 +1,11 @@
+import React from 'react';
+
+// Entire WithdrawScreen is commented out (no wallet in project).
+export default function WithdrawScreen() {
+  return null;
+}
+
+/*
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -132,7 +140,7 @@ export default function WithdrawScreen({ route, navigation }) {
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
       <LinearGradient colors={theme.gradientBg} style={StyleSheet.absoluteFillObject} />
 
-      {/* Top Header */}
+      {/* Top Header * /}
       <View style={styles.topHeader}>
         <TouchableOpacity onPress={goBack} style={[styles.backCircleBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' }]}>
           <ArrowLeft size={20} color={theme.textPrimary} />
@@ -146,7 +154,7 @@ export default function WithdrawScreen({ route, navigation }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Step Progress Bar */}
+        {/* Step Progress Bar * /}
         <View style={styles.progressContainer}>
           <View style={styles.progressTrack}>
             {[1, 2, 3].map((s) => (
@@ -166,7 +174,7 @@ export default function WithdrawScreen({ route, navigation }) {
 
         {step === 1 && (
           <>
-            {/* Available Balance Card */}
+            {/* Available Balance Card * /}
             <LinearGradient
               colors={isDark ? ['#0F203C', '#0B162B'] : ['#E0F2FE', '#BAE6FD']}
               start={{ x: 0, y: 0 }}
@@ -218,7 +226,7 @@ export default function WithdrawScreen({ route, navigation }) {
             <View style={styles.sectionWrap}>
               <Text style={styles.sectionHeaderTitle}>Destination Bank Account</Text>
 
-              {/* Bank selector */}
+              {/* Bank selector * /}
               <Text style={[styles.inputLabelText, { color: theme.textSecondary }]}>Bank</Text>
               <TouchableOpacity
                 activeOpacity={0.85}
@@ -232,7 +240,7 @@ export default function WithdrawScreen({ route, navigation }) {
                 <Circle size={14} color={theme.textMuted} />
               </TouchableOpacity>
 
-              {/* Account number */}
+              {/* Account number * /}
               <Text style={[styles.inputLabelText, { color: theme.textSecondary, marginTop: 14 }]}>Account Number</Text>
               <View style={[styles.accountInputBox, { borderColor: theme.inputBorder }]}>
                 <TextInput
@@ -245,7 +253,7 @@ export default function WithdrawScreen({ route, navigation }) {
                 />
               </View>
 
-              {/* Account name */}
+              {/* Account name * /}
               <Text style={[styles.inputLabelText, { color: theme.textSecondary, marginTop: 14 }]}>Account Name</Text>
               <View style={[styles.accountInputBox, { borderColor: theme.inputBorder }]}>
                 <TextInput
@@ -302,7 +310,7 @@ export default function WithdrawScreen({ route, navigation }) {
               </View>
             </View>
 
-            {/* Warning Banner */}
+            {/* Warning Banner * /}
             <View style={styles.warningBanner}>
               <View style={styles.warningIconCircle}>
                 <AlertCircle size={20} color="#FF6600" />
@@ -337,7 +345,7 @@ export default function WithdrawScreen({ route, navigation }) {
         )}
       </ScrollView>
 
-      {/* Bank selector modal */}
+      {/* Bank selector modal * /}
       <Modal visible={bankModalOpen} transparent animationType="slide" onRequestClose={() => setBankModalOpen(false)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.bankModal, { backgroundColor: theme.cardBg }]}>
@@ -671,3 +679,5 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
 });
+
+*/

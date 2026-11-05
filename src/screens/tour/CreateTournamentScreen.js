@@ -45,8 +45,8 @@ const DURATION_KEY_BY_LABEL = {
 };
 
 const WINNER_OPTIONS = [1, 3, 5, 10];
-const ENTRY_FEE_PRESETS = [0, 5, 10, 20, 50];
-const COMMIT_VP_PRESETS = [50, 100, 200, 500];
+const ENTRY_FEE_PRESETS = [5, 10, 20, 50];
+const COMMIT_VP_PRESETS = [100, 200, 500];
 
 export default function CreateTournamentScreen({ navigation }) {
   const { userProfile, refreshProfile, refreshWallet } = useAuth();
@@ -153,14 +153,14 @@ export default function CreateTournamentScreen({ navigation }) {
     }
 
     const parsedEntryFee = parseInt(entryFee, 10);
-    if (isNaN(parsedEntryFee) || parsedEntryFee < 0) {
-      Alert.alert('Entry Fee Required', 'Please enter a valid entry fee in Value Points (or 0 for free).');
+    if (isNaN(parsedEntryFee) || parsedEntryFee < 1) {
+      Alert.alert('Entry Fee Required', 'Please enter a valid entry fee in Value Points (minimum 1 VP).');
       return;
     }
 
     const parsedCommitted = parseInt(committedVp, 10);
-    if (isNaN(parsedCommitted) || parsedCommitted < 1) {
-      Alert.alert('Committed Value Points Required', 'Please enter the Value Points you wish to commit (e.g. 100 VP).');
+    if (isNaN(parsedCommitted) || parsedCommitted < 100) {
+      Alert.alert('Committed Value Points Required', 'Please enter the Value Points you wish to commit (minimum 100 VP).');
       return;
     }
 
@@ -487,7 +487,7 @@ export default function CreateTournamentScreen({ navigation }) {
                   style={[styles.pillOption, isSelected && styles.pillOptionSelected]}
                 >
                   <Text style={[styles.pillOptionText, isSelected && styles.pillOptionTextSelected]}>
-                    {fee === 0 ? 'Free' : `${fee} VP`}
+                    {fee} VP
                   </Text>
                 </TouchableOpacity>
               );

@@ -140,10 +140,16 @@ export default function GameLobbyScreen({ route, navigation }) {
       playerColor,
       cardCount,
       cards: cardCount,
+      startCards: cardCount,
+      startingCards: cardCount,
       enableSpecialCards,
+      specialCards,
+      nulled,
+      removed,
       seedCount,
       gameId,
       gameName,
+      resetKey: Date.now(),
     });
   };
 
@@ -179,11 +185,18 @@ export default function GameLobbyScreen({ route, navigation }) {
           players: isWhot ? 2 : playerCount,
           playerColor,
           cardCount,
+          cards: cardCount,
+          startCards: cardCount,
+          startingCards: cardCount,
           enableSpecialCards,
+          specialCards,
+          nulled,
+          removed,
           seedCount,
           gameId,
           gameName,
           isQuickMatch: true,
+          resetKey: Date.now(),
         });
       }
     };
@@ -237,7 +250,7 @@ export default function GameLobbyScreen({ route, navigation }) {
         `This challenge costs ${naira(koboToN(selectedFee))}. Your balance is ${naira(balanceNaira)}.`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Buy Value Points', onPress: () => navigation.navigate('BuyValuePoints') },
+          { text: 'Get Value Points', onPress: () => Linking.openURL('https://www.gamearn.app').catch(() => {}) /* navigation.navigate('BuyValuePoints') */ },
         ]
       );
       return;
@@ -309,7 +322,8 @@ export default function GameLobbyScreen({ route, navigation }) {
       Alert.alert('Sign in required', 'Create an account to top up.');
       return;
     }
-    navigation.navigate('BuyValuePoints');
+    // navigation.navigate('BuyValuePoints');
+    Linking.openURL('https://www.gamearn.app').catch(() => {});
   };
 
   return (

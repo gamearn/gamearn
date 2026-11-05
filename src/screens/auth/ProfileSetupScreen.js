@@ -165,8 +165,8 @@ export default function ProfileSetupScreen({ navigation }) {
           label="Referral Code (optional)"
           value={referralCode}
           onChangeText={setReferralCode}
-          placeholder="e.g. GAMERN123"
-          autoCapitalize="characters"
+          placeholder="e.g. gamer88 or GAMERN123"
+          autoCapitalize="none"
           leftIcon={<Gift size={20} color={theme.textMuted} />}
         />
       </View>

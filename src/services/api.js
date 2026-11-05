@@ -2,8 +2,62 @@
 // Contracts derived from Backend_manager routes/validators/services.
 // Money: wallet/pay amounts are NAIRA (floats); entry fees/transactions kobo.
 
-import { apiGet, apiPatch, apiPost, ApiError } from './apiClient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiGet, apiPatch, apiPost, apiDelete, ApiError } from './apiClient';
 import { getIdToken } from './firebase';
+
+const DELETED_TOURNAMENTS_STORAGE_KEY = '@gamearn_deleted_tournament_ids';
+const deletedTournamentIdsMem = new Set();
+let deletedTournamentIdsLoaded = false;
+
+async function getDeletedTournamentIds() {
+  if (!deletedTournamentIdsLoaded) {
+    try {
+      const raw = await AsyncStorage.getItem(DELETED_TOURNAMENTS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((id) => deletedTournamentIdsMem.add(String(id)));
+        }
+      }
+    } catch {
+      // ignore storage read error
+    }
+    deletedTournamentIdsLoaded = true;
+  }
+  return deletedTournamentIdsMem;
+}
+
+async function markTournamentDeletedLocally(id) {
+  if (!id) return;
+  const set = await getDeletedTournamentIds();
+  set.add(String(id));
+  try {
+    await AsyncStorage.setItem(DELETED_TOURNAMENTS_STORAGE_KEY, JSON.stringify(Array.from(set)));
+  } catch {
+    // ignore storage write error
+  }
+}
+
+async function filterDeletedTournaments(res) {
+  const deletedSet = await getDeletedTournamentIds();
+  if (!deletedSet.size || !res) return res;
+  if (Array.isArray(res)) {
+    return res.filter((t) => !deletedSet.has(String(t?.id)));
+  }
+  if (Array.isArray(res.tournaments)) {
+    const filtered = res.tournaments.filter((t) => !deletedSet.has(String(t?.id)));
+    return { ...res, count: filtered.length, tournaments: filtered };
+  }
+  if (Array.isArray(res.data)) {
+    return { ...res, data: res.data.filter((t) => !deletedSet.has(String(t?.id))) };
+  }
+  if (res.data && Array.isArray(res.data.tournaments)) {
+    const filtered = res.data.tournaments.filter((t) => !deletedSet.has(String(t?.id)));
+    return { ...res, data: { ...res.data, count: filtered.length, tournaments: filtered } };
+  }
+  return res;
+}
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -189,12 +243,23 @@ export const tournaments = {
       committedVp: body.committedVp != null ? Number(body.committedVp) : 100,
     }),
 
-  list: (gameType) =>
-    apiGet(gameType ? `/tournaments?gameType=${gameType}` : '/tournaments/'),
+  list: async (gameType) => {
+    const res = await apiGet(gameType ? `/tournaments?gameType=${gameType}` : '/tournaments/');
+    return filterDeletedTournaments(res);
+  },
 
-  my: () => apiGet('/tournaments/my'),
+  my: async () => {
+    const res = await apiGet('/tournaments/my');
+    return filterDeletedTournaments(res);
+  },
 
-  get: (id) => apiGet(`/tournaments/${id}`),
+  get: async (id) => {
+    const deletedSet = await getDeletedTournamentIds();
+    if (deletedSet.has(String(id))) {
+      throw new ApiError({ code: 'NOT_FOUND', message: 'Tournament has been deleted.', statusCode: 404 });
+    }
+    return apiGet(`/tournaments/${id}`);
+  },
 
   standings: (id) => apiGet(`/tournaments/${id}/standings`),
 
@@ -217,6 +282,11 @@ export const leaderboard = {
     const normalized = gameType ? GAME_TYPE_ALIASES[String(gameType).toLowerCase()] || gameType : null;
     if (normalized) qs.set('gameType', normalized);
     const res = await apiGet(`/leaderboard?${qs.toString()}`);
+    return res?.data || res || [];
+  },
+  getWinners: async (period = null) => {
+    const qs = period ? `?period=${encodeURIComponent(period)}` : '';
+    const res = await apiGet(`/leaderboard/winners${qs}`);
     return res?.data || res || [];
   },
   recordCompletion: async (gameType, outcome = 'win', completionReason = 'normal', matchId = null) => {
@@ -257,9 +327,12 @@ export const admin = {
   settings: () => apiGet('/admin/settings'),
   updateSettings: (settings) => apiPatch('/admin/settings', { settings }),
 
-  // Leaderboard rewards
+  // Leaderboard rewards & manual winners
   leaderboardRewards: () => apiGet('/admin/leaderboard-rewards'),
   updateLeaderboardRewards: (payload) => apiPatch('/admin/leaderboard-rewards', payload),
+  leaderboardWinners: () => apiGet('/admin/leaderboard-winners'),
+  assignLeaderboardWinner: (payload) => apiPost('/admin/leaderboard-winners', payload),
+  deleteLeaderboardWinner: (id) => apiDelete(`/admin/leaderboard-winners/${id}`),
 
   // Users
   users: ({ page = 1, limit = 50, q, status = 'all' } = {}) => {
@@ -278,6 +351,26 @@ export const admin = {
   identityMismatches: () => apiGet('/admin/identity-mismatches'),
   finalizeOrphanDelete: (uid) => apiPost(`/admin/identity-mismatches/${uid}/finalize-delete`, {}),
   purgeProfile: (uid) => apiPost(`/admin/identity-mismatches/${uid}/purge-profile`, {}),
+
+  // Tournaments
+  tournaments: async ({ q, status = 'all' } = {}) => {
+    const qs = new URLSearchParams({ status });
+    if (q) qs.set('q', q);
+    const res = await apiGet(`/admin/tournaments?${qs.toString()}`);
+    return filterDeletedTournaments(res);
+  },
+  deleteTournament: async (id) => {
+    await markTournamentDeletedLocally(id);
+    try {
+      return await apiPost(`/admin/tournaments/${id}/delete`, {});
+    } catch (err) {
+      // If remote server hasn't deployed /admin/tournaments/:id/delete yet, keep local deletion authoritative
+      if (err?.statusCode === 404 || err?.code === 'NOT_FOUND') {
+        return { id, deleted: true };
+      }
+      throw err;
+    }
+  },
 };
 
 // ── Practice games ────────────────────────────────────────────────────────────

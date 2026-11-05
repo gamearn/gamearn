@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,23 +18,8 @@ export default function SplashScreen({ navigation }) {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const hasProceeded = useRef(false);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        const next = prev + Math.floor(Math.random() * 18) + 12;
-        return next > 100 ? 100 : next;
-      });
-    }, 250);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleProceed = () => {
-    if (loading || hasProceeded.current) return;
+  const handleProceed = useCallback(() => {
+    if (hasProceeded.current) return;
     hasProceeded.current = true;
     if (!user) {
       navigation.replace('Landing');
@@ -46,22 +31,50 @@ export default function SplashScreen({ navigation }) {
     } else {
       navigation.replace('MainTabs');
     }
-  };
+  }, [user, backendReady, navigation]);
+
+  useEffect(() => {
+    const tickInterval = !loading ? 70 : 120;
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        const increment = !loading ? (Math.floor(Math.random() * 20) + 25) : (Math.floor(Math.random() * 14) + 12);
+        const next = prev + increment;
+        return next > 100 ? 100 : next;
+      });
+    }, tickInterval);
+
+    return () => clearInterval(interval);
+  }, [loading]);
 
   useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: progress,
-      duration: 200,
+      duration: 120,
       useNativeDriver: false,
     }).start();
 
     if (progress === 100 && !loading) {
       const timeout = setTimeout(() => {
         handleProceed();
-      }, 300);
+      }, 150);
       return () => clearTimeout(timeout);
     }
-  }, [progress, loading, user, backendReady]);
+  }, [progress, loading, handleProceed]);
+
+  // Fast-start safety timeout: never block the user on splash for more than 1.8s
+  useEffect(() => {
+    const safety = setTimeout(() => {
+      if (!hasProceeded.current && !loading) {
+        setProgress(100);
+        handleProceed();
+      }
+    }, 1800);
+    return () => clearTimeout(safety);
+  }, [loading, handleProceed]);
 
   const barWidth = progressAnim.interpolate({
     inputRange: [0, 100],

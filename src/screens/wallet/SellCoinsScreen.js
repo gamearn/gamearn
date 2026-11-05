@@ -1,3 +1,11 @@
+import React from 'react';
+
+// Entire SellValuePointsScreen is commented out (no wallet in project).
+export default function SellValuePointsScreen() {
+  return null;
+}
+
+/*
 import React, { useState } from 'react';
 import {
   View,
@@ -40,7 +48,7 @@ export default function SellValuePointsScreen({ navigation }) {
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
       <LinearGradient colors={theme.gradientBg} style={StyleSheet.absoluteFillObject} />
 
-      {/* Top Header */}
+      {/* Top Header * /}
       <View style={styles.topHeader}>
         <TouchableOpacity
           onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs'))}
@@ -57,7 +65,7 @@ export default function SellValuePointsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Value Point Balance Card */}
+        {/* Value Point Balance Card * /}
         <View style={styles.topCardsRow}>
           <View style={[styles.balanceCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }, styles.balanceCardCyan]}>
             <View style={styles.cardHeaderRow}>
@@ -78,7 +86,7 @@ export default function SellValuePointsScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Note: Value Points are the in-app currency and cashable */}
+        {/* Note: Value Points are the in-app currency and cashable * /}
         <View style={[styles.sectionWrap, styles.noteCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
           <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Important</Text>
           <Text style={[styles.destSub, { color: theme.textSecondary }]}>
@@ -86,11 +94,11 @@ export default function SellValuePointsScreen({ navigation }) {
           </Text>
         </View>
 
-        {/* Section: Withdrawal Destination */}
+        {/* Section: Withdrawal Destination * /}
         <View style={styles.sectionWrap}>
           <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Withdrawal Destination</Text>
 
-          {/* Bank Transfer Card */}
+          {/* Bank Transfer Card * /}
           <TouchableOpacity
             activeOpacity={0.8}
             style={[styles.destinationCard, { backgroundColor: theme.cardBg, borderColor: theme.primary, borderWidth: 1.5 }]}
@@ -106,7 +114,7 @@ export default function SellValuePointsScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* CTA */}
+        {/* CTA * /}
         <GAButton
           title="Continue to Withdraw"
           onPress={handleSellValuePoints}
@@ -306,3 +314,5 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
 });
+
+*/

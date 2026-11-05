@@ -34,6 +34,7 @@ import {
   getWinStreakInfo,
   getGameWinStreakState,
   WIN_STREAK_TIERS,
+  getLocalDateString,
 } from '../../utils/recordGameStreak';
 import { checkAndTriggerVp5Notification } from '../../utils/vpNotification';
 
@@ -103,10 +104,20 @@ export default function GameResultScreen({ route, navigation }) {
       const thisGameLosses = Number(currentThisGame.losses || 0) + (!isWinner ? 1 : 0);
 
       // Consecutive win streak for THIS specific game:
-      // Increments on win, resets to 0 on loss, preserved on draw
+      // Counting starts from 1 on win!
       const currentThisGameWinStreak = Number(currentThisGame.winStreak || 0);
-      const newThisGameWinStreak = isWinner ? currentThisGameWinStreak + 1 : (isDraw ? currentThisGameWinStreak : 0);
+      const newThisGameWinStreak = isWinner ? Math.max(1, currentThisGameWinStreak + 1) : 0;
       const claimedTier = Number(currentThisGame.claimedWinStreakTier || 0);
+
+      // Track daily play and win counts
+      const todayStr = getLocalDateString();
+      const lastPlayDate = userProfile?.lastDailyPlayDate || userProfile?.lastPlayedDate || null;
+      const isSameDay = lastPlayDate === todayStr;
+      const newDailyPlays = isSameDay ? (Number(userProfile?.dailyPlays || 0) + 1) : 1;
+      const newDailyWins = isSameDay ? (Number(userProfile?.dailyWins || 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+
+      const currentGameDailyPlays = isSameDay ? (Number(currentThisGame.dailyPlays || 0) + 1) : 1;
+      const currentGameDailyWins = isSameDay ? (Number(currentThisGame.dailyWins || 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
 
       const isCheckers = statsKey === 'draughts' || statsKey === 'draft' || statsKey === 'checkers';
       const updatedThisGame = {
@@ -115,6 +126,8 @@ export default function GameResultScreen({ route, navigation }) {
         wins: thisGameWins,
         losses: thisGameLosses,
         winStreak: newThisGameWinStreak,
+        dailyPlays: currentGameDailyPlays,
+        dailyWins: currentGameDailyWins,
         claimedWinStreakTier: claimedTier,
       };
 
@@ -142,6 +155,10 @@ export default function GameResultScreen({ route, navigation }) {
         losses: newLosses,
         gamesLost: newLosses,
         gamesPlayed: newPlayed,
+        dailyPlays: newDailyPlays,
+        dailyWins: newDailyWins,
+        lastDailyPlayDate: todayStr,
+        lastPlayedDate: todayStr,
         gameStats: updatedGameStats,
         gamePower: newGp,
         gp: newGp,
@@ -463,9 +480,14 @@ export default function GameResultScreen({ route, navigation }) {
 
         {/* Progressive Match Win Streak Card (Per-Game) */}
         {(() => {
-          const { winStreak, claimedTier, activeTier, isCompletedAll, canClaim, winsNeeded } = gameWinStreak;
+          const rawWinStreak = Number(gameWinStreak.winStreak || 0);
+          // Counting starts from 1, never 0 on a win!
+          const winStreak = isWinner ? Math.max(1, rawWinStreak) : 0;
+          const { claimedTier, activeTier, isCompletedAll } = gameWinStreak;
           const targetWins = activeTier ? activeTier.targetWins : 10;
           const progressPercent = Math.min(100, Math.max(0, Math.round((winStreak / targetWins) * 100)));
+          const canClaim = Boolean(activeTier && winStreak >= activeTier.targetWins);
+          const winsNeeded = activeTier ? Math.max(0, activeTier.targetWins - winStreak) : 0;
 
           return (
             <View style={styles.cardContainer}>

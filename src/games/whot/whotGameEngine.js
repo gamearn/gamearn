@@ -425,7 +425,7 @@ export function getAiMove(state, aiPlayerIndex, difficulty = 'medium') {
   }
 
   if (difficulty === 'hard') {
-    const attackCard = validCards.find((c) => [2, 5, 14, 8, 1].includes(c.value));
+    const attackCard = validCards.find((c) => [2, 5, 14, 8, 1].includes(c.value) && !(Array.isArray(state.nulled) && state.nulled.map(String).includes(String(c.value))));
     const whotCard = validCards.find((c) => c.value === 20);
 
     if (attackCard) {
@@ -453,7 +453,7 @@ export function getAiMove(state, aiPlayerIndex, difficulty = 'medium') {
 
   // Medium (Default)
   const whotCard = validCards.find((c) => c.value === 20);
-  const actionCard = validCards.find((c) => [2, 5, 8, 1, 14].includes(c.value));
+  const actionCard = validCards.find((c) => [2, 5, 8, 1, 14].includes(c.value) && !(Array.isArray(state.nulled) && state.nulled.map(String).includes(String(c.value))));
   const chosenCard = actionCard || validCards[0];
 
   if (whotCard && Math.random() > 0.3) {

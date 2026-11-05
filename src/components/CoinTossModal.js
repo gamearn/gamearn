@@ -24,7 +24,7 @@ export default function CoinTossModal({
   initialWinnerIndex = null,
 }) {
   const { userProfile } = useAuth();
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(2);
   const [tossResult, setTossResult] = useState(null); // { winnerIndex, winnerPlayer }
   const coinSpinAnim = useRef(new Animated.Value(0)).current;
   // Callers often pass an inline players array that is a new reference on every
@@ -38,7 +38,7 @@ export default function CoinTossModal({
 
   useEffect(() => {
     if (!visible) {
-      setCountdown(5);
+      setCountdown(2);
       setTossResult(null);
       return;
     }
@@ -72,8 +72,8 @@ export default function CoinTossModal({
     );
     spinLoop.start();
 
-    // 5-second countdown timer
-    setCountdown(5);
+    // 2-second countdown timer
+    setCountdown(2);
     const interval = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {

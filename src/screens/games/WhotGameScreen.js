@@ -21,7 +21,7 @@ export default function WhotGameScreen({ route, navigation }) {
   const mode = params.mode === 'multiplayer' ? 'multiplayer' : 'practice';
   const multiplayer = mode === 'multiplayer';
   const practice = mode === 'practice';
-  const remoteMode = multiplayer || practice;
+  const remoteMode = multiplayer && !!params.roomId;
   const requestedSeats = Number(params.playerCount || params.players);
   const isVsOba = params.vsOba != null ? !!params.vsOba : (requestedSeats === 2 || (!requestedSeats && practice));
   const effectiveSeats = requestedSeats >= 2 ? Math.min(4, Math.max(2, requestedSeats)) : (isVsOba ? 2 : 4);
@@ -40,13 +40,21 @@ export default function WhotGameScreen({ route, navigation }) {
   const selfName = userProfile?.displayName || userProfile?.username || userProfile?.name || 'You';
   const entryFee = params.entryFee || 0;
 
-  const specialCardsParam = params.specialCards || {};
-  const nulled = Array.isArray(params.nulled)
-    ? params.nulled
-    : [1, 2, 5, 8, 14].filter((num) => specialCardsParam[num] === false).map(String);
-  const removed = Array.isArray(params.removed)
-    ? params.removed
-    : (specialCardsParam[20] === false ? ['20'] : []);
+  const specialCardsParam = useMemo(() => {
+    return params.specialCards || (params.enableSpecialCards === false ? { 1: false, 2: false, 5: false, 8: false, 14: false, 20: false } : {});
+  }, [params.specialCards, params.enableSpecialCards]);
+
+  const nulled = useMemo(() => {
+    return Array.isArray(params.nulled) && params.nulled.length > 0
+      ? params.nulled.map(String)
+      : [1, 2, 5, 8, 14].filter((num) => specialCardsParam[num] === false || specialCardsParam[String(num)] === false).map(String);
+  }, [params.nulled, specialCardsParam]);
+
+  const removed = useMemo(() => {
+    return Array.isArray(params.removed) && params.removed.length > 0
+      ? params.removed.map(String)
+      : ((specialCardsParam[20] === false || specialCardsParam['20'] === false) ? ['20'] : []);
+  }, [params.removed, specialCardsParam]);
 
   const options = useMemo(() => ({
     playerRating: params.playerRating || 1200,
@@ -118,7 +126,7 @@ export default function WhotGameScreen({ route, navigation }) {
     const isDraw = snapshot ? snapshot.winner == null && snapshot.status === 'completed' : false;
 
     navigation.replace('GameResult', {
-      serverConfirmed: true,
+      serverConfirmed: multiplayer,
       isWinner,
       isDraw,
       completionReason: snapshot?.completionReason || 'normal',
@@ -160,7 +168,7 @@ export default function WhotGameScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.gameArea}>
-        {remote && <WhotScreen
+        {(!remoteMode || remote) && <WhotScreen
           key={String(params.resetKey || JSON.stringify(params || {}))}
           timer={timer}
           cardCount={effectiveCards}

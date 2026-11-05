@@ -166,6 +166,12 @@ export function ludoViewModel(snapshot, myUid) {
       ? [snapshot.diceValue]
       : [];
 
+  const rolledDice = Array.isArray(snapshot.rolledDice) && snapshot.rolledDice.length
+    ? snapshot.rolledDice
+    : Array.isArray(snapshot.botRoll) && snapshot.botRoll.length
+      ? snapshot.botRoll
+      : dice;
+
   const moveEvents = buildMoveEvents(snapshot, players);
 
   return {
@@ -178,12 +184,18 @@ export function ludoViewModel(snapshot, myUid) {
     myUid: myUid || null,
     isMyTurn: !!myUid && snapshot.currentPlayerUid === myUid,
     dice,
+    rolledDice,
+    diceCount: snapshot.diceCount || 2,
     diceRolled: !!snapshot.diceRolled,
     mustPass: !!snapshot.mustPass,
     dualHome: !!snapshot.dualHome,
     tokenCount: snapshot.tokenCount || 4,
     status: snapshot.status || 'playing',
     winner: snapshot.winner || null,
+    botPhase: snapshot.botPhase || null,
+    botRoll: Array.isArray(snapshot.botRoll) && snapshot.botRoll.length ? snapshot.botRoll : null,
+    botName: snapshot.botName || null,
+    lastBotAction: snapshot.lastBotAction || null,
     lastBotTurn: snapshot.lastBotTurn || null,
     lastBotRoll: snapshot.lastBotRoll || snapshot.lastBotTurn?.roll || null,
     botActions: Array.isArray(snapshot.botActions) ? snapshot.botActions : [],

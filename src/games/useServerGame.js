@@ -11,6 +11,7 @@ export function useServerGame({ gameType, roomId, uid, options = {} }) {
   const [status, setStatus] = useState('connecting');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState(null);
   const optionsKey = JSON.stringify(options);
@@ -31,6 +32,7 @@ export function useServerGame({ gameType, roomId, uid, options = {} }) {
     let recovering = false;
     busy.current = false;
     setPending(false);
+    setTransitioning(false);
     setModel(initialAyoSession);
     setStatus('connecting');
     setError('');
@@ -100,18 +102,24 @@ export function useServerGame({ gameType, roomId, uid, options = {} }) {
               : await practice.ludo.move(sessionId, moveData.pieceId, moveData.diceValue)
             : await practice[gameType].move(sessionId, gameType === 'ayo' ? moveData.pitIndex : moveData);
           const receivedAt = Date.now();
+          if (alive) setPending(false);
           const transitions = reply.transitions || [];
+          if (transitions.length > 0 && alive) setTransitioning(true);
           for (let i = 0; i < transitions.length; i++) {
             if (!alive) break;
             const state = transitions[i];
             receive(state, false, false, receivedAt);
             if (AppState.currentState === 'active') {
-              const isLast = i === transitions.length - 1;
-              const delay = gameType === 'ludo'
-                ? 1400
-                : (gameType === 'whot'
-                  ? 650
-                  : 0);
+              let delay = 0;
+              if (gameType === 'ludo') {
+                if (state.botPhase === 'rolling') delay = 950;
+                else if (state.botPhase === 'rolled') delay = 1650;
+                else if (state.botPhase === 'moved') delay = 1350;
+                else if (state.mustPass) delay = 1350;
+                else delay = 900;
+              } else if (gameType === 'whot') {
+                delay = 650;
+              }
               if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
             }
           }
@@ -131,7 +139,7 @@ export function useServerGame({ gameType, roomId, uid, options = {} }) {
           if (alive) setError(err?.message || 'Move error');
         }
       } finally {
-        if (alive) { busy.current = false; setPending(false); }
+        if (alive) { busy.current = false; setPending(false); setTransitioning(false); }
       }
     };
     const control = async (action) => {
@@ -182,17 +190,31 @@ export function useServerGame({ gameType, roomId, uid, options = {} }) {
         sessionId = state.sessionId;
         const receivedAt = Date.now();
         if (Array.isArray(state.transitions) && state.transitions.length) {
-          for (const s of state.transitions) {
+          receive(state.transitions[0], true, false, receivedAt);
+          setStatus(state.status);
+          if (gameType === 'ludo' && state.transitions.length > 1) {
+            await new Promise(resolve => setTimeout(resolve, 3200));
+          }
+          for (let i = 1; i < state.transitions.length; i++) {
             if (!alive) break;
+            const s = state.transitions[i];
             receive(s, false, false, receivedAt);
             if (AppState.currentState === 'active') {
-              const delay = gameType === 'ludo' ? 1400 : (gameType === 'whot' ? 650 : 0);
+              let delay = gameType === 'whot' ? 650 : 0;
+              if (gameType === 'ludo') {
+                if (s.botPhase === 'rolling') delay = 950;
+                else if (s.botPhase === 'rolled') delay = 1650;
+                else if (s.botPhase === 'moved') delay = 1350;
+                else delay = 900;
+              }
               if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
             }
           }
+          receive(state, false, false, receivedAt);
+        } else {
+          receive(state, true, false, receivedAt);
+          setStatus(state.status);
         }
-        receive(state, true, false, receivedAt);
-        setStatus(state.status);
       }).catch(fail);
     }
     const subscription = AppState.addEventListener('change', (state) => {
@@ -221,7 +243,7 @@ export function useServerGame({ gameType, roomId, uid, options = {} }) {
   }, []);
   const secondsRemaining = model.snapshot?.turnDeadline && model.snapshot?.status === 'playing'
     ? Math.max(0, Math.ceil((model.snapshot.turnDeadline - now - (model.snapshot.clockOffset || 0)) / 1000)) : null;
-  const canMove = status === 'playing' && secondsRemaining !== 0 && !pending && !model.queue.length && model.snapshot?.status === 'playing' && model.snapshot?.currentPlayerUid === uid;
+  const canMove = status === 'playing' && secondsRemaining !== 0 && !pending && !transitioning && !model.queue.length && model.snapshot?.status === 'playing' && model.snapshot?.currentPlayerUid === uid;
   return {
     ...model, secondsRemaining, chats, update: model.queue[0], status, error, pending, canMove, result,
     complete,

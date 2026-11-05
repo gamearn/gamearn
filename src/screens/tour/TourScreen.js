@@ -69,6 +69,14 @@ export default function TourScreen({ navigation }) {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!navigation?.addListener) return;
+    const unsubscribe = navigation.addListener('focus', () => {
+      load();
+    });
+    return unsubscribe;
+  }, [navigation, load]);
+
   const onRefresh = () => {
     setRefreshing(true);
     load();

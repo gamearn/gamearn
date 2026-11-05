@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Animated, StyleSheet, Easing, Pressable } from 'react-native';
+import { View, Text, Animated, StyleSheet, Easing, Pressable } from 'react-native';
 
 // Pip map for a 3x3 grid (index 0..8 -> row/col).
 const PIPS = {
@@ -70,6 +70,8 @@ export default function DiceRoll({
   settleMs = 260,
   fadeForPieceMove = false,
   onPress,
+  isBotRoll = false,
+  rollerName = "",
 }) {
   const n = Math.max(1, Math.min(2, count || 2));
   const dieSize = boardSize * 0.11;
@@ -179,8 +181,48 @@ export default function DiceRoll({
     rolling ? liveFace[i] || 1 : values[i] ?? values[0] ?? 1
   );
 
+  const hasValues = Array.isArray(values) && values.length > 0;
+  const bannerText = rolling
+    ? (isBotRoll ? `👑 ${rollerName || "Oba 👑"} is rolling…` : "🎲 Rolling dice…")
+    : (hasValues
+        ? (isBotRoll ? `👑 ${rollerName || "Oba 👑"} rolled: [ ${values.join(" & ")} ]` : `🎲 You rolled: [ ${values.join(" & ")} ]`)
+        : null);
+
   return (
     <View pointerEvents="box-none" style={[styles.overlay, { width: boardSize, height: boardSize }]}>
+      {/* Prominent floating roll badge so everyone clearly sees who is rolling and what was rolled */}
+      {!!bannerText && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: boardSize * 0.31,
+            alignSelf: "center",
+            backgroundColor: isBotRoll ? "rgba(25, 18, 5, 0.94)" : "rgba(8, 20, 48, 0.94)",
+            borderColor: isBotRoll ? "#FFD700" : "#00E5FF",
+            borderWidth: 1.5,
+            borderRadius: 16,
+            paddingHorizontal: 12,
+            paddingVertical: 5,
+            shadowColor: isBotRoll ? "#FFD700" : "#00E5FF",
+            shadowOpacity: 0.75,
+            shadowRadius: 10,
+            elevation: 12,
+            zIndex: 30,
+          }}
+        >
+          <Text
+            style={{
+              color: isBotRoll ? "#FFD700" : "#00E5FF",
+              fontSize: 12,
+              fontWeight: "900",
+              letterSpacing: 0.4,
+            }}
+          >
+            {bannerText}
+          </Text>
+        </View>
+      )}
       <Animated.View
         pointerEvents={fadeForPieceMove ? 'none' : 'box-none'}
         style={{
@@ -226,6 +268,10 @@ export default function DiceRoll({
 const styles = StyleSheet.create({
   overlay: {
     position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },

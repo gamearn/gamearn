@@ -16,9 +16,10 @@ import DraughtsGameScreen from '../screens/games/DraughtsGameScreen';
 import WhotSetupScreen from '../screens/games/WhotSetupScreen';
 import LudoSetupScreen from '../screens/games/LudoSetupScreen';
 import GameSectionScreen from '../screens/games/GameSectionScreen';
-import BuyValuePointsScreen from '../screens/wallet/BuyCoinsScreen';
-import PaymentScreen from '../screens/wallet/PaymentScreen';
-import WithdrawScreen from '../screens/wallet/WithdrawScreen';
+// Wallet screens commented out (no wallet in project):
+// import BuyValuePointsScreen from '../screens/wallet/BuyCoinsScreen';
+// import PaymentScreen from '../screens/wallet/PaymentScreen';
+// import WithdrawScreen from '../screens/wallet/WithdrawScreen';
 import SettingsScreen from '../screens/profile/SettingsScreen';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AccountSecurityScreen from '../screens/profile/AccountSecurityScreen';
@@ -37,7 +38,7 @@ import ChallengeHubScreen from '../screens/challenge/ChallengeHubScreen';
 import EmailVerificationScreen from '../screens/auth/EmailVerificationScreen';
 import ProfileCreationScreen from '../screens/auth/ProfileCreationScreen';
 import EditProfileScreen from '../screens/profile/EditProfileScreen';
-import SellValuePointsScreen from '../screens/wallet/SellCoinsScreen';
+// import SellValuePointsScreen from '../screens/wallet/SellCoinsScreen';
 import GameResultScreen from '../screens/games/GameResultScreen';
 import ChangeEmailScreen from '../screens/profile/ChangeEmailScreen';
 import EditPhoneScreen from '../screens/profile/EditPhoneScreen';
@@ -75,10 +76,12 @@ export default function RootNavigator() {
       <Stack.Screen name="LudoSetup" component={LudoSetupScreen} />
       <Stack.Screen name="GameSetup" component={GameSetupScreen} />
       <Stack.Screen name="GameSection" component={GameSectionScreen} />
+      {/* Wallet routes commented out (no wallet in project)
       <Stack.Screen name="BuyValuePoints" component={BuyValuePointsScreen} />
       <Stack.Screen name="Payment" component={PaymentScreen} />
       <Stack.Screen name="SellValuePoints" component={SellValuePointsScreen} />
       <Stack.Screen name="Withdraw" component={WithdrawScreen} />
+      */}
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
       <Stack.Screen name="AccountSecurity" component={AccountSecurityScreen} />

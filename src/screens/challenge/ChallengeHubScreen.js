@@ -161,7 +161,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
         `This challenge costs ${naira(koboToN(fee))}. Your balance is ${naira(balanceNaira)}.`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Buy Value Points', onPress: () => navigation.navigate('BuyValuePoints') },
+          { text: 'Get Value Points', onPress: () => Linking.openURL('https://www.gamearn.app').catch(() => {}) /* navigation.navigate('BuyValuePoints') */ },
         ],
       );
       return;
@@ -216,7 +216,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
         `This challenge costs ${naira(koboToN(selectedFee))}. Your balance is ${naira(balanceNaira)}.`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Buy Value Points', onPress: () => navigation.navigate('BuyValuePoints') },
+          { text: 'Get Value Points', onPress: () => Linking.openURL('https://www.gamearn.app').catch(() => {}) /* navigation.navigate('BuyValuePoints') */ },
         ],
       );
       return;

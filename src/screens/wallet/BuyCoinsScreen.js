@@ -1,3 +1,11 @@
+import React from 'react';
+
+// Entire BuyValuePointsScreen is commented out (no wallet in project).
+export default function BuyValuePointsScreen() {
+  return null;
+}
+
+/*
 import React, { useMemo, useState } from 'react';
 import {
   View,
@@ -79,7 +87,7 @@ export default function BuyValuePointsScreen({ navigation }) {
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
       <LinearGradient colors={theme.gradientBg} style={StyleSheet.absoluteFillObject} />
 
-      {/* Top Header */}
+      {/* Top Header * /}
       <View style={styles.topHeader}>
         <TouchableOpacity
           onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs'))}
@@ -96,7 +104,7 @@ export default function BuyValuePointsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Current Balance Top Card */}
+        {/* Current Balance Top Card * /}
         <LinearGradient
           colors={isDark ? ['#0F203C', '#0B162B'] : ['#E0F2FE', '#BAE6FD']}
           start={{ x: 0, y: 0 }}
@@ -113,7 +121,7 @@ export default function BuyValuePointsScreen({ navigation }) {
           </View>
         </LinearGradient>
 
-        {/* Custom Amount Input */}
+        {/* Custom Amount Input * /}
         <View style={[styles.amountCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
           <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>ENTER VALUE POINTS</Text>
           <View style={[styles.amountInputRow, { borderColor: amountValid || !amountText ? theme.cardBorderSubtle : '#EF4444' }]}>
@@ -142,7 +150,7 @@ export default function BuyValuePointsScreen({ navigation }) {
           )}
         </View>
 
-        {/* Quick-pick presets */}
+        {/* Quick-pick presets * /}
         <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Quick Picks</Text>
         <View style={styles.chipRow}>
           {PACKAGES.map((pkg) => {
@@ -168,7 +176,7 @@ export default function BuyValuePointsScreen({ navigation }) {
           })}
         </View>
 
-        {/* Continue CTA */}
+        {/* Continue CTA * /}
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleStartPayment}
@@ -353,3 +361,4 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 });
+*/

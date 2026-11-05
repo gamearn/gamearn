@@ -44,7 +44,7 @@ export function decodeApiResponse(statusCode, text) {
   });
 }
 
-async function request(method, path, { body, auth = true, timeout = 20000 } = {}) {
+async function request(method, path, { body, auth = true, timeout = 8000 } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth) {
     // auth may be { forceRefresh: true } to mint a fresh ID token (withdrawals).
@@ -91,5 +91,6 @@ async function request(method, path, { body, auth = true, timeout = 20000 } = {}
 export const apiGet = (path, opts) => request('GET', path, opts);
 export const apiPost = (path, body, opts) => request('POST', path, { ...opts, body });
 export const apiPatch = (path, body, opts) => request('PATCH', path, { ...opts, body });
+export const apiDelete = (path, opts) => request('DELETE', path, opts);
 
 export const apiGetFresh = (path, opts) => request('GET', path, { ...opts, auth: { forceRefresh: true } });

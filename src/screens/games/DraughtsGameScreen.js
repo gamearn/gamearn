@@ -4,6 +4,7 @@ import { CheckersScreen } from '../../games/checkers/CheckersScreen';
 import { useServerGame } from '../../games/useServerGame';
 import { draughtsSnapshotToRemote, engineMoveToServer } from '../../games/checkers/draughtsAdapter';
 import { useAuth } from '../../context/AuthContext';
+import { leaderboard as leaderboardApi } from '../../services/api';
 import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 import CoinTossModal from '../../components/CoinTossModal';
 
@@ -67,6 +68,8 @@ export default function DraughtsGameScreen({ route, navigation }) {
     const vsBot = isPractice || !isMultiplayer || !!opponent?.uid?.startsWith('bot_');
     const isWinner = won === true;
     const isDraw = won == null;
+    const outcome = isWinner ? 'win' : (isDraw ? 'draw' : 'loss');
+    leaderboardApi.recordCompletion('draughts', outcome, snapshot?.completionReason || 'normal').catch(() => {});
     navigation.replace('GameResult', {
       serverConfirmed: isMultiplayer,
       isWinner,
