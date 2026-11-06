@@ -84,7 +84,7 @@ export default function GameSectionScreen({ route, navigation }) {
       <LinearGradient colors={['#091026', '#060919', '#040612']} style={StyleSheet.absoluteFillObject} />
       
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
+        <TouchableOpacity onPress={() => navigation.navigate('MainTabs')} style={styles.back} accessibilityLabel="Back to Dashboard">
           <ArrowLeft size={20} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{game.title.toUpperCase()}</Text>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, Text, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { AyoScreen } from '../../games/ayo/AyoScreen';
 import { useAuth } from '../../context/AuthContext';
 import { useOnlineMatch } from '../../games/useOnlineMatch';
@@ -95,11 +96,7 @@ export default function AyoGameScreen({ route, navigation }) {
   };
 
   const handleBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      navigation.navigate('MainTabs');
-    }
+    navigation.navigate('MainTabs');
   };
 
   return (
@@ -148,6 +145,9 @@ export default function AyoGameScreen({ route, navigation }) {
 
       {isMultiplayer && m.status === 'joining' && (
         <View style={styles.overlay}>
+          <TouchableOpacity style={styles.overlayBackBtn} activeOpacity={0.8} onPress={handleBack} accessibilityLabel="Back to Dashboard">
+            <ArrowLeft size={22} color="#FFFFFF" />
+          </TouchableOpacity>
           <ActivityIndicator size="large" color="#10B981" />
           <Text style={styles.overlayText}>Joining live room…</Text>
         </View>
@@ -157,6 +157,18 @@ export default function AyoGameScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  overlayBackBtn: {
+    position: 'absolute',
+    top: 52,
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+  },
   container: {
     flex: 1,
     backgroundColor: '#03271d',

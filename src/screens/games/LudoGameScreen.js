@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, Text, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import LudoScreen from '../../games/ludo/LudoScreen';
 import { useServerGame } from '../../games/useServerGame';
 import { useAuth } from '../../context/AuthContext';
@@ -43,12 +44,62 @@ export default function LudoGameScreen({ route, navigation }) {
   const session = useServerGame({ gameType: 'ludo', roomId, uid, options });
   const snapshot = session.snapshot;
 
-  const viewModel = useMemo(() => ludoViewModel(snapshot, uid), [snapshot, uid]);
-
   const myName = userProfile?.username || userProfile?.displayName || 'You';
+
+  // Immediate local practice snapshot so practice game starts in 0ms without waiting
+  const initialPracticeSnapshot = useMemo(() => {
+    if (multiplayer) return null;
+    const players = [
+      {
+        uid: uid || 'practice_user',
+        displayName: `${myName} (You)`,
+        color: 0,
+        colorIdx: 0,
+        pieces: Array.from({ length: tokenCount }, (_, i) => ({
+          position: -1,
+          inHomeStretch: false,
+          homePosition: 0,
+          completed: false,
+          colorIdx: 0,
+        })),
+      },
+    ];
+    for (let i = 1; i < playerCount; i++) {
+      players.push({
+        uid: `bot_practice_${i}`,
+        displayName: i === 1 ? 'Oba 👑' : `Oba ${i + 1} 👑`,
+        color: i,
+        colorIdx: i,
+        pieces: Array.from({ length: tokenCount }, (_, pId) => ({
+          position: -1,
+          inHomeStretch: false,
+          homePosition: 0,
+          completed: false,
+          colorIdx: i,
+        })),
+      });
+    }
+    return {
+      players,
+      status: 'playing',
+      currentPlayerIndex: 0,
+      currentPlayerUid: uid || 'practice_user',
+      diceRolled: false,
+      diceValue: null,
+      diceValues: [],
+      legalPieceIds: [],
+      legalMoves: [],
+      winner: null,
+      coinToss: { winnerIndex: 0 },
+    };
+  }, [multiplayer, uid, myName, playerCount, tokenCount]);
+
+  const activeSnapshot = snapshot || initialPracticeSnapshot;
+  const viewModel = useMemo(() => ludoViewModel(activeSnapshot, uid || 'practice_user'), [activeSnapshot, uid]);
+
   const ludoPlayers = useMemo(() => {
-    if (snapshot?.players && snapshot.players.length > 0) {
-      return snapshot.players.map((p, idx) => ({
+    if (activeSnapshot?.players && activeSnapshot.players.length > 0) {
+      return activeSnapshot.players.map((p, idx) => ({
         id: idx,
         name: p.uid === uid ? `${myName} (You)` : (p.displayName || p.name || (idx === 1 ? 'Oba 👑' : `Player ${idx + 1}`)),
         isUser: p.uid === uid,
@@ -60,7 +111,7 @@ export default function LudoGameScreen({ route, navigation }) {
       players.push({ id: i, name: i === 1 ? 'Oba 👑' : `Player ${i + 1}`, isAi: true });
     }
     return players;
-  }, [snapshot?.players, uid, myName, playerCount]);
+  }, [activeSnapshot?.players, uid, myName, playerCount]);
 
   const navigated = useRef(false);
   useEffect(() => {
@@ -91,8 +142,7 @@ export default function LudoGameScreen({ route, navigation }) {
   }, [snapshot, session.pending, uid, navigation, multiplayer, stake, mode, params, playerCount, tokenCount, diceCount, timer]);
 
   const handleBack = () => {
-    if (navigation.canGoBack()) navigation.goBack();
-    else navigation.navigate('MainTabs');
+    navigation.navigate('MainTabs');
   };
 
   const handleRoll = () => session.move({ action: 'roll_dice' });
@@ -132,12 +182,20 @@ export default function LudoGameScreen({ route, navigation }) {
         visible={showCoinToss}
         players={ludoPlayers}
         gameName="Lúùdò Game"
-        initialWinnerIndex={snapshot?.coinToss?.winnerIndex}
+        initialWinnerIndex={activeSnapshot?.coinToss?.winnerIndex}
         onComplete={() => setShowCoinToss(false)}
       />
 
       {!viewModel && (
         <View style={styles.overlay}>
+          <TouchableOpacity
+            style={styles.overlayBackBtn}
+            activeOpacity={0.8}
+            onPress={handleBack}
+            accessibilityLabel="Back to Dashboard"
+          >
+            <ArrowLeft size={22} color="#FFFFFF" />
+          </TouchableOpacity>
           <ActivityIndicator size="large" color="#00E5FF" />
           <Text style={styles.overlayText}>
             {session.error || (multiplayer ? 'Joining match…' : 'Starting practice game…')}
@@ -156,6 +214,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(11, 17, 58, 0.94)',
+  },
+  overlayBackBtn: {
+    position: 'absolute',
+    top: 52,
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
   },
   overlayText: {
     marginTop: 16,

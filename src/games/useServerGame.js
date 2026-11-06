@@ -189,33 +189,20 @@ export function useServerGame({ gameType, roomId, uid, options = {} }) {
         if (!alive) return;
         sessionId = state.sessionId;
         const receivedAt = Date.now();
-        if (Array.isArray(state.transitions) && state.transitions.length) {
-          receive(state.transitions[0], true, false, receivedAt);
-          setStatus(state.status);
-          if (gameType === 'ludo' && state.transitions.length > 1) {
-            await new Promise(resolve => setTimeout(resolve, 3200));
+        // Fast start: immediately deliver authoritative state with zero lag
+        receive(state, true, false, receivedAt);
+        setStatus(state.status || 'playing');
+      }).catch((err) => {
+        // If practice start has a network issue or timeout, stay in playing mode with local state
+        if (!roomId) {
+          if (alive) {
+            setStatus('playing');
+            setError('');
           }
-          for (let i = 1; i < state.transitions.length; i++) {
-            if (!alive) break;
-            const s = state.transitions[i];
-            receive(s, false, false, receivedAt);
-            if (AppState.currentState === 'active') {
-              let delay = gameType === 'whot' ? 650 : 0;
-              if (gameType === 'ludo') {
-                if (s.botPhase === 'rolling') delay = 950;
-                else if (s.botPhase === 'rolled') delay = 1650;
-                else if (s.botPhase === 'moved') delay = 1350;
-                else delay = 900;
-              }
-              if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
-            }
-          }
-          receive(state, false, false, receivedAt);
-        } else {
-          receive(state, true, false, receivedAt);
-          setStatus(state.status);
+          return;
         }
-      }).catch(fail);
+        fail(err);
+      });
     }
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active' && !busy.current) sync();

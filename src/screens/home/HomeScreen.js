@@ -726,21 +726,6 @@ export default function HomeScreen({ navigation }) {
       .filter((w) => w.period === winnersPeriod)
       .sort((a, b) => a.rank - b.rank);
 
-    const getPeriodSubtitle = (p) => {
-      const match = (winnersList || []).find((w) => w.period === p && w.periodDate);
-      if (match?.periodDate) return match.periodDate;
-      const now = new Date();
-      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-      if (p === 'Daily') return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-      if (p === 'Weekly') {
-        const wk = Math.ceil(now.getDate() / 7);
-        return `Week ${wk}, ${months[now.getMonth()]} ${now.getFullYear()}`;
-      }
-      if (p === 'Monthly') return `${months[now.getMonth()]} ${now.getFullYear()}`;
-      return `${now.getFullYear()}`;
-    };
-
     return (
       <View
         style={{
@@ -764,7 +749,7 @@ export default function HomeScreen({ navigation }) {
           </Text>
         </View>
 
-        {/* Period Selector Tabs with Subtitle Dates */}
+        {/* Period Selector Tabs (No dates) */}
         <View
           style={{
             flexDirection: 'row',
@@ -784,7 +769,7 @@ export default function HomeScreen({ navigation }) {
                 onPress={() => setWinnersPeriod(p)}
                 style={{
                   flex: 1,
-                  paddingVertical: 7 * scale,
+                  paddingVertical: 9 * scale,
                   paddingHorizontal: 2 * scale,
                   borderRadius: 9 * scale,
                   backgroundColor: on ? '#00E5FF' : 'transparent',
@@ -796,21 +781,10 @@ export default function HomeScreen({ navigation }) {
                   style={{
                     color: on ? '#00172D' : '#FFFFFF',
                     fontWeight: '900',
-                    fontSize: 11 * scale,
+                    fontSize: 12 * scale,
                   }}
                 >
                   {p}
-                </Text>
-                <Text
-                  style={{
-                    color: on ? '#002B49' : '#64748B',
-                    fontSize: 8 * scale,
-                    fontWeight: '700',
-                    marginTop: 2 * scale,
-                  }}
-                  numberOfLines={1}
-                >
-                  {getPeriodSubtitle(p)}
                 </Text>
               </TouchableOpacity>
             );

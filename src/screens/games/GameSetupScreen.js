@@ -131,7 +131,7 @@ export default function GameSetupScreen({ route, navigation }) {
       {/* Header */}
       <View style={styles.topHeader}>
         <TouchableOpacity
-          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs'))}
+          onPress={() => navigation.navigate('MainTabs')}
           style={[styles.backCircleBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' }]}
         >
           <ArrowLeft size={20} color={theme.textPrimary} />

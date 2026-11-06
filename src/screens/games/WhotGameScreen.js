@@ -74,7 +74,7 @@ export default function WhotGameScreen({ route, navigation }) {
   const session = useServerGame({
     gameType: 'whot',
     roomId: multiplayer ? params.roomId : null,
-    uid: multiplayer && !params.roomId ? null : uid,
+    uid: multiplayer ? uid : null,
     options,
   });
 
@@ -151,11 +151,7 @@ export default function WhotGameScreen({ route, navigation }) {
   }, [snapshot?.status, snapshot?.gameOver, snapshot?.winner, remote?.status, remote?.gameOver, remote?.winner, navigateResult]);
 
   const handleBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      navigation.navigate('MainTabs');
-    }
+    navigation.navigate('MainTabs');
   };
 
   const phase = remoteMode ? session.status : 'local';
@@ -213,6 +209,9 @@ export default function WhotGameScreen({ route, navigation }) {
 
       {remoteMode && (!remote || phase === 'connecting') && (
         <View style={styles.overlay}>
+          <TouchableOpacity style={styles.overlayBackBtn} activeOpacity={0.8} onPress={handleBack} accessibilityLabel="Back to Dashboard">
+            <ArrowLeft size={22} color="#FFF" />
+          </TouchableOpacity>
           <ActivityIndicator size="large" color="#00E5FF" />
           <Text style={styles.overlayText}>
             {phase === 'connecting'
@@ -232,6 +231,18 @@ export default function WhotGameScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  overlayBackBtn: {
+    position: 'absolute',
+    top: 52,
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+  },
   container: {
     flex: 1,
     backgroundColor: '#10075d',

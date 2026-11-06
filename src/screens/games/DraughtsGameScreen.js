@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { CheckersScreen } from '../../games/checkers/CheckersScreen';
 import { useServerGame } from '../../games/useServerGame';
 import { draughtsSnapshotToRemote, engineMoveToServer } from '../../games/checkers/draughtsAdapter';
@@ -53,7 +54,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
   const session = useServerGame({
     gameType: 'draughts',
     roomId: isMultiplayer ? roomId : null,
-    uid: remoteMode ? effectiveUid : null,
+    uid: isMultiplayer ? (roomId ? effectiveUid : null) : null,
     options,
   });
 
@@ -104,11 +105,7 @@ export default function DraughtsGameScreen({ route, navigation }) {
   }, [snapshot?.status, snapshot?.winner, effectiveUid]);
 
   const handleBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      navigation.navigate('MainTabs');
-    }
+    navigation.navigate('MainTabs');
   };
 
   const liveStatus =
@@ -210,6 +207,9 @@ export default function DraughtsGameScreen({ route, navigation }) {
 
       {isMultiplayer && !remote && (
         <View style={styles.overlay}>
+          <TouchableOpacity style={styles.overlayBackBtn} activeOpacity={0.8} onPress={handleBack} accessibilityLabel="Back to Dashboard">
+            <ArrowLeft size={22} color="#FFFFFF" />
+          </TouchableOpacity>
           {!session.error && <ActivityIndicator size="large" color="#00E5FF" />}
           <Text style={styles.overlayText}>
             {session.error || 'Joining live room…'}
@@ -221,6 +221,18 @@ export default function DraughtsGameScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  overlayBackBtn: {
+    position: 'absolute',
+    top: 52,
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+  },
   container: {
     flex: 1,
     backgroundColor: '#061019',

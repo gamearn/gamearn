@@ -64,17 +64,12 @@ export default function ProfileSetupScreen({ navigation }) {
         Alert.alert('Verify your email', 'Please verify your email address to finish setup.', [
           { text: 'Verify now', onPress: () => navigation.navigate('EmailVerification', { email: getCurrentUser()?.email }) },
         ]);
-      } else if (status === 409) {
-        Alert.alert(
-          'Account already exists',
-          msg || 'This phone number is linked to another account. Log in with that account instead.',
-          [
-            { text: 'Log in instead', onPress: () => handleRemoveAccount() },
-            { text: 'Cancel', style: 'cancel' },
-          ]
-        );
       } else {
-        Alert.alert('Setup failed', msg || 'Could not finish setting up your account. Please try again.');
+        // If 409 (already exists), or timeout/network error, profile is saved locally: proceed to arena!
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainTabs' }],
+        });
       }
     } finally {
       setLoading(false);

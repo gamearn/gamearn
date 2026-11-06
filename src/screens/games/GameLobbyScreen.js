@@ -67,11 +67,7 @@ export default function GameLobbyScreen({ route, navigation }) {
   const balanceKobo = Math.round(balanceNaira * 100);
 
   const handleBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      navigation.navigate('MainTabs');
-    }
+    navigation.navigate('MainTabs');
   };
 
   const cleanup = () => {

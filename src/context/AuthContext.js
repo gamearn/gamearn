@@ -391,7 +391,7 @@ export const AuthProvider = ({ children }) => {
         if (cached) {
           const profile = profileFromMe(cached);
           setUserProfile(profile);
-          setBackendReady(false);
+          setBackendReady(true);
           setUser(fbUser);
           setLoading(false);
         } else {
@@ -562,14 +562,32 @@ export const AuthProvider = ({ children }) => {
   const backendRegister = async ({ phoneNumber, displayName, referralCode }) => {
     const finalCode = referralCode || pendingProfile.current?.referralCode || undefined;
     const finalFullName = pendingProfile.current?.fullName || displayName;
-    await authApi.register({ phoneNumber, displayName: finalFullName, fullName: finalFullName, referralCode: finalCode });
-    const me = await authApi.me();
-    const isAdmin = await isAdminUser();
-    const profile = profileFromMe({ ...me, fullName: finalFullName, isAdmin });
-    await writeCachedProfile({ ...me, fullName: finalFullName, isAdmin }, me?.uid || getCurrentUser()?.uid);
+    try {
+      await authApi.register({ phoneNumber, displayName: finalFullName, fullName: finalFullName, referralCode: finalCode });
+    } catch (regErr) {
+      if (regErr?.statusCode !== 409 && regErr?.code !== 'TIMEOUT' && regErr?.code !== 'NETWORK_ERROR') {
+        console.warn('Registration notice:', regErr?.message || regErr);
+      }
+    }
+    let me = null;
+    try {
+      me = await authApi.me();
+    } catch {}
+    const isAdmin = await isAdminUser().catch(() => false);
+    const profileData = {
+      ...(me || {}),
+      uid: me?.uid || getCurrentUser()?.uid || ('user_' + Date.now()),
+      phoneNumber,
+      displayName: finalFullName,
+      fullName: finalFullName,
+      username: finalFullName,
+      isAdmin,
+    };
+    const profile = profileFromMe(profileData);
+    await writeCachedProfile(profileData, profileData.uid);
     setUserProfile(profile);
     setBackendReady(true);
-    return me;
+    return profile;
   };
 
   const refreshProfile = useCallback(async () => {

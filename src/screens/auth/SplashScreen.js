@@ -13,7 +13,7 @@ import { CrownIcon } from '../../components/SocialIcons';
 import { useAuth } from '../../context/AuthContext';
 
 export default function SplashScreen({ navigation }) {
-  const { user, backendReady, loading } = useAuth();
+  const { user, userProfile, backendReady, loading } = useAuth();
   const [progress, setProgress] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const hasProceeded = useRef(false);
@@ -25,13 +25,13 @@ export default function SplashScreen({ navigation }) {
       navigation.replace('Landing');
     } else if (!user.emailVerified && user.providerData?.some(p => p.providerId === 'password')) {
       navigation.replace('EmailVerification', { email: user.email });
-    } else if (!backendReady) {
+    } else if (!backendReady && !userProfile?.displayName && !userProfile?.username) {
       // Signed in to Firebase but no backend profile yet → complete onboarding.
       navigation.replace('ProfileSetup');
     } else {
       navigation.replace('MainTabs');
     }
-  }, [user, backendReady, navigation]);
+  }, [user, userProfile, backendReady, navigation]);
 
   useEffect(() => {
     const tickInterval = !loading ? 70 : 120;

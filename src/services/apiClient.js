@@ -44,7 +44,7 @@ export function decodeApiResponse(statusCode, text) {
   });
 }
 
-async function request(method, path, { body, auth = true, timeout = 8000 } = {}) {
+async function request(method, path, { body, auth = true, timeout = 25000, retries = 1 } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth) {
     // auth may be { forceRefresh: true } to mint a fresh ID token (withdrawals).
@@ -57,35 +57,44 @@ async function request(method, path, { body, auth = true, timeout = 8000 } = {})
         statusCode: 401,
       });
     }
-    headers.Authorization = `Bearer ${token}`;
+    headers.Authorization = 'Bearer ' + token;
   }
 
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeout);
-  try {
-    const res = await fetch(`${NODE_API_BASE}${API_PREFIX}${path}`, {
-      method,
-      headers,
-      body: body != null ? JSON.stringify(body) : undefined,
-      signal: ctrl.signal,
-    });
-    const text = await res.text();
-    return decodeApiResponse(res.status, text);
-  } catch (err) {
-    if (err instanceof ApiError) throw err;
-    if (err?.name === 'AbortError') {
-      throw new ApiError({
-        code: 'TIMEOUT',
-        message: 'The request timed out. Please try again.',
+  const makeAttempt = async (attempt) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeout);
+    try {
+      const res = await fetch(`${NODE_API_BASE}${API_PREFIX}${path}`, {
+        method,
+        headers,
+        body: body != null ? JSON.stringify(body) : undefined,
+        signal: ctrl.signal,
       });
+      const text = await res.text();
+      return decodeApiResponse(res.status, text);
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      const isTimeout = err?.name === 'AbortError';
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 600));
+        return makeAttempt(attempt + 1);
+      }
+      if (isTimeout) {
+        throw new ApiError({
+          code: 'TIMEOUT',
+          message: 'Connection took longer than expected. Please check your internet connection.',
+        });
+      }
+      throw new ApiError({
+        code: 'NETWORK_ERROR',
+        message: 'Network connection issue. Please check your connection and try again.',
+      });
+    } finally {
+      clearTimeout(timer);
     }
-    throw new ApiError({
-      code: 'NETWORK_ERROR',
-      message: 'Network error. Please try again.',
-    });
-  } finally {
-    clearTimeout(timer);
-  }
+  };
+
+  return makeAttempt(0);
 }
 
 export const apiGet = (path, opts) => request('GET', path, opts);

@@ -45,7 +45,7 @@ export default function LudoSetupScreen({ navigation }) {
       {/* Header */}
       <View style={styles.topHeader}>
         <TouchableOpacity
-          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs'))}
+          onPress={() => navigation.navigate('MainTabs')}
           style={styles.backCircleBtn}
         >
           <ArrowLeft size={20} color="#FFFFFF" />
