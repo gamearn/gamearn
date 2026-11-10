@@ -63,25 +63,26 @@ async function filterDeletedTournaments(res) {
 
 export const auth = {
   requestSignupEmailOtp: async (email) => {
-    const idToken = await getIdToken(true);
+    const idToken = await getIdToken(false);
     if (!idToken) throw new ApiError({ code: 'AUTH_MISSING', message: 'Not signed in.' });
     return apiPost('/auth/signup/email-otp/request', { idToken, email }, { auth: false });
   },
 
   verifySignupEmailOtp: async (email, code) => {
-    const idToken = await getIdToken();
+    const idToken = await getIdToken(false);
     if (!idToken) throw new ApiError({ code: 'AUTH_MISSING', message: 'Not signed in.' });
     return apiPost('/auth/signup/email-otp/verify', { idToken, email, code }, { auth: false });
   },
 
-  register: async ({ phoneNumber, displayName, referralCode }) => {
-    const idToken = await getIdToken(true);
+  register: async ({ phoneNumber, displayName, fullName, referralCode }) => {
+    const idToken = await getIdToken(false);
     if (!idToken) throw new ApiError({ code: 'AUTH_MISSING', message: 'Not signed in.' });
     return apiPost(
       '/auth/register',
       {
         phoneNumber,
         displayName,
+        fullName: fullName || displayName,
         idToken,
         referralCode: referralCode || undefined,
       },
@@ -90,7 +91,7 @@ export const auth = {
   },
 
   login: async ({ fcmToken } = {}) => {
-    const idToken = await getIdToken(true);
+    const idToken = await getIdToken(false);
     if (!idToken) throw new ApiError({ code: 'AUTH_MISSING', message: 'Not signed in.' });
     return apiPost('/auth/login', { idToken, fcmToken: fcmToken || undefined }, { auth: false });
   },
@@ -153,6 +154,14 @@ export const notifications = {
   },
   markRead: (notificationId = null) =>
     apiPost('/notifications/mark-read', notificationId ? { notificationId } : {}),
+  delete: async (notificationId) => {
+    if (!notificationId) return null;
+    try {
+      return await apiDelete(`/notifications/${encodeURIComponent(String(notificationId))}`);
+    } catch {
+      return await apiPost('/notifications/delete', { notificationId }).catch(() => null);
+    }
+  },
 };
 
 // ── Premium ───────────────────────────────────────────────────────────────────
@@ -278,7 +287,9 @@ const GAME_TYPE_ALIASES = {
 
 export const leaderboard = {
   get: async (period = 'Daily', gameType = null) => {
-    const qs = new URLSearchParams({ period });
+    const rawP = String(period || 'Daily').trim().toLowerCase();
+    const normPeriod = rawP === 'weekly' ? 'Weekly' : rawP === 'monthly' ? 'Monthly' : rawP === 'yearly' ? 'Yearly' : 'Daily';
+    const qs = new URLSearchParams({ period: normPeriod });
     const normalized = gameType ? GAME_TYPE_ALIASES[String(gameType).toLowerCase()] || gameType : null;
     if (normalized) qs.set('gameType', normalized);
     const res = await apiGet(`/leaderboard?${qs.toString()}`);

@@ -91,8 +91,69 @@ export function getGameWinStreakState(userProfile, gameKey = 'whot') {
  * 1. Daily Play Streak (playing games on consecutive calendar days)
  * 2. Win Streak (consecutive match wins without a loss)
  */
-export async function recordGameStreak(updateProfileData, userProfile, isWinner = null) {
-  if (typeof updateProfileData !== 'function') return;
+/**
+ * Get the next unlocked but unclaimed Daily Streak milestone (7, 14, 30, 50, 90 days)
+ */
+export function getUnclaimedDailyStreakMilestone(userProfile) {
+  const streakDays = Number(userProfile?.dailyPlayStreak ?? userProfile?.streak ?? userProfile?.currentStreak ?? 0);
+  const lastAwarded = Number(userProfile?.lastStreakMilestoneAwarded ?? 0);
+  for (const milestone of DAILY_STREAK_MILESTONES) {
+    if (streakDays >= milestone.day && lastAwarded < milestone.day) {
+      return milestone;
+    }
+  }
+  return null;
+}
+
+/**
+ * Claim an unlocked Daily Streak milestone via the Gift Box Claim Modal
+ */
+export async function claimDailyStreakMilestone(updateProfileData, userProfile, milestone) {
+  if (!milestone || typeof updateProfileData !== 'function') return null;
+  const rewardVp = Number(milestone.incrementalVp || 0);
+  const currentVp = Math.max(10, Number(userProfile?.valuePoints ?? userProfile?.vp ?? 10));
+  const newVp = Math.round((currentVp + rewardVp) * 10) / 10;
+  const newLastAwarded = Math.max(Number(userProfile?.lastStreakMilestoneAwarded ?? 0), Number(milestone.day));
+  const uid = userProfile?.uid;
+
+  try {
+    if (uid) {
+      await Promise.all([
+        AsyncStorage.setItem(`@gamearn_permanent_vp_${uid}`, String(newVp)),
+        AsyncStorage.setItem(`@gamearn_claimed_daily_milestone_${uid}`, String(newLastAwarded)),
+      ]).catch(() => {});
+    }
+    await AsyncStorage.setItem('@gamearn_claimed_daily_milestone_current', String(newLastAwarded)).catch(() => {});
+
+    await updateProfileData({
+      valuePoints: newVp,
+      vp: newVp,
+      vpText: `${newVp.toLocaleString()} VP`,
+      lastStreakMilestoneAwarded: newLastAwarded,
+    });
+
+    if (newVp >= 10 && uid) {
+      checkAndTriggerVp5Notification(
+        newVp,
+        uid,
+        userProfile?.username || userProfile?.displayName || userProfile?.name
+      );
+    }
+    return { newVp, claimedDay: milestone.day, rewardVp };
+  } catch (err) {
+    console.log('Notice: Could not claim daily streak milestone:', err?.message || err);
+    return null;
+  }
+}
+
+/**
+ * Record match completion for both:
+ * 1. Daily Play Streak (playing games on consecutive calendar days)
+ * 2. Win Streak (consecutive match wins without a loss)
+ * Note: Daily Streak milestone VP is claimed by the user via the Gift Box Claim Modal.
+ */
+export async function recordGameStreak(updateProfileData, userProfile, isWinner = null, extraUpdates = {}) {
+  if (typeof updateProfileData !== 'function') return null;
   const todayStr = getLocalDateString();
 
   // 1. Daily Play Streak logic
@@ -122,23 +183,19 @@ export async function recordGameStreak(updateProfileData, userProfile, isWinner 
     newWinStreak = 0;
   }
 
-  // 3. Daily Streak Unlock & Progressive Value Point Rewards
-  let extraVpAward = 0;
-  let lastAwardedMilestone = Number(userProfile?.lastStreakMilestoneAwarded ?? 0);
-  let newLastAwardedMilestone = lastAwardedMilestone;
-
+  // 3. Check if a Daily Streak milestone is unlocked and waiting to be claimed via Modal
+  const lastAwardedMilestone = Number(userProfile?.lastStreakMilestoneAwarded ?? 0);
+  let unlockedDailyMilestone = null;
   for (const milestone of DAILY_STREAK_MILESTONES) {
     if (newDailyStreak >= milestone.day && lastAwardedMilestone < milestone.day) {
-      extraVpAward += milestone.incrementalVp;
-      newLastAwardedMilestone = Math.max(newLastAwardedMilestone, milestone.day);
+      unlockedDailyMilestone = milestone;
+      break;
     }
   }
 
-  const currentValuePoints = Number(userProfile?.valuePoints ?? userProfile?.vp ?? 0);
-  const finalVp = extraVpAward > 0 ? Math.round((currentValuePoints + extraVpAward) * 10) / 10 : currentValuePoints;
-
   try {
     const payload = {
+      ...extraUpdates,
       dailyPlayStreak: newDailyStreak,
       streak: newDailyStreak,
       currentStreak: newDailyStreak,
@@ -150,24 +207,11 @@ export async function recordGameStreak(updateProfileData, userProfile, isWinner 
       streak7Unlocked: newDailyStreak >= 7,
     };
 
-    if (extraVpAward > 0) {
-      payload.valuePoints = finalVp;
-      payload.vp = finalVp;
-      payload.lastStreakMilestoneAwarded = newLastAwardedMilestone;
-    }
-
     await updateProfileData(payload);
-
-    // If total VP reaches 10+, trigger 10 VP milestone notifications (1.4 & 2.2)
-    if (finalVp >= 10) {
-      checkAndTriggerVp5Notification(
-        finalVp,
-        userProfile?.uid,
-        userProfile?.username || userProfile?.displayName || userProfile?.name
-      );
-    }
+    return { newDailyStreak, newWinStreak, unlockedDailyMilestone };
   } catch (err) {
     console.log('Notice: Could not record game streak:', err?.message || err);
+    return { newDailyStreak, newWinStreak, unlockedDailyMilestone };
   }
 }
 

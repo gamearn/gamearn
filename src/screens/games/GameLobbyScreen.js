@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
-import { Swords, Settings, ArrowLeft, Wallet, Cpu } from 'lucide-react-native';
+import { Swords, Settings, ArrowLeft, Wallet, Cpu, Users, Layers, Star } from 'lucide-react-native';
+import ActiveMatchBanner from '../../components/ActiveMatchBanner';
 import BrandLogo from '../../components/BrandLogo';
 import GAButton from '../../components/GAButton';
 import GACard from '../../components/GACard';
@@ -36,7 +37,8 @@ export default function GameLobbyScreen({ route, navigation }) {
 
   const [selectedTimer, setSelectedTimer] = useState('2m');
   const [tokenCount, setTokenCount] = useState(4);
-  const [playerCount, setPlayerCount] = useState(4);
+  const [playerCount, setPlayerCount] = useState(gameId === 'whot' ? 3 : 4);
+  const [playOption, setPlayOption] = useState('continuous');
   const [playerColor, setPlayerColor] = useState('white');
   const [cardCount, setCardCount] = useState(6);
   const [enableSpecialCards, setEnableSpecialCards] = useState(true);
@@ -96,6 +98,7 @@ export default function GameLobbyScreen({ route, navigation }) {
       tokens: tokenCount,
       players: playerCount,
       playerColor,
+      option: playOption,
       cardCount,
       enableSpecialCards,
       specialCards,
@@ -130,9 +133,10 @@ export default function GameLobbyScreen({ route, navigation }) {
       vsOba: true,
       timer: selectedTimer,
       tokenCount,
-      playerCount: isWhot ? 2 : playerCount,
+      playerCount,
       tokens: tokenCount,
-      players: isWhot ? 2 : playerCount,
+      players: playerCount,
+      option: playOption,
       playerColor,
       cardCount,
       cards: cardCount,
@@ -176,9 +180,10 @@ export default function GameLobbyScreen({ route, navigation }) {
           vsOba: true,
           timer: selectedTimer,
           tokenCount,
-          playerCount: isWhot ? 2 : playerCount,
+          playerCount,
           tokens: tokenCount,
-          players: isWhot ? 2 : playerCount,
+          players: playerCount,
+          option: playOption,
           playerColor,
           cardCount,
           cards: cardCount,
@@ -336,6 +341,9 @@ export default function GameLobbyScreen({ route, navigation }) {
         </Text>
       </View>
 
+      {/* Rejoin Unfinished Match Banner for this game */}
+      <ActiveMatchBanner navigation={navigation} gameId={gameId} style={{ marginHorizontal: 0, marginTop: 0, marginBottom: 16 }} />
+
       {/* Acquired points */}
       <View style={styles.walletRow}>
         <Wallet size={18} color={theme.accent} />
@@ -349,33 +357,27 @@ export default function GameLobbyScreen({ route, navigation }) {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={styles.inlineSetupHeader}>
             <Settings size={18} color="#00E5FF" />
-            <Text style={styles.inlineSetupTitle}>Match Settings</Text>
+            <Text style={styles.inlineSetupTitle}>{isWhot ? 'Game Setup' : 'Match Settings'}</Text>
           </View>
-          {isWhot && (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('WhotSetup', { gameId, gameName, targetScreen })}
-              style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: 'rgba(0, 229, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(0, 229, 255, 0.25)' }}
-            >
-              <Text style={{ color: '#00E5FF', fontSize: 12, fontWeight: '800' }}>Dedicated Setup ⚙️</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
-        {/* Turn Timer Selector */}
-        <View style={styles.setupFieldBlock}>
-          <Text style={styles.setupFieldLabel}>Turn Timer: <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{selectedTimer === '2m' ? '2 min' : selectedTimer}</Text></Text>
-          <View style={styles.pillsRow}>
-            {['30s', '1m', '2m', '3m'].map((t) => (
-              <TouchableOpacity
-                key={t}
-                onPress={() => setSelectedTimer(t)}
-                style={[styles.pillBtn, selectedTimer === t && styles.pillBtnActiveCyan]}
-              >
-                <Text style={[styles.pillBtnText, selectedTimer === t && styles.pillBtnTextActive]}>{t}</Text>
-              </TouchableOpacity>
-            ))}
+        {/* Non-Whot Turn Timer Selector */}
+        {!isWhot && (
+          <View style={styles.setupFieldBlock}>
+            <Text style={styles.setupFieldLabel}>Turn Timer: <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{selectedTimer === '2m' ? '2 min' : selectedTimer}</Text></Text>
+            <View style={styles.pillsRow}>
+              {['30s', '1m', '2m', '3m'].map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => setSelectedTimer(t)}
+                  style={[styles.pillBtn, selectedTimer === t && styles.pillBtnActiveCyan]}
+                >
+                  <Text style={[styles.pillBtnText, selectedTimer === t && styles.pillBtnTextActive]}>{t}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Ludo Specific Inline Setup */}
         {isLudo && (
@@ -424,34 +426,213 @@ export default function GameLobbyScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Whot Specific Inline Setup */}
+        {/* Whot Complete Game Setup (Moved from WhotSetupScreen) */}
         {isWhot && (
-          <View style={styles.setupFieldBlock}>
-            <Text style={styles.setupFieldLabel}>Starting Cards: <Text style={{ color: '#00E5FF', fontWeight: '900' }}>{cardCount} Cards</Text></Text>
-            <View style={styles.pillsRow}>
-              {[3, 4, 5, 6, 7, 8].map((num) => (
-                <TouchableOpacity
-                  key={num}
-                  onPress={() => setCardCount(num)}
-                  style={[styles.pillBtn, cardCount === num && styles.pillBtnActiveCyan]}
-                >
-                  <Text style={[styles.pillBtnText, cardCount === num && styles.pillBtnTextActive]}>{num}</Text>
-                </TouchableOpacity>
-              ))}
+          <View style={{ gap: 18 }}>
+            {/* Players Selection */}
+            <View style={styles.setupFieldBlock}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Users size={16} color="#00E5FF" />
+                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>Players Selection</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                {[2, 3, 4, 5].map((num) => (
+                  <TouchableOpacity
+                    key={num}
+                    activeOpacity={0.85}
+                    onPress={() => setPlayerCount(num)}
+                    style={[
+                      styles.pillBtn,
+                      { flex: 1, paddingVertical: 12 },
+                      playerCount === num && styles.pillBtnActiveCyan,
+                    ]}
+                  >
+                    <Text style={[styles.pillBtnText, playerCount === num && styles.pillBtnTextActive]}>
+                      {num}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-            <View style={{ marginTop: 14 }}>
+
+            {/* Play Options */}
+            <View style={styles.setupFieldBlock}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Layers size={16} color="#00E5FF" />
+                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>Play Options</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => setPlayOption('continuous')}
+                  style={[
+                    styles.pillBtn,
+                    { flex: 1, paddingVertical: 12 },
+                    playOption === 'continuous' && styles.pillBtnActiveCyan,
+                  ]}
+                >
+                  <Text style={[styles.pillBtnText, playOption === 'continuous' && styles.pillBtnTextActive]}>
+                    Continuous
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => setPlayOption('finish')}
+                  style={[
+                    styles.pillBtn,
+                    { flex: 1, paddingVertical: 12 },
+                    playOption === 'finish' && styles.pillBtnActiveCyan,
+                  ]}
+                >
+                  <Text style={[styles.pillBtnText, playOption === 'finish' && styles.pillBtnTextActive]}>
+                    Finish and count
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Starting Cards Slider */}
+            <View style={styles.setupFieldBlock}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Layers size={16} color="#00E5FF" />
+                  <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>Starting Cards</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600' }}>Cards per player </Text>
+                  <Text style={{ color: '#00E5FF', fontSize: 15, fontWeight: '900' }}>{cardCount}</Text>
+                </View>
+              </View>
+
+              <View style={{ paddingHorizontal: 8, paddingTop: 10, paddingBottom: 4, position: 'relative' }}>
+                <View style={{ height: 4, backgroundColor: 'rgba(255, 255, 255, 0.12)', borderRadius: 2, position: 'absolute', top: 18, left: 18, right: 18 }} />
+                <View
+                  style={{
+                    height: 4,
+                    backgroundColor: '#00E5FF',
+                    borderRadius: 2,
+                    position: 'absolute',
+                    top: 18,
+                    left: 18,
+                    width: `${Math.max(0, Math.min(100, ((cardCount - 3) / 5) * 100))}%`,
+                  }}
+                />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {[3, 4, 5, 6, 7, 8].map((val) => (
+                    <TouchableOpacity
+                      key={val}
+                      onPress={() => setCardCount(val)}
+                      style={{ alignItems: 'center', width: 36 }}
+                    >
+                      <View
+                        style={[
+                          {
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            backgroundColor: '#1E293B',
+                            borderWidth: 2,
+                            borderColor: 'rgba(255, 255, 255, 0.25)',
+                            marginBottom: 6,
+                          },
+                          cardCount === val && {
+                            backgroundColor: '#00E5FF',
+                            borderColor: '#FFFFFF',
+                            transform: [{ scale: 1.2 }],
+                          },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          { color: '#64748B', fontSize: 12, fontWeight: '700' },
+                          cardCount === val && { color: '#00E5FF', fontWeight: '900' },
+                        ]}
+                      >
+                        {val}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* Turn Timer Slider */}
+            <View style={styles.setupFieldBlock}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>Turn Timer</Text>
+                <Text style={{ color: '#00E5FF', fontSize: 15, fontWeight: '900' }}>{selectedTimer}</Text>
+              </View>
+
+              <View style={{ paddingHorizontal: 8, paddingTop: 10, paddingBottom: 4, position: 'relative' }}>
+                <View style={{ height: 4, backgroundColor: 'rgba(255, 255, 255, 0.12)', borderRadius: 2, position: 'absolute', top: 18, left: 18, right: 18 }} />
+                <View
+                  style={{
+                    height: 4,
+                    backgroundColor: '#00E5FF',
+                    borderRadius: 2,
+                    position: 'absolute',
+                    top: 18,
+                    left: 18,
+                    width: `${selectedTimer === '30s' ? 0 : selectedTimer === '1m' ? 33 : selectedTimer === '2m' ? 66 : 100}%`,
+                  }}
+                />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {['30s', '1m', '2m', '3m'].map((tVal) => (
+                    <TouchableOpacity
+                      key={tVal}
+                      onPress={() => setSelectedTimer(tVal)}
+                      style={{ alignItems: 'center', width: 36 }}
+                    >
+                      <View
+                        style={[
+                          {
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            backgroundColor: '#1E293B',
+                            borderWidth: 2,
+                            borderColor: 'rgba(255, 255, 255, 0.25)',
+                            marginBottom: 6,
+                          },
+                          selectedTimer === tVal && {
+                            backgroundColor: '#00E5FF',
+                            borderColor: '#FFFFFF',
+                            transform: [{ scale: 1.2 }],
+                          },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          { color: '#64748B', fontSize: 12, fontWeight: '700' },
+                          selectedTimer === tVal && { color: '#00E5FF', fontWeight: '900' },
+                        ]}
+                      >
+                        {tVal}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* Special Cards Rules */}
+            <View style={{ marginTop: 4 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <Text style={{ color: '#00E5FF', fontWeight: '800', fontSize: 13 }}>Special Cards Rules</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Star size={16} color="#FF5500" />
+                  <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 14 }}>Special Cards Rules</Text>
+                </View>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
                   <TouchableOpacity
                     onPress={() => setSpecialCards({ 1: true, 2: true, 5: true, 8: true, 14: true, 20: true })}
-                    style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.08)' }}
+                    style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
                   >
                     <Text style={{ color: '#00E5FF', fontSize: 11, fontWeight: '800' }}>All ON</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => setSpecialCards({ 1: false, 2: false, 5: false, 8: false, 14: false, 20: false })}
-                    style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.08)' }}
+                    style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
                   >
                     <Text style={{ color: '#00E5FF', fontSize: 11, fontWeight: '800' }}>All OFF</Text>
                   </TouchableOpacity>

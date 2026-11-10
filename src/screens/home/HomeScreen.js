@@ -25,8 +25,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { reference, regions } from './art';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { settings as settingsApi, wallet, tournaments, leaderboard as leaderboardApi, notifications as notificationsApi } from '../../services/api';
-import { getStreakInfo, DAILY_STREAK_MILESTONES, checkAndTriggerStreak4hNotification } from '../../utils/recordGameStreak';
+import { settings as settingsApi, wallet, tournaments, leaderboard as leaderboardApi, notifications as notificationsApi, referral as referralApi } from '../../services/api';
+import {
+  getStreakInfo,
+  DAILY_STREAK_MILESTONES,
+  checkAndTriggerStreak4hNotification,
+  getUnclaimedDailyStreakMilestone,
+  claimDailyStreakMilestone,
+} from '../../utils/recordGameStreak';
+import StreakRewardModal from '../../components/StreakRewardModal';
+import { fetchAllPlatformPlayers } from '../../utils/platformPlayers';
 import { checkAndTriggerVp5Notification } from '../../utils/vpNotification';
 import { resolveAvatarSource } from '../../utils/avatarPresets';
 import { TELEGRAM_COMMUNITY_LINK, WHATSAPP_COMMUNITY_LINK } from '../../config/appConfig';
@@ -135,11 +143,13 @@ export default function HomeScreen({ navigation }) {
   const loadNotifications = useCallback(async () => {
     try {
       const uid = userProfile?.uid || user?.uid || 'me';
-      const [userNotifsRaw, globalNotifsRaw, serverNotifs] = await Promise.all([
+      const [userNotifsRaw, globalNotifsRaw, deletedRaw, serverNotifs] = await Promise.all([
         AsyncStorage.getItem(`@gamearn_notifications_${uid}`),
         AsyncStorage.getItem('@gamearn_notifications_all'),
+        AsyncStorage.getItem(`@gamearn_deleted_notifications_${uid}`),
         userProfile?.uid ? notificationsApi.list(50).catch(() => []) : Promise.resolve([]),
       ]);
+      const deletedSet = new Set(deletedRaw ? JSON.parse(deletedRaw).map(String) : []);
       const userNotifs = userNotifsRaw ? JSON.parse(userNotifsRaw) : [];
       const globalNotifs = globalNotifsRaw ? JSON.parse(globalNotifsRaw) : [];
       const combined = [
@@ -150,12 +160,41 @@ export default function HomeScreen({ navigation }) {
       const seen = new Set();
       const unique = [];
       for (const n of combined) {
-        if (!n?.id || seen.has(n.id)) continue;
-        seen.add(n.id);
+        const nid = String(n?.id || '');
+        if (!nid || seen.has(nid) || deletedSet.has(nid)) continue;
+        seen.add(nid);
         unique.push(n);
       }
       unique.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       setNotificationsList(unique);
+    } catch {}
+  }, [userProfile?.uid, user?.uid]);
+
+  const handleDeleteNotification = useCallback(async (notificationId) => {
+    if (!notificationId) return;
+    const nid = String(notificationId);
+    setNotificationsList((prev) => prev.filter((n) => String(n?.id) !== nid));
+    try {
+      const uid = userProfile?.uid || user?.uid || 'me';
+      const [userNotifsRaw, globalNotifsRaw, deletedRaw] = await Promise.all([
+        AsyncStorage.getItem(`@gamearn_notifications_${uid}`),
+        AsyncStorage.getItem('@gamearn_notifications_all'),
+        AsyncStorage.getItem(`@gamearn_deleted_notifications_${uid}`),
+      ]);
+      const deletedList = deletedRaw ? JSON.parse(deletedRaw) : [];
+      if (!deletedList.includes(nid)) {
+        deletedList.push(nid);
+        await AsyncStorage.setItem(`@gamearn_deleted_notifications_${uid}`, JSON.stringify(deletedList));
+      }
+      if (userNotifsRaw) {
+        const filteredUser = JSON.parse(userNotifsRaw).filter((n) => String(n?.id) !== nid);
+        await AsyncStorage.setItem(`@gamearn_notifications_${uid}`, JSON.stringify(filteredUser));
+      }
+      if (globalNotifsRaw) {
+        const filteredGlobal = JSON.parse(globalNotifsRaw).filter((n) => String(n?.id) !== nid);
+        await AsyncStorage.setItem('@gamearn_notifications_all', JSON.stringify(filteredGlobal));
+      }
+      await notificationsApi.delete(notificationId);
     } catch {}
   }, [userProfile?.uid, user?.uid]);
 
@@ -218,15 +257,41 @@ export default function HomeScreen({ navigation }) {
 
 
   const fetchWinners = useCallback(() => {
-    setWinnersLoading(true);
-    leaderboardApi
-      .getWinners()
-      .then((data) => {
-        setWinnersList(Array.isArray(data) ? data : []);
+    Promise.allSettled([
+      AsyncStorage.getItem('@gamearn_winners_cache'),
+      leaderboardApi.getWinners(),
+    ])
+      .then(([cacheRes, apiRes]) => {
+        let cachedList = [];
+        try {
+          if (cacheRes.status === 'fulfilled' && cacheRes.value) {
+            const parsed = JSON.parse(cacheRes.value);
+            if (Array.isArray(parsed)) cachedList = parsed;
+          }
+        } catch {}
+
+        const apiList = apiRes.status === 'fulfilled' && Array.isArray(apiRes.value)
+          ? apiRes.value
+          : [];
+
+        const map = new Map();
+        cachedList.forEach((w) => {
+          if (w && w.period && w.rank) {
+            map.set(`${w.period}:${w.rank}`, w);
+          }
+        });
+        apiList.forEach((w) => {
+          if (w && w.period && w.rank) {
+            map.set(`${w.period}:${w.rank}`, w);
+          }
+        });
+        const merged = Array.from(map.values()).sort((a, b) => a.rank - b.rank);
+        setWinnersList(merged);
+        if (merged.length > 0) {
+          AsyncStorage.setItem('@gamearn_winners_cache', JSON.stringify(merged)).catch(() => {});
+        }
       })
-      .catch(() => {
-        setWinnersList([]);
-      })
+      .catch(() => {})
       .finally(() => {
         setWinnersLoading(false);
       });
@@ -238,24 +303,82 @@ export default function HomeScreen({ navigation }) {
 
   const fetchLeaderboard = useCallback(() => {
     let active = true;
-    setLeaderboardLoading(true);
-    leaderboardApi
-      .get(period)
-      .then((res) => {
+    const cacheKey = `@gamearn_leaderboard_cache_${period}`;
+    AsyncStorage.getItem(cacheKey)
+      .then((raw) => {
+        if (!active || !raw) return;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setDbLeaderboardRows(parsed);
+          setLeaderboardLoading(false);
+        }
+      })
+      .catch(() => {});
+
+    Promise.allSettled([
+      leaderboardApi.get(period),
+      fetchAllPlatformPlayers(),
+    ])
+      .then(([lbRes, allPlayersRes]) => {
         if (!active) return;
-        const rowsList = Array.isArray(res) ? res : res?.data || [];
-        setDbLeaderboardRows(rowsList);
+        const lbRows = lbRes.status === 'fulfilled'
+          ? (Array.isArray(lbRes.value) ? lbRes.value : lbRes.value?.data || [])
+          : [];
+        const refRows = allPlayersRes.status === 'fulfilled' && Array.isArray(allPlayersRes.value)
+          ? allPlayersRes.value
+          : [];
+        const cachedComm = [];
+
+        const map = new Map();
+        const addEntry = (item, isFromPeriodLb = false) => {
+          if (!item) return;
+          const uid = item.uid || item.id;
+          if (!uid) return;
+          const existing = map.get(uid);
+          const name = item.displayName || item.name || item.username || existing?.name || 'Player';
+          const plays = isFromPeriodLb
+            ? Number(item.plays ?? item.gamesPlayed ?? 0)
+            : Number(existing?.plays ?? item.gamesPlayed ?? item.plays ?? 0);
+          const wins = isFromPeriodLb
+            ? Number(item.wins ?? item.gamesWon ?? 0)
+            : Number(existing?.wins ?? item.wins ?? item.gamesWon ?? Math.floor(plays * 0.6));
+          const gp = item.gp != null
+            ? Number(item.gp)
+            : (existing?.gp != null ? existing.gp : 0);
+
+          map.set(uid, {
+            id: uid,
+            uid,
+            name,
+            displayName: name,
+            avatar: item.avatar || item.avatarUrl || existing?.avatar || null,
+            plays: Math.max(plays, existing?.plays || 0),
+            wins: Math.max(wins, existing?.wins || 0),
+            gp: Math.max(gp, existing?.gp || 0),
+            isUser: Boolean(userProfile?.uid && uid === userProfile.uid),
+          });
+        };
+
+        lbRows.forEach((r) => addEntry(r, true));
+        refRows.forEach((r) => addEntry(r, false));
+        cachedComm.forEach((r) => addEntry(r, false));
+
+        const mergedList = Array.from(map.values()).sort(
+          (a, b) => (b.plays - a.plays) || (b.wins - a.wins) || (b.gp - a.gp) || String(a.name).localeCompare(String(b.name))
+        );
+        setDbLeaderboardRows(mergedList);
+        if (mergedList.length > 0) {
+          AsyncStorage.setItem(cacheKey, JSON.stringify(mergedList)).catch(() => {});
+        }
       })
-      .catch(() => {
-        if (active) setDbLeaderboardRows([]);
-      })
+      .catch(() => {})
       .finally(() => {
         if (active) setLeaderboardLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [period]);
+  }, [period, userProfile?.uid]);
 
   useEffect(() => {
     const cancel = fetchLeaderboard();
@@ -668,23 +791,78 @@ export default function HomeScreen({ navigation }) {
             <View style={[s.track, { width: `${Math.min(streakDays / 90, 1) * 100}%`, backgroundColor: CYAN }]} />
             {[7, 14, 30, 50, 90].map((day) => {
               const done = streakDays >= day;
+              const lastAwarded = Number(userProfile?.lastStreakMilestoneAwarded ?? 0);
+              const isClaimed = lastAwarded >= day;
               const milestoneData = DAILY_STREAK_MILESTONES.find((m) => m.day === day);
               return (
-                <View key={day} style={s.milestone}>
-                  <View style={[s.milestoneCircle, done && s.done]}>
-                    {icon(done ? 'checkmark' : 'lock-closed', 19, done ? '#fff' : '#d8e4ef')}
-                  </View>
-                  {txt(`${day} Days`, 12, { marginTop: 6 * scale })}
-                  {done && milestoneData ? (
-                    txt(`+${milestoneData.incrementalVp} VP`, 10, { color: '#10B981', fontWeight: '800' })
+                <TouchableOpacity
+                  key={day}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    if (done && milestoneData) {
+                      if (!isClaimed) {
+                        setDailyMilestoneModal(milestoneData);
+                      } else {
+                        Alert.alert('Milestone Claimed ✓', `You have already claimed +${milestoneData.incrementalVp} VP for your ${day}-Day Streak!`);
+                      }
+                    } else if (milestoneData) {
+                      Alert.alert(`${day}-Day Streak Locked 🔒`, `Reach ${day} consecutive days to unlock and claim +${milestoneData.incrementalVp} VP!`);
+                    }
+                  }}
+                  style={s.milestone}
+                >
+                  {milestoneData ? (
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        s.text,
+                        {
+                          fontSize: 10 * scale,
+                          color: done ? (isClaimed ? '#10B981' : '#FDE047') : CYAN,
+                          fontWeight: '800',
+                          marginBottom: 4 * scale,
+                          textAlign: 'center',
+                        },
+                      ]}
+                    >
+                      {`+${milestoneData.incrementalVp} VP`}
+                    </Text>
                   ) : null}
-                </View>
+                  <View style={[s.milestoneCircle, done && s.done]}>
+                    {icon(done ? (isClaimed ? 'checkmark' : 'gift') : 'lock-closed', 19, done ? '#fff' : '#d8e4ef')}
+                  </View>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      s.text,
+                      {
+                        fontSize: 11.5 * scale,
+                        marginTop: 6 * scale,
+                        fontWeight: '700',
+                        textAlign: 'center',
+                      },
+                    ]}
+                  >
+                    {`${day} Days`}
+                  </Text>
+                </TouchableOpacity>
               );
             })}
-            <View style={s.reward}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                const unclaimed = getUnclaimedDailyStreakMilestone(userProfile);
+                if (unclaimed) {
+                  setDailyMilestoneModal(unclaimed);
+                } else {
+                  navigation?.navigate('DailyStreak');
+                }
+              }}
+              style={s.reward}
+            >
               <Art name="gift" width={48 * scale} height={55 * scale} style={s.gift} />
               {txt(streakDays >= 90 ? '90-Day\n174.5 VP\nUnlocked' : '90-Day\nReward\nLocked', 11, { textAlign: 'center', lineHeight: 13 * scale, fontWeight: '700' })}
-            </View>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </LinearGradient>
@@ -726,6 +904,25 @@ export default function HomeScreen({ navigation }) {
       .filter((w) => w.period === winnersPeriod)
       .sort((a, b) => a.rank - b.rank);
 
+    const getPeriodDateLabel = (p) => {
+      const matchWinner = (winnersList || []).find((w) => w.period === p && w.periodDate);
+      if (matchWinner?.periodDate) return matchWinner.periodDate;
+      const now = new Date();
+      const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const fullMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      if (p === 'Daily') {
+        return `${now.getDate()} ${shortMonths[now.getMonth()]} ${now.getFullYear()}`;
+      }
+      if (p === 'Weekly') {
+        const weekNum = Math.ceil(now.getDate() / 7);
+        return `Wk ${weekNum}, ${shortMonths[now.getMonth()]} ${now.getFullYear()}`;
+      }
+      if (p === 'Monthly') {
+        return `${fullMonths[now.getMonth()]} ${now.getFullYear()}`;
+      }
+      return `${now.getFullYear()}`;
+    };
+
     return (
       <View
         style={{
@@ -742,14 +939,19 @@ export default function HomeScreen({ navigation }) {
         }}
       >
         {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ fontSize: 20 * scale, marginRight: 8 * scale }}>🏆</Text>
-          <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 18 * scale, letterSpacing: 0.3 }}>
-            Leaderboard Winners
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ fontSize: 20 * scale, marginRight: 8 * scale }}>🏆</Text>
+            <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 18 * scale, letterSpacing: 0.3 }}>
+              Leaderboard Winners
+            </Text>
+          </View>
+          <Text style={{ color: '#00E5FF', fontWeight: '800', fontSize: 11 * scale }}>
+            {getPeriodDateLabel(winnersPeriod)}
           </Text>
         </View>
 
-        {/* Period Selector Tabs (No dates) */}
+        {/* Period Selector Tabs with Dates */}
         <View
           style={{
             flexDirection: 'row',
@@ -769,7 +971,7 @@ export default function HomeScreen({ navigation }) {
                 onPress={() => setWinnersPeriod(p)}
                 style={{
                   flex: 1,
-                  paddingVertical: 9 * scale,
+                  paddingVertical: 7 * scale,
                   paddingHorizontal: 2 * scale,
                   borderRadius: 9 * scale,
                   backgroundColor: on ? '#00E5FF' : 'transparent',
@@ -785,6 +987,17 @@ export default function HomeScreen({ navigation }) {
                   }}
                 >
                   {p}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    color: on ? '#002B4D' : '#94A3B8',
+                    fontWeight: '700',
+                    fontSize: 8.5 * scale,
+                    marginTop: 2 * scale,
+                  }}
+                >
+                  {getPeriodDateLabel(p)}
                 </Text>
               </TouchableOpacity>
             );
@@ -885,7 +1098,7 @@ export default function HomeScreen({ navigation }) {
                     }}
                     numberOfLines={1}
                   >
-                    {w.reward || 'Prize'}
+                    {w.rewardVp ? `${w.rewardVp} VP` : (String(w.reward || '').toUpperCase().includes('VP') ? w.reward : `${String(w.reward || '10').replace(/[^0-9.]/g, '') || 10} VP`)}
                   </Text>
                 </View>
               </View>
@@ -1111,22 +1324,44 @@ export default function HomeScreen({ navigation }) {
                       ? 'flame'
                       : 'notifications';
                   return (
-                    <Tap
+                    <View
                       key={item.id}
-                      label={item.title || 'Notification'}
-                      onPress={handleNotificationPress}
                       style={[ui.panel, { padding: 14, marginVertical: 4, flexDirection: 'row', alignItems: 'center' }]}
                     >
-                      <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0, 217, 255, 0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                        <Ionicons name={iconName} size={18} color="#00d9ff" />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[ui.label, { fontSize: 14, fontWeight: '700' }]}>{item.title || 'Notification'}</Text>
-                        <Text style={[ui.body, { fontSize: 13, marginVertical: 2, color: '#bfcbdc' }]}>{item.message}</Text>
-                        <Text style={[ui.caption, { fontSize: 11 }]}>{new Date(item.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color="#00d9ff" style={{ marginLeft: 8 }} />
-                    </Tap>
+                      <Tap
+                        label={item.title || 'Notification'}
+                        onPress={handleNotificationPress}
+                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                      >
+                        <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0, 217, 255, 0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                          <Ionicons name={iconName} size={18} color="#00d9ff" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[ui.label, { fontSize: 14, fontWeight: '700' }]}>{item.title || 'Notification'}</Text>
+                          <Text style={[ui.body, { fontSize: 13, marginVertical: 2, color: '#bfcbdc' }]}>{item.message}</Text>
+                          <Text style={[ui.caption, { fontSize: 11 }]}>{new Date(item.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                        </View>
+                      </Tap>
+                      <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="Delete notification"
+                        activeOpacity={0.75}
+                        onPress={() => handleDeleteNotification(item.id)}
+                        style={{
+                          marginLeft: 10,
+                          width: 36,
+                          height: 36,
+                          borderRadius: 18,
+                          backgroundColor: 'rgba(239, 68, 68, 0.16)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(239, 68, 68, 0.4)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
                   );
                 })}
               </View>
@@ -1371,7 +1606,6 @@ export default function HomeScreen({ navigation }) {
         ]}
       >
         <Header />
-        <ActiveMatchBanner navigation={navigation} />
         {!!storageError && <Text accessibilityLiveRegion="polite" style={ui.error}>{storageError}</Text>}
         {tab === 'Home' ? <Home /> : <OtherTab />}
       </ScrollView>
@@ -1469,13 +1703,13 @@ function makeStyles(k, theme, isDark) {
     plus: { width: 35, height: 35, borderRadius: 18, backgroundColor: isDark ? '#00baf2' : '#00B4D8', alignItems: 'center', justifyContent: 'center', marginLeft: 5 },
     streakSummary: { paddingHorizontal: 8, backgroundColor: isDark ? '#001522' : '#FFFFFF' },
     activeBadge: { marginLeft: 10, borderRadius: 15, backgroundColor: GREEN, paddingHorizontal: 12, height: 26, flexDirection: 'row', alignItems: 'center', gap: 3 },
-    streak: { borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#087f94' : 'rgba(0, 0, 0, 0.08)', paddingHorizontal: 16, paddingTop: 7, height: 126, backgroundColor: isDark ? 'transparent' : '#FFFFFF', overflow: 'visible' },
+    streak: { borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#087f94' : 'rgba(0, 0, 0, 0.08)', paddingHorizontal: 16, paddingTop: 7, height: 136, backgroundColor: isDark ? 'transparent' : '#FFFFFF', overflow: 'visible' },
     sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    milestoneScroller: { marginTop: 8, flex: 1, overflow: 'visible' },
+    milestoneScroller: { marginTop: 6, flex: 1, overflow: 'visible' },
     milestones: { flexGrow: 1, overflow: 'visible' },
-    milestoneTrack: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flex: 1, minWidth: 5 * 45 + 79, position: 'relative', paddingTop: 16, overflow: 'visible' },
-    track: { position: 'absolute', top: 32, left: 17, right: 78, height: 4, backgroundColor: isDark ? '#3c455e' : '#CBD5E1' },
-    milestone: { width: 45, alignItems: 'center' },
+    milestoneTrack: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flex: 1, minWidth: 5 * 62 + 82, position: 'relative', paddingTop: 6, overflow: 'visible' },
+    track: { position: 'absolute', top: 39, left: 26, right: 82, height: 4, backgroundColor: isDark ? '#3c455e' : '#CBD5E1' },
+    milestone: { width: 62, alignItems: 'center' },
     milestoneCircle: { width: 33, height: 33, borderRadius: 17, borderWidth: 2, borderColor: isDark ? '#64778f' : '#94A3B8', backgroundColor: isDark ? '#142035' : '#E2E8F0', alignItems: 'center', justifyContent: 'center' },
     done: { backgroundColor: '#07872f', borderColor: '#33ff3e', shadowColor: GREEN, shadowRadius: 8, shadowOpacity: 0.9, shadowOffset: { width: 0, height: 0 } },
     gold: { backgroundColor: '#a86a00', borderColor: '#ffe537', shadowColor: '#ffb500', shadowRadius: 7, shadowOpacity: 0.85, shadowOffset: { width: 0, height: 0 } },

@@ -44,7 +44,7 @@ export function decodeApiResponse(statusCode, text) {
   });
 }
 
-async function request(method, path, { body, auth = true, timeout = 25000, retries = 1 } = {}) {
+async function request(method, path, { body, auth = true, timeout = 8000, retries = 0 } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth) {
     // auth may be { forceRefresh: true } to mint a fresh ID token (withdrawals).

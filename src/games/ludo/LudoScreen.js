@@ -19,7 +19,7 @@ import DiceRoll from './DiceRoll';
 import { diceOptions, legalPieceIdsForValue, diceValueForMove, NAME_BY_INDEX, COLOR_BY_INDEX } from './serverAdapter';
 
 const STATUS_TEXT = {
-  connecting: 'Connecting…',
+  connecting: 'Live match',
   playing: 'Live match',
   completed: 'Match over',
   aborted: 'Match cancelled',

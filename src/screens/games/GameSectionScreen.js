@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { wallet, tournaments, leaderboard as leaderboardApi } from '../../services/api';
 import { leaderboard } from '../home/model';
 import { resolveAvatarSource } from '../../utils/avatarPresets';
+import ActiveMatchBanner from '../../components/ActiveMatchBanner';
 
 const GAMES = {
   ludo: { title: 'Ludo', sub: 'Race your tokens home.', image: require('../../../assets/games/ludo_3d.jpg'), target: 'LudoGame' },
@@ -92,6 +93,7 @@ export default function GameSectionScreen({ route, navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        <ActiveMatchBanner navigation={navigation} gameId={key} style={{ marginHorizontal: 0, marginTop: 0, marginBottom: 14 }} />
         <View style={styles.hero}>
           <Image source={game.image} style={styles.heroImage} />
           <LinearGradient colors={['#070C1B00', '#070C1BE6']} style={StyleSheet.absoluteFillObject} />
@@ -133,37 +135,11 @@ export default function GameSectionScreen({ route, navigation }) {
           </ScrollView>
         )}
 
-                <View style={{ flexDirection: 'row', gap: 10, marginVertical: 14 }}>
+        <View style={{ flexDirection: 'row', gap: 10, marginVertical: 14 }}>
           <TouchableOpacity onPress={play} style={[styles.play, { flex: 1, marginVertical: 0 }]}>
             <Play size={19} color="#fff" fill="#fff" />
             <Text style={styles.playText}>Play Now</Text>
           </TouchableOpacity>
-
-          {key === 'whot' && (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => navigation.navigate('WhotSetup', {
-                gameId: key,
-                gameName: game.title,
-                targetScreen: game.target,
-              })}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                borderRadius: 14,
-                backgroundColor: 'rgba(0, 229, 255, 0.12)',
-                borderWidth: 1.5,
-                borderColor: '#00E5FF',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-              }}
-            >
-              <Settings size={18} color="#00E5FF" />
-              <Text style={{ color: '#00E5FF', fontWeight: '900', fontSize: 14 }}>Game Setup ⚙️</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         <View style={styles.leaderHeaderRow}>

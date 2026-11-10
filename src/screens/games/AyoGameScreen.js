@@ -96,7 +96,11 @@ export default function AyoGameScreen({ route, navigation }) {
   };
 
   const handleBack = () => {
-    navigation.navigate('MainTabs');
+    navigation.navigate('GameLobby', {
+      gameId: 'ayo',
+      gameName: 'Ayò Ọ̀pọ́n',
+      targetScreen: 'AyoGame',
+    });
   };
 
   return (

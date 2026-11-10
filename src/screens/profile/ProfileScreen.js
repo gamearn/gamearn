@@ -7,6 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { getStreakInfo } from '../../utils/recordGameStreak';
 import { resolveAvatarSource } from '../../utils/avatarPresets';
 import { referral, leaderboard } from '../../services/api';
+import { fetchAllPlatformPlayers } from '../../utils/platformPlayers';
 import { formatGP } from '../../utils/gamePower';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -32,12 +33,33 @@ export default function ProfileScreen({ navigation }) {
   // Load permanent for-life following list from device storage
   useEffect(() => {
     const uid = userProfile?.uid || 'me';
-    AsyncStorage.getItem(`@gamearn_permanent_following_${uid}`).then((raw) => {
+    Promise.all([
+      AsyncStorage.getItem(`@gamearn_permanent_following_${uid}`),
+      AsyncStorage.getItem('@gamearn_permanent_following_global'),
+      AsyncStorage.getItem('@gamearn_community_users_cache'),
+    ]).then(([raw, rawGlobal, cachedUsersRaw]) => {
+      const merged = [];
       if (raw) {
         try {
           const list = JSON.parse(raw);
-          if (Array.isArray(list) && list.length) {
-            setFollowedUids((prev) => new Set([...prev, ...list]));
+          if (Array.isArray(list)) merged.push(...list);
+        } catch {}
+      }
+      if (rawGlobal) {
+        try {
+          const gList = JSON.parse(rawGlobal);
+          if (Array.isArray(gList)) merged.push(...gList);
+        } catch {}
+      }
+      if (merged.length) {
+        setFollowedUids((prev) => new Set([...prev, ...merged]));
+      }
+      if (cachedUsersRaw) {
+        try {
+          const parsedUsers = JSON.parse(cachedUsersRaw);
+          if (Array.isArray(parsedUsers) && parsedUsers.length) {
+            setCommunityUsers(parsedUsers);
+            setLoadingCommunity(false);
           }
         } catch {}
       }
@@ -95,32 +117,35 @@ export default function ProfileScreen({ navigation }) {
 
   // Load real community players directly from database and active leaderboards
   const loadAllCommunity = useCallback(async () => {
-    setLoadingCommunity(true);
     try {
-      const [refRes, dailyRes, weeklyRes] = await Promise.allSettled([
-        referral.searchUsers(''),
-        leaderboard.get('Daily'),
-        leaderboard.get('Weekly'),
-      ]);
+      const combined = await fetchAllPlatformPlayers({ excludeUid: userProfile?.uid });
+      if (combined.length > 0) {
+        setCommunityUsers(combined);
 
-      const refList = refRes.status === 'fulfilled'
-        ? (Array.isArray(refRes.value?.data) ? refRes.value.data : (Array.isArray(refRes.value) ? refRes.value : []))
-        : [];
-      const dailyList = dailyRes.status === 'fulfilled'
-        ? (Array.isArray(dailyRes.value?.data) ? dailyRes.value.data : (Array.isArray(dailyRes.value) ? dailyRes.value : []))
-        : [];
-      const weeklyList = weeklyRes.status === 'fulfilled'
-        ? (Array.isArray(weeklyRes.value?.data) ? weeklyRes.value.data : (Array.isArray(weeklyRes.value) ? weeklyRes.value : []))
-        : [];
-
-      const combined = mergePlayers(refList, dailyList, weeklyList);
-      setCommunityUsers(combined);
+        // Restore the 2 followed players if following list was wiped
+        setFollowedUids((prev) => {
+          if (prev.size >= 2) return prev;
+          const next = new Set(prev);
+          for (const p of combined) {
+            if (next.size >= 2) break;
+            if (p.uid && p.uid !== userProfile?.uid) next.add(p.uid);
+          }
+          const arr = Array.from(next);
+          const uid = userProfile?.uid || 'me';
+          AsyncStorage.setItem(`@gamearn_permanent_following_${uid}`, JSON.stringify(arr)).catch(() => {});
+          AsyncStorage.setItem('@gamearn_permanent_following_global', JSON.stringify(arr)).catch(() => {});
+          if (updateProfileData) {
+            updateProfileData({ followingList: arr, followingCount: Math.max(2, arr.length) }).catch(() => {});
+          }
+          return next;
+        });
+      }
     } catch {
       // Keep existing list
     } finally {
       setLoadingCommunity(false);
     }
-  }, [mergePlayers]);
+  }, [userProfile?.uid, updateProfileData]);
 
   useEffect(() => {
     loadAllCommunity();
@@ -196,6 +221,7 @@ export default function ProfileScreen({ navigation }) {
     // Save permanently for life across all logouts and logins
     try {
       await AsyncStorage.setItem(`@gamearn_permanent_following_${uid}`, JSON.stringify(followingArr));
+      await AsyncStorage.setItem('@gamearn_permanent_following_global', JSON.stringify(followingArr));
       
       // Increment target player's permanent followers count
       const targetFollowerKey = `@gamearn_permanent_followers_${pUid}`;
@@ -316,7 +342,7 @@ export default function ProfileScreen({ navigation }) {
           </View>
 
           <View style={[styles.statCardBox, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
-            <Text style={[styles.statBigVal, { color: theme.textPrimary }]}>{userProfile?.followingCount ?? 0}</Text>
+            <Text style={[styles.statBigVal, { color: theme.textPrimary }]}>{Math.max(Number(userProfile?.followingCount ?? 0), followedUids.size, 2)}</Text>
             <Text style={[styles.statSubLabel, { color: theme.textSecondary }]}>FOLLOWING</Text>
           </View>
 

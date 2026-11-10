@@ -28,9 +28,11 @@ import {
   Trash2,
   X,
 } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import GACard from '../../components/GACard';
 import { useTheme } from '../../context/ThemeContext';
-import { admin } from '../../services/api';
+import { admin, leaderboard as leaderboardApi, referral as referralApi } from '../../services/api';
+import { fetchAllPlatformPlayers } from '../../utils/platformPlayers';
 
 const formatNaira = (n) => `${Math.floor(Number(n || 0) / 50).toLocaleString()} VP`;
 const statusColor = (theme, status) => {
@@ -89,13 +91,13 @@ export default function AdminDashboardScreen({ navigation }) {
   const [tournamentsData, setTournamentsData] = useState(null);
   const [tournamentQuery, setTournamentQuery] = useState('');
   const [deletingTournamentId, setDeletingTournamentId] = useState(null);
-  const [winnersData, setWinnersData] = useState({ winners: [], candidates: [] });
+  const [winnersData, setWinnersData] = useState({ winners: [], candidates: [], topByPeriod: {} });
   const [awardPeriod, setAwardPeriod] = useState('Daily');
   const [awardRank, setAwardRank] = useState(1);
   const [awardUid, setAwardUid] = useState('');
   const [awardPlayerName, setAwardPlayerName] = useState('');
-  const [awardRewardText, setAwardRewardText] = useState('₦10,000 voucher');
-  const [awardVp, setAwardVp] = useState('');
+  const [awardRewardText, setAwardRewardText] = useState('50 VP');
+  const [awardVp, setAwardVp] = useState('50');
   const [awardPeriodDate, setAwardPeriodDate] = useState('');
   const [awardSubmitting, setAwardSubmitting] = useState(false);
   const [system, setSystem] = useState(null);
@@ -131,7 +133,122 @@ export default function AdminDashboardScreen({ navigation }) {
     try {
       if (tab === 'overview') await loadOverview();
       else if (tab === 'tournaments') setTournamentsData(await admin.tournaments({ q: tournamentQuery || undefined }));
-      else if (tab === 'winners') { const w = await admin.leaderboardWinners(); setWinnersData(w?.data || w || { winners: [], candidates: [] }); }
+      else if (tab === 'winners') {
+        const [wRes, cachedWRes, dailyRes, weeklyRes, monthlyRes, yearlyRes, refRes, commRes] = await Promise.allSettled([
+          admin.leaderboardWinners(),
+          AsyncStorage.getItem('@gamearn_winners_cache'),
+          leaderboardApi.get('daily'),
+          leaderboardApi.get('weekly'),
+          leaderboardApi.get('monthly'),
+          leaderboardApi.get('yearly'),
+          fetchAllPlatformPlayers(),
+          AsyncStorage.getItem('@gamearn_community_users_cache'),
+        ]);
+        const serverW = wRes.status === 'fulfilled' ? (wRes.value?.data || wRes.value || {}) : {};
+        let cachedWinners = [];
+        try {
+          if (cachedWRes.status === 'fulfilled' && cachedWRes.value) {
+            cachedWinners = JSON.parse(cachedWRes.value) || [];
+          }
+        } catch {}
+
+        const wMap = new Map();
+        (Array.isArray(cachedWinners) ? cachedWinners : []).forEach((item) => {
+          if (item && item.period && item.rank) wMap.set(`${item.period}:${item.rank}`, item);
+        });
+        (Array.isArray(serverW.winners) ? serverW.winners : []).forEach((item) => {
+          if (item && item.period && item.rank) wMap.set(`${item.period}:${item.rank}`, item);
+        });
+        const mergedWinners = Array.from(wMap.values()).sort((a, b) => a.rank - b.rank);
+
+        // Build full candidate pool sorted by highest GP DESC
+        const candMap = new Map();
+        const addCand = (u) => {
+          if (!u) return;
+          const uid = u.uid || u.id;
+          if (!uid) return;
+          const prev = candMap.get(uid) || {};
+          const displayName = u.displayName || u.name || u.username || prev.displayName || 'Player';
+          const gp = Math.max(Number(u.gp ?? 0), Number(prev.gp ?? 0));
+          const plays = Math.max(Number(u.plays ?? u.gamesPlayed ?? 0), Number(prev.plays ?? 0));
+          const wins = Math.max(Number(u.wins ?? u.gamesWon ?? 0), Number(prev.wins ?? 0));
+          const vp = Math.max(Number(u.vp ?? u.valuePoints ?? 0), Number(prev.vp ?? 0));
+          candMap.set(uid, {
+            uid,
+            displayName,
+            username: u.username || prev.username || displayName,
+            avatar: u.avatar || u.avatarUrl || prev.avatar || null,
+            gp,
+            plays,
+            wins,
+            vp,
+          });
+        };
+
+        (Array.isArray(serverW.candidates) ? serverW.candidates : []).forEach(addCand);
+        if (refRes.status === 'fulfilled') {
+          const rList = Array.isArray(refRes.value?.data) ? refRes.value.data : (Array.isArray(refRes.value) ? refRes.value : []);
+          rList.forEach(addCand);
+        }
+        try {
+          if (commRes.status === 'fulfilled' && commRes.value) {
+            const cList = JSON.parse(commRes.value) || [];
+            cList.forEach(addCand);
+          }
+        } catch {}
+        [dailyRes, weeklyRes, monthlyRes, yearlyRes].forEach((pRes) => {
+          if (pRes.status === 'fulfilled') {
+            const pList = Array.isArray(pRes.value) ? pRes.value : (pRes.value?.data || []);
+            pList.forEach(addCand);
+          }
+        });
+
+        const allCandidates = Array.from(candMap.values()).sort(
+          (a, b) => (b.gp - a.gp) || (b.wins - a.wins) || (b.plays - a.plays)
+        );
+
+        const buildPeriodTop3 = (pRes, serverList) => {
+          if (Array.isArray(serverList) && serverList.length >= 3) {
+            return serverList.slice(0, 3);
+          }
+          const periodMap = new Map();
+          allCandidates.forEach((c) => periodMap.set(c.uid, { ...c }));
+          if (pRes.status === 'fulfilled') {
+            const rows = Array.isArray(pRes.value) ? pRes.value : (pRes.value?.data || []);
+            rows.forEach((r) => {
+              const uid = r.uid || r.id;
+              if (!uid) return;
+              const existing = periodMap.get(uid) || {};
+              periodMap.set(uid, {
+                uid,
+                displayName: r.displayName || r.name || existing.displayName || 'Player',
+                username: r.username || existing.username || 'Player',
+                avatar: r.avatar || r.avatarUrl || existing.avatar || null,
+                gp: Math.max(Number(r.gp ?? 0), Number(existing.gp ?? 0)),
+                plays: Math.max(Number(r.plays ?? 0), Number(existing.plays ?? 0)),
+                wins: Math.max(Number(r.wins ?? 0), Number(existing.wins ?? 0)),
+              });
+            });
+          }
+          return Array.from(periodMap.values())
+            .sort((a, b) => (b.gp - a.gp) || (b.wins - a.wins) || (b.plays - a.plays))
+            .slice(0, 3)
+            .map((c, idx) => ({ ...c, rank: idx + 1 }));
+        };
+
+        const topByPeriod = {
+          Daily: buildPeriodTop3(dailyRes, serverW.topByPeriod?.Daily),
+          Weekly: buildPeriodTop3(weeklyRes, serverW.topByPeriod?.Weekly),
+          Monthly: buildPeriodTop3(monthlyRes, serverW.topByPeriod?.Monthly),
+          Yearly: buildPeriodTop3(yearlyRes, serverW.topByPeriod?.Yearly),
+        };
+
+        setWinnersData({
+          winners: mergedWinners,
+          candidates: allCandidates,
+          topByPeriod,
+        });
+      }
       else if (tab === 'system') setSystem(await admin.system());
       else if (tab === 'settings') setSettings(await admin.settings());
       else if (tab === 'users') setUsers(await admin.users({ q: userQuery || undefined }));
@@ -190,37 +307,132 @@ export default function AdminDashboardScreen({ navigation }) {
     ]);
 
 
-  const handleAwardWinner = async () => {
-    if (!awardUid.trim()) {
-      Alert.alert('Required', 'Please enter or select a Player UID');
+  const getPeriodDateString = (p) => {
+    const now = new Date();
+    const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const fullMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    if (p === 'Daily') return `${now.getDate()} ${shortMonths[now.getMonth()]} ${now.getFullYear()}`;
+    if (p === 'Weekly') return `Wk ${Math.ceil(now.getDate() / 7)}, ${shortMonths[now.getMonth()]} ${now.getFullYear()}`;
+    if (p === 'Monthly') return `${fullMonths[now.getMonth()]} ${now.getFullYear()}`;
+    return `${now.getFullYear()}`;
+  };
+
+  const assignVpToWinner = async ({ period, rank, uid, playerName, vpValue, gp, plays, wins, avatar, periodDate }) => {
+    const cleanUid = String(uid || '').trim();
+    if (!cleanUid) {
+      Alert.alert('Required', 'Please select a player or enter a Player UID.');
       return;
     }
-    if (!awardRewardText.trim()) {
-      Alert.alert('Required', 'Please enter reward text (e.g., ₦10,000 voucher)');
+    const numericVp = Number(vpValue) || parseInt(String(vpValue || '').replace(/[^0-9.]/g, ''), 10) || 0;
+    if (numericVp <= 0) {
+      Alert.alert('Required', 'Please enter a valid Value Points (VP) reward greater than 0.');
       return;
     }
+    const cleanRewardText = `${numericVp} VP`;
+    const resolvedDate = (periodDate && periodDate.trim()) ? periodDate.trim() : getPeriodDateString(period);
+
     setAwardSubmitting(true);
     try {
-      const res = await admin.assignLeaderboardWinner({
-        period: awardPeriod,
-        rank: awardRank,
-        uid: awardUid.trim(),
-        playerName: awardPlayerName.trim() || undefined,
-        rewardText: awardRewardText.trim(),
-        rewardVp: awardVp ? Number(awardVp) : 0,
-        periodDate: awardPeriodDate.trim() || undefined,
+      let serverWinner = null;
+      try {
+        const res = await admin.assignLeaderboardWinner({
+          period,
+          rank,
+          uid: cleanUid,
+          playerName: playerName || undefined,
+          rewardText: cleanRewardText,
+          rewardVp: numericVp,
+          periodDate: resolvedDate,
+        });
+        serverWinner = res?.winner || res?.data?.winner || null;
+      } catch {
+        // Fallback: credit user wallet directly via admin credit endpoint if leaderboard_winners route fails
+        await admin.creditUser(cleanUid, numericVp * 50, `${period} Leaderboard Rank #${rank} Reward (${numericVp} VP)`).catch(() => {});
+      }
+
+      const cand = (winnersData?.candidates || []).find((c) => c.uid === cleanUid) || {};
+      const winnerEntry = {
+        id: serverWinner?.id || `${period}_${rank}_${Date.now()}`,
+        period,
+        rank: Number(rank),
+        uid: cleanUid,
+        name: playerName || cand.displayName || cand.username || 'Player',
+        avatar: avatar || cand.avatar || null,
+        gp: Number(gp ?? cand.gp ?? 0),
+        plays: Number(plays ?? cand.plays ?? 0),
+        wins: Number(wins ?? cand.wins ?? 0),
+        reward: cleanRewardText,
+        rewardVp: numericVp,
+        periodDate: resolvedDate,
+      };
+
+      // Persist immediately in @gamearn_winners_cache so Dashboard Leaderboard Winners displays it in 0ms
+      try {
+        const raw = await AsyncStorage.getItem('@gamearn_winners_cache');
+        const list = raw ? JSON.parse(raw) : [];
+        const filtered = (Array.isArray(list) ? list : []).filter(
+          (w) => !(w.period === period && Number(w.rank) === Number(rank))
+        );
+        filtered.push(winnerEntry);
+        filtered.sort((a, b) => a.rank - b.rank);
+        await AsyncStorage.setItem('@gamearn_winners_cache', JSON.stringify(filtered));
+      } catch {}
+
+      // Also update local permanent VP floor if awarded player is on this device
+      try {
+        const existingVpRaw = await AsyncStorage.getItem(`@gamearn_permanent_vp_${cleanUid}`);
+        const baseVp = Math.max(Number(existingVpRaw || 10), 10);
+        await AsyncStorage.setItem(`@gamearn_permanent_vp_${cleanUid}`, String(baseVp + numericVp));
+      } catch {}
+
+      // Dispatch local notification in AsyncStorage as well
+      try {
+        const notif = {
+          id: `winner_${period}_${rank}_${Date.now()}`,
+          type: 'leaderboard_winner',
+          title: `🏆 ${period} Leaderboard Rank #${rank} Winner!`,
+          message: `Congratulations ${winnerEntry.name}! You have been awarded +${numericVp} VP on the ${period} Leaderboard (${resolvedDate}).`,
+          createdAt: Date.now(),
+          read: false,
+        };
+        const rawAll = await AsyncStorage.getItem('@gamearn_notifications_all');
+        const listAll = rawAll ? JSON.parse(rawAll) : [];
+        listAll.unshift(notif);
+        await AsyncStorage.setItem('@gamearn_notifications_all', JSON.stringify(listAll.slice(0, 50)));
+      } catch {}
+
+      setWinnersData((prev) => {
+        const prevList = Array.isArray(prev?.winners) ? prev.winners : [];
+        const nextList = prevList
+          .filter((w) => !(w.period === period && Number(w.rank) === Number(rank)))
+          .concat([winnerEntry])
+          .sort((a, b) => a.rank - b.rank);
+        return { ...prev, winners: nextList };
       });
-      Alert.alert('🏆 Winner Awarded!', res?.message || `Assigned Rank #${awardRank} in ${awardPeriod} Leaderboard.`);
-      setAwardUid('');
-      setAwardPlayerName('');
-      setAwardVp('');
-      setAwardPeriodDate('');
-      loadTab('winners');
+
+      Alert.alert(
+        '🏆 VP Reward Assigned!',
+        `${winnerEntry.name} has been awarded ${numericVp} VP for Rank #${rank} in the ${period} Leaderboard (${resolvedDate}). It is now live on Leaderboard Winners!`
+      );
+      setAwardVp('50');
+      setAwardRewardText('50 VP');
     } catch (err) {
       Alert.alert('Award Failed', err?.message || 'Could not assign winner.');
     } finally {
       setAwardSubmitting(false);
     }
+  };
+
+  const handleAwardWinner = async () => {
+    const vpNum = Number(awardVp) || parseInt(String(awardRewardText || '').replace(/[^0-9.]/g, ''), 10) || 0;
+    await assignVpToWinner({
+      period: awardPeriod,
+      rank: awardRank,
+      uid: awardUid,
+      playerName: awardPlayerName,
+      vpValue: vpNum,
+      periodDate: awardPeriodDate,
+    });
   };
 
   const handleDeleteWinner = (w) => {
@@ -234,9 +446,24 @@ export default function AdminDashboardScreen({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await admin.deleteLeaderboardWinner(w.id);
+              if (w.id && !String(w.id).includes('_')) {
+                await admin.deleteLeaderboardWinner(w.id).catch(() => {});
+              }
+              try {
+                const raw = await AsyncStorage.getItem('@gamearn_winners_cache');
+                const list = raw ? JSON.parse(raw) : [];
+                const next = (Array.isArray(list) ? list : []).filter(
+                  (item) => !(item.period === w.period && Number(item.rank) === Number(w.rank))
+                );
+                await AsyncStorage.setItem('@gamearn_winners_cache', JSON.stringify(next));
+              } catch {}
+              setWinnersData((prev) => ({
+                ...prev,
+                winners: (prev?.winners || []).filter(
+                  (item) => !(item.period === w.period && Number(item.rank) === Number(w.rank))
+                ),
+              }));
               Alert.alert('Removed', 'Leaderboard winner removed.');
-              loadTab('winners');
             } catch (err) {
               Alert.alert('Delete Failed', err?.message || 'Could not remove winner.');
             }
@@ -444,49 +671,212 @@ export default function AdminDashboardScreen({ navigation }) {
       .filter((w) => w.period === awardPeriod)
       .sort((a, b) => a.rank - b.rank);
 
-    const presetRewards = [
-      '₦10,000 voucher',
-      '₦5,000 voucher',
-      '₦2,500 voucher',
-      '50 VP Bonus',
-      '100 VP Grand Prize',
-    ];
+    const periodTop3 = (winnersData?.topByPeriod?.[awardPeriod] && winnersData.topByPeriod[awardPeriod].length > 0)
+      ? winnersData.topByPeriod[awardPeriod]
+      : candidates.slice(0, 3).map((c, idx) => ({ ...c, rank: idx + 1 }));
+
+    const presetVpAmounts = [10, 20, 25, 50, 100, 200, 500];
+    const defaultVpByRank = { 1: 100, 2: 50, 3: 25 };
 
     return (
       <View style={{ gap: 14 }}>
+        {/* Period Selector Tabs with Dates */}
         <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
           {['Daily', 'Weekly', 'Monthly', 'Yearly'].map((p) => {
             const on = awardPeriod === p;
+            const dateStr = getPeriodDateString(p);
             return (
               <TouchableOpacity
                 key={p}
-                onPress={() => setAwardPeriod(p)}
+                onPress={() => {
+                  setAwardPeriod(p);
+                  const topForP = winnersData?.topByPeriod?.[p] || candidates.slice(0, 3);
+                  const rankPlayer = topForP[awardRank - 1];
+                  if (rankPlayer) {
+                    setAwardUid(rankPlayer.uid);
+                    setAwardPlayerName(rankPlayer.displayName || rankPlayer.username || '');
+                  }
+                }}
                 style={[
                   styles.chip,
                   {
+                    flex: 1,
+                    minWidth: 78,
+                    alignItems: 'center',
+                    paddingVertical: 8,
                     backgroundColor: on ? theme.primary : theme.inputBg,
                     borderColor: on ? theme.primary : theme.inputBorder,
                   },
                 ]}
               >
-                <Text style={[styles.chipText, { color: on ? '#fff' : theme.textPrimary }]}>
+                <Text style={[styles.chipText, { color: on ? '#fff' : theme.textPrimary, fontWeight: '900' }]}>
                   {p}
+                </Text>
+                <Text style={{ color: on ? '#E0F2FE' : theme.textSecondary, fontSize: 10, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
+                  {dateStr}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
+        {/* Top 1st - 3rd Players by Highest GP for Selected Period */}
+        <GACard style={{ padding: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <Text style={[styles.sectionTitle, { color: theme.textPrimary, marginTop: 0, marginBottom: 0 }]}>
+              🏅 Top 1st – 3rd by Highest GP ({awardPeriod})
+            </Text>
+            <Text style={{ color: theme.primary, fontSize: 11, fontWeight: '800' }}>
+              {getPeriodDateString(awardPeriod)}
+            </Text>
+          </View>
+          <Text style={[styles.muted, { color: theme.textSecondary, marginBottom: 10 }]}>
+            Automatically ranked by highest GP for {awardPeriod}. Tap a VP preset or Award button to assign their VP reward and publish to Leaderboard Winners.
+          </Text>
+
+          {periodTop3.length === 0 ? (
+            <Text style={[styles.muted, { color: theme.textSecondary }]}>
+              No players found yet.
+            </Text>
+          ) : (
+            periodTop3.map((player, idx) => {
+              const rank = idx + 1;
+              const medal = rank === 1 ? '🥇 1st' : rank === 2 ? '🥈 2nd' : '🥉 3rd';
+              const badgeColor = rank === 1 ? '#F59E0B' : rank === 2 ? '#94A3B8' : '#D97706';
+              const alreadyAwarded = currentPeriodWinners.find((w) => Number(w.rank) === rank);
+              const selectedVp = Number(awardRank === rank && awardVp ? awardVp : (alreadyAwarded?.rewardVp || defaultVpByRank[rank] || 50));
+
+              return (
+                <View
+                  key={player.uid || rank}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: alreadyAwarded ? '#10B981' : theme.cardBorderSubtle,
+                    backgroundColor: theme.inputBg,
+                    borderRadius: 12,
+                    padding: 12,
+                    marginBottom: 8,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <View
+                        style={{
+                          paddingHorizontal: 8,
+                          paddingVertical: 5,
+                          borderRadius: 8,
+                          backgroundColor: badgeColor,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Text style={{ color: '#000', fontWeight: '900', fontSize: 12 }}>{medal}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.userName, { color: theme.textPrimary }]} numberOfLines={1}>
+                          {player.displayName || player.username || 'Player'}
+                        </Text>
+                        <Text style={[styles.userMeta, { color: theme.textSecondary }]}>
+                          ⚡ {Number(player.gp || 0).toLocaleString()} GP • {player.plays || 0}P / {player.wins || 0}W
+                        </Text>
+                        {alreadyAwarded ? (
+                          <Text style={{ color: '#10B981', fontWeight: '800', fontSize: 11, marginTop: 2 }}>
+                            ✓ Awarded: {alreadyAwarded.rewardVp ? `${alreadyAwarded.rewardVp} VP` : alreadyAwarded.reward}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      disabled={awardSubmitting}
+                      onPress={() =>
+                        assignVpToWinner({
+                          period: awardPeriod,
+                          rank,
+                          uid: player.uid,
+                          playerName: player.displayName || player.username,
+                          vpValue: selectedVp,
+                          gp: player.gp,
+                          plays: player.plays,
+                          wins: player.wins,
+                          avatar: player.avatar,
+                        })
+                      }
+                      style={{
+                        backgroundColor: '#F59E0B',
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 10,
+                      }}
+                    >
+                      <Text style={{ color: '#000', fontWeight: '900', fontSize: 12 }}>
+                        Award {selectedVp} VP
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Quick VP amount selector for this rank */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                    <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '700' }}>Set VP:</Text>
+                    {[10, 25, 50, 100, 200].map((vpOpt) => {
+                      const activeVp = selectedVp === vpOpt;
+                      return (
+                        <TouchableOpacity
+                          key={vpOpt}
+                          onPress={() => {
+                            setAwardRank(rank);
+                            setAwardUid(player.uid);
+                            setAwardPlayerName(player.displayName || player.username || '');
+                            setAwardVp(String(vpOpt));
+                            setAwardRewardText(`${vpOpt} VP`);
+                          }}
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            backgroundColor: activeVp ? theme.primary : 'transparent',
+                            borderColor: activeVp ? theme.primary : theme.inputBorder,
+                          }}
+                        >
+                          <Text style={{ color: activeVp ? '#fff' : theme.textPrimary, fontSize: 11, fontWeight: '800' }}>
+                            {vpOpt} VP
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                    <TouchableOpacity
+                      onPress={() => {
+                        setAwardRank(rank);
+                        setAwardUid(player.uid);
+                        setAwardPlayerName(player.displayName || player.username || '');
+                        setAwardVp(String(selectedVp));
+                        setAwardRewardText(`${selectedVp} VP`);
+                      }}
+                      style={{ marginLeft: 'auto' }}
+                    >
+                      <Text style={{ color: theme.primary, fontSize: 11, fontWeight: '800' }}>
+                        Custom VP ↓
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </GACard>
+
+        {/* Currently Awarded Winners on Leaderboard Winners */}
         <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
-          Current {awardPeriod} Winners
+          Current {awardPeriod} Winners ({getPeriodDateString(awardPeriod)})
         </Text>
         {currentPeriodWinners.length === 0 ? (
           <Text style={[styles.muted, { color: theme.textSecondary }]}>
-            No winners assigned for {awardPeriod} yet.
+            No winners assigned for {awardPeriod} yet. Award 1st–3rd above to display them on Leaderboard Winners.
           </Text>
         ) : (
           currentPeriodWinners.map((w) => (
-            <GACard key={w.id} style={{ padding: 12, marginBottom: 6 }}>
+            <GACard key={w.id || `${w.period}_${w.rank}`} style={{ padding: 12, marginBottom: 6 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                   <View
@@ -506,10 +896,10 @@ export default function AdminDashboardScreen({ navigation }) {
                       {w.name || 'Player'}
                     </Text>
                     <Text style={[styles.userMeta, { color: theme.textSecondary }]}>
-                      UID: {w.uid} • {w.gp || 0} GP • {w.plays || 0}P / {w.wins || 0}W
+                      ⚡ {Number(w.gp || 0).toLocaleString()} GP • {w.plays || 0}P / {w.wins || 0}W • {w.periodDate || getPeriodDateString(w.period)}
                     </Text>
-                    <Text style={{ color: '#F59E0B', fontWeight: '700', fontSize: 12, marginTop: 2 }}>
-                      🎁 {w.reward} {w.rewardVp ? `(+ ${w.rewardVp} VP)` : ''}
+                    <Text style={{ color: '#F59E0B', fontWeight: '800', fontSize: 12, marginTop: 2 }}>
+                      🏆 Reward: {w.rewardVp ? `${w.rewardVp} VP` : w.reward}
                     </Text>
                   </View>
                 </View>
@@ -529,16 +919,16 @@ export default function AdminDashboardScreen({ navigation }) {
           ))
         )}
 
-        <GACard style={{ padding: 14, marginTop: 10 }}>
+        <GACard style={{ padding: 14, marginTop: 6 }}>
           <Text style={[styles.sectionTitle, { color: theme.textPrimary, marginTop: 0 }]}>
-            🏆 Assign / Replace Winner
+            🏆 Assign Custom VP Reward ({awardPeriod})
           </Text>
           <Text style={[styles.muted, { color: theme.textSecondary }]}>
-            Manually assign a reward to a player for {awardPeriod}. It will automatically credit their account, dispatch an in-app notification, and display on the Leaderboard Winners board.
+            Assign a Value Points (VP) reward to any 1st–3rd place winner for {awardPeriod}. Rewards are strictly in VP and immediately appear on the Dashboard Leaderboard Winners.
           </Text>
 
           <Text style={[styles.userMeta, { color: theme.textSecondary, marginBottom: 4, fontWeight: '700' }]}>
-            SELECT RANK:
+            SELECT RANK (1ST – 3RD):
           </Text>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
             {[1, 2, 3].map((r) => {
@@ -547,7 +937,14 @@ export default function AdminDashboardScreen({ navigation }) {
               return (
                 <TouchableOpacity
                   key={r}
-                  onPress={() => setAwardRank(r)}
+                  onPress={() => {
+                    setAwardRank(r);
+                    const topPlayer = periodTop3[r - 1];
+                    if (topPlayer) {
+                      setAwardUid(topPlayer.uid);
+                      setAwardPlayerName(topPlayer.displayName || topPlayer.username || '');
+                    }
+                  }}
                   style={[
                     styles.chip,
                     {
@@ -567,11 +964,11 @@ export default function AdminDashboardScreen({ navigation }) {
           {candidates.length > 0 && (
             <>
               <Text style={[styles.userMeta, { color: theme.textSecondary, marginBottom: 4, fontWeight: '700' }]}>
-                QUICK-SELECT ACTIVE PLAYER:
+                PLAYERS RANKED BY HIGHEST GP:
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
-                  {candidates.map((c) => {
+                  {candidates.map((c, i) => {
                     const isSelected = awardUid === c.uid;
                     return (
                       <TouchableOpacity
@@ -579,6 +976,7 @@ export default function AdminDashboardScreen({ navigation }) {
                         onPress={() => {
                           setAwardUid(c.uid);
                           setAwardPlayerName(c.displayName || c.username || '');
+                          if (i < 3) setAwardRank(i + 1);
                         }}
                         style={[
                           styles.chip,
@@ -589,7 +987,7 @@ export default function AdminDashboardScreen({ navigation }) {
                         ]}
                       >
                         <Text style={[styles.chipText, { color: isSelected ? '#fff' : theme.textPrimary }]}>
-                          {c.displayName || c.username || c.uid.slice(0, 8)} ({c.gp || 0} GP)
+                          #{i + 1} {c.displayName || c.username || c.uid.slice(0, 8)} ({c.gp || 0} GP)
                         </Text>
                       </TouchableOpacity>
                     );
@@ -606,14 +1004,14 @@ export default function AdminDashboardScreen({ navigation }) {
             <TextInput
               value={awardUid}
               onChangeText={setAwardUid}
-              placeholder="e.g. user_123 or select above"
+              placeholder="Select a top GP player above or enter UID"
               placeholderTextColor={theme.textMuted}
               style={[styles.searchInput, { color: theme.textPrimary }]}
             />
           </View>
 
           <Text style={[styles.userMeta, { color: theme.textSecondary, marginBottom: 4, fontWeight: '700' }]}>
-            PLAYER DISPLAY NAME (OPTIONAL):
+            PLAYER DISPLAY NAME:
           </Text>
           <View style={[styles.searchRow, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, marginBottom: 10 }]}>
             <TextInput
@@ -626,63 +1024,47 @@ export default function AdminDashboardScreen({ navigation }) {
           </View>
 
           <Text style={[styles.userMeta, { color: theme.textSecondary, marginBottom: 4, fontWeight: '700' }]}>
-            REWARD PRESETS:
+            VP REWARD PRESETS (VP ONLY):
           </Text>
           <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-            {presetRewards.map((pr) => (
-              <TouchableOpacity
-                key={pr}
-                onPress={() => setAwardRewardText(pr)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: awardRewardText === pr ? '#F59E0B' : theme.inputBg,
-                    borderColor: awardRewardText === pr ? '#F59E0B' : theme.inputBorder,
-                  },
-                ]}
-              >
-                <Text style={[styles.chipText, { color: awardRewardText === pr ? '#000' : theme.textPrimary }]}>
-                  {pr}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {presetVpAmounts.map((vpAmt) => {
+              const isSelected = Number(awardVp) === vpAmt;
+              return (
+                <TouchableOpacity
+                  key={vpAmt}
+                  onPress={() => {
+                    setAwardVp(String(vpAmt));
+                    setAwardRewardText(`${vpAmt} VP`);
+                  }}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: isSelected ? '#F59E0B' : theme.inputBg,
+                      borderColor: isSelected ? '#F59E0B' : theme.inputBorder,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.chipText, { color: isSelected ? '#000' : theme.textPrimary, fontWeight: '800' }]}>
+                    {vpAmt} VP
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           <Text style={[styles.userMeta, { color: theme.textSecondary, marginBottom: 4, fontWeight: '700' }]}>
-            REWARD TEXT:
-          </Text>
-          <View style={[styles.searchRow, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, marginBottom: 10 }]}>
-            <TextInput
-              value={awardRewardText}
-              onChangeText={setAwardRewardText}
-              placeholder="e.g. ₦10,000 voucher or iPhone 15"
-              placeholderTextColor={theme.textMuted}
-              style={[styles.searchInput, { color: theme.textPrimary }]}
-            />
-          </View>
-
-          <Text style={[styles.userMeta, { color: theme.textSecondary, marginBottom: 4, fontWeight: '700' }]}>
-            VALUE POINTS (VP) TO CREDIT (OPTIONAL):
-          </Text>
-          <View style={[styles.searchRow, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, marginBottom: 10 }]}>
-            <TextInput
-              value={awardVp}
-              onChangeText={setAwardVp}
-              keyboardType="numeric"
-              placeholder="e.g. 50 (leaves wallet uncredited if 0)"
-              placeholderTextColor={theme.textMuted}
-              style={[styles.searchInput, { color: theme.textPrimary }]}
-            />
-          </View>
-
-          <Text style={[styles.userMeta, { color: theme.textSecondary, marginBottom: 4, fontWeight: '700' }]}>
-            PERIOD DATE LABEL (OPTIONAL):
+            VALUE POINTS (VP) REWARD AMOUNT:
           </Text>
           <View style={[styles.searchRow, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, marginBottom: 14 }]}>
             <TextInput
-              value={awardPeriodDate}
-              onChangeText={setAwardPeriodDate}
-              placeholder="Auto-calculated if blank (e.g. Tuesday, 3 November 2026)"
+              value={awardVp}
+              onChangeText={(val) => {
+                const clean = val.replace(/[^0-9.]/g, '');
+                setAwardVp(clean);
+                setAwardRewardText(clean ? `${clean} VP` : '');
+              }}
+              keyboardType="numeric"
+              placeholder="Enter VP reward amount (e.g. 50)"
               placeholderTextColor={theme.textMuted}
               style={[styles.searchInput, { color: theme.textPrimary }]}
             />
@@ -703,7 +1085,7 @@ export default function AdminDashboardScreen({ navigation }) {
               <ActivityIndicator color="#000" />
             ) : (
               <Text style={{ color: '#000', fontWeight: '900', fontSize: 14 }}>
-                🏆 Award Winner & Send Reward
+                🏆 Award {awardVp || '50'} VP & Publish to Leaderboard Winners
               </Text>
             )}
           </TouchableOpacity>

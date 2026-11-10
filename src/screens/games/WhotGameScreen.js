@@ -5,7 +5,7 @@ import { WhotScreen } from '../../games/whot/WhotScreen';
 import { useServerGame } from '../../games/useServerGame';
 import { useAuth } from '../../context/AuthContext';
 import { practiceSnapshotToEngine, socketStateToEngine } from '../../games/whot/serverAdapter';
-import { clearActiveMatch } from '../../utils/activeMatch';
+import { setActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
 
 const STATUS_LABEL = {
   connecting: 'Connecting…',
@@ -33,6 +33,12 @@ export default function WhotGameScreen({ route, navigation }) {
     if (!isRejoin) {
       clearActiveMatch();
     }
+    setActiveMatch({
+      gameId: 'whot',
+      gameName: 'Whot',
+      targetScreen: 'WhotGame',
+      params: route.params,
+    });
   }, [params.resetKey, effectiveCards, isRejoin]);
   const stake = params.stake || 250;
   const timer = params.timer || '2m';
@@ -151,7 +157,11 @@ export default function WhotGameScreen({ route, navigation }) {
   }, [snapshot?.status, snapshot?.gameOver, snapshot?.winner, remote?.status, remote?.gameOver, remote?.winner, navigateResult]);
 
   const handleBack = () => {
-    navigation.navigate('MainTabs');
+    navigation.navigate('GameLobby', {
+      gameId: 'whot',
+      gameName: 'Whot',
+      targetScreen: 'WhotGame',
+    });
   };
 
   const phase = remoteMode ? session.status : 'local';

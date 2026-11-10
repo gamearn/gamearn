@@ -105,7 +105,11 @@ export default function DraughtsGameScreen({ route, navigation }) {
   }, [snapshot?.status, snapshot?.winner, effectiveUid]);
 
   const handleBack = () => {
-    navigation.navigate('MainTabs');
+    navigation.navigate('GameLobby', {
+      gameId: 'draft',
+      gameName: 'Draft',
+      targetScreen: 'DraughtsGame',
+    });
   };
 
   const liveStatus =

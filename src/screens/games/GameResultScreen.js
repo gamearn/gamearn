@@ -8,7 +8,9 @@ import {
   Image,
   StatusBar,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -35,8 +37,11 @@ import {
   getGameWinStreakState,
   WIN_STREAK_TIERS,
   getLocalDateString,
+  getUnclaimedDailyStreakMilestone,
+  claimDailyStreakMilestone,
 } from '../../utils/recordGameStreak';
 import { checkAndTriggerVp5Notification } from '../../utils/vpNotification';
+import StreakRewardModal from '../../components/StreakRewardModal';
 
 export default function GameResultScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
@@ -66,6 +71,9 @@ export default function GameResultScreen({ route, navigation }) {
   const [previewStandings, setPreviewStandings] = useState(null);
   const [claimingStreak, setClaimingStreak] = useState(false);
   const [streakClaimMessage, setStreakClaimMessage] = useState(null);
+  const [localGameStats, setLocalGameStats] = useState(null);
+  const [winStreakModalTier, setWinStreakModalTier] = useState(null);
+  const [dailyStreakModalMilestone, setDailyStreakModalMilestone] = useState(null);
 
   const recordedRef = React.useRef(false);
 
@@ -73,7 +81,8 @@ export default function GameResultScreen({ route, navigation }) {
   // game enum ("draughts"), but the UI route passes "draft" for Draughts. Map
   // UI ids to their stats bucket so the right career record is read/written.
   const GAME_STATS_KEY = { draft: 'draughts', checkers: 'draughts', draught: 'draughts', draughts: 'draughts' };
-  const statsKey = GAME_STATS_KEY[String(gameId).toLowerCase()] || gameId;
+  const statsKey = GAME_STATS_KEY[String(gameId).toLowerCase()] || String(gameId || 'whot').toLowerCase();
+  const isCheckers = statsKey === 'draughts' || statsKey === 'draft' || statsKey === 'checkers';
 
   useEffect(() => {
     // Always clear active match session when game result screen mounts!
@@ -86,98 +95,148 @@ export default function GameResultScreen({ route, navigation }) {
     const outcome = isWinner ? 'win' : (isDraw ? 'draw' : 'loss');
     leaderboardApi.recordCompletion(statsKey, outcome, completionReason).catch(() => {});
 
-    if (updateProfileData && userProfile) {
-      const currentWins = Number(userProfile?.wins ?? userProfile?.gamesWon ?? 0);
-      const currentLosses = Number(userProfile?.losses ?? userProfile?.gamesLost ?? 0);
-      const currentPlayed = Number(userProfile?.gamesPlayed ?? (currentWins + currentLosses));
+    (async () => {
+      try {
+        const uid = userProfile?.uid;
+        let storedAllStats = {};
+        try {
+          const [rawUidGs, rawCurGs] = await Promise.all([
+            uid ? AsyncStorage.getItem(`@gamearn_gamestats_${uid}`) : Promise.resolve(null),
+            AsyncStorage.getItem('@gamearn_gamestats_current'),
+          ]);
+          if (rawUidGs) storedAllStats = JSON.parse(rawUidGs) || {};
+          else if (rawCurGs) storedAllStats = JSON.parse(rawCurGs) || {};
+        } catch {}
 
-      const newWins = isWinner ? currentWins + 1 : currentWins;
-      const newLosses = !isWinner ? currentLosses + 1 : currentLosses;
-      const newPlayed = Math.max(currentPlayed + 1, newWins + newLosses);
+        const profileGameStats = userProfile?.gameStats || {};
+        const fromProfile = isCheckers
+          ? (profileGameStats.draughts || profileGameStats.draft || profileGameStats.checkers || {})
+          : (profileGameStats[statsKey] || {});
+        const fromStorage = isCheckers
+          ? (storedAllStats.draughts || storedAllStats.draft || storedAllStats.checkers || {})
+          : (storedAllStats[statsKey] || {});
 
-      // Per-Game stats calculation (e.g. Draughts/Checkers, Ludo, Ayo, Whot)
-      const existingGameStats = userProfile?.gameStats || {};
-      const currentThisGame = existingGameStats[statsKey] || existingGameStats.draft || existingGameStats.draughts || { gamesPlayed: 0, wins: 0, losses: 0, winStreak: 0, claimedWinStreakTier: 0 };
+        const prevGamePlayed = Math.max(Number(fromStorage.gamesPlayed || 0), Number(fromProfile.gamesPlayed || 0));
+        const prevGameWins = Math.max(Number(fromStorage.wins || 0), Number(fromProfile.wins || 0));
+        const prevGameLosses = Math.max(Number(fromStorage.losses || 0), Number(fromProfile.losses || 0));
+        const prevWinStreak = Number(
+          fromStorage.winStreak !== undefined ? fromStorage.winStreak : (fromProfile.winStreak ?? 0)
+        );
+        const claimedTier = Math.max(
+          Number(fromStorage.claimedWinStreakTier || 0),
+          Number(fromProfile.claimedWinStreakTier || 0)
+        );
 
-      const thisGamePlayed = Number(currentThisGame.gamesPlayed || 0) + 1;
-      const thisGameWins = Number(currentThisGame.wins || 0) + (isWinner ? 1 : 0);
-      const thisGameLosses = Number(currentThisGame.losses || 0) + (!isWinner ? 1 : 0);
+        const thisGamePlayed = prevGamePlayed + 1;
+        const thisGameWins = prevGameWins + (isWinner ? 1 : 0);
+        const thisGameLosses = prevGameLosses + (!isWinner && !isDraw ? 1 : 0);
+        const newThisGameWinStreak = isWinner ? prevWinStreak + 1 : 0;
 
-      // Consecutive win streak for THIS specific game:
-      // Counting starts from 1 on win!
-      const currentThisGameWinStreak = Number(currentThisGame.winStreak || 0);
-      const newThisGameWinStreak = isWinner ? Math.max(1, currentThisGameWinStreak + 1) : 0;
-      const claimedTier = Number(currentThisGame.claimedWinStreakTier || 0);
+        const todayStr = getLocalDateString();
+        const lastPlayDate = userProfile?.lastDailyPlayDate || userProfile?.lastPlayedDate || null;
+        const isSameDay = lastPlayDate === todayStr;
+        const newDailyPlays = isSameDay ? (Number(userProfile?.dailyPlays || 0) + 1) : 1;
+        const newDailyWins = isSameDay ? (Number(userProfile?.dailyWins || 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+        const currentGameDailyPlays = isSameDay ? (Number(fromStorage.dailyPlays ?? fromProfile.dailyPlays ?? 0) + 1) : 1;
+        const currentGameDailyWins = isSameDay ? (Number(fromStorage.dailyWins ?? fromProfile.dailyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
 
-      // Track daily play and win counts
-      const todayStr = getLocalDateString();
-      const lastPlayDate = userProfile?.lastDailyPlayDate || userProfile?.lastPlayedDate || null;
-      const isSameDay = lastPlayDate === todayStr;
-      const newDailyPlays = isSameDay ? (Number(userProfile?.dailyPlays || 0) + 1) : 1;
-      const newDailyWins = isSameDay ? (Number(userProfile?.dailyWins || 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+        const updatedThisGame = {
+          ...fromProfile,
+          ...fromStorage,
+          gamesPlayed: thisGamePlayed,
+          wins: thisGameWins,
+          losses: thisGameLosses,
+          winStreak: newThisGameWinStreak,
+          dailyPlays: currentGameDailyPlays,
+          dailyWins: currentGameDailyWins,
+          claimedWinStreakTier: claimedTier,
+        };
 
-      const currentGameDailyPlays = isSameDay ? (Number(currentThisGame.dailyPlays || 0) + 1) : 1;
-      const currentGameDailyWins = isSameDay ? (Number(currentThisGame.dailyWins || 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+        const updatedGameStats = {
+          ...profileGameStats,
+          ...storedAllStats,
+          [statsKey]: updatedThisGame,
+        };
+        if (isCheckers) {
+          updatedGameStats.draft = updatedThisGame;
+          updatedGameStats.draughts = updatedThisGame;
+        }
 
-      const isCheckers = statsKey === 'draughts' || statsKey === 'draft' || statsKey === 'checkers';
-      const updatedThisGame = {
-        ...currentThisGame,
-        gamesPlayed: thisGamePlayed,
-        wins: thisGameWins,
-        losses: thisGameLosses,
-        winStreak: newThisGameWinStreak,
-        dailyPlays: currentGameDailyPlays,
-        dailyWins: currentGameDailyWins,
-        claimedWinStreakTier: claimedTier,
-      };
+        // Persist immediately in AsyncStorage and local component state so UI shows exact winStreak right away
+        setLocalGameStats(updatedThisGame);
+        const jsonGs = JSON.stringify(updatedGameStats);
+        if (uid) {
+          await AsyncStorage.setItem(`@gamearn_gamestats_${uid}`, jsonGs).catch(() => {});
+        }
+        await AsyncStorage.setItem('@gamearn_gamestats_current', jsonGs).catch(() => {});
 
-      const updatedGameStats = {
-        ...existingGameStats,
-        [statsKey]: updatedThisGame,
-      };
+        // Check if active Win Streak milestone (3, 5, 7, 10) is now reached and unclaimed -> open Gift Box Modal!
+        const activeTierObj = claimedTier < WIN_STREAK_TIERS.length ? WIN_STREAK_TIERS[claimedTier] : null;
+        if (isWinner && activeTierObj && newThisGameWinStreak >= activeTierObj.targetWins) {
+          setWinStreakModalTier(activeTierObj);
+        }
 
-      if (isCheckers) {
-        updatedGameStats.draft = updatedThisGame;
-        updatedGameStats.draughts = updatedThisGame;
+        if (updateProfileData) {
+          const currentWins = Number(userProfile?.wins ?? userProfile?.gamesWon ?? 0);
+          const currentLosses = Number(userProfile?.losses ?? userProfile?.gamesLost ?? 0);
+          const currentPlayed = Number(userProfile?.gamesPlayed ?? (currentWins + currentLosses));
+
+          const newWins = isWinner ? currentWins + 1 : currentWins;
+          const newLosses = !isWinner && !isDraw ? currentLosses + 1 : currentLosses;
+          const newPlayed = Math.max(currentPlayed + 1, newWins + newLosses);
+
+          const newGp = calculateGamePower(newPlayed, newWins, newLosses);
+          const userBalance = Number(userProfile?.walletBalance ?? userProfile?.balance ?? userProfile?.valuePoints ?? 0);
+          const calculatedVp = calculateValuePoints(userBalance, newPlayed, newWins);
+          const currentStoredVp = Math.max(10, Number(userProfile?.valuePoints ?? userProfile?.vp ?? 10));
+          const newVp = Math.max(currentStoredVp, calculatedVp);
+
+          const extraPayload = {
+            wins: newWins,
+            gamesWon: newWins,
+            losses: newLosses,
+            gamesLost: newLosses,
+            gamesPlayed: newPlayed,
+            dailyPlays: newDailyPlays,
+            dailyWins: newDailyWins,
+            lastDailyPlayDate: todayStr,
+            lastPlayedDate: todayStr,
+            gameStats: updatedGameStats,
+            gamePower: newGp,
+            gp: newGp,
+            gpText: formatGP(newGp),
+            valuePoints: newVp,
+            vp: newVp,
+            vpText: formatVP(newVp),
+          };
+
+          const streakResult = await recordGameStreak(updateProfileData, userProfile, isWinner, extraPayload);
+          if (streakResult?.unlockedDailyMilestone) {
+            setDailyStreakModalMilestone(streakResult.unlockedDailyMilestone);
+          }
+        }
+      } catch (err) {
+        console.log('Notice updating result stats:', err?.message || err);
       }
-
-      // Calculate Game Power (GP) dynamically using official formula
-      const newGp = calculateGamePower(newPlayed, newWins, newLosses);
-
-      const userBalance = Number(userProfile?.walletBalance ?? userProfile?.balance ?? userProfile?.valuePoints ?? 0);
-      const calculatedVp = calculateValuePoints(userBalance, newPlayed, newWins);
-      const currentStoredVp = Number(userProfile?.valuePoints ?? userProfile?.vp ?? 0);
-      const newVp = Math.max(currentStoredVp, calculatedVp);
-
-      updateProfileData({
-        wins: newWins,
-        gamesWon: newWins,
-        losses: newLosses,
-        gamesLost: newLosses,
-        gamesPlayed: newPlayed,
-        dailyPlays: newDailyPlays,
-        dailyWins: newDailyWins,
-        lastDailyPlayDate: todayStr,
-        lastPlayedDate: todayStr,
-        gameStats: updatedGameStats,
-        gamePower: newGp,
-        gp: newGp,
-        gpText: formatGP(newGp),
-        valuePoints: newVp,
-        vp: newVp,
-        vpText: formatVP(newVp),
-      }).catch((err) => console.log('Notice updating result stats:', err));
-
-      // Record Win Streak: increments if isWinner=true, resets to 0 if isWinner=false
-      recordGameStreak(updateProfileData, userProfile, isWinner).catch(() => {});
-    }
+    })();
 
     if (serverConfirmed) {
       refreshProfile().catch(() => {});
     }
   }, []);
 
-  const gameWinStreak = getGameWinStreakState(userProfile, statsKey);
+  const effectiveProfileForStreak = localGameStats
+    ? {
+        ...(userProfile || {}),
+        gameStats: {
+          ...(userProfile?.gameStats || {}),
+          [statsKey]: localGameStats,
+          ...(isCheckers ? { draft: localGameStats, draughts: localGameStats } : {}),
+        },
+      }
+    : userProfile;
+
+  const gameWinStreak = getGameWinStreakState(effectiveProfileForStreak, statsKey);
 
   const handleClaimWinStreak = async (tierToClaim) => {
     if (!tierToClaim || claimingStreak) return;
@@ -185,18 +244,18 @@ export default function GameResultScreen({ route, navigation }) {
     setStreakClaimMessage(null);
     try {
       const reward = Number(tierToClaim.rewardVp);
-      const currentVp = Number(userProfile?.valuePoints ?? userProfile?.vp ?? 0);
+      const currentVp = Math.max(10, Number(userProfile?.valuePoints ?? userProfile?.vp ?? 10));
       const newVp = Math.round((currentVp + reward) * 10) / 10;
 
       const existingGameStats = userProfile?.gameStats || {};
-      const thisGameStats = existingGameStats[statsKey] || existingGameStats.draft || existingGameStats.draughts || {};
+      const baseGameStats = localGameStats || existingGameStats[statsKey] || (isCheckers ? (existingGameStats.draft || existingGameStats.draughts) : {}) || {};
 
       const updatedThisGame = {
-        ...thisGameStats,
+        ...baseGameStats,
         claimedWinStreakTier: tierToClaim.tier,
       };
+      setLocalGameStats(updatedThisGame);
 
-      const isCheckers = statsKey === 'draughts' || statsKey === 'draft' || statsKey === 'checkers';
       const updatedStats = {
         ...existingGameStats,
         [statsKey]: updatedThisGame,
@@ -206,6 +265,16 @@ export default function GameResultScreen({ route, navigation }) {
         updatedStats.draughts = updatedThisGame;
       }
 
+      const uid = userProfile?.uid;
+      const jsonGs = JSON.stringify(updatedStats);
+      if (uid) {
+        await Promise.all([
+          AsyncStorage.setItem(`@gamearn_gamestats_${uid}`, jsonGs),
+          AsyncStorage.setItem(`@gamearn_permanent_vp_${uid}`, String(newVp)),
+        ]).catch(() => {});
+      }
+      await AsyncStorage.setItem('@gamearn_gamestats_current', jsonGs).catch(() => {});
+
       await updateProfileData({
         valuePoints: newVp,
         vp: newVp,
@@ -213,9 +282,15 @@ export default function GameResultScreen({ route, navigation }) {
         gameStats: updatedStats,
       });
 
+      setWinStreakModalTier(null);
+
       const nextTier = WIN_STREAK_TIERS[tierToClaim.tier];
       if (nextTier) {
-        setStreakClaimMessage(`🎉 Claimed +${reward} VP! Unlocked next target: ${nextTier.label} (${nextTier.rewardVp} VP)`);
+        setStreakClaimMessage(`🎉 Claimed +${reward} VP! Unlocked next target: ${nextTier.label} (+${nextTier.rewardVp} VP)`);
+        // If current winStreak already satisfies nextTier too, show next modal
+        if (Number(updatedThisGame.winStreak || 0) >= nextTier.targetWins) {
+          setTimeout(() => setWinStreakModalTier(nextTier), 400);
+        }
       } else {
         setStreakClaimMessage(`🎉 Claimed +${reward} VP! You completed all 1-10 streak milestones! 🏆`);
       }
@@ -235,8 +310,19 @@ export default function GameResultScreen({ route, navigation }) {
     }
   };
 
+  const handleClaimDailyMilestone = async () => {
+    if (!dailyStreakModalMilestone || claimingStreak) return;
+    setClaimingStreak(true);
+    try {
+      await claimDailyStreakMilestone(updateProfileData, userProfile, dailyStreakModalMilestone);
+      setDailyStreakModalMilestone(null);
+    } finally {
+      setClaimingStreak(false);
+    }
+  };
+
   // Per-game specific stats for display on this result screen
-  const currentGameStats = userProfile?.gameStats?.[statsKey] || userProfile?.gameStats?.draft || userProfile?.gameStats?.draughts || {};
+  const currentGameStats = localGameStats || userProfile?.gameStats?.[statsKey] || (isCheckers ? (userProfile?.gameStats?.draft || userProfile?.gameStats?.draughts) : {}) || {};
   const thisGamePlayed = Number(currentGameStats.gamesPlayed ?? 0);
   const thisGameWins = Number(currentGameStats.wins ?? 0);
   const thisGameLosses = Number(currentGameStats.losses ?? 0);
@@ -556,7 +642,7 @@ export default function GameResultScreen({ route, navigation }) {
                   {canClaim && (
                     <TouchableOpacity
                       activeOpacity={0.85}
-                      onPress={() => handleClaimWinStreak(activeTier)}
+                      onPress={() => setWinStreakModalTier(activeTier)}
                       disabled={claimingStreak}
                       style={styles.claimStreakBtn}
                     >
@@ -742,6 +828,46 @@ export default function GameResultScreen({ route, navigation }) {
           <Text style={styles.exitGameBtnText}>Exit Game</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Win Streak Gift Box Claim Modal (3/3, 5/5, 7/7, 10/10 Consecutive Wins) */}
+      <StreakRewardModal
+        visible={Boolean(winStreakModalTier)}
+        onClose={() => setWinStreakModalTier(null)}
+        onClaim={() => handleClaimWinStreak(winStreakModalTier)}
+        claiming={claimingStreak}
+        badgeLabel="WIN STREAK REWARD"
+        title={
+          winStreakModalTier
+            ? `🔥 ${winStreakModalTier.targetWins}/${winStreakModalTier.targetWins} Win Streak!`
+            : 'Win Streak Completed!'
+        }
+        subtitle={
+          winStreakModalTier
+            ? `You achieved ${winStreakModalTier.targetWins} consecutive wins in ${gameName}! Claim your Value Points reward below.`
+            : ''
+        }
+        rewardVp={winStreakModalTier?.rewardVp ?? 1}
+      />
+
+      {/* Daily Streak Milestone Gift Box Claim Modal (7, 14, 30, 50, 90 Days) */}
+      <StreakRewardModal
+        visible={!winStreakModalTier && Boolean(dailyStreakModalMilestone)}
+        onClose={() => setDailyStreakModalMilestone(null)}
+        onClaim={handleClaimDailyMilestone}
+        claiming={claimingStreak}
+        badgeLabel="DAILY STREAK MILESTONE"
+        title={
+          dailyStreakModalMilestone
+            ? `🔥 ${dailyStreakModalMilestone.day} Days Streak Unlocked!`
+            : 'Daily Streak Unlocked!'
+        }
+        subtitle={
+          dailyStreakModalMilestone
+            ? `You reached a ${dailyStreakModalMilestone.day}-Day Daily Streak! Claim your milestone Value Points reward below.`
+            : ''
+        }
+        rewardVp={dailyStreakModalMilestone?.incrementalVp ?? 3.5}
+      />
     </View>
   );
 }

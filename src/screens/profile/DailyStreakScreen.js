@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,14 +24,41 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import GAButton from '../../components/GAButton';
-import { getLocalDateString } from '../../utils/recordGameStreak';
+import {
+  getLocalDateString,
+  DAILY_STREAK_MILESTONES,
+  getUnclaimedDailyStreakMilestone,
+  claimDailyStreakMilestone,
+} from '../../utils/recordGameStreak';
+import StreakRewardModal from '../../components/StreakRewardModal';
 
 export default function DailyStreakScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { userProfile, updateProfileData } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [milestoneModal, setMilestoneModal] = useState(null);
+  const [claimingMilestone, setClaimingMilestone] = useState(false);
 
   const streakDays = userProfile?.streak ?? 0;
+  const lastAwardedMilestone = Number(userProfile?.lastStreakMilestoneAwarded ?? 0);
+
+  useEffect(() => {
+    const unclaimed = getUnclaimedDailyStreakMilestone(userProfile);
+    if (unclaimed) {
+      setMilestoneModal(unclaimed);
+    }
+  }, [streakDays, lastAwardedMilestone]);
+
+  const handleClaimMilestoneModal = async () => {
+    if (!milestoneModal || claimingMilestone) return;
+    setClaimingMilestone(true);
+    try {
+      await claimDailyStreakMilestone(updateProfileData, userProfile, milestoneModal);
+      setMilestoneModal(null);
+    } finally {
+      setClaimingMilestone(false);
+    }
+  };
   const lastStreakDate = userProfile?.lastStreakDate || null;
   const lastCheckInDate = userProfile?.lastCheckInDate || null;
   const lastPlayedDate = userProfile?.lastPlayedDate || null;
@@ -43,7 +70,7 @@ export default function DailyStreakScreen({ navigation }) {
   const isActive = streakDays > 0;
 
   // Next milestone calculation
-  const nextMilestone = streakDays < 7 ? 7 : streakDays < 30 ? 30 : streakDays < 50 ? 50 : 90;
+  const nextMilestone = streakDays < 7 ? 7 : streakDays < 14 ? 14 : streakDays < 30 ? 30 : streakDays < 50 ? 50 : 90;
   const daysLeft = Math.max(0, nextMilestone - streakDays);
   const progressPercent = Math.min(100, Math.max(0, Math.floor((streakDays / nextMilestone) * 100)));
 
@@ -57,16 +84,21 @@ export default function DailyStreakScreen({ navigation }) {
       // If a game already advanced the streak today, claiming only marks the
       // day as checked-in without bumping it a second time.
       const nextStreak = touchedToday ? streakDays : streakDays + 1;
-      await updateProfileData({
+      const updated = await updateProfileData({
         streak: nextStreak,
         lastStreakDate: todayStr,
         lastCheckInDate: todayStr,
         lastStreakPersistedDate: todayStr,
       });
-      Alert.alert(
-        'Daily Streak Active! 🔥',
-        `Great job! You checked in today. Your streak is now ${nextStreak} day${nextStreak === 1 ? '' : 's'} ACTIVE!`
-      );
+      const newlyUnlocked = getUnclaimedDailyStreakMilestone(updated || { ...userProfile, streak: nextStreak });
+      if (newlyUnlocked) {
+        setMilestoneModal(newlyUnlocked);
+      } else {
+        Alert.alert(
+          'Daily Streak Active! 🔥',
+          `Great job! You checked in today. Your streak is now ${nextStreak} day${nextStreak === 1 ? '' : 's'} ACTIVE!`
+        );
+      }
     } catch (e) {
       Alert.alert('Error', e.message || 'Could not update daily streak.');
     } finally {
@@ -224,61 +256,106 @@ export default function DailyStreakScreen({ navigation }) {
 
           {/* Timeline Nodes */}
           <View style={styles.timelineList}>
-            {/* Timeline Connecting Line */}
             <View style={[styles.verticalLineTrack, { backgroundColor: isDark ? 'rgba(0, 229, 255, 0.2)' : 'rgba(0, 180, 216, 0.2)' }]} />
 
-            {/* Node 1: Day 7 (Completed) */}
-            <View style={styles.nodeItemRow}>
-              <View style={[styles.checkedNodeCircle, { backgroundColor: theme.primary }]}>
-                <Check size={16} color="#FFFFFF" strokeWidth={3} />
-              </View>
-              <View style={[styles.nodeCardBox, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.nodeDayLabelText, { color: theme.primary }]}>DAY 7</Text>
-                  <Text style={[styles.nodeTitleText, { color: theme.textPrimary }]}>Starter Pack Unlock</Text>
-                </View>
-                <Gift size={20} color={theme.primary} />
-              </View>
-            </View>
+            {DAILY_STREAK_MILESTONES.map((m) => {
+              const unlocked = streakDays >= m.day;
+              const claimed = lastAwardedMilestone >= m.day;
+              const isUltimate = m.day === 90;
 
-            {/* Node 2: Day 50 (In Progress) */}
-            <View style={styles.nodeItemRow}>
-              <View style={[styles.trendingNodeCircle, { backgroundColor: theme.cardBg, borderColor: theme.primary }]}>
-                <TrendingUp size={16} color={theme.primary} strokeWidth={2.5} />
-              </View>
-              <View style={[styles.nodeCardBox, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.nodeDayLabelText, { color: theme.primary }]}>DAY 50</Text>
-                  <Text style={[styles.nodeTitleText, { color: theme.textPrimary }]}>{streakDays >= 50 ? 'Silver Badge + 10 Value Points' : 'Silver Badge Reward'}</Text>
-                </View>
-                <Lock size={18} color={theme.textMuted} />
-              </View>
-            </View>
+              return (
+                <TouchableOpacity
+                  key={m.day}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (unlocked && !claimed) {
+                      setMilestoneModal(m);
+                    } else if (unlocked && claimed) {
+                      Alert.alert('Reward Claimed ✓', `You have already claimed +${m.incrementalVp} VP for Day ${m.day}!`);
+                    } else {
+                      Alert.alert(`Day ${m.day} Locked 🔒`, `Reach a ${m.day}-day streak to unlock and claim +${m.incrementalVp} VP!`);
+                    }
+                  }}
+                  style={styles.nodeItemRow}
+                >
+                  {unlocked ? (
+                    <View style={[styles.checkedNodeCircle, { backgroundColor: claimed ? '#10B981' : '#F59E0B' }]}>
+                      <Check size={16} color="#FFFFFF" strokeWidth={3} />
+                    </View>
+                  ) : (
+                    <View style={[styles.lockedNodeCircle, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
+                      <Lock size={16} color={theme.textMuted} />
+                    </View>
+                  )}
 
-            {/* Node 3: Day 90 (Ultimate Reward - Highlighted Cyan Card) */}
-            <View style={styles.nodeItemRow}>
-              <View style={[styles.lockedNodeCircle, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
-                <Lock size={16} color={theme.textMuted} />
-              </View>
-              <LinearGradient
-                colors={theme.gradientPrimary}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.ultimateRewardCard}
-              >
-                <View style={{ flex: 1 }}>
-                  <View style={styles.ultimatePill}>
-                    <Text style={styles.ultimatePillText}>ULTIMATE REWARD</Text>
-                  </View>
-                  <Text style={[styles.nodeDayLabelTextDark, { color: '#FFFFFF' }]}>DAY 90</Text>
-                  <Text style={[styles.ultimateTitleText, { color: '#FFFFFF' }]}>Elite Champion Title</Text>
-                </View>
-                <Medal size={24} color="#FFFFFF" strokeWidth={2.5} />
-              </LinearGradient>
-            </View>
+                  {isUltimate ? (
+                    <LinearGradient
+                      colors={theme.gradientPrimary}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.ultimateRewardCard}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <View style={styles.ultimatePill}>
+                          <Text style={styles.ultimatePillText}>
+                            {unlocked ? (claimed ? 'CLAIMED ✓' : 'TAP TO CLAIM 🎁') : 'ULTIMATE REWARD'}
+                          </Text>
+                        </View>
+                        <Text style={[styles.nodeDayLabelTextDark, { color: '#FFFFFF' }]}>DAY {m.day} • +{m.incrementalVp} VP</Text>
+                        <Text style={[styles.ultimateTitleText, { color: '#FFFFFF' }]}>Elite Champion (+{m.incrementalVp} VP)</Text>
+                      </View>
+                      <Medal size={24} color="#FFFFFF" strokeWidth={2.5} />
+                    </LinearGradient>
+                  ) : (
+                    <View
+                      style={[
+                        styles.nodeCardBox,
+                        {
+                          backgroundColor: theme.cardBg,
+                          borderColor: unlocked && !claimed ? '#F59E0B' : theme.cardBorderSubtle,
+                        },
+                      ]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.nodeDayLabelText, { color: unlocked && !claimed ? '#F59E0B' : theme.primary }]}>
+                          DAY {m.day} • +{m.incrementalVp} VP {unlocked ? (claimed ? '(CLAIMED ✓)' : '(TAP TO CLAIM 🎁)') : ''}
+                        </Text>
+                        <Text style={[styles.nodeTitleText, { color: theme.textPrimary }]}>
+                          {m.day}-Day Streak Gift Box (+{m.incrementalVp} VP)
+                        </Text>
+                      </View>
+                      {unlocked ? (
+                        <Gift size={20} color={claimed ? '#10B981' : '#F59E0B'} />
+                      ) : (
+                        <Lock size={18} color={theme.textMuted} />
+                      )}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
       </ScrollView>
+
+      <StreakRewardModal
+        visible={Boolean(milestoneModal)}
+        onClose={() => setMilestoneModal(null)}
+        onClaim={handleClaimMilestoneModal}
+        claiming={claimingMilestone}
+        badgeLabel="DAILY STREAK MILESTONE"
+        title={
+          milestoneModal
+            ? `🔥 ${milestoneModal.day} Days Streak Unlocked!`
+            : 'Daily Streak Unlocked!'
+        }
+        subtitle={
+          milestoneModal
+            ? `You completed ${milestoneModal.day} consecutive days! Claim your +${milestoneModal.incrementalVp} VP gift box reward below.`
+            : ''
+        }
+        rewardVp={milestoneModal?.incrementalVp ?? 3.5}
+      />
     </View>
   );
 }

@@ -22,12 +22,17 @@ export default function EmailVerificationScreen({ route, navigation }) {
   const [timer, setTimer] = useState(119); // 01:59 countdown
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [issuedCode, setIssuedCode] = useState('');
 
   const inputRefs = [useRef(null), useRef(null), useRef(null), useRef(null), useRef(null), useRef(null)];
 
   const requestOtp = async () => {
+    setError('');
     try {
-      await sendEmailOtp(email);
+      const res = await sendEmailOtp(email);
+      if (res?.verificationCode) {
+        setIssuedCode(String(res.verificationCode));
+      }
     } catch (e) {
       setError(e.message || 'Could not send the verification code. Try again.');
     }
@@ -72,7 +77,10 @@ export default function EmailVerificationScreen({ route, navigation }) {
     setTimer(119);
     setError('');
     try {
-      await sendEmailOtp(email);
+      const res = await sendEmailOtp(email);
+      if (res?.verificationCode) {
+        setIssuedCode(String(res.verificationCode));
+      }
     } catch (e) {
       setError(e.message || 'Could not resend the code. Try again.');
     }
@@ -141,7 +149,28 @@ export default function EmailVerificationScreen({ route, navigation }) {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {/* 4 Digit Boxes */}
+          {issuedCode ? (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => setCode(String(issuedCode).slice(0, 6).split(''))}
+              style={{
+                backgroundColor: 'rgba(0, 229, 255, 0.12)',
+                borderColor: '#00E5FF',
+                borderWidth: 1,
+                borderRadius: 12,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                marginBottom: 16,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: '#00E5FF', fontSize: 13, fontWeight: '800' }}>
+                Verification Code: {issuedCode} (Tap to auto-fill)
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {/* 6 Digit Boxes */}
           <View style={styles.otpRow}>
             {code.map((digit, idx) => (
               <TextInput

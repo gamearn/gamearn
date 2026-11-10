@@ -3,7 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Gamepad2, Play } from 'lucide-react-native';
 import { getActiveMatch } from '../utils/activeMatch';
 
-export default function ActiveMatchBanner({ navigation }) {
+const normalizeGameId = (id) => {
+  const s = String(id || '').trim().toLowerCase();
+  if (s === 'draft' || s === 'draughts' || s === 'checkers' || s === 'draught') return 'draft';
+  return s;
+};
+
+export default function ActiveMatchBanner({ navigation, gameId = null, style }) {
   const [activeMatch, setActiveMatchState] = useState(null);
 
   useEffect(() => {
@@ -19,15 +25,18 @@ export default function ActiveMatchBanner({ navigation }) {
   }, []);
 
   if (!activeMatch) return null;
+  if (gameId && normalizeGameId(activeMatch.gameId) !== normalizeGameId(gameId)) {
+    return null;
+  }
 
   const handleRejoin = () => {
     if (navigation && activeMatch.targetScreen) {
-      navigation.navigate(activeMatch.targetScreen, activeMatch.params || {});
+      navigation.navigate(activeMatch.targetScreen, { ...(activeMatch.params || {}), isRejoin: true });
     }
   };
 
   return (
-    <View style={styles.bannerRoot}>
+    <View style={[styles.bannerRoot, style]}>
       {/* Top Section: Word / Title & Game Name above buttons */}
       <View style={styles.contentWrap}>
         <View style={styles.pulseDot} />
