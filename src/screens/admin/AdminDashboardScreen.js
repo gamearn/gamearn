@@ -378,11 +378,11 @@ export default function AdminDashboardScreen({ navigation }) {
         await AsyncStorage.setItem('@gamearn_winners_cache', JSON.stringify(filtered));
       } catch {}
 
-      // Also update local permanent VP floor if awarded player is on this device
+      // Also update local earned VP if awarded player is on this device
       try {
-        const existingVpRaw = await AsyncStorage.getItem(`@gamearn_permanent_vp_${cleanUid}`);
-        const baseVp = Math.max(Number(existingVpRaw || 10), 10);
-        await AsyncStorage.setItem(`@gamearn_permanent_vp_${cleanUid}`, String(baseVp + numericVp));
+        const existingVpRaw = await AsyncStorage.getItem(`@gamearn_earned_vp_${cleanUid}`);
+        const baseVp = Math.max(Number(existingVpRaw || 0), 0);
+        await AsyncStorage.setItem(`@gamearn_earned_vp_${cleanUid}`, String(baseVp + numericVp));
       } catch {}
 
       // Dispatch local notification in AsyncStorage as well

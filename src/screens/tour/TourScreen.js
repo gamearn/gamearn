@@ -40,22 +40,29 @@ export default function TourScreen({ navigation }) {
 
   const load = useCallback(async () => {
     try {
-      const [list, myTours] = await Promise.all([tournaments.list(), tournaments.my()]);
-      const now = Date.now();
-      const rawUpcoming = list || [];
-      const filteredUpcoming = rawUpcoming.filter((item) => {
-        const st = String(item.status || '').toLowerCase();
-        if (['cancelled', 'completed'].includes(st)) return false;
-        const isLive = Boolean((item.isLive || item.is_live) && st === 'in_progress');
-        // Unlaunched tournaments over 24 hours must disappear
-        if (!isLive) {
-          if (item.launchDeadline && new Date(item.launchDeadline).getTime() <= now) return false;
-          if (item.createdAt && (now - new Date(item.createdAt).getTime()) > 24 * 3600 * 1000) return false;
+      const [listRes, myRes] = await Promise.allSettled([tournaments.list(), tournaments.my()]);
+      const listVal = listRes.status === 'fulfilled' ? listRes.value : [];
+      const myVal = myRes.status === 'fulfilled' ? myRes.value : [];
+
+      const rawUpcoming = Array.isArray(listVal)
+        ? listVal
+        : (listVal?.tournaments || listVal?.data || []);
+      const rawMine = Array.isArray(myVal)
+        ? myVal
+        : (myVal?.tournaments || myVal?.data || []);
+
+      const byId = new Map();
+      [...rawUpcoming, ...rawMine].forEach((item) => {
+        if (!item || !item.id) return;
+        const st = String(item.status || 'registration_open').toLowerCase();
+        if (['cancelled', 'completed'].includes(st)) return;
+        if (!byId.has(String(item.id))) {
+          byId.set(String(item.id), item);
         }
-        return true;
       });
-      setUpcoming(filteredUpcoming);
-      setMine(myTours || []);
+
+      setUpcoming(Array.from(byId.values()));
+      setMine(rawMine.filter((item) => item && String(item.status || '').toLowerCase() !== 'cancelled'));
       setError('');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not load tournaments.');
@@ -214,38 +221,38 @@ export default function TourScreen({ navigation }) {
           </View>
         ) : (
           <>
-            <View style={styles.sectionLabelRow}>
-              <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>OPEN & UPCOMING</Text>
-              {upcoming.length > 0 && (
-                <Text style={styles.sectionCount}>{upcoming.length} FOUND</Text>
-              )}
-            </View>
-
-            <View style={styles.tourList}>
-              {upcoming.length === 0 ? (
-                <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-                  No tournaments open right now — check back soon or host your own above.
+            {upcoming.length === 0 ? (
+              <View style={[styles.centerBox, { paddingVertical: 28 }]}>
+                <Text style={[styles.emptyText, { color: theme.textSecondary, fontSize: 15, fontWeight: '700' }]}>
+                  There are no tournaments
                 </Text>
-              ) : (
-                upcoming.map((item) => renderCard(item))
-              )}
-            </View>
+              </View>
+            ) : (
+              <>
+                <View style={styles.sectionLabelRow}>
+                  <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>OPEN & UPCOMING</Text>
+                  <Text style={styles.sectionCount}>{upcoming.length} FOUND</Text>
+                </View>
 
-            <View style={styles.sectionLabelRow}>
-              <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>MY TOURNAMENTS</Text>
-            </View>
+                <View style={styles.tourList}>
+                  {upcoming.map((item) => renderCard(item))}
+                </View>
+              </>
+            )}
 
-            <View style={styles.tourList}>
-              {mine.length === 0 ? (
-                <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-                  You haven't joined any tournaments yet.
-                </Text>
-              ) : (
-                mine.map((item) =>
-                  renderCard(item, item.status === 'completed' ? 'SEE RESULTS' : 'OPEN'),
-                )
-              )}
-            </View>
+            {mine.length > 0 && (
+              <>
+                <View style={styles.sectionLabelRow}>
+                  <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>MY TOURNAMENTS</Text>
+                </View>
+
+                <View style={styles.tourList}>
+                  {mine.map((item) =>
+                    renderCard(item, item.status === 'completed' ? 'SEE RESULTS' : 'OPEN'),
+                  )}
+                </View>
+              </>
+            )}
           </>
         )}
       </ScrollView>

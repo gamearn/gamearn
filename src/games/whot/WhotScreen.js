@@ -955,9 +955,9 @@ export function WhotScreen({
             style={{
               position: 'absolute',
               left: 304 * scale,
-              top: 632 * scale,
-              width: 155 * scale,
-              height: 310 * scale,
+              top: 530 * scale,
+              width: 160 * scale,
+              height: 325 * scale,
             }}
           />
         </View>

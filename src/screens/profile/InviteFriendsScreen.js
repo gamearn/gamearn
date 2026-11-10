@@ -52,6 +52,9 @@ const PING_TYPE_MAP = {
 };
 
 // Normalize the backend referral or searched user object into the shape the member cards render.
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchAllPlatformPlayers } from '../../utils/platformPlayers';
+
 const toUiRef = (r) => {
   const streakCount = Number(r.streak || 0);
   const tournamentsCount = Number(r.tournamentsCount || 0);
@@ -164,13 +167,30 @@ export default function InviteFriendsScreen({ navigation }) {
   const [totalCommissionKobo, setTotalCommissionKobo] = useState(0);
   const [todayCommissionKobo, setTodayCommissionKobo] = useState(0);
   const [featuredTournament, setFeaturedTournament] = useState(null);
+  const [applyCodeInput, setApplyCodeInput] = useState('');
+  const [applyingCode, setApplyingCode] = useState(false);
 
   const fetchReferrals = useCallback(async () => {
     try {
-      const [res, tourRes] = await Promise.all([
-        referral.me(),
+      const uid = userProfile?.uid;
+      const [res, tourRes, allPlayers, regRaw, savedRefBy] = await Promise.all([
+        referral.me().catch(() => null),
         tournamentsApi.list().catch(() => null),
+        fetchAllPlatformPlayers().catch(() => []),
+        AsyncStorage.getItem('@gamearn_referrals_registry').catch(() => null),
+        uid ? AsyncStorage.getItem(`@gamearn_referred_by_${uid}`).catch(() => null) : Promise.resolve(null),
       ]);
+
+      const mergedByUid = new Map();
+      const addRef = (r) => {
+        if (!r) return;
+        const rUid = r.uid || r.id;
+        if (!rUid || (uid && rUid === uid)) return;
+        if (!mergedByUid.has(rUid)) {
+          mergedByUid.set(rUid, toUiRef(r));
+        }
+      };
+
       if (res) {
         const payload = res.data || res;
         if (payload?.referralCode) setServerCode(payload.referralCode);
@@ -178,9 +198,96 @@ export default function InviteFriendsScreen({ navigation }) {
         if (typeof payload?.todayCommissionKobo === 'number') setTodayCommissionKobo(payload.todayCommissionKobo);
         const list = payload?.referrals || (Array.isArray(payload) ? payload : []);
         if (Array.isArray(list)) {
-          setReferrals(list.map(toUiRef));
+          list.forEach(addRef);
         }
       }
+
+      if (Array.isArray(userProfile?.referredUsers)) {
+        userProfile.referredUsers.forEach(addRef);
+      }
+
+      const playersList = Array.isArray(allPlayers) ? allPlayers : [];
+      const registry = regRaw ? JSON.parse(regRaw) : [];
+      const myCleanCodes = new Set(
+        [
+          referralCode,
+          serverCode,
+          userProfile?.referralCode,
+          userProfile?.username,
+          userProfile?.displayName,
+          uid ? uid.slice(0, 8) : null,
+        ]
+          .filter(Boolean)
+          .map((c) => String(c).trim().toLowerCase().replace(/[^a-z0-9]/g, ''))
+      );
+
+      let myReferredByCode = String(userProfile?.referredByCode || savedRefBy || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+
+      if (Array.isArray(registry)) {
+        for (const entry of registry) {
+          if (!entry) continue;
+          const entryCode = String(entry.referrerCode || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '');
+          // 1. Someone used MY referral code -> they count for me!
+          if (entryCode && myCleanCodes.has(entryCode) && entry.refereeUid && entry.refereeUid !== uid) {
+            const matchedPlayer = playersList.find((p) => (p.uid || p.id) === entry.refereeUid);
+            addRef(
+              matchedPlayer || {
+                uid: entry.refereeUid,
+                displayName: entry.refereeName || entry.refereeUsername || 'Player',
+                username: entry.refereeUsername || entry.refereeName || 'player',
+                phone: entry.refereePhone || '',
+                isMyReferral: true,
+              }
+            );
+          }
+          // 2. I am the referee in the registry -> remember who referred me!
+          if (uid && entry.refereeUid === uid && entryCode && !myReferredByCode) {
+            myReferredByCode = entryCode;
+          }
+        }
+      }
+
+      // 3. If I used someone's referral code -> they also count & appear for me!
+      if (myReferredByCode && !myCleanCodes.has(myReferredByCode)) {
+        let referrerMatch = playersList.find((p) => {
+          const pUname = String(p.username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const pDname = String(p.displayName || p.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const pCode = String(p.referralCode || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const pUid8 = String(p.uid || p.id || '').slice(0, 8).toLowerCase().replace(/[^a-z0-9]/g, '');
+          return (
+            pUname === myReferredByCode ||
+            pDname === myReferredByCode ||
+            pCode === myReferredByCode ||
+            pUid8 === myReferredByCode
+          );
+        });
+        if (!referrerMatch) {
+          try {
+            const sRes = await referral.searchUsers(myReferredByCode);
+            const sArr = Array.isArray(sRes) ? sRes : (sRes?.data || []);
+            referrerMatch = sArr.find((p) => (p.uid || p.id) !== uid) || null;
+          } catch {}
+        }
+        if (referrerMatch) {
+          addRef({ ...referrerMatch, isMyReferral: true });
+        } else {
+          addRef({
+            uid: `referrer_${myReferredByCode}`,
+            displayName: myReferredByCode,
+            username: myReferredByCode,
+            isMyReferral: true,
+          });
+        }
+      }
+
+      setReferrals(Array.from(mergedByUid.values()));
+
       if (tourRes) {
         const rawT = Array.isArray(tourRes) ? tourRes : tourRes?.tournaments || tourRes?.data || [];
         const activeT = rawT.find((t) => !['cancelled', 'completed'].includes(String(t?.status || '').toLowerCase()));
@@ -191,7 +298,55 @@ export default function InviteFriendsScreen({ navigation }) {
         setReferrals(userProfile.referredUsers.map(toUiRef));
       }
     }
-  }, [userProfile]);
+  }, [userProfile, referralCode, serverCode]);
+
+  const handleApplyReferralCode = async () => {
+    const cleanCode = String(applyCodeInput || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!cleanCode || cleanCode.length < 3) {
+      Alert.alert('Invalid Code', 'Please enter a valid referral code.');
+      return;
+    }
+    const uid = userProfile?.uid;
+    const myCodes = [referralCode, serverCode, userProfile?.username, userProfile?.displayName]
+      .filter(Boolean)
+      .map((c) => String(c).toLowerCase().replace(/[^a-z0-9]/g, ''));
+    if (myCodes.includes(cleanCode)) {
+      Alert.alert('Invalid Referral Code', 'You cannot use your own referral code.');
+      return;
+    }
+
+    setApplyingCode(true);
+    try {
+      await referral.apply(cleanCode).catch(() => null);
+      if (uid) {
+        await AsyncStorage.setItem(`@gamearn_referred_by_${uid}`, cleanCode).catch(() => {});
+        const rawReg = await AsyncStorage.getItem('@gamearn_referrals_registry').catch(() => null);
+        const regList = rawReg ? JSON.parse(rawReg) : [];
+        const arr = Array.isArray(regList) ? regList : [];
+        if (!arr.some((r) => r.refereeUid === uid && r.referrerCode === cleanCode)) {
+          arr.push({
+            referrerCode: cleanCode,
+            refereeUid: uid,
+            refereeName: userProfile?.username || userProfile?.displayName || 'Player',
+            refereeUsername: userProfile?.username || userProfile?.displayName || 'player',
+            refereePhone: userProfile?.phone || '',
+            createdAt: new Date().toISOString(),
+          });
+          await AsyncStorage.setItem('@gamearn_referrals_registry', JSON.stringify(arr)).catch(() => {});
+        }
+      }
+      if (updateProfileData) {
+        await updateProfileData({ referredByCode: cleanCode }).catch(() => {});
+      }
+      setApplyCodeInput('');
+      await fetchReferrals();
+      Alert.alert('Referral Linked! 🎉', `Referral code "${cleanCode}" has been applied to your account.`);
+    } catch (err) {
+      Alert.alert('Error', err?.message || 'Could not apply referral code.');
+    } finally {
+      setApplyingCode(false);
+    }
+  };
 
   useEffect(() => {
     fetchReferrals();
@@ -473,6 +628,47 @@ export default function InviteFriendsScreen({ navigation }) {
             </TouchableOpacity>
           </View>
           <Text style={styles.codeSubNote}>Invite friends to join GAMEARN using your code or link.</Text>
+          <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+            <Text style={[styles.boxLabel, { marginBottom: 6 }]}>Were You Referred by a Friend?</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TextInput
+                style={{
+                  flex: 1,
+                  backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(96, 165, 250, 0.25)',
+                  borderRadius: 10,
+                  paddingHorizontal: 12,
+                  paddingVertical: 9,
+                  color: '#FFFFFF',
+                  fontSize: 13,
+                  fontWeight: '700',
+                }}
+                placeholder="Enter friend's referral code"
+                placeholderTextColor="#64748B"
+                value={applyCodeInput}
+                onChangeText={setApplyCodeInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                activeOpacity={0.85}
+                disabled={applyingCode}
+                onPress={handleApplyReferralCode}
+                style={{
+                  backgroundColor: '#2563EB',
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  opacity: applyingCode ? 0.6 : 1,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>
+                  {applyingCode ? 'Applying...' : 'Apply'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* Network Stats Grid */}

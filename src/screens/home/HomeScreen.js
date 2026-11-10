@@ -303,7 +303,7 @@ export default function HomeScreen({ navigation }) {
 
   const fetchLeaderboard = useCallback(() => {
     let active = true;
-    const cacheKey = `@gamearn_leaderboard_cache_${period}`;
+    const cacheKey = `@gamearn_leaderboard_v2_cache_${period}`;
     AsyncStorage.getItem(cacheKey)
       .then((raw) => {
         if (!active || !raw) return;
@@ -327,7 +327,6 @@ export default function HomeScreen({ navigation }) {
         const refRows = allPlayersRes.status === 'fulfilled' && Array.isArray(allPlayersRes.value)
           ? allPlayersRes.value
           : [];
-        const cachedComm = [];
 
         const map = new Map();
         const addEntry = (item, isFromPeriodLb = false) => {
@@ -336,12 +335,25 @@ export default function HomeScreen({ navigation }) {
           if (!uid) return;
           const existing = map.get(uid);
           const name = item.displayName || item.name || item.username || existing?.name || 'Player';
-          const plays = isFromPeriodLb
-            ? Number(item.plays ?? item.gamesPlayed ?? 0)
-            : Number(existing?.plays ?? item.gamesPlayed ?? item.plays ?? 0);
-          const wins = isFromPeriodLb
-            ? Number(item.wins ?? item.gamesWon ?? 0)
-            : Number(existing?.wins ?? item.wins ?? item.gamesWon ?? Math.floor(plays * 0.6));
+          let plays = existing?.plays ?? 0;
+          let wins = existing?.wins ?? 0;
+
+          if (isFromPeriodLb) {
+            const rawPlays = period === 'Daily' && item.periodPlays !== undefined
+              ? Number(item.periodPlays)
+              : Number(item.plays ?? item.gamesPlayed ?? 0);
+            const rawWins = period === 'Daily' && item.periodWins !== undefined
+              ? Number(item.periodWins)
+              : Number(item.wins ?? item.gamesWon ?? 0);
+            plays = Math.max(plays, rawPlays);
+            wins = Math.max(wins, rawWins);
+          } else if (period === 'Yearly') {
+            const cPlays = Number(item.careerPlays ?? item.gamesPlayed ?? item.plays ?? 0);
+            const cWins = Number(item.careerWins ?? item.wins ?? item.gamesWon ?? 0);
+            plays = Math.max(plays, cPlays);
+            wins = Math.max(wins, cWins);
+          }
+
           const gp = item.gp != null
             ? Number(item.gp)
             : (existing?.gp != null ? existing.gp : 0);
@@ -351,9 +363,16 @@ export default function HomeScreen({ navigation }) {
             uid,
             name,
             displayName: name,
+            username: item.username || existing?.username || name,
             avatar: item.avatar || item.avatarUrl || existing?.avatar || null,
-            plays: Math.max(plays, existing?.plays || 0),
-            wins: Math.max(wins, existing?.wins || 0),
+            plays,
+            wins,
+            periodPlays: isFromPeriodLb
+              ? (item.periodPlays !== undefined ? Number(item.periodPlays) : plays)
+              : (existing?.periodPlays ?? 0),
+            periodWins: isFromPeriodLb
+              ? (item.periodWins !== undefined ? Number(item.periodWins) : wins)
+              : (existing?.periodWins ?? 0),
             gp: Math.max(gp, existing?.gp || 0),
             isUser: Boolean(userProfile?.uid && uid === userProfile.uid),
           });
@@ -361,7 +380,6 @@ export default function HomeScreen({ navigation }) {
 
         lbRows.forEach((r) => addEntry(r, true));
         refRows.forEach((r) => addEntry(r, false));
-        cachedComm.forEach((r) => addEntry(r, false));
 
         const mergedList = Array.from(map.values()).sort(
           (a, b) => (b.plays - a.plays) || (b.wins - a.wins) || (b.gp - a.gp) || String(a.name).localeCompare(String(b.name))
@@ -385,14 +403,66 @@ export default function HomeScreen({ navigation }) {
     return cancel;
   }, [fetchLeaderboard]);
 
+  const fetchTournaments = useCallback(() => {
+    let active = true;
+    Promise.allSettled([wallet.get(), tournaments.list(), tournaments.my()]).then(
+      ([walletResult, tournamentResult, myTournamentsResult]) => {
+        if (!active) return;
+        if (walletResult.status === 'fulfilled') setBackendWallet(walletResult.value);
+
+        const rawList = tournamentResult.status === 'fulfilled'
+          ? (Array.isArray(tournamentResult.value)
+              ? tournamentResult.value
+              : tournamentResult.value?.tournaments || tournamentResult.value?.data || [])
+          : [];
+        const myList = myTournamentsResult.status === 'fulfilled'
+          ? (Array.isArray(myTournamentsResult.value)
+              ? myTournamentsResult.value
+              : myTournamentsResult.value?.tournaments || myTournamentsResult.value?.data || [])
+          : [];
+
+        if (myTournamentsResult.status === 'fulfilled') {
+          setMyTournaments(myList);
+        }
+
+        const byId = new Map();
+        [...rawList, ...myList].forEach((item) => {
+          if (!item || !item.id) return;
+          const st = String(item.status || 'registration_open').toLowerCase();
+          if (['cancelled', 'completed'].includes(st)) return;
+          if (!byId.has(String(item.id))) {
+            byId.set(String(item.id), item);
+          }
+        });
+        const validList = Array.from(byId.values());
+        const featured =
+          validList.find((item) => (item.isLive || item.is_live) && String(item.status).toLowerCase() === 'in_progress') ||
+          validList.find((item) => ['open', 'registration_open', 'scheduled', 'pending', 'in_progress'].includes(String(item.status || 'registration_open').toLowerCase())) ||
+          validList[0] ||
+          null;
+        setFeaturedTournament(featured);
+        setHomeDataLoading(false);
+      }
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const cancel = fetchTournaments();
+    return cancel;
+  }, [fetchTournaments]);
+
   useEffect(() => {
     if (!navigation) return;
     const unsubscribe = navigation.addListener('focus', () => {
       fetchLeaderboard();
       fetchWinners();
+      fetchTournaments();
     });
     return unsubscribe;
-  }, [navigation, fetchLeaderboard, fetchWinners]);
+  }, [navigation, fetchLeaderboard, fetchWinners, fetchTournaments]);
   const pendingWrites = useRef(Promise.resolve());
   const mounted = useRef(true);
   const depositLock = useRef(false);
@@ -412,48 +482,6 @@ export default function HomeScreen({ navigation }) {
       });
     return () => {
       mounted.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    Promise.allSettled([wallet.get(), tournaments.list(), tournaments.my()]).then(
-      ([walletResult, tournamentResult, myTournamentsResult]) => {
-        if (!active) return;
-        if (walletResult.status === 'fulfilled') setBackendWallet(walletResult.value);
-        if (tournamentResult.status === 'fulfilled') {
-          const rawList = Array.isArray(tournamentResult.value)
-            ? tournamentResult.value
-            : tournamentResult.value?.tournaments || tournamentResult.value?.data || [];
-          const now = Date.now();
-          const validList = rawList.filter((item) => {
-            const st = String(item.status || '').toLowerCase();
-            if (['cancelled', 'completed'].includes(st)) return false;
-            const isLive = Boolean((item.isLive || item.is_live) && st === 'in_progress');
-            if (!isLive) {
-              if (item.launchDeadline && new Date(item.launchDeadline).getTime() <= now) return false;
-              if (item.createdAt && (now - new Date(item.createdAt).getTime()) > 24 * 3600 * 1000) return false;
-            }
-            return true;
-          });
-          const featured =
-            validList.find((item) => (item.isLive || item.is_live) && String(item.status).toLowerCase() === 'in_progress') ||
-            validList.find((item) => ['open', 'registration_open', 'scheduled'].includes(String(item.status).toLowerCase())) ||
-            validList[0] ||
-            null;
-          setFeaturedTournament(featured);
-        }
-        if (myTournamentsResult.status === 'fulfilled') {
-          const myList = Array.isArray(myTournamentsResult.value)
-            ? myTournamentsResult.value
-            : myTournamentsResult.value?.tournaments || myTournamentsResult.value?.data || [];
-          setMyTournaments(myList);
-        }
-        setHomeDataLoading(false);
-      }
-    );
-    return () => {
-      active = false;
     };
   }, []);
 
@@ -700,7 +728,7 @@ export default function HomeScreen({ navigation }) {
 
   function TournamentCard() {
     if (homeDataLoading) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>Loading live tournaments...</Text>;
-    if (!featuredTournament) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>No live tournaments right now.</Text>;
+    if (!featuredTournament) return <Text style={[s.muted, { marginVertical: 18 * scale }]}>There are no tournaments</Text>;
     const tournament = featuredTournament;
     const isJoined = Boolean(
       tournament?.id &&

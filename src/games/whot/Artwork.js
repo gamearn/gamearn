@@ -423,7 +423,7 @@ export function Artwork({
       </G>
 
       {requestedShape && (
-        <G transform="translate(512 650)">
+        <G transform="translate(512 475)">
           <Rect x="-120" y="-30" width="240" height="60" rx="30" fill="#ffcc00" stroke="#fff" strokeWidth="3" />
           <Shape shape={requestedShape} x={-70} y={0} size={40} color="#000" />
           <T x="20" y="10" textAnchor="middle" fontFamily={FONT} fontSize="24" fontWeight="900" fill="#000">
@@ -460,26 +460,26 @@ export function Artwork({
         </>
       )}
 
+      <Panel x={309} y={535} w={150} h={80} />
+      <T x="383" y="562" textAnchor="middle" fontFamily={FONT} fontSize="23" fontWeight="700" fill="#00d6ff">
+        Draw Pile
+      </T>
+      <T x="383" y="599" textAnchor="middle" fontFamily={FONT} fontSize="32" fontWeight="800" fill="#fff">
+        ▱ {drawCount}
+      </T>
+
+      <Panel x={525} y={535} w={163} h={79} />
+      <T x="607" y="562" textAnchor="middle" fontFamily={FONT} fontSize="23" fontWeight="700" fill="#00d6ff">
+        Last Played
+      </T>
+      <T x="607" y="599" textAnchor="middle" fontFamily={FONT} fontSize="32" fontWeight="800" fill="#fff">
+        {last ? (last.value === 20 ? 'WHOT' : `${last.value}`) : '—'}
+      </T>
+
       {[5, 4, 3, 2, 1, 0].map((i) => (
         <CardBack key={i} x={373 + i * 4} y={730 + i * 5} w={126} h={190} angle={2} />
       ))}
       <PlayingCard x={604} y={748} w={162} h={210} white card={last} selected />
-
-      <Panel x={309} y={862} w={150} h={80} />
-      <T x="383" y="889" textAnchor="middle" fontFamily={FONT} fontSize="23" fontWeight="700" fill="#00d6ff">
-        Draw Pile
-      </T>
-      <T x="383" y="926" textAnchor="middle" fontFamily={FONT} fontSize="32" fontWeight="800" fill="#fff">
-        ▱ {drawCount}
-      </T>
-
-      <Panel x={525} y={864} w={163} h={79} />
-      <T x="607" y="889" textAnchor="middle" fontFamily={FONT} fontSize="23" fontWeight="700" fill="#00d6ff">
-        Last Played
-      </T>
-      <T x="607" y="926" textAnchor="middle" fontFamily={FONT} fontSize="32" fontWeight="800" fill="#fff">
-        {last ? (last.value === 20 ? 'WHOT' : `${last.value}`) : '—'}
-      </T>
 
       {safeHand.map((card, i) => {
         if (!card) return null;

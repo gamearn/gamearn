@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { referral, leaderboard, admin, tournaments } from '../services/api';
+import { referral, leaderboard, tournaments } from '../services/api';
 
 const COMMUNITY_CACHE_KEY = '@gamearn_community_users_cache';
 
-// Probe queries that match 100% of registered accounts on both new and legacy backend builds
-// (phone numbers contain +234 / 23 / 08 / 09 / 07 / 1 / 2 / 3; names/usernames contain vowels a, e, i, o, u)
-const SEARCH_PROBES = ['', '+234', '23', '08', '09', '07', 'a', 'e', 'i', 'o', 'u'];
+let memoryPlayersCache = [];
+let lastFetchTimestamp = 0;
+let inflightPromise = null;
+const CACHE_TTL_MS = 15000; // 15s deduplication window to prevent 429 rate-limit bursts
 
 export function extractArray(res) {
   if (!res) return [];
@@ -19,126 +20,229 @@ export function extractArray(res) {
 }
 
 export async function getCachedPlatformPlayers() {
+  if (memoryPlayersCache.length > 0) {
+    return memoryPlayersCache;
+  }
   try {
     const raw = await AsyncStorage.getItem(COMMUNITY_CACHE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) {
+      memoryPlayersCache = parsed;
+      return parsed;
+    }
+    return [];
   } catch {
     return [];
   }
 }
 
-export async function fetchAllPlatformPlayers({ excludeUid = null } = {}) {
-  const cached = await getCachedPlatformPlayers();
+/**
+ * Record any authenticated or newly registered account on this device into the
+ * shared platform players cache so multi-account testing always includes every player.
+ */
+export async function registerKnownPlatformPlayer(profile) {
+  if (!profile || typeof profile !== 'object') return;
+  const uid = profile.uid || profile.id;
+  if (!uid) return;
 
-  const requests = [
-    ...SEARCH_PROBES.map((q) => referral.searchUsers(q)),
-    referral.me(),
-    leaderboard.get('Daily'),
-    leaderboard.get('Weekly'),
-    leaderboard.get('Monthly'),
-    leaderboard.get('Yearly'),
-    admin.users({ limit: 100 }),
-    admin.verifiedUsers(),
-    tournaments.list(),
-  ];
+  try {
+    const existingList = await getCachedPlatformPlayers();
+    const map = new Map();
+    existingList.forEach((p) => {
+      if (p && (p.uid || p.id)) map.set(p.uid || p.id, p);
+    });
 
-  const results = await Promise.allSettled(requests);
-  const map = new Map();
-
-  const addEntry = (item) => {
-    if (!item || typeof item !== 'object') return;
-    const uid = item.uid || item.id || item.user_id;
-    if (!uid) return;
-
-    const existing = map.get(uid) || {};
-    const rawDisplayName =
-      item.displayName ||
-      item.display_name ||
-      item.name ||
-      item.username ||
-      existing.displayName ||
-      (item.email ? String(item.email).split('@')[0] : '') ||
-      'Player';
-    const rawUsername =
-      item.username ||
-      existing.username ||
-      (rawDisplayName ? String(rawDisplayName).replace(/\s+/g, '').toLowerCase() : 'player');
-    const avatar = item.avatar || item.avatarUrl || item.avatar_url || existing.avatar || null;
-
-    const plays = Math.max(
-      Number(item.plays ?? item.gamesPlayed ?? item.games_played ?? 0),
-      Number(existing.plays ?? existing.gamesPlayed ?? 0)
+    const prev = map.get(uid) || {};
+    const displayName =
+      profile.username ||
+      profile.displayName ||
+      profile.name ||
+      prev.displayName ||
+      (profile.email ? String(profile.email).split('@')[0] : 'Player');
+    const username =
+      profile.username ||
+      prev.username ||
+      String(displayName).toLowerCase().replace(/[^a-z0-9_-]/g, '') ||
+      'player';
+    const avatar = profile.avatar || profile.avatarUrl || prev.avatar || null;
+    const careerPlays = Math.max(
+      Number(profile.gamesPlayed ?? profile.plays ?? 0),
+      Number(prev.careerPlays ?? prev.gamesPlayed ?? prev.plays ?? 0)
     );
-    const wins = Math.max(
-      Number(item.wins ?? item.gamesWon ?? 0),
-      Number(existing.wins ?? 0),
-      plays > 0 ? Math.floor(plays * 0.6) : 0
+    const careerWins = Math.max(
+      Number(profile.wins ?? profile.gamesWon ?? 0),
+      Number(prev.careerWins ?? prev.wins ?? 0)
     );
-    const computedGp =
-      plays > 0
-        ? Math.min(100, Math.max(10, Math.round(100 * (0.75 * (wins / Math.max(1, plays)) + 0.25 * Math.min(1, Math.log10(plays + 1) / 3)))))
-        : 0;
     const gp = Math.max(
-      Number(item.gp ?? item.gamePower ?? 0),
-      Number(existing.gp ?? 0),
-      computedGp
+      Number(profile.gp ?? profile.gamePower ?? 0),
+      Number(prev.gp ?? 0)
     );
-    const streak = Math.max(Number(item.streak ?? 0), Number(existing.streak ?? 0));
+    const streak = Math.max(
+      Number(profile.streak ?? profile.currentStreak ?? 0),
+      Number(prev.streak ?? 0)
+    );
 
     map.set(uid, {
+      ...prev,
       uid,
       id: uid,
-      displayName: rawDisplayName,
-      name: rawDisplayName,
-      username: rawUsername,
+      displayName,
+      name: displayName,
+      username,
       avatar,
       avatarUrl: avatar,
-      plays,
-      gamesPlayed: plays,
-      wins,
+      plays: careerPlays,
+      gamesPlayed: careerPlays,
+      careerPlays,
+      wins: careerWins,
+      careerWins,
       gp,
       streak,
-      phone: item.phone || item.phoneNumber || item.phone_number || existing.phone || null,
+      phone: profile.phone || profile.phoneNumber || prev.phone || null,
+      referralCode: profile.referralCode || username,
     });
-  };
 
-  // Seed with previously cached community players first so we never lose discovered players
-  cached.forEach(addEntry);
-
-  // Add all results from search probes, referrals, leaderboards, and admin endpoints
-  for (let i = 0; i < results.length - 1; i++) {
-    const r = results[i];
-    if (r.status === 'fulfilled') {
-      extractArray(r.value).forEach(addEntry);
-    }
+    const updated = Array.from(map.values());
+    memoryPlayersCache = updated;
+    await AsyncStorage.setItem(COMMUNITY_CACHE_KEY, JSON.stringify(updated));
+  } catch {
+    // Best-effort cache update
   }
-
-  // Also extract tournament creators if present
-  const tourRes = results[results.length - 1];
-  if (tourRes.status === 'fulfilled') {
-    const tList = Array.isArray(tourRes.value)
-      ? tourRes.value
-      : tourRes.value?.tournaments || tourRes.value?.data?.tournaments || [];
-    tList.forEach((t) => {
-      if (t?.createdBy && t?.creatorName) {
-        addEntry({ uid: t.createdBy, displayName: t.creatorName, username: t.creatorName });
-      }
-    });
-  }
-
-  const allList = Array.from(map.values()).sort(
-    (a, b) => (b.gp - a.gp) || (b.plays - a.plays) || String(a.displayName).localeCompare(String(b.displayName))
-  );
-
-  if (allList.length > 0) {
-    AsyncStorage.setItem(COMMUNITY_CACHE_KEY, JSON.stringify(allList)).catch(() => {});
-  }
-
-  if (excludeUid) {
-    return allList.filter((u) => u.uid !== excludeUid);
-  }
-  return allList;
 }
 
+export async function fetchAllPlatformPlayers({ excludeUid = null, forceRefresh = false } = {}) {
+  const now = Date.now();
+  if (!forceRefresh && memoryPlayersCache.length > 1 && now - lastFetchTimestamp < CACHE_TTL_MS) {
+    return excludeUid
+      ? memoryPlayersCache.filter((u) => u.uid !== excludeUid)
+      : memoryPlayersCache;
+  }
+
+  if (inflightPromise) {
+    const list = await inflightPromise;
+    return excludeUid ? list.filter((u) => u.uid !== excludeUid) : list;
+  }
+
+  inflightPromise = (async () => {
+    const cached = await getCachedPlatformPlayers();
+
+    // Keep network probes small (4 targeted calls) so we never trigger the 100 req/min IP rate limiter.
+    // '' and '+234' match 100% of registered accounts in `users` (all Nigerian/E.164 phone numbers start with +234).
+    const requests = [
+      referral.searchUsers(''),
+      referral.searchUsers('+234'),
+      referral.searchUsers('234'),
+      leaderboard.get('Yearly'),
+      referral.me(),
+      tournaments.list(),
+    ];
+
+    const results = await Promise.allSettled(requests);
+    const map = new Map();
+
+    const addEntry = (item) => {
+      if (!item || typeof item !== 'object') return;
+      const uid = item.uid || item.id || item.user_id;
+      if (!uid) return;
+
+      const existing = map.get(uid) || {};
+      const rawDisplayName =
+        item.username ||
+        item.displayName ||
+        item.display_name ||
+        item.name ||
+        existing.displayName ||
+        (item.email ? String(item.email).split('@')[0] : '') ||
+        'Player';
+      const rawUsername =
+        item.username ||
+        existing.username ||
+        (rawDisplayName ? String(rawDisplayName).replace(/\s+/g, '').toLowerCase() : 'player');
+      const avatar = item.avatar || item.avatarUrl || item.avatar_url || existing.avatar || null;
+
+      const plays = Math.max(
+        Number(item.careerPlays ?? item.gamesPlayed ?? item.games_played ?? item.plays ?? 0),
+        Number(existing.careerPlays ?? existing.gamesPlayed ?? existing.plays ?? 0)
+      );
+      const wins = Math.max(
+        Number(item.careerWins ?? item.wins ?? item.gamesWon ?? 0),
+        Number(existing.careerWins ?? existing.wins ?? 0)
+      );
+      const computedGp =
+        plays > 0
+          ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * (wins / Math.max(1, plays)) + 0.25 * Math.min(1, Math.log10(plays + 1) / 3)))))
+          : 0;
+      const gp = Math.max(
+        Number(item.gp ?? item.gamePower ?? 0),
+        Number(existing.gp ?? 0),
+        computedGp
+      );
+      const streak = Math.max(Number(item.streak ?? 0), Number(existing.streak ?? 0));
+
+      map.set(uid, {
+        uid,
+        id: uid,
+        displayName: rawDisplayName,
+        name: rawDisplayName,
+        username: rawUsername,
+        avatar,
+        avatarUrl: avatar,
+        plays,
+        gamesPlayed: plays,
+        careerPlays: plays,
+        wins,
+        careerWins: wins,
+        gp,
+        streak,
+        phone: item.phone || item.phoneNumber || item.phone_number || existing.phone || null,
+      });
+    };
+
+    // 1. Seed with previously cached community players
+    cached.forEach(addEntry);
+
+    // 2. Add results from search probes, yearly leaderboard, and referrals
+    for (let i = 0; i < results.length - 1; i++) {
+      const r = results[i];
+      if (r.status === 'fulfilled') {
+        extractArray(r.value).forEach(addEntry);
+      }
+    }
+
+    // 3. Extract tournament creators if present
+    const tourRes = results[results.length - 1];
+    if (tourRes.status === 'fulfilled') {
+      const tList = Array.isArray(tourRes.value)
+        ? tourRes.value
+        : tourRes.value?.tournaments || tourRes.value?.data?.tournaments || [];
+      tList.forEach((t) => {
+        if (t?.createdBy && t?.creatorName) {
+          addEntry({ uid: t.createdBy, displayName: t.creatorName, username: t.creatorName });
+        }
+      });
+    }
+
+    const allList = Array.from(map.values()).sort(
+      (a, b) => (b.gp - a.gp) || (b.plays - a.plays) || String(a.displayName).localeCompare(String(b.displayName))
+    );
+
+    if (allList.length > 0) {
+      memoryPlayersCache = allList;
+      lastFetchTimestamp = Date.now();
+      AsyncStorage.setItem(COMMUNITY_CACHE_KEY, JSON.stringify(allList)).catch(() => {});
+    }
+
+    return allList;
+  })();
+
+  try {
+    const finalAll = await inflightPromise;
+    if (excludeUid) {
+      return finalAll.filter((u) => u.uid !== excludeUid);
+    }
+    return finalAll;
+  } finally {
+    inflightPromise = null;
+  }
+}

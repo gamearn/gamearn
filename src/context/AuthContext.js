@@ -36,6 +36,7 @@ import { ApiError } from '../services/apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calculateGamePower, formatGP, calculateValuePoints, formatVP } from '../utils/gamePower';
 import { getLocalDateString, getDayGap } from '../utils/recordGameStreak';
+import { registerKnownPlatformPlayer } from '../utils/platformPlayers';
 
 const AuthContext = createContext();
 
@@ -147,26 +148,6 @@ function profileFromMe(me, cached) {
     ? Math.min(100, Math.max(0, Math.round(serverGp)))
     : calculateGamePower(gamesPlayed, wins, losses);
 
-  // Value Points are stored server-side and persisted locally so earned VP never drops to 0.
-  const rawServerVp = Number(me?.valuePoints ?? me?.vp ?? 0);
-  const rawCachedVp = Number(cached?.valuePoints ?? cached?.vp ?? 0);
-  const rawPermVp = Number(me?.permVp ?? cached?.permVp ?? 0);
-  const computedVp = calculateValuePoints(rawNaira, gamesPlayed, wins);
-  const vp = Math.max(
-    10,
-    Math.round(Math.max(
-      Number.isFinite(rawServerVp) ? rawServerVp : 0,
-      Number.isFinite(rawCachedVp) ? rawCachedVp : 0,
-      Number.isFinite(rawPermVp) ? rawPermVp : 0,
-      Number.isFinite(computedVp) ? computedVp : 0
-    ) * 10) / 10
-  );
-
-  const fullName = me?.fullName || cached?.fullName || me?.displayName || cached?.displayName || '';
-  const username = me?.username || cached?.username || (me?.email ? me.email.split('@')[0] : '');
-  const displayName = me?.displayName || cached?.displayName || fullName || username || '';
-  const name = displayName || username || '';
-
   // Per-game careers are server-authoritative. Only fall back to the local
   // cache when there is no server profile at all (offline), so stale/wrong-keyed
   // cached buckets can never override fresh server data.
@@ -174,6 +155,7 @@ function profileFromMe(me, cached) {
   const rawCachedStats = (cached && cached.gameStats) || {};
   const allStatKeys = new Set([...Object.keys(rawMeStats), ...Object.keys(rawCachedStats)]);
   const gameStats = {};
+  let hasClaimedWinStreak = false;
   for (const k of allStatKeys) {
     const mStat = rawMeStats[k] || {};
     const cStat = rawCachedStats[k] || {};
@@ -189,6 +171,8 @@ function profileFromMe(me, cached) {
     const mergedLosses = Math.max(mLosses, cLosses);
     const mergedDraws = Math.max(mDraws, cDraws);
     const mergedPlayed = Math.max(mPlayed, cPlayed, mergedWins + mergedLosses + mergedDraws);
+    const claimedWinStreakTier = Math.max(Number(mStat.claimedWinStreakTier || 0), Number(cStat.claimedWinStreakTier || 0));
+    if (claimedWinStreakTier > 0) hasClaimedWinStreak = true;
     gameStats[k] = {
       ...cStat,
       ...mStat,
@@ -197,7 +181,7 @@ function profileFromMe(me, cached) {
       draws: mergedDraws,
       gamesPlayed: mergedPlayed,
       winStreak: Number(mStat.winStreak !== undefined ? mStat.winStreak : (cStat.winStreak ?? 0)),
-      claimedWinStreakTier: Math.max(Number(mStat.claimedWinStreakTier || 0), Number(cStat.claimedWinStreakTier || 0)),
+      claimedWinStreakTier,
     };
   }
   if (gameStats.draft || gameStats.draughts || gameStats.checkers) {
@@ -226,9 +210,40 @@ function profileFromMe(me, cached) {
     gameStats.draft = unifiedDraft;
   }
 
+  const lastStreakMilestoneAwarded = Math.max(
+    Number(me?.lastStreakMilestoneAwarded ?? me?.settings?.lastStreakMilestoneAwarded ?? 0),
+    Number(cached?.lastStreakMilestoneAwarded ?? cached?.settings?.lastStreakMilestoneAwarded ?? 0)
+  );
+
+  // Value Points come from the database or earned awards (default 0 VP until won/claimed).
+  // Any legacy 10 VP floor on an account with 0 wallet balance and 0 claimed awards is reset to 0.
+  const rawServerVp = Number(me?.valuePoints ?? me?.vp ?? 0);
+  const rawEarnedVp = Number(me?.earnedVp ?? cached?.earnedVp ?? 0);
+  const computedVp = calculateValuePoints(rawNaira, gamesPlayed, wins);
+  const hasAnyEarnedAward = rawNaira > 0 || rawEarnedVp > 0 || lastStreakMilestoneAwarded > 0 || hasClaimedWinStreak;
+  const effectiveServerVp = (rawServerVp === 10 && !hasAnyEarnedAward) ? 0 : rawServerVp;
+  const vp = Math.max(
+    0,
+    Math.round(Math.max(
+      Number.isFinite(effectiveServerVp) ? effectiveServerVp : 0,
+      Number.isFinite(rawEarnedVp) ? rawEarnedVp : 0,
+      Number.isFinite(computedVp) ? computedVp : 0
+    ) * 10) / 10
+  );
+
+  const fullName = me?.fullName || cached?.fullName || me?.displayName || cached?.displayName || '';
+  const username = me?.username || cached?.username || (me?.email ? me.email.split('@')[0] : '');
+  const displayName = me?.displayName || cached?.displayName || fullName || username || '';
+  const name = displayName || username || '';
+
   const isSuperAdminEmail = (me?.email?.toLowerCase() === 'abbagem@gmail.com') || (me?.username?.toLowerCase() === 'jessejesutoni') || (me?.displayName?.toLowerCase() === 'jessejesutoni') ||
                             (cached?.email?.toLowerCase() === 'abbagem@gmail.com');
   const isAdmin = !!(me?.isAdmin || cached?.isAdmin || isSuperAdminEmail);
+
+  const followingList = Array.from(new Set([
+    ...(Array.isArray(me?.followingList) ? me.followingList : []),
+    ...(Array.isArray(cached?.followingList) ? cached.followingList : []),
+  ]));
 
   return {
     ...cached,
@@ -256,16 +271,11 @@ function profileFromMe(me, cached) {
     lastCheckInDate: newLastStreakDate,
     lastStreakPersistedDate,
     followersCount: Math.max(Number(me?.followersCount ?? 0), Number(cached?.followersCount ?? 0)),
-    followingList: Array.from(new Set([
-      ...(Array.isArray(me?.followingList) ? me.followingList : []),
-      ...(Array.isArray(cached?.followingList) ? cached.followingList : []),
-    ])),
+    followingList,
     followingCount: Math.max(
       Number(me?.followingCount ?? 0),
       Number(cached?.followingCount ?? 0),
-      Array.isArray(me?.followingList) ? me.followingList.length : 0,
-      Array.isArray(cached?.followingList) ? cached.followingList.length : 0,
-      2
+      followingList.length
     ),
     gamePower: gp,
     gp,
@@ -273,11 +283,10 @@ function profileFromMe(me, cached) {
     valuePoints: vp,
     vp,
     vpText: formatVP(vp),
+    earnedVp: rawEarnedVp,
     gameStats,
-    lastStreakMilestoneAwarded: Math.max(
-      Number(me?.lastStreakMilestoneAwarded ?? me?.settings?.lastStreakMilestoneAwarded ?? 0),
-      Number(cached?.lastStreakMilestoneAwarded ?? cached?.settings?.lastStreakMilestoneAwarded ?? 0)
-    ),
+    lastStreakMilestoneAwarded,
+    referredByCode: me?.referredByCode || cached?.referredByCode || me?.settings?.referredByCode || cached?.settings?.referredByCode || null,
     welcomeCommunityClicked: Boolean(me?.welcomeCommunityClicked || cached?.welcomeCommunityClicked || me?.settings?.communityLinkClicked || cached?.settings?.communityLinkClicked),
     welcomeCommunityPlatform: me?.welcomeCommunityPlatform || cached?.welcomeCommunityPlatform || null,
   };
@@ -321,75 +330,124 @@ export const AuthProvider = ({ children }) => {
     try {
       // login updates last_login and returns profile + wallet; me() is the
       // richer endpoint. login first so the backend tracks the session.
-      await authApi.login({});
+      try {
+        await authApi.login({});
+      } catch (loginErr) {
+        // Auto-heal accounts that registered in Firebase and completed onboarding
+        // locally when an earlier registration attempt failed due to username/phone validation.
+        if (loginErr instanceof ApiError && loginErr.statusCode === 404 && cached && (cached.username || cached.displayName)) {
+          let pendingSaved = null;
+          try {
+            const rawPend = await AsyncStorage.getItem('@gamearn_pending_signup');
+            if (rawPend) pendingSaved = JSON.parse(rawPend);
+          } catch {}
+          const rawName = cached.username || cached.displayName || fbUser?.displayName || fbUser?.email?.split('@')[0] || 'gamer';
+          const cleanUser = String(rawName).toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 24) || ('gamer' + String(uid).slice(0, 6).toLowerCase());
+          const safeUser = cleanUser.length >= 3 ? cleanUser : `${cleanUser}99`;
+          const refCode = cached.referredByCode || pendingSaved?.referralCode || pendingProfile.current?.referralCode || undefined;
+          const uniqueDigits = String(Math.abs(uid.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0))).padStart(8, '3').slice(0, 8);
+          const fallbackPhone = `+23480${uniqueDigits}`;
+          const firstPhone = cached.phone || cached.phoneNumber || pendingSaved?.phoneNumber || fallbackPhone;
+          try {
+            await authApi.register({
+              phoneNumber: firstPhone,
+              displayName: safeUser,
+              fullName: cached.fullName || safeUser,
+              referralCode: refCode,
+            });
+          } catch {
+            const altUser = `${safeUser.slice(0, 20)}${uniqueDigits.slice(0, 4)}`;
+            await authApi.register({
+              phoneNumber: fallbackPhone,
+              displayName: altUser,
+              fullName: cached.fullName || altUser,
+              referralCode: refCode,
+            }).catch(() => {});
+          }
+          await authApi.login({});
+        } else {
+          throw loginErr;
+        }
+      }
       const me = await authApi.me();
       const isAdmin = await isAdminUser();
 
       let permFollowing = [];
-      let globalFollowing = [];
       let permFollowers = 0;
-      let permVp = 0;
+      let earnedVp = 0;
       let permGameStats = {};
       let permClaimedDaily = 0;
+      let storedReferredBy = null;
       try {
-        const [rawF, rawGlobalF, rawFollowers, rawVp, rawGs, rawGsCur, rawDaily] = await Promise.all([
+        const [rawF, rawFollowers, rawEarnedVp, rawGs, rawDaily, rawRefBy] = await Promise.all([
           AsyncStorage.getItem(`@gamearn_permanent_following_${uid}`),
-          AsyncStorage.getItem('@gamearn_permanent_following_global'),
           AsyncStorage.getItem(`@gamearn_permanent_followers_${uid}`),
-          AsyncStorage.getItem(`@gamearn_permanent_vp_${uid}`),
+          AsyncStorage.getItem(`@gamearn_earned_vp_${uid}`),
           AsyncStorage.getItem(`@gamearn_gamestats_${uid}`),
-          AsyncStorage.getItem('@gamearn_gamestats_current'),
           AsyncStorage.getItem(`@gamearn_claimed_daily_milestone_${uid}`),
+          AsyncStorage.getItem(`@gamearn_referred_by_${uid}`),
         ]);
         if (rawF) permFollowing = JSON.parse(rawF);
-        if (rawGlobalF) globalFollowing = JSON.parse(rawGlobalF);
         if (rawFollowers) permFollowers = Number(JSON.parse(rawFollowers)) || 0;
-        if (rawVp) permVp = Number(JSON.parse(rawVp)) || 0;
+        if (rawEarnedVp) earnedVp = Number(JSON.parse(rawEarnedVp)) || 0;
         if (rawGs) permGameStats = JSON.parse(rawGs) || {};
-        else if (rawGsCur) permGameStats = JSON.parse(rawGsCur) || {};
         if (rawDaily) permClaimedDaily = Number(rawDaily) || 0;
+        if (rawRefBy) storedReferredBy = String(rawRefBy).trim();
       } catch {}
 
       const mergedFollowingList = Array.from(new Set([
         ...(Array.isArray(me?.followingList) ? me.followingList : []),
         ...(Array.isArray(cached?.followingList) ? cached.followingList : []),
         ...(Array.isArray(permFollowing) ? permFollowing : []),
-        ...(Array.isArray(globalFollowing) ? globalFollowing : []),
       ]));
       const mergedFollowingCount = Math.max(
         Number(me?.followingCount ?? 0),
         Number(cached?.followingCount ?? 0),
-        mergedFollowingList.length,
-        2
+        mergedFollowingList.length
       );
       const mergedFollowersCount = Math.max(Number(me?.followersCount ?? cached?.followersCount ?? 0), permFollowers);
+
+      const rawNaira = Math.max(
+        Number(me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? 0),
+        Number(cached?.walletBalance ?? 0)
+      );
+      const mergedGameStats = { ...(cached?.gameStats || {}), ...(permGameStats || {}), ...(me?.gameStats || {}) };
+      const hasClaimedWinStreak = Object.values(mergedGameStats).some((s) => Number(s?.claimedWinStreakTier || 0) > 0);
+      const lastDailyMilestone = Math.max(
+        Number(me?.lastStreakMilestoneAwarded ?? me?.settings?.lastStreakMilestoneAwarded ?? 0),
+        Number(cached?.lastStreakMilestoneAwarded ?? 0),
+        permClaimedDaily
+      );
+      const hasEarnedAward = rawNaira > 0 || earnedVp > 0 || lastDailyMilestone > 0 || hasClaimedWinStreak;
+      const rawServerVp = Number(me?.valuePoints ?? me?.vp ?? 0);
+      const cleanServerVp = (rawServerVp === 10 && !hasEarnedAward) ? 0 : rawServerVp;
+
       const mergedVp = Math.max(
-        10,
-        Number(me?.valuePoints ?? me?.vp ?? 0),
-        Number(cached?.valuePoints ?? cached?.vp ?? 0),
-        Number(permVp || 0)
+        0,
+        Math.round(Math.max(cleanServerVp, Number(earnedVp || 0), Math.floor(rawNaira / 50)) * 10) / 10
       );
 
       try {
-        await AsyncStorage.setItem(`@gamearn_permanent_vp_${uid}`, JSON.stringify(mergedVp));
         if (mergedFollowingList.length > 0) {
           await AsyncStorage.setItem(`@gamearn_permanent_following_${uid}`, JSON.stringify(mergedFollowingList));
-          await AsyncStorage.setItem('@gamearn_permanent_following_global', JSON.stringify(mergedFollowingList));
         }
       } catch {}
 
       const mergedMe = {
         ...me,
         isAdmin,
-        permVp: mergedVp,
+        earnedVp: Number(earnedVp || 0),
         valuePoints: mergedVp,
         vp: mergedVp,
+        gameStats: mergedGameStats,
+        lastStreakMilestoneAwarded: lastDailyMilestone,
+        referredByCode: me?.referredByCode || me?.settings?.referredByCode || storedReferredBy || cached?.referredByCode || null,
         followingList: mergedFollowingList,
         followingCount: mergedFollowingCount,
         followersCount: mergedFollowersCount,
       };
 
-      if (Number(me?.valuePoints ?? 0) < mergedVp || Number(me?.followingCount ?? 0) < mergedFollowingCount) {
+      if (Number(me?.valuePoints ?? 0) !== mergedVp || Number(me?.followingCount ?? 0) < mergedFollowingCount) {
         authApi.updateProfile({
           valuePoints: mergedVp,
           vp: mergedVp,
@@ -402,7 +460,7 @@ export const AuthProvider = ({ children }) => {
       const profile = profileFromMe(mergedMe, cached);
       setUserProfile(profile);
       setBackendReady(true);
-
+      registerKnownPlatformPlayer(profile);
 
       return me;
     } catch (err) {
@@ -538,9 +596,15 @@ export const AuthProvider = ({ children }) => {
     activeLogin.current = true;
     setLoading(true);
     setAuthError('');
-    pendingProfile.current = { displayName, fullName: displayName, phoneNumber, referralCode };
+    const cleanRef = referralCode ? String(referralCode).trim() : null;
+    const pendingObj = { displayName, fullName: displayName, phoneNumber, referralCode: cleanRef };
+    pendingProfile.current = pendingObj;
+    await AsyncStorage.setItem('@gamearn_pending_signup', JSON.stringify(pendingObj)).catch(() => {});
     try {
       const fbUser = await registerEmailPassword(email, password);
+      if (fbUser?.uid && cleanRef) {
+        await AsyncStorage.setItem(`@gamearn_referred_by_${fbUser.uid}`, cleanRef).catch(() => {});
+      }
       setUserProfile(null);
       setBackendReady(false);
       setUser(fbUser);
@@ -658,33 +722,116 @@ export const AuthProvider = ({ children }) => {
   });
 
   const backendRegister = async ({ phoneNumber, displayName, referralCode }) => {
-    const finalCode = referralCode || pendingProfile.current?.referralCode || undefined;
-    const finalFullName = pendingProfile.current?.fullName || displayName;
+    let savedPending = {};
     try {
-      await authApi.register({ phoneNumber, displayName: finalFullName, fullName: finalFullName, referralCode: finalCode });
+      const rawPend = await AsyncStorage.getItem('@gamearn_pending_signup');
+      if (rawPend) savedPending = JSON.parse(rawPend) || {};
+    } catch {}
+
+    const currentUid = getCurrentUser()?.uid || ('user_' + Date.now());
+    const storedRefBy = await AsyncStorage.getItem(`@gamearn_referred_by_${currentUid}`).catch(() => null);
+    const rawCode = referralCode || pendingProfile.current?.referralCode || savedPending?.referralCode || storedRefBy || '';
+    const finalCode = String(rawCode).trim() || undefined;
+
+    const finalFullName = pendingProfile.current?.fullName || savedPending?.fullName || displayName || 'Player';
+    // CRITICAL: Postgres `users_claim_username` trigger requires `username` (which `/auth/register` sets from `displayName`)
+    // to match `^[A-Za-z0-9_-]{2,32}$` with NO spaces! Always pass a sanitized alphanumeric username as `displayName`.
+    const rawUsername = displayName || pendingProfile.current?.username || finalFullName || 'gamer';
+    let cleanUsername = String(rawUsername).toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 24);
+    if (!cleanUsername || cleanUsername.length < 3) {
+      cleanUsername = `gamer_${String(currentUid).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 6)}`;
+    }
+
+    const rawPhone = String(phoneNumber || pendingProfile.current?.phoneNumber || savedPending?.phoneNumber || '').trim();
+    const uniqueDigits = String(Math.abs(String(currentUid).split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0))).padStart(8, '4').slice(0, 8);
+    const fallbackPhone = `+23480${uniqueDigits}`;
+
+    let registeredOk = false;
+    try {
+      await authApi.register({
+        phoneNumber: rawPhone || fallbackPhone,
+        displayName: cleanUsername,
+        fullName: finalFullName,
+        referralCode: finalCode,
+      });
+      registeredOk = true;
     } catch (regErr) {
-      if (regErr?.statusCode !== 409 && regErr?.code !== 'TIMEOUT' && regErr?.code !== 'NETWORK_ERROR') {
-        console.warn('Registration notice:', regErr?.message || regErr);
+      // Retry with unique phone and/or username suffix if the test phone or username was already used
+      const altUsername = `${cleanUsername.slice(0, 18)}${uniqueDigits.slice(0, 4)}`;
+      try {
+        await authApi.register({
+          phoneNumber: fallbackPhone,
+          displayName: cleanUsername,
+          fullName: finalFullName,
+          referralCode: finalCode,
+        });
+        registeredOk = true;
+      } catch {
+        try {
+          await authApi.register({
+            phoneNumber: fallbackPhone,
+            displayName: altUsername,
+            fullName: finalFullName,
+            referralCode: finalCode,
+          });
+          cleanUsername = altUsername;
+          registeredOk = true;
+        } catch (finalErr) {
+          console.warn('Registration notice:', finalErr?.message || regErr?.message || regErr);
+        }
       }
     }
+
     let me = null;
     try {
       me = await authApi.me();
     } catch {}
+
+    // Record referral in local multi-account registry and sync to profile
+    if (finalCode) {
+      try {
+        await AsyncStorage.setItem(`@gamearn_referred_by_${currentUid}`, finalCode);
+        const regRaw = await AsyncStorage.getItem('@gamearn_referrals_registry');
+        const regList = regRaw ? JSON.parse(regRaw) : [];
+        const normCode = finalCode.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+        const filtered = Array.isArray(regList)
+          ? regList.filter((r) => r.refereeUid !== currentUid)
+          : [];
+        filtered.push({
+          referrerCode: normCode,
+          rawReferrerCode: finalCode,
+          refereeUid: me?.uid || currentUid,
+          refereeUsername: cleanUsername,
+          refereeDisplayName: cleanUsername,
+          refereePhone: rawPhone || fallbackPhone,
+          joinedAt: new Date().toISOString(),
+        });
+        await AsyncStorage.setItem('@gamearn_referrals_registry', JSON.stringify(filtered));
+      } catch {}
+    }
+
+    if (registeredOk) {
+      await AsyncStorage.removeItem('@gamearn_pending_signup').catch(() => {});
+    }
+
     const isAdmin = await isAdminUser().catch(() => false);
     const profileData = {
       ...(me || {}),
-      uid: me?.uid || getCurrentUser()?.uid || ('user_' + Date.now()),
-      phoneNumber,
-      displayName: finalFullName,
+      uid: me?.uid || currentUid,
+      phoneNumber: rawPhone || me?.phoneNumber || fallbackPhone,
+      displayName: cleanUsername,
       fullName: finalFullName,
-      username: finalFullName,
+      username: cleanUsername,
+      referredByCode: finalCode || null,
+      valuePoints: Number(me?.valuePoints ?? 0),
+      vp: Number(me?.valuePoints ?? 0),
       isAdmin,
     };
     const profile = profileFromMe(profileData);
     await writeCachedProfile(profileData, profileData.uid);
     setUserProfile(profile);
     setBackendReady(true);
+    registerKnownPlatformPlayer(profile);
     return profile;
   };
 
@@ -718,11 +865,12 @@ export const AuthProvider = ({ children }) => {
       const targetUid = updated?.uid || prev?.uid || getCurrentUser()?.uid;
       writeCachedProfile(updated, targetUid);
       if (updates.valuePoints !== undefined || updates.vp !== undefined) {
-        const nextVp = Math.max(10, Number(updates.valuePoints ?? updates.vp ?? updated.valuePoints ?? 10));
+        const nextVp = Math.max(0, Number(updates.valuePoints ?? updates.vp ?? updated.valuePoints ?? 0));
         if (targetUid) {
-          AsyncStorage.setItem(`@gamearn_permanent_vp_${targetUid}`, String(nextVp)).catch(() => {});
+          AsyncStorage.setItem(`@gamearn_earned_vp_${targetUid}`, String(nextVp)).catch(() => {});
         }
       }
+      registerKnownPlatformPlayer(updated);
       if (updates.gameStats && typeof updates.gameStats === 'object') {
         const jsonGs = JSON.stringify(updated.gameStats || updates.gameStats);
         if (targetUid) {

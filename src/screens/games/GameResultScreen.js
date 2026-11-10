@@ -149,6 +149,7 @@ export default function GameResultScreen({ route, navigation }) {
           winStreak: newThisGameWinStreak,
           dailyPlays: currentGameDailyPlays,
           dailyWins: currentGameDailyWins,
+          lastPlayedDate: todayStr,
           claimedWinStreakTier: claimedTier,
         };
 
@@ -186,9 +187,9 @@ export default function GameResultScreen({ route, navigation }) {
           const newPlayed = Math.max(currentPlayed + 1, newWins + newLosses);
 
           const newGp = calculateGamePower(newPlayed, newWins, newLosses);
-          const userBalance = Number(userProfile?.walletBalance ?? userProfile?.balance ?? userProfile?.valuePoints ?? 0);
+          const userBalance = Number(userProfile?.walletBalance ?? userProfile?.balance ?? 0);
           const calculatedVp = calculateValuePoints(userBalance, newPlayed, newWins);
-          const currentStoredVp = Math.max(10, Number(userProfile?.valuePoints ?? userProfile?.vp ?? 10));
+          const currentStoredVp = Math.max(0, Number(userProfile?.valuePoints ?? userProfile?.vp ?? 0));
           const newVp = Math.max(currentStoredVp, calculatedVp);
 
           const extraPayload = {
@@ -244,7 +245,7 @@ export default function GameResultScreen({ route, navigation }) {
     setStreakClaimMessage(null);
     try {
       const reward = Number(tierToClaim.rewardVp);
-      const currentVp = Math.max(10, Number(userProfile?.valuePoints ?? userProfile?.vp ?? 10));
+      const currentVp = Math.max(0, Number(userProfile?.valuePoints ?? userProfile?.vp ?? 0));
       const newVp = Math.round((currentVp + reward) * 10) / 10;
 
       const existingGameStats = userProfile?.gameStats || {};
@@ -270,7 +271,7 @@ export default function GameResultScreen({ route, navigation }) {
       if (uid) {
         await Promise.all([
           AsyncStorage.setItem(`@gamearn_gamestats_${uid}`, jsonGs),
-          AsyncStorage.setItem(`@gamearn_permanent_vp_${uid}`, String(newVp)),
+          AsyncStorage.setItem(`@gamearn_earned_vp_${uid}`, String(newVp)),
         ]).catch(() => {});
       }
       await AsyncStorage.setItem('@gamearn_gamestats_current', jsonGs).catch(() => {});

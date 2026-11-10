@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { wallet, tournaments, leaderboard as leaderboardApi } from '../../services/api';
 import { leaderboard } from '../home/model';
 import { resolveAvatarSource } from '../../utils/avatarPresets';
+import { fetchAllPlatformPlayers } from '../../utils/platformPlayers';
 import ActiveMatchBanner from '../../components/ActiveMatchBanner';
 
 const GAMES = {
@@ -28,20 +29,75 @@ export default function GameSectionScreen({ route, navigation }) {
   const [leaderLoading, setLeaderLoading] = useState(true);
 
   const fetchLeaderboard = useCallback(() => {
+    let active = true;
     setLeaderLoading(true);
-    leaderboardApi
-      .get(period, key)
-      .then((res) => {
-        const rowsList = Array.isArray(res) ? res : res?.data || [];
-        setDbLeaderRows(rowsList);
+    Promise.allSettled([
+      leaderboardApi.get(period, key),
+      fetchAllPlatformPlayers(),
+    ])
+      .then(([lbRes, allPlayersRes]) => {
+        if (!active) return;
+        const lbRows = lbRes.status === 'fulfilled'
+          ? (Array.isArray(lbRes.value) ? lbRes.value : lbRes.value?.data || [])
+          : [];
+        const refRows = allPlayersRes.status === 'fulfilled' && Array.isArray(allPlayersRes.value)
+          ? allPlayersRes.value
+          : [];
+
+        const map = new Map();
+        const addEntry = (item, isFromGameLb = false) => {
+          if (!item) return;
+          const uid = item.uid || item.id;
+          if (!uid) return;
+          const existing = map.get(uid);
+          const name = item.displayName || item.name || item.username || existing?.name || 'Player';
+          let plays = existing?.plays ?? 0;
+          let wins = existing?.wins ?? 0;
+          if (isFromGameLb) {
+            const rawPlays = item.periodPlays !== undefined
+              ? Number(item.periodPlays)
+              : Number(item.plays ?? item.gamesPlayed ?? 0);
+            const rawWins = item.periodWins !== undefined
+              ? Number(item.periodWins)
+              : Number(item.wins ?? item.gamesWon ?? 0);
+            plays = Math.max(plays, rawPlays);
+            wins = Math.max(wins, rawWins);
+          }
+          const gp = item.gp != null
+            ? Number(item.gp)
+            : (existing?.gp != null ? existing.gp : 0);
+
+          map.set(uid, {
+            id: uid,
+            uid,
+            name,
+            displayName: name,
+            username: item.username || existing?.username || name,
+            avatar: item.avatar || item.avatarUrl || existing?.avatar || null,
+            plays,
+            wins,
+            periodPlays: isFromGameLb ? plays : (existing?.periodPlays ?? 0),
+            periodWins: isFromGameLb ? wins : (existing?.periodWins ?? 0),
+            gp: Math.max(gp, existing?.gp || 0),
+            isUser: Boolean(userProfile?.uid && uid === userProfile.uid),
+          });
+        };
+
+        lbRows.forEach((r) => addEntry(r, true));
+        refRows.forEach((r) => addEntry(r, false));
+
+        setDbLeaderRows(Array.from(map.values()));
       })
       .catch(() => {
-        setDbLeaderRows([]);
+        if (active) setDbLeaderRows([]);
       })
       .finally(() => {
-        setLeaderLoading(false);
+        if (active) setLeaderLoading(false);
       });
-  }, [period, key]);
+    return () => {
+      active = false;
+    };
+  }, [period, key, userProfile?.uid]);
 
   useEffect(() => {
     let live = true;
@@ -78,6 +134,7 @@ export default function GameSectionScreen({ route, navigation }) {
 
   const play = () => navigation.navigate('GameLobby', { gameId: key, gameName: game.title, targetScreen: game.target, setupTarget: 'GameSetup' });
   const balance = Number(w?.balance ?? userProfile?.walletBalance ?? 0);
+  const currentVp = Math.max(0, Math.round(Number(userProfile?.valuePoints ?? userProfile?.vp ?? (balance / 50)) * 10) / 10);
 
   return (
     <View style={styles.root}>
@@ -110,7 +167,7 @@ export default function GameSectionScreen({ route, navigation }) {
               <Wallet size={15} color="#00E5FF" />
               <Text style={styles.muted}>Acquired Value Points</Text>
             </View>
-            <Text style={styles.amount}>{Math.floor(balance / 50).toLocaleString()} VP</Text>
+            <Text style={styles.amount}>{currentVp.toLocaleString()} VP</Text>
           </View>
         </View>
 

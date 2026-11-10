@@ -111,6 +111,7 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
       let maxDailyP = 0;
       let maxDailyW = 0;
       let foundStat = false;
+      let gamePlayedToday = false;
       for (const k of candidates) {
         const stat = userProfile?.gameStats?.[k];
         if (stat) {
@@ -119,22 +120,27 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
           const p = Number(stat.gamesPlayed ?? stat.plays ?? (w + Number(stat.losses || 0)));
           if (w > maxW) maxW = w;
           if (Math.max(p, w) > maxP) maxP = Math.max(p, w);
-          if (stat.dailyPlays !== undefined) maxDailyP = Math.max(maxDailyP, Number(stat.dailyPlays || 0));
-          if (stat.dailyWins !== undefined) maxDailyW = Math.max(maxDailyW, Number(stat.dailyWins || 0));
+          const isThisGameToday = stat.lastPlayedDate ? stat.lastPlayedDate === todayStr : playedToday;
+          if (isThisGameToday) {
+            gamePlayedToday = true;
+            if (stat.dailyPlays !== undefined) maxDailyP = Math.max(maxDailyP, Number(stat.dailyPlays || 0));
+            if (stat.dailyWins !== undefined) maxDailyW = Math.max(maxDailyW, Number(stat.dailyWins || 0));
+          }
         }
       }
-      if (foundStat) {
-        const finalDailyP = maxDailyP > 0 ? maxDailyP : (playedToday && maxP > 0 ? 1 : 0);
-        const finalDailyW = maxDailyW > 0 ? maxDailyW : (playedToday && maxW > 0 ? 1 : 0);
-        return { plays: Math.max(maxP, maxW), wins: maxW, dailyPlays: finalDailyP, dailyWins: finalDailyW };
+      if (!foundStat) {
+        return { plays: 0, wins: 0, dailyPlays: 0, dailyWins: 0 };
       }
+      const finalDailyP = gamePlayedToday ? maxDailyP : 0;
+      const finalDailyW = gamePlayedToday ? Math.min(maxDailyW, finalDailyP) : 0;
+      return { plays: Math.max(maxP, maxW), wins: maxW, dailyPlays: finalDailyP, dailyWins: finalDailyW };
     }
     const totalWins = Number(userProfile.wins ?? userProfile.gamesWon ?? 0);
     const totalLosses = Number(userProfile.losses ?? userProfile.gamesLost ?? 0);
     const totalDraws = Number(userProfile.draws ?? userProfile.gamesDrawn ?? 0);
     const totalPlays = Number(userProfile.gamesPlayed ?? userProfile.plays ?? (totalWins + totalLosses + totalDraws));
-    const globalDailyP = Number(userProfile.dailyPlays ?? (playedToday && totalPlays > 0 ? 1 : 0));
-    const globalDailyW = Number(userProfile.dailyWins ?? (playedToday && totalWins > 0 ? 1 : 0));
+    const globalDailyP = playedToday ? Number(userProfile.dailyPlays || 0) : 0;
+    const globalDailyW = playedToday ? Math.min(Number(userProfile.dailyWins || 0), globalDailyP) : 0;
     return { plays: Math.max(totalPlays, totalWins), wins: totalWins, dailyPlays: globalDailyP, dailyWins: globalDailyW };
   };
 
@@ -146,8 +152,8 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
     }
     if (isPeriodFiltered) {
       return {
-        plays: userStats.dailyPlays > 0 ? userStats.dailyPlays : userStats.plays,
-        wins: userStats.dailyWins > 0 ? userStats.dailyWins : userStats.wins,
+        plays: userStats.dailyPlays > 0 ? Math.max(userStats.dailyPlays, userStats.plays) : userStats.plays,
+        wins: userStats.dailyWins > 0 ? Math.max(userStats.dailyWins, userStats.wins) : userStats.wins,
       };
     }
     return { plays: userStats.plays, wins: userStats.wins };
@@ -169,10 +175,20 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
     const cleanName = rawName.replace(/\s*\(You\)\s*$/, '');
     let wins = Number(row.wins || 0);
     let plays = Number(row.plays ?? row.gamesPlayed ?? row.played ?? 0);
+    if (period === 'Daily' && row.periodPlays !== undefined) {
+      plays = Number(row.periodPlays || 0);
+      wins = Number(row.periodWins || 0);
+    }
     if (isUser) {
       if (period === 'Daily') {
-        plays = Math.max(plays, effectiveStats.plays);
-        wins = Math.max(wins, effectiveStats.wins);
+        const hasServerTodayPlays = row.periodPlays !== undefined ? Number(row.periodPlays) > 0 : false;
+        if (playedToday || hasServerTodayPlays) {
+          plays = Math.max(plays, effectiveStats.plays);
+          wins = Math.max(wins, effectiveStats.wins);
+        } else {
+          plays = effectiveStats.plays;
+          wins = effectiveStats.wins;
+        }
       } else {
         wins = Math.max(wins, effectiveStats.wins);
         plays = Math.max(plays, effectiveStats.plays, wins);

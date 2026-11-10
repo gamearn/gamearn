@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, Phone, Gift, Gamepad2, Check, ArrowLeft } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
 import GAInput from '../../components/GAInput';
@@ -28,6 +29,27 @@ export default function ProfileSetupScreen({ navigation }) {
   const [referralCode, setReferralCode] = useState(pending.referralCode || '');
   const [favGame, setFavGame] = useState('whot');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('@gamearn_pending_signup');
+        if (raw && active) {
+          const saved = JSON.parse(raw);
+          if (saved?.phoneNumber && !phone) setPhone(saved.phoneNumber);
+          if (saved?.referralCode && !referralCode) setReferralCode(saved.referralCode);
+        }
+        const invite = await consumeInviteCode();
+        if (invite && active && !referralCode) {
+          setReferralCode(invite);
+        }
+      } catch {}
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSave = async () => {
     const cleanUsername = sanitizeUsername(username);

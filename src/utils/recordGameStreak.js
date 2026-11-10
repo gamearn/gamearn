@@ -111,7 +111,7 @@ export function getUnclaimedDailyStreakMilestone(userProfile) {
 export async function claimDailyStreakMilestone(updateProfileData, userProfile, milestone) {
   if (!milestone || typeof updateProfileData !== 'function') return null;
   const rewardVp = Number(milestone.incrementalVp || 0);
-  const currentVp = Math.max(10, Number(userProfile?.valuePoints ?? userProfile?.vp ?? 10));
+  const currentVp = Math.max(0, Number(userProfile?.valuePoints ?? userProfile?.vp ?? 0));
   const newVp = Math.round((currentVp + rewardVp) * 10) / 10;
   const newLastAwarded = Math.max(Number(userProfile?.lastStreakMilestoneAwarded ?? 0), Number(milestone.day));
   const uid = userProfile?.uid;
@@ -119,7 +119,7 @@ export async function claimDailyStreakMilestone(updateProfileData, userProfile, 
   try {
     if (uid) {
       await Promise.all([
-        AsyncStorage.setItem(`@gamearn_permanent_vp_${uid}`, String(newVp)),
+        AsyncStorage.setItem(`@gamearn_earned_vp_${uid}`, String(newVp)),
         AsyncStorage.setItem(`@gamearn_claimed_daily_milestone_${uid}`, String(newLastAwarded)),
       ]).catch(() => {});
     }

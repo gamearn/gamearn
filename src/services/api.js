@@ -178,6 +178,13 @@ export const premium = {
 
 export const referral = {
   me: () => apiGet('/referral/me'),
+  apply: async (referralCode) => {
+    try {
+      return await apiPost('/referral/apply', { referralCode });
+    } catch {
+      return await apiPatch('/auth/profile', { referralCode }).catch(() => null);
+    }
+  },
   // Search registered users by username or display name across the app
   searchUsers: (query) => apiGet(`/referral/search?q=${encodeURIComponent(query || '')}`),
   // Sends real referral pings: { refereeUids: string[], type: 'streak' | 'challenge' | 'tournament' }.
@@ -239,9 +246,11 @@ export const challenges = {
 
 // ── Tournaments ───────────────────────────────────────────────────────────────
 
+const CREATED_TOURNAMENTS_KEY = '@gamearn_created_tournaments';
+
 export const tournaments = {
-  create: (body) =>
-    apiPost('/tournaments', {
+  create: async (body) => {
+    const res = await apiPost('/tournaments', {
       name: body.name,
       gameType: body.gameType,
       duration: body.duration,
@@ -250,11 +259,43 @@ export const tournaments = {
       topWinners: body.topWinners || 3,
       entryFeeVp: body.entryFeeVp != null ? Number(body.entryFeeVp) : 0,
       committedVp: body.committedVp != null ? Number(body.committedVp) : 100,
-    }),
+    });
+    try {
+      const created = res?.data || res;
+      if (created && created.id) {
+        const raw = await AsyncStorage.getItem(CREATED_TOURNAMENTS_KEY);
+        const list = raw ? JSON.parse(raw) : [];
+        const arr = Array.isArray(list) ? list.filter((t) => String(t?.id) !== String(created.id)) : [];
+        arr.unshift(created);
+        await AsyncStorage.setItem(CREATED_TOURNAMENTS_KEY, JSON.stringify(arr.slice(0, 50)));
+      }
+    } catch {}
+    return res;
+  },
 
   list: async (gameType) => {
-    const res = await apiGet(gameType ? `/tournaments?gameType=${gameType}` : '/tournaments/');
-    return filterDeletedTournaments(res);
+    let serverList = [];
+    try {
+      const res = await apiGet(gameType ? `/tournaments?gameType=${gameType}` : '/tournaments/');
+      serverList = Array.isArray(res) ? res : (res?.tournaments || res?.data || []);
+    } catch {}
+    let localList = [];
+    try {
+      const raw = await AsyncStorage.getItem(CREATED_TOURNAMENTS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) {
+        localList = gameType && gameType !== 'all'
+          ? parsed.filter((t) => !t?.gameType || t.gameType === gameType || t.gameType === 'all')
+          : parsed;
+      }
+    } catch {}
+    const byId = new Map();
+    [...serverList, ...localList].forEach((item) => {
+      if (item && item.id && !byId.has(String(item.id))) {
+        byId.set(String(item.id), item);
+      }
+    });
+    return filterDeletedTournaments(Array.from(byId.values()));
   },
 
   my: async () => {
@@ -267,7 +308,17 @@ export const tournaments = {
     if (deletedSet.has(String(id))) {
       throw new ApiError({ code: 'NOT_FOUND', message: 'Tournament has been deleted.', statusCode: 404 });
     }
-    return apiGet(`/tournaments/${id}`);
+    try {
+      return await apiGet(`/tournaments/${id}`);
+    } catch (err) {
+      try {
+        const raw = await AsyncStorage.getItem(CREATED_TOURNAMENTS_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        const match = Array.isArray(parsed) ? parsed.find((t) => String(t?.id) === String(id)) : null;
+        if (match) return match;
+      } catch {}
+      throw err;
+    }
   },
 
   standings: (id) => apiGet(`/tournaments/${id}/standings`),
