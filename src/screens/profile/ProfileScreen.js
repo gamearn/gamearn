@@ -44,7 +44,7 @@ export default function ProfileScreen({ navigation }) {
           if (Array.isArray(list)) {
             setFollowedUids(new Set(list.filter((id) => id && id !== uid)));
           }
-        } catch {}
+        } catch { }
       } else if (Array.isArray(userProfile?.followingList)) {
         setFollowedUids(new Set(userProfile.followingList.filter((id) => id && id !== uid)));
       } else {
@@ -57,7 +57,7 @@ export default function ProfileScreen({ navigation }) {
           if (Array.isArray(fList)) {
             setFollowersUids(new Set(fList.filter((id) => id && id !== uid)));
           }
-        } catch {}
+        } catch { }
       }
 
       if (cachedUsersRaw) {
@@ -67,14 +67,14 @@ export default function ProfileScreen({ navigation }) {
             setCommunityUsers(parsedUsers.filter((u) => (u.uid || u.id) !== uid));
             setLoadingCommunity(false);
           }
-        } catch {}
+        } catch { }
       }
     });
   }, [userProfile?.uid]);
 
   // Refresh profile from server on mount & focus
   useEffect(() => {
-    if (refreshProfile) refreshProfile().catch(() => {});
+    if (refreshProfile) refreshProfile().catch(() => { });
   }, [refreshProfile]);
 
   // Helper to merge lists of players deduplicating by uid/id
@@ -142,7 +142,7 @@ export default function ProfileScreen({ navigation }) {
   useEffect(() => {
     if (!navigation) return;
     const unsubscribe = navigation.addListener('focus', () => {
-      if (refreshProfile) refreshProfile().catch(() => {});
+      if (refreshProfile) refreshProfile().catch(() => { });
       loadAllCommunity();
     });
     return unsubscribe;
@@ -262,7 +262,7 @@ export default function ProfileScreen({ navigation }) {
     updateProfileData({
       followingCount: newFollowingCount,
       followingList: followingArr,
-    }).catch(() => {});
+    }).catch(() => { });
   }, [followedUids, userProfile, updateProfileData]);
 
   const cleanQ = searchQuery.trim().replace(/^@+/, '').trim();
@@ -312,10 +312,10 @@ export default function ProfileScreen({ navigation }) {
             (userProfile?.displayName || userProfile?.fullName || userProfile?.name) &&
             userProfile.username.toLowerCase() !== String(userProfile?.displayName || userProfile?.fullName || userProfile?.name).toLowerCase()
           ) && (
-            <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '700', marginTop: 4 }}>
-              @{userProfile.username.replace(/^@+/, '')}
-            </Text>
-          )}
+              <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '700', marginTop: 4 }}>
+                @{userProfile.username.replace(/^@+/, '')}
+              </Text>
+            )}
         </View>
 
         {/* Action Buttons (Edit Profile & Wallet) */}
@@ -386,7 +386,7 @@ export default function ProfileScreen({ navigation }) {
               <Flame
                 size={16}
                 color={streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#F59E0B' : '#EF4444')}
-                  fill={streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#F59E0B' : 'none')}
+                fill={streakInfo.isActive ? '#10B981' : (streakInfo.isAtRisk ? '#F59E0B' : 'none')}
                 style={{ marginRight: 4 }}
               />
               <Text
@@ -599,10 +599,10 @@ export default function ProfileScreen({ navigation }) {
             {searchQuery.trim()
               ? 'SEARCH RESULTS'
               : listFilter === 'following'
-              ? 'PLAYERS YOU FOLLOW'
-              : listFilter === 'followers'
-              ? 'PLAYERS FOLLOWING YOU'
-              : 'COMMUNITY PLAYERS'}
+                ? 'PLAYERS YOU FOLLOW'
+                : listFilter === 'followers'
+                  ? 'PLAYERS FOLLOWING YOU'
+                  : 'COMMUNITY PLAYERS'}
           </Text>
           <Text style={styles.onlineCountText}>{displayedUsers.length} Players</Text>
         </View>
@@ -614,12 +614,12 @@ export default function ProfileScreen({ navigation }) {
                 {searchQuery.trim()
                   ? `No player found matching "${searchQuery}"`
                   : listFilter === 'following'
-                  ? 'You are not following any players yet. Tap Follow on any player to follow them!'
-                  : listFilter === 'followers'
-                  ? 'No players are following you yet.'
-                  : loadingCommunity
-                  ? 'Loading players from database...'
-                  : 'No other players registered yet.'}
+                    ? 'You are not following any players yet. Tap Follow on any player to follow them!'
+                    : listFilter === 'followers'
+                      ? 'No players are following you yet.'
+                      : loadingCommunity
+                        ? 'Loading players from database...'
+                        : 'No other players registered yet.'}
               </Text>
             </View>
           ) : (

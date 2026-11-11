@@ -87,7 +87,7 @@ export default function GameResultScreen({ route, navigation }) {
 
   useEffect(() => {
     // Always clear active match session when game result screen mounts!
-    clearActiveMatch().catch(() => {});
+    clearActiveMatch().catch(() => { });
 
     if (recordedRef.current) return;
     recordedRef.current = true;
@@ -100,7 +100,7 @@ export default function GameResultScreen({ route, navigation }) {
       .then(() => {
         invalidatePlatformPlayersCache();
       })
-      .catch(() => {});
+      .catch(() => { });
 
     (async () => {
       try {
@@ -113,7 +113,7 @@ export default function GameResultScreen({ route, navigation }) {
           ]);
           if (rawUidGs) storedAllStats = JSON.parse(rawUidGs) || {};
           else if (rawCurGs) storedAllStats = JSON.parse(rawCurGs) || {};
-        } catch {}
+        } catch { }
 
         const profileGameStats = userProfile?.gameStats || {};
         const fromProfile = isCheckers
@@ -174,9 +174,9 @@ export default function GameResultScreen({ route, navigation }) {
         setLocalGameStats(updatedThisGame);
         const jsonGs = JSON.stringify(updatedGameStats);
         if (uid) {
-          await AsyncStorage.setItem(`@gamearn_gamestats_${uid}`, jsonGs).catch(() => {});
+          await AsyncStorage.setItem(`@gamearn_gamestats_${uid}`, jsonGs).catch(() => { });
         }
-        await AsyncStorage.setItem('@gamearn_gamestats_current', jsonGs).catch(() => {});
+        await AsyncStorage.setItem('@gamearn_gamestats_current', jsonGs).catch(() => { });
 
         // Check if active Win Streak milestone (3, 5, 7, 10) is now reached and unclaimed -> open Gift Box Modal!
         const activeTierObj = claimedTier < WIN_STREAK_TIERS.length ? WIN_STREAK_TIERS[claimedTier] : null;
@@ -232,7 +232,7 @@ export default function GameResultScreen({ route, navigation }) {
             '@gamearn_leaderboard_v2_cache_Weekly',
             '@gamearn_leaderboard_v2_cache_Monthly',
             '@gamearn_leaderboard_v2_cache_Yearly',
-          ]).catch(() => {});
+          ]).catch(() => { });
         }
       } catch (err) {
         console.log('Notice updating result stats:', err?.message || err);
@@ -240,19 +240,19 @@ export default function GameResultScreen({ route, navigation }) {
     })();
 
     if (serverConfirmed) {
-      refreshProfile().catch(() => {});
+      refreshProfile().catch(() => { });
     }
   }, []);
 
   const effectiveProfileForStreak = localGameStats
     ? {
-        ...(userProfile || {}),
-        gameStats: {
-          ...(userProfile?.gameStats || {}),
-          [statsKey]: localGameStats,
-          ...(isCheckers ? { draft: localGameStats, draughts: localGameStats } : {}),
-        },
-      }
+      ...(userProfile || {}),
+      gameStats: {
+        ...(userProfile?.gameStats || {}),
+        [statsKey]: localGameStats,
+        ...(isCheckers ? { draft: localGameStats, draughts: localGameStats } : {}),
+      },
+    }
     : userProfile;
 
   const gameWinStreak = getGameWinStreakState(effectiveProfileForStreak, statsKey);
@@ -290,9 +290,9 @@ export default function GameResultScreen({ route, navigation }) {
         await Promise.all([
           AsyncStorage.setItem(`@gamearn_gamestats_${uid}`, jsonGs),
           AsyncStorage.setItem(`@gamearn_earned_vp_${uid}`, String(newVp)),
-        ]).catch(() => {});
+        ]).catch(() => { });
       }
-      await AsyncStorage.setItem('@gamearn_gamestats_current', jsonGs).catch(() => {});
+      await AsyncStorage.setItem('@gamearn_gamestats_current', jsonGs).catch(() => { });
 
       await updateProfileData({
         valuePoints: newVp,
@@ -760,8 +760,8 @@ export default function GameResultScreen({ route, navigation }) {
                         ? `🚀 Rank Up to #${currentRank}`
                         : `Current Standings: #${currentRank}`
                       : isWinner
-                      ? '🚀 Win recorded — standings updating'
-                      : 'Standings updating…'}
+                        ? '🚀 Win recorded — standings updating'
+                        : 'Standings updating…'}
                   </Text>
                 </View>
                 <Text style={{ color: '#94A3B8', fontSize: 11 }}>{activeUserTour.currentParticipants || 0} players · Wins/plays ranked</Text>
