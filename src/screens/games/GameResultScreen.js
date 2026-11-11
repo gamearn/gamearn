@@ -30,6 +30,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { tournaments, leaderboard as leaderboardApi } from '../../services/api';
 import { naira } from '../../config/appConfig';
 import { clearActiveMatch } from '../../utils/activeMatch';
+import { invalidatePlatformPlayersCache, registerKnownPlatformPlayer } from '../../utils/platformPlayers';
 import { calculateGamePower, calculateValuePoints, formatGP, formatVP } from '../../utils/gamePower';
 import {
   recordGameStreak,
@@ -93,7 +94,13 @@ export default function GameResultScreen({ route, navigation }) {
 
     // Immediately record match outcome to PostgreSQL so the leaderboard updates without delay
     const outcome = isWinner ? 'win' : (isDraw ? 'draw' : 'loss');
-    leaderboardApi.recordCompletion(statsKey, outcome, completionReason).catch(() => {});
+    invalidatePlatformPlayersCache();
+    leaderboardApi
+      .recordCompletion(statsKey, outcome, completionReason)
+      .then(() => {
+        invalidatePlatformPlayersCache();
+      })
+      .catch(() => {});
 
     (async () => {
       try {
@@ -215,6 +222,17 @@ export default function GameResultScreen({ route, navigation }) {
           if (streakResult?.unlockedDailyMilestone) {
             setDailyStreakModalMilestone(streakResult.unlockedDailyMilestone);
           }
+          await registerKnownPlatformPlayer({
+            ...(userProfile || {}),
+            ...extraPayload,
+          });
+          invalidatePlatformPlayersCache();
+          await AsyncStorage.multiRemove([
+            '@gamearn_leaderboard_v2_cache_Daily',
+            '@gamearn_leaderboard_v2_cache_Weekly',
+            '@gamearn_leaderboard_v2_cache_Monthly',
+            '@gamearn_leaderboard_v2_cache_Yearly',
+          ]).catch(() => {});
         }
       } catch (err) {
         console.log('Notice updating result stats:', err?.message || err);

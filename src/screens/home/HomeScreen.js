@@ -140,16 +140,51 @@ export default function HomeScreen({ navigation }) {
   const [notificationsList, setNotificationsList] = useState([]);
   const [showWelcomeCommunityModal, setShowWelcomeCommunityModal] = useState(false);
 
+  const getNotifSig = (n) =>
+    `${String(n?.type || '')}:${String(n?.title || '').trim()}:${String(n?.message || n?.body || '').trim()}`;
+
+  const isRetiredVp10Notif = (n) => {
+    const idStr = String(n?.id || '');
+    const titleStr = String(n?.title || '');
+    const msgStr = String(n?.message || n?.body || '');
+    return (
+      idStr.startsWith('vp10_eligible_') ||
+      n?.type === '10_vp_milestone' ||
+      titleStr.includes('Reached 10 VP') ||
+      msgStr.includes('10 VP withdrawal threshold')
+    );
+  };
+
   const loadNotifications = useCallback(async () => {
     try {
       const uid = userProfile?.uid || user?.uid || 'me';
-      const [userNotifsRaw, globalNotifsRaw, deletedRaw, serverNotifs] = await Promise.all([
+      const [
+        userNotifsRaw,
+        globalNotifsRaw,
+        deletedUidRaw,
+        deletedGlobalRaw,
+        readUidRaw,
+        readGlobalRaw,
+        serverNotifs,
+      ] = await Promise.all([
         AsyncStorage.getItem(`@gamearn_notifications_${uid}`),
         AsyncStorage.getItem('@gamearn_notifications_all'),
         AsyncStorage.getItem(`@gamearn_deleted_notifications_${uid}`),
+        AsyncStorage.getItem('@gamearn_deleted_notifications_global'),
+        AsyncStorage.getItem(`@gamearn_read_notifications_${uid}`),
+        AsyncStorage.getItem('@gamearn_read_notifications_global'),
         userProfile?.uid ? notificationsApi.list(50).catch(() => []) : Promise.resolve([]),
       ]);
-      const deletedSet = new Set(deletedRaw ? JSON.parse(deletedRaw).map(String) : []);
+
+      const deletedSet = new Set([
+        ...(deletedUidRaw ? JSON.parse(deletedUidRaw).map(String) : []),
+        ...(deletedGlobalRaw ? JSON.parse(deletedGlobalRaw).map(String) : []),
+      ]);
+      const readSet = new Set([
+        ...(readUidRaw ? JSON.parse(readUidRaw).map(String) : []),
+        ...(readGlobalRaw ? JSON.parse(readGlobalRaw).map(String) : []),
+      ]);
+
       const userNotifs = userNotifsRaw ? JSON.parse(userNotifsRaw) : [];
       const globalNotifs = globalNotifsRaw ? JSON.parse(globalNotifsRaw) : [];
       const combined = [
@@ -160,41 +195,129 @@ export default function HomeScreen({ navigation }) {
       const seen = new Set();
       const unique = [];
       for (const n of combined) {
+        if (!n || isRetiredVp10Notif(n)) continue;
         const nid = String(n?.id || '');
-        if (!nid || seen.has(nid) || deletedSet.has(nid)) continue;
+        const sig = getNotifSig(n);
+        if (!nid || seen.has(nid) || seen.has(sig)) continue;
+        if (deletedSet.has(nid) || deletedSet.has(sig)) continue;
         seen.add(nid);
-        unique.push(n);
+        seen.add(sig);
+        const isRead = Boolean(n.read || readSet.has(nid) || readSet.has(sig));
+        unique.push({ ...n, read: isRead });
       }
       unique.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       setNotificationsList(unique);
     } catch {}
   }, [userProfile?.uid, user?.uid]);
 
+  const markAllNotificationsAsRead = useCallback(async (currentList) => {
+    try {
+      const uid = userProfile?.uid || user?.uid || 'me';
+      const listToMark = Array.isArray(currentList) ? currentList : notificationsList;
+      setNotificationsList((prev) => prev.map((n) => ({ ...n, read: true })));
+
+      const [readUidRaw, readGlobalRaw, userNotifsRaw, globalNotifsRaw] = await Promise.all([
+        AsyncStorage.getItem(`@gamearn_read_notifications_${uid}`),
+        AsyncStorage.getItem('@gamearn_read_notifications_global'),
+        AsyncStorage.getItem(`@gamearn_notifications_${uid}`),
+        AsyncStorage.getItem('@gamearn_notifications_all'),
+      ]);
+
+      const readSet = new Set([
+        ...(readUidRaw ? JSON.parse(readUidRaw).map(String) : []),
+        ...(readGlobalRaw ? JSON.parse(readGlobalRaw).map(String) : []),
+      ]);
+      for (const n of listToMark) {
+        if (!n) continue;
+        if (n.id) readSet.add(String(n.id));
+        readSet.add(getNotifSig(n));
+      }
+      const readArr = Array.from(readSet).slice(-500);
+
+      const writes = [
+        AsyncStorage.setItem(`@gamearn_read_notifications_${uid}`, JSON.stringify(readArr)),
+        AsyncStorage.setItem('@gamearn_read_notifications_global', JSON.stringify(readArr)),
+      ];
+
+      if (userNotifsRaw) {
+        const parsedUser = JSON.parse(userNotifsRaw);
+        if (Array.isArray(parsedUser)) {
+          writes.push(
+            AsyncStorage.setItem(
+              `@gamearn_notifications_${uid}`,
+              JSON.stringify(parsedUser.filter((n) => !isRetiredVp10Notif(n)).map((n) => ({ ...n, read: true })))
+            )
+          );
+        }
+      }
+      if (globalNotifsRaw) {
+        const parsedGlobal = JSON.parse(globalNotifsRaw);
+        if (Array.isArray(parsedGlobal)) {
+          writes.push(
+            AsyncStorage.setItem(
+              '@gamearn_notifications_all',
+              JSON.stringify(parsedGlobal.filter((n) => !isRetiredVp10Notif(n)).map((n) => ({ ...n, read: true })))
+            )
+          );
+        }
+      }
+
+      await Promise.all(writes);
+      if (userProfile?.uid) {
+        await notificationsApi.markRead().catch(() => {});
+      }
+    } catch {}
+  }, [userProfile?.uid, user?.uid, notificationsList]);
+
   const handleDeleteNotification = useCallback(async (notificationId) => {
     if (!notificationId) return;
     const nid = String(notificationId);
-    setNotificationsList((prev) => prev.filter((n) => String(n?.id) !== nid));
+    let targetSig = null;
+    setNotificationsList((prev) => {
+      const target = prev.find((n) => String(n?.id) === nid);
+      if (target) targetSig = getNotifSig(target);
+      return prev.filter((n) => String(n?.id) !== nid && (!targetSig || getNotifSig(n) !== targetSig));
+    });
     try {
       const uid = userProfile?.uid || user?.uid || 'me';
-      const [userNotifsRaw, globalNotifsRaw, deletedRaw] = await Promise.all([
+      const [userNotifsRaw, globalNotifsRaw, meNotifsRaw, deletedUidRaw, deletedGlobalRaw] = await Promise.all([
         AsyncStorage.getItem(`@gamearn_notifications_${uid}`),
         AsyncStorage.getItem('@gamearn_notifications_all'),
+        AsyncStorage.getItem('@gamearn_notifications_me'),
         AsyncStorage.getItem(`@gamearn_deleted_notifications_${uid}`),
+        AsyncStorage.getItem('@gamearn_deleted_notifications_global'),
       ]);
-      const deletedList = deletedRaw ? JSON.parse(deletedRaw) : [];
-      if (!deletedList.includes(nid)) {
-        deletedList.push(nid);
-        await AsyncStorage.setItem(`@gamearn_deleted_notifications_${uid}`, JSON.stringify(deletedList));
-      }
-      if (userNotifsRaw) {
-        const filteredUser = JSON.parse(userNotifsRaw).filter((n) => String(n?.id) !== nid);
-        await AsyncStorage.setItem(`@gamearn_notifications_${uid}`, JSON.stringify(filteredUser));
-      }
-      if (globalNotifsRaw) {
-        const filteredGlobal = JSON.parse(globalNotifsRaw).filter((n) => String(n?.id) !== nid);
-        await AsyncStorage.setItem('@gamearn_notifications_all', JSON.stringify(filteredGlobal));
-      }
-      await notificationsApi.delete(notificationId);
+      const deletedSet = new Set([
+        ...(deletedUidRaw ? JSON.parse(deletedUidRaw).map(String) : []),
+        ...(deletedGlobalRaw ? JSON.parse(deletedGlobalRaw).map(String) : []),
+      ]);
+      deletedSet.add(nid);
+      if (targetSig) deletedSet.add(targetSig);
+      const deletedArr = Array.from(deletedSet).slice(-500);
+
+      const writes = [
+        AsyncStorage.setItem(`@gamearn_deleted_notifications_${uid}`, JSON.stringify(deletedArr)),
+        AsyncStorage.setItem('@gamearn_deleted_notifications_global', JSON.stringify(deletedArr)),
+      ];
+
+      const filterOut = (raw) => {
+        if (!raw) return null;
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return null;
+        return JSON.stringify(
+          arr.filter((n) => String(n?.id) !== nid && (!targetSig || getNotifSig(n) !== targetSig) && !isRetiredVp10Notif(n))
+        );
+      };
+
+      const nextUser = filterOut(userNotifsRaw);
+      if (nextUser !== null) writes.push(AsyncStorage.setItem(`@gamearn_notifications_${uid}`, nextUser));
+      const nextGlobal = filterOut(globalNotifsRaw);
+      if (nextGlobal !== null) writes.push(AsyncStorage.setItem('@gamearn_notifications_all', nextGlobal));
+      const nextMe = filterOut(meNotifsRaw);
+      if (nextMe !== null) writes.push(AsyncStorage.setItem('@gamearn_notifications_me', nextMe));
+
+      await Promise.all(writes);
+      await notificationsApi.delete(notificationId).catch(() => {});
     } catch {}
   }, [userProfile?.uid, user?.uid]);
 
@@ -328,6 +451,7 @@ export default function HomeScreen({ navigation }) {
           ? allPlayersRes.value
           : [];
 
+        const todayStr = localDay();
         const map = new Map();
         const addEntry = (item, isFromPeriodLb = false) => {
           if (!item) return;
@@ -347,7 +471,13 @@ export default function HomeScreen({ navigation }) {
               : Number(item.wins ?? item.gamesWon ?? 0);
             plays = Math.max(plays, rawPlays);
             wins = Math.max(wins, rawWins);
-          } else if (period === 'Yearly') {
+          } else if (period === 'Daily') {
+            const isToday = item.lastPlayedDate === todayStr || Number(item.dailyPlays || 0) > 0;
+            const dPlays = isToday ? Number(item.dailyPlays ?? 0) : 0;
+            const dWins = isToday ? Number(item.dailyWins ?? 0) : 0;
+            plays = Math.max(plays, dPlays);
+            wins = Math.max(wins, dWins);
+          } else {
             const cPlays = Number(item.careerPlays ?? item.gamesPlayed ?? item.plays ?? 0);
             const cWins = Number(item.careerWins ?? item.wins ?? item.gamesWon ?? 0);
             plays = Math.max(plays, cPlays);
@@ -367,12 +497,8 @@ export default function HomeScreen({ navigation }) {
             avatar: item.avatar || item.avatarUrl || existing?.avatar || null,
             plays,
             wins,
-            periodPlays: isFromPeriodLb
-              ? (item.periodPlays !== undefined ? Number(item.periodPlays) : plays)
-              : (existing?.periodPlays ?? 0),
-            periodWins: isFromPeriodLb
-              ? (item.periodWins !== undefined ? Number(item.periodWins) : wins)
-              : (existing?.periodWins ?? 0),
+            periodPlays: period === 'Daily' ? plays : (isFromPeriodLb ? (item.periodPlays !== undefined ? Number(item.periodPlays) : plays) : (existing?.periodPlays ?? plays)),
+            periodWins: period === 'Daily' ? wins : (isFromPeriodLb ? (item.periodWins !== undefined ? Number(item.periodWins) : wins) : (existing?.periodWins ?? wins)),
             gp: Math.max(gp, existing?.gp || 0),
             isUser: Boolean(userProfile?.uid && uid === userProfile.uid),
           });
@@ -396,7 +522,7 @@ export default function HomeScreen({ navigation }) {
     return () => {
       active = false;
     };
-  }, [period, userProfile?.uid]);
+  }, [period, userProfile?.uid, userProfile?.gamesPlayed, userProfile?.wins]);
 
   useEffect(() => {
     const cancel = fetchLeaderboard();
@@ -548,24 +674,15 @@ export default function HomeScreen({ navigation }) {
   const formatNaira = formatPoints;
   const streakDays = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
 
-  // Trigger 10 VP withdrawal milestone (1.4 & 2.2) and <4h Daily Streak reminder (2.3)
+  // Purge any legacy 10 VP notifications and check <4h Daily Streak reminder (2.3)
   useEffect(() => {
-    const rawVp = Number(userProfile?.valuePoints ?? userProfile?.vp ?? (Number(walletBalanceNaira || 0) / 50));
-    if (rawVp >= 10 && userProfile?.uid) {
-      checkAndTriggerVp5Notification(
-        rawVp,
-        userProfile.uid,
-        userProfile?.username || userProfile?.displayName || userProfile?.name
-      ).then((triggered) => {
-        if (triggered) loadNotifications();
-      });
-    }
     if (userProfile?.uid) {
+      checkAndTriggerVp5Notification(0, userProfile.uid).catch(() => {});
       checkAndTriggerStreak4hNotification(userProfile).then((triggered) => {
         if (triggered) loadNotifications();
       });
     }
-  }, [userProfile?.valuePoints, userProfile?.vp, userProfile?.uid, userProfile?.streak, userProfile?.lastPlayedDate, walletBalanceNaira, loadNotifications]);
+  }, [userProfile?.uid, userProfile?.streak, userProfile?.lastPlayedDate, loadNotifications]);
 
   const displayName = userProfile?.username || userProfile?.displayName || userProfile?.name || state.name || 'Gamer';
 
@@ -610,8 +727,7 @@ export default function HomeScreen({ navigation }) {
     if (type === 'profile') setName(displayName);
     if (type === 'notifications') {
       dispatch({ type: 'READ_NOTIFICATIONS' });
-      if (userProfile?.uid) notificationsApi.markRead().catch(() => {});
-      loadNotifications();
+      markAllNotificationsAsRead(notificationsList);
     }
     setSheet({ type, data });
   };
@@ -642,6 +758,7 @@ export default function HomeScreen({ navigation }) {
 
   function Header() {
     const avatarUri = userProfile?.avatar;
+    const hasUnreadNotifications = notificationsList.some((n) => !n.read);
 
     return (
       <View style={s.header}>
@@ -660,9 +777,9 @@ export default function HomeScreen({ navigation }) {
             </View>
           </View>
         </Tap>
-        <Tap label={state.notificationsRead ? 'Notifications' : 'Notifications, unread messages'} onPress={() => open('notifications')} style={s.roundIcon}>
+        <Tap label={hasUnreadNotifications ? 'Notifications, unread messages' : 'Notifications'} onPress={() => open('notifications')} style={s.roundIcon}>
           {icon('notifications-outline', 31)}
-          {(!state.notificationsRead || notificationsList.some((n) => !n.read)) && <View style={s.unread} />}
+          {hasUnreadNotifications && <View style={s.unread} />}
         </Tap>
         {isAdmin && (
           <Tap label="Admin Dashboard" onPress={() => navigation?.navigate('AdminDashboard')} style={[s.roundIcon, { borderColor: '#FF5500', backgroundColor: 'rgba(255, 85, 0, 0.18)' }]}>

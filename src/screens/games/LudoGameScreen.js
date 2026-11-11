@@ -60,6 +60,39 @@ function computeStepOutcome(piece, colorIdx, steps) {
   };
 }
 
+function buildMovementSteps(piece, colorIdx, steps) {
+  if (!piece || piece.completed) return [];
+  const startPos = START_RING[colorIdx] ?? 0;
+  if (piece.position == null || piece.position < 0) {
+    if (steps === 6) {
+      return [
+        {
+          position: startPos,
+          inHomeStretch: false,
+          homePosition: 0,
+          completed: false,
+          colorIdx,
+        },
+      ];
+    }
+    return [];
+  }
+  const progress = piece.inHomeStretch
+    ? 50 + (piece.homePosition || 1)
+    : (piece.position - startPos + 52) % 52;
+  return Array.from({ length: steps }, (_, idx) => {
+    const nextDist = progress + idx + 1;
+    const homePos = Math.max(0, nextDist - 50);
+    return {
+      position: homePos > 0 ? piece.position : (startPos + nextDist) % 52,
+      inHomeStretch: homePos > 0 && homePos < 6,
+      homePosition: homePos,
+      completed: homePos === 6,
+      colorIdx,
+    };
+  });
+}
+
 function computeLegalMovesForPlayer(player, colorIdx, diceValues) {
   if (!player || !Array.isArray(player.pieces) || !Array.isArray(diceValues) || !diceValues.length) {
     return [];
@@ -128,7 +161,8 @@ export default function LudoGameScreen({ route, navigation }) {
   const myName = userProfile?.username || userProfile?.displayName || 'You';
 
   const createInitialLocalSnapshot = useCallback(() => {
-    const colorMap = playerCount === 2 ? [0, 2] : [0, 1, 2, 3];
+    // Clockwise seating around the board: 0 (Red Top-Left) -> 3 (Green Top-Right) -> 2 (Blue Bottom-Right) -> 1 (Yellow Bottom-Left)
+    const colorMap = playerCount === 2 ? [0, 2] : [0, 3, 2, 1];
     const players = [
       {
         uid,
@@ -174,6 +208,9 @@ export default function LudoGameScreen({ route, navigation }) {
       mustPass: false,
       winner: null,
       coinToss: { winnerIndex: 0 },
+      presentationEvents: [],
+      eventSequence: 0,
+      lastAnimSteps: 0,
     };
   }, [uid, myName, playerCount, tokenCount]);
 
@@ -192,7 +229,24 @@ export default function LudoGameScreen({ route, navigation }) {
     const outcome = computeStepOutcome(piece, colorIdx, usedValue);
     if (!outcome) return prev;
 
-    const newPlayers = prev.players.map((pl, idx) => ({
+    const stepFrames = buildMovementSteps(piece, colorIdx, usedValue);
+    const nextEventSeq = (prev.eventSequence || 0) + 1;
+    const nextPresentationEvents = [
+      ...(prev.presentationEvents || []).slice(-30),
+      {
+        id: nextEventSeq,
+        type: 'move',
+        playerUid: currentPlayer.uid,
+        pieceId,
+        beforePlayers: prev.players.map((pl) => ({
+          ...pl,
+          pieces: pl.pieces.map((pc) => ({ ...pc })),
+        })),
+        steps: stepFrames,
+      },
+    ];
+
+    const newPlayers = prev.players.map((pl) => ({
       ...pl,
       pieces: pl.pieces.map((pc) => ({ ...pc })),
     }));
@@ -237,10 +291,13 @@ export default function LudoGameScreen({ route, navigation }) {
         diceValues: [],
         legalMoves: [],
         legalPieceIds: [],
+        presentationEvents: nextPresentationEvents,
+        eventSequence: nextEventSeq,
+        lastAnimSteps: stepFrames.length,
       };
     }
 
-    // Consume dice value(s)
+    // Consume dice value(s) from this single roll
     let remainingDice = [...(prev.diceValues || [])];
     const directIdx = remainingDice.indexOf(usedValue);
     if (directIdx !== -1) {
@@ -250,8 +307,6 @@ export default function LudoGameScreen({ route, navigation }) {
     } else {
       remainingDice.shift();
     }
-
-    const rolledSix = Array.isArray(prev.rolledDice) && prev.rolledDice.includes(6);
 
     if (remainingDice.length > 0) {
       const nextLegal = computeLegalMovesForPlayer(newPlayers[pIdx], colorIdx, remainingDice);
@@ -264,25 +319,14 @@ export default function LudoGameScreen({ route, navigation }) {
           legalPieceIds: [...new Set(nextLegal.map((m) => m.pieceId))],
           mustPass: false,
           lastBotAction: pIdx > 0 ? { action: outcome.action, capture: captured, diceValue: usedValue } : prev.lastBotAction,
+          presentationEvents: nextPresentationEvents,
+          eventSequence: nextEventSeq,
+          lastAnimSteps: stepFrames.length,
         };
       }
     }
 
-    // If rolled a 6 or captured, grant bonus roll
-    if (rolledSix || captured) {
-      return {
-        ...prev,
-        players: newPlayers,
-        diceRolled: false,
-        diceValues: [],
-        legalMoves: [],
-        legalPieceIds: [],
-        mustPass: false,
-        botPhase: pIdx > 0 ? 'rolling' : null,
-      };
-    }
-
-    // Advance turn to next player
+    // Strictly 1 roll per turn: even if the player rolled a 6 or captured a token, advance to the next player clockwise!
     const nextIdx = (pIdx + 1) % newPlayers.length;
     return {
       ...prev,
@@ -296,10 +340,13 @@ export default function LudoGameScreen({ route, navigation }) {
       mustPass: false,
       botPhase: nextIdx > 0 ? 'rolling' : null,
       botName: nextIdx > 0 ? newPlayers[nextIdx].displayName : null,
+      presentationEvents: nextPresentationEvents,
+      eventSequence: nextEventSeq,
+      lastAnimSteps: stepFrames.length,
     };
   }, []);
 
-  // Bot turn automation in local practice mode
+  // Bot turn automation in local practice mode (waits for slow step-by-step token animation to complete)
   useEffect(() => {
     if (multiplayer || showCoinToss || localState.status !== 'playing') return;
     const pIdx = localState.currentPlayerIndex || 0;
@@ -308,8 +355,10 @@ export default function LudoGameScreen({ route, navigation }) {
     const botPlayer = localState.players[pIdx];
     if (!botPlayer) return;
     const colorIdx = botPlayer.colorIdx ?? pIdx;
+    const prevMoveDurationMs = Math.max(0, (localState.lastAnimSteps || 0) * 480);
 
     if (!localState.diceRolled) {
+      const waitBeforeRoll = Math.max(750, prevMoveDurationMs + 500);
       const t = setTimeout(() => {
         const d1 = 1 + Math.floor(Math.random() * 6);
         const d2 = 1 + Math.floor(Math.random() * 6);
@@ -326,8 +375,9 @@ export default function LudoGameScreen({ route, navigation }) {
           legalMoves: moves,
           legalPieceIds: [...new Set(moves.map((m) => m.pieceId))],
           mustPass: moves.length === 0,
+          lastAnimSteps: 0,
         }));
-      }, 650);
+      }, waitBeforeRoll);
       return () => clearTimeout(t);
     }
 
@@ -345,12 +395,14 @@ export default function LudoGameScreen({ route, navigation }) {
             legalPieceIds: [],
             mustPass: false,
             botPhase: nextIdx > 0 ? 'rolling' : null,
+            lastAnimSteps: 0,
           };
         });
-      }, 900);
+      }, 950);
       return () => clearTimeout(t);
     }
 
+    const waitBeforeMove = Math.max(900, prevMoveDurationMs + 450);
     const t = setTimeout(() => {
       setLocalState((prev) => {
         const moves = prev.legalMoves || [];
@@ -361,7 +413,7 @@ export default function LudoGameScreen({ route, navigation }) {
         const chosen = enterMove || homeMove || moves[0];
         return applyMoveToSnapshot(prev, chosen.pieceId, chosen.diceValue);
       });
-    }, 850);
+    }, waitBeforeMove);
     return () => clearTimeout(t);
   }, [multiplayer, showCoinToss, localState, diceCount, applyMoveToSnapshot]);
 

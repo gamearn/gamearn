@@ -21,44 +21,50 @@ export default function ProfileScreen({ navigation }) {
   const [communityUsers, setCommunityUsers] = useState([]);
   const [loadingCommunity, setLoadingCommunity] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
-  const [followedUids, setFollowedUids] = useState(() => new Set(userProfile?.followingList || []));
+  const [listFilter, setListFilter] = useState('all'); // 'all' | 'following' | 'followers'
+  const [followedUids, setFollowedUids] = useState(() => new Set(Array.isArray(userProfile?.followingList) ? userProfile.followingList : []));
+  const [followersUids, setFollowersUids] = useState(() => new Set());
 
-  // Sync followedUids whenever userProfile updates
+  // Sync per-user following & followers lists from storage
   useEffect(() => {
-    if (Array.isArray(userProfile?.followingList)) {
-      setFollowedUids((prev) => new Set([...prev, ...userProfile.followingList]));
+    const uid = userProfile?.uid;
+    if (!uid) {
+      setFollowedUids(new Set());
+      setFollowersUids(new Set());
+      return;
     }
-  }, [userProfile?.followingList]);
-
-  // Load permanent for-life following list from device storage
-  useEffect(() => {
-    const uid = userProfile?.uid || 'me';
     Promise.all([
-      AsyncStorage.getItem(`@gamearn_permanent_following_${uid}`),
-      AsyncStorage.getItem('@gamearn_permanent_following_global'),
+      AsyncStorage.getItem(`@gamearn_following_v2_${uid}`),
+      AsyncStorage.getItem(`@gamearn_followers_list_v2_${uid}`),
       AsyncStorage.getItem('@gamearn_community_users_cache'),
-    ]).then(([raw, rawGlobal, cachedUsersRaw]) => {
-      const merged = [];
-      if (raw) {
+    ]).then(([rawFollowing, rawFollowers, cachedUsersRaw]) => {
+      if (rawFollowing !== null) {
         try {
-          const list = JSON.parse(raw);
-          if (Array.isArray(list)) merged.push(...list);
+          const list = JSON.parse(rawFollowing);
+          if (Array.isArray(list)) {
+            setFollowedUids(new Set(list.filter((id) => id && id !== uid)));
+          }
+        } catch {}
+      } else if (Array.isArray(userProfile?.followingList)) {
+        setFollowedUids(new Set(userProfile.followingList.filter((id) => id && id !== uid)));
+      } else {
+        setFollowedUids(new Set());
+      }
+
+      if (rawFollowers !== null) {
+        try {
+          const fList = JSON.parse(rawFollowers);
+          if (Array.isArray(fList)) {
+            setFollowersUids(new Set(fList.filter((id) => id && id !== uid)));
+          }
         } catch {}
       }
-      if (rawGlobal) {
-        try {
-          const gList = JSON.parse(rawGlobal);
-          if (Array.isArray(gList)) merged.push(...gList);
-        } catch {}
-      }
-      if (merged.length) {
-        setFollowedUids((prev) => new Set([...prev, ...merged]));
-      }
+
       if (cachedUsersRaw) {
         try {
           const parsedUsers = JSON.parse(cachedUsersRaw);
           if (Array.isArray(parsedUsers) && parsedUsers.length) {
-            setCommunityUsers(parsedUsers);
+            setCommunityUsers(parsedUsers.filter((u) => (u.uid || u.id) !== uid));
             setLoadingCommunity(false);
           }
         } catch {}
@@ -92,8 +98,8 @@ export default function ProfileScreen({ navigation }) {
         : (existing?.gp != null
           ? existing.gp
           : (plays > 0
-            ? Math.min(100, Math.max(10, Math.round(100 * (0.75 * (wins / plays) + 0.25 * Math.min(1, Math.log10(plays + 1) / 3)))))
-            : 35));
+            ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * (wins / plays) + 0.25 * Math.min(1, Math.log10(plays + 1) / 3)))))
+            : 0));
 
       map.set(uid, {
         uid,
@@ -121,31 +127,13 @@ export default function ProfileScreen({ navigation }) {
       const combined = await fetchAllPlatformPlayers({ excludeUid: userProfile?.uid });
       if (combined.length > 0) {
         setCommunityUsers(combined);
-
-        // Restore the 2 followed players if following list was wiped
-        setFollowedUids((prev) => {
-          if (prev.size >= 2) return prev;
-          const next = new Set(prev);
-          for (const p of combined) {
-            if (next.size >= 2) break;
-            if (p.uid && p.uid !== userProfile?.uid) next.add(p.uid);
-          }
-          const arr = Array.from(next);
-          const uid = userProfile?.uid || 'me';
-          AsyncStorage.setItem(`@gamearn_permanent_following_${uid}`, JSON.stringify(arr)).catch(() => {});
-          AsyncStorage.setItem('@gamearn_permanent_following_global', JSON.stringify(arr)).catch(() => {});
-          if (updateProfileData) {
-            updateProfileData({ followingList: arr, followingCount: Math.max(2, arr.length) }).catch(() => {});
-          }
-          return next;
-        });
       }
     } catch {
       // Keep existing list
     } finally {
       setLoadingCommunity(false);
     }
-  }, [userProfile?.uid, updateProfileData]);
+  }, [userProfile?.uid]);
 
   useEffect(() => {
     loadAllCommunity();
@@ -203,65 +191,74 @@ export default function ProfileScreen({ navigation }) {
 
   const handleFollow = useCallback(async (person) => {
     const pUid = person.uid || person.id;
-    if (!pUid) return;
-    if (followedUids.has(pUid)) {
-      // Permanent follow: once it counts, it is for life and never uncounts
-      return;
-    }
+    const uid = userProfile?.uid;
+    if (!pUid || !uid || pUid === uid) return;
 
+    const isCurrentlyFollowed = followedUids.has(pUid);
     const nextSet = new Set(followedUids);
-    nextSet.add(pUid);
+    if (isCurrentlyFollowed) {
+      nextSet.delete(pUid);
+    } else {
+      nextSet.add(pUid);
+    }
     setFollowedUids(nextSet);
 
-    const currentFollowing = Number(userProfile?.followingCount ?? 0);
-    const newFollowingCount = currentFollowing + 1;
-    const uid = userProfile?.uid || 'me';
     const followingArr = Array.from(nextSet);
+    const newFollowingCount = followingArr.length;
 
-    // Save permanently for life across all logouts and logins
     try {
-      await AsyncStorage.setItem(`@gamearn_permanent_following_${uid}`, JSON.stringify(followingArr));
-      await AsyncStorage.setItem('@gamearn_permanent_following_global', JSON.stringify(followingArr));
-      
-      // Increment target player's permanent followers count
-      const targetFollowerKey = `@gamearn_permanent_followers_${pUid}`;
-      const existingRaw = await AsyncStorage.getItem(targetFollowerKey);
-      const existingCount = existingRaw ? Number(JSON.parse(existingRaw)) || 0 : Number(person.followersCount || 0);
-      await AsyncStorage.setItem(targetFollowerKey, JSON.stringify(existingCount + 1));
+      await AsyncStorage.setItem(`@gamearn_following_v2_${uid}`, JSON.stringify(followingArr));
 
-      // Post notification to the person followed: "@username followed you"
-      const senderRaw = userProfile?.username || userProfile?.displayName || userProfile?.name || 'A player';
-      const cleanSender = String(senderRaw).replace(/^@+/, '');
-      const notif = {
-        id: `follow_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        type: 'follow',
-        title: 'New Follower',
-        message: `@${cleanSender} followed you`,
-        fromUser: cleanSender,
-        fromUid: uid,
-        createdAt: Date.now(),
-        read: false,
-      };
-
-      const keyTarget = `@gamearn_notifications_${pUid}`;
-      const keyAll = '@gamearn_notifications_all';
-      const [tRaw, aRaw] = await Promise.all([
-        AsyncStorage.getItem(keyTarget),
-        AsyncStorage.getItem(keyAll),
+      // Update target player's followers list and count
+      const targetFollowerListKey = `@gamearn_followers_list_v2_${pUid}`;
+      const targetFollowerCountKey = `@gamearn_permanent_followers_${pUid}`;
+      const [rawTargetList, rawTargetCount] = await Promise.all([
+        AsyncStorage.getItem(targetFollowerListKey),
+        AsyncStorage.getItem(targetFollowerCountKey),
       ]);
-      const tList = tRaw ? JSON.parse(tRaw) : [];
-      const aList = aRaw ? JSON.parse(aRaw) : [];
-      tList.unshift(notif);
-      aList.unshift(notif);
+      const targetSet = new Set(rawTargetList ? JSON.parse(rawTargetList) : []);
+      if (isCurrentlyFollowed) {
+        targetSet.delete(uid);
+      } else {
+        targetSet.add(uid);
+      }
+      const nextTargetFollowersArr = Array.from(targetSet);
+      const baseCount = rawTargetCount ? Number(JSON.parse(rawTargetCount)) || 0 : Number(person.followersCount || 0);
+      const nextTargetCount = Math.max(
+        nextTargetFollowersArr.length,
+        isCurrentlyFollowed ? Math.max(0, baseCount - 1) : baseCount + 1
+      );
       await Promise.all([
-        AsyncStorage.setItem(keyTarget, JSON.stringify(tList.slice(0, 50))),
-        AsyncStorage.setItem(keyAll, JSON.stringify(aList.slice(0, 50))),
+        AsyncStorage.setItem(targetFollowerListKey, JSON.stringify(nextTargetFollowersArr)),
+        AsyncStorage.setItem(targetFollowerCountKey, JSON.stringify(nextTargetCount)),
       ]);
+
+      if (!isCurrentlyFollowed) {
+        // Post notification to the person followed: "@username followed you"
+        const senderRaw = userProfile?.username || userProfile?.displayName || userProfile?.name || 'A player';
+        const cleanSender = String(senderRaw).replace(/^@+/, '');
+        const notif = {
+          id: `follow_${uid}_${pUid}`,
+          type: 'follow',
+          title: 'New Follower',
+          message: `@${cleanSender} followed you`,
+          fromUser: cleanSender,
+          fromUid: uid,
+          createdAt: Date.now(),
+          read: false,
+        };
+
+        const keyTarget = `@gamearn_notifications_${pUid}`;
+        const tRaw = await AsyncStorage.getItem(keyTarget);
+        const tList = tRaw ? JSON.parse(tRaw) : [];
+        const filteredT = (Array.isArray(tList) ? tList : []).filter((n) => n?.id !== notif.id);
+        filteredT.unshift(notif);
+        await AsyncStorage.setItem(keyTarget, JSON.stringify(filteredT.slice(0, 50)));
+      }
     } catch (e) {
       console.log('Follow storage error:', e);
     }
 
-    // Instantly update userProfile state in React context
     updateProfileData({
       followingCount: newFollowingCount,
       followingList: followingArr,
@@ -269,7 +266,15 @@ export default function ProfileScreen({ navigation }) {
   }, [followedUids, userProfile, updateProfileData]);
 
   const cleanQ = searchQuery.trim().replace(/^@+/, '').trim();
-  const displayedUsers = cleanQ ? searchResults : communityUsers;
+  const baseUsers = cleanQ ? searchResults : communityUsers;
+  const displayedUsers = baseUsers.filter((u) => {
+    const pUid = u.uid || u.id;
+    if (listFilter === 'following') return followedUids.has(pUid);
+    if (listFilter === 'followers') return followersUids.has(pUid);
+    return true;
+  });
+  const effectiveFollowersCount = Math.max(Number(userProfile?.followersCount ?? 0), followersUids.size);
+  const effectiveFollowingCount = followedUids.size;
 
   return (
     <View style={[styles.screenRoot, { backgroundColor: theme.bg }]}>
@@ -336,15 +341,35 @@ export default function ProfileScreen({ navigation }) {
 
         {/* Stats Row (Followers, Following, Day Streak) */}
         <View style={styles.statsGridRow}>
-          <View style={[styles.statCardBox, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
-            <Text style={[styles.statBigVal, { color: theme.textPrimary }]}>{userProfile?.followersCount ?? 0}</Text>
-            <Text style={[styles.statSubLabel, { color: theme.textSecondary }]}>FOLLOWERS</Text>
-          </View>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setListFilter((prev) => (prev === 'followers' ? 'all' : 'followers'))}
+            style={[
+              styles.statCardBox,
+              {
+                backgroundColor: theme.cardBg,
+                borderColor: listFilter === 'followers' ? '#00E5FF' : theme.cardBorderSubtle,
+              },
+            ]}
+          >
+            <Text style={[styles.statBigVal, { color: theme.textPrimary }]}>{effectiveFollowersCount}</Text>
+            <Text style={[styles.statSubLabel, { color: listFilter === 'followers' ? '#00E5FF' : theme.textSecondary }]}>FOLLOWERS</Text>
+          </TouchableOpacity>
 
-          <View style={[styles.statCardBox, { backgroundColor: theme.cardBg, borderColor: theme.cardBorderSubtle }]}>
-            <Text style={[styles.statBigVal, { color: theme.textPrimary }]}>{Math.max(Number(userProfile?.followingCount ?? 0), followedUids.size, 2)}</Text>
-            <Text style={[styles.statSubLabel, { color: theme.textSecondary }]}>FOLLOWING</Text>
-          </View>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setListFilter((prev) => (prev === 'following' ? 'all' : 'following'))}
+            style={[
+              styles.statCardBox,
+              {
+                backgroundColor: theme.cardBg,
+                borderColor: listFilter === 'following' ? '#00E5FF' : theme.cardBorderSubtle,
+              },
+            ]}
+          >
+            <Text style={[styles.statBigVal, { color: theme.textPrimary }]}>{effectiveFollowingCount}</Text>
+            <Text style={[styles.statSubLabel, { color: listFilter === 'following' ? '#00E5FF' : theme.textSecondary }]}>FOLLOWING</Text>
+          </TouchableOpacity>
 
           <View
             style={[
@@ -529,10 +554,55 @@ export default function ProfileScreen({ navigation }) {
           {isSearching && <ActivityIndicator size="small" color="#00E5FF" />}
         </View>
 
+        {/* Filter Tabs: All Players / Following / Followers */}
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 14, marginBottom: 4 }}>
+          {[
+            { key: 'all', label: `All Players (${communityUsers.length})` },
+            { key: 'following', label: `Following (${effectiveFollowingCount})` },
+            { key: 'followers', label: `Followers (${effectiveFollowersCount})` },
+          ].map((tab) => {
+            const active = listFilter === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                activeOpacity={0.85}
+                onPress={() => setListFilter(tab.key)}
+                style={{
+                  flex: 1,
+                  paddingVertical: 9,
+                  paddingHorizontal: 8,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: active ? '#00E5FF' : theme.cardBorderSubtle,
+                  backgroundColor: active ? 'rgba(0, 229, 255, 0.14)' : theme.cardBg,
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    color: active ? '#00E5FF' : theme.textSecondary,
+                    fontSize: 11,
+                    fontWeight: '800',
+                  }}
+                  numberOfLines={1}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         {/* Active Friends List Section */}
         <View style={styles.friendsSectionHeader}>
           <Text style={[styles.friendsTitle, { color: theme.textSecondary }]}>
-            {searchQuery.trim() ? 'SEARCH RESULTS' : 'COMMUNITY PLAYERS'}
+            {searchQuery.trim()
+              ? 'SEARCH RESULTS'
+              : listFilter === 'following'
+              ? 'PLAYERS YOU FOLLOW'
+              : listFilter === 'followers'
+              ? 'PLAYERS FOLLOWING YOU'
+              : 'COMMUNITY PLAYERS'}
           </Text>
           <Text style={styles.onlineCountText}>{displayedUsers.length} Players</Text>
         </View>
@@ -541,13 +611,22 @@ export default function ProfileScreen({ navigation }) {
           {displayedUsers.length === 0 ? (
             <View style={{ paddingVertical: 20, alignItems: 'center' }}>
               <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '600' }}>
-                {searchQuery.trim() ? `No player found matching "${searchQuery}"` : (loadingCommunity ? 'Loading players from database...' : 'No other players registered yet.')}
+                {searchQuery.trim()
+                  ? `No player found matching "${searchQuery}"`
+                  : listFilter === 'following'
+                  ? 'You are not following any players yet. Tap Follow on any player to follow them!'
+                  : listFilter === 'followers'
+                  ? 'No players are following you yet.'
+                  : loadingCommunity
+                  ? 'Loading players from database...'
+                  : 'No other players registered yet.'}
               </Text>
             </View>
           ) : (
             displayedUsers.map((person) => {
               const pUid = person.uid || person.id;
               const isFollowed = followedUids.has(pUid);
+              const followsYou = followersUids.has(pUid);
               const pName = person.displayName || person.name || '';
               const pUsername = person.username || '';
               const pGp = person.gp != null ? person.gp : (person.gamePower || 0);
@@ -575,17 +654,21 @@ export default function ProfileScreen({ navigation }) {
                       <View style={styles.gpBadge}>
                         <Text style={styles.gpBadgeText}>⚡ {pGp} GP</Text>
                       </View>
+                      {followsYou && (
+                        <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.16)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                          <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '800' }}>Follows You</Text>
+                        </View>
+                      )}
                     </View>
                   </View>
 
                   <TouchableOpacity
                     activeOpacity={0.85}
-                    disabled={isFollowed}
                     onPress={() => handleFollow(person)}
                     style={[styles.followBtn, isFollowed ? styles.followingBtn : styles.followBtnActive]}
                   >
                     <Text style={[styles.followBtnText, isFollowed ? styles.followingBtnText : styles.followBtnActiveText]}>
-                      {isFollowed ? 'Following ✓' : 'Follow'}
+                      {isFollowed ? 'Unfollow' : (followsYou ? 'Follow Back' : 'Follow')}
                     </Text>
                   </TouchableOpacity>
                 </View>

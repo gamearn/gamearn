@@ -44,6 +44,8 @@ export default function GameSectionScreen({ route, navigation }) {
           ? allPlayersRes.value
           : [];
 
+        const d = new Date();
+        const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const map = new Map();
         const addEntry = (item, isFromGameLb = false) => {
           if (!item) return;
@@ -54,14 +56,25 @@ export default function GameSectionScreen({ route, navigation }) {
           let plays = existing?.plays ?? 0;
           let wins = existing?.wins ?? 0;
           if (isFromGameLb) {
-            const rawPlays = item.periodPlays !== undefined
+            const rawPlays = period === 'Daily' && item.periodPlays !== undefined
               ? Number(item.periodPlays)
               : Number(item.plays ?? item.gamesPlayed ?? 0);
-            const rawWins = item.periodWins !== undefined
+            const rawWins = period === 'Daily' && item.periodWins !== undefined
               ? Number(item.periodWins)
               : Number(item.wins ?? item.gamesWon ?? 0);
             plays = Math.max(plays, rawPlays);
             wins = Math.max(wins, rawWins);
+          } else {
+            const gs = item.gameStats || {};
+            const gSt = gs[key] || (key === 'draft' ? (gs.draughts || gs.checkers) : null) || {};
+            if (period === 'Daily') {
+              const isToday = gSt.lastPlayedDate === todayStr;
+              plays = Math.max(plays, isToday ? Number(gSt.dailyPlays ?? 0) : 0);
+              wins = Math.max(wins, isToday ? Number(gSt.dailyWins ?? 0) : 0);
+            } else {
+              plays = Math.max(plays, Number(gSt.gamesPlayed ?? gSt.plays ?? 0));
+              wins = Math.max(wins, Number(gSt.wins ?? 0));
+            }
           }
           const gp = item.gp != null
             ? Number(item.gp)
@@ -76,8 +89,8 @@ export default function GameSectionScreen({ route, navigation }) {
             avatar: item.avatar || item.avatarUrl || existing?.avatar || null,
             plays,
             wins,
-            periodPlays: isFromGameLb ? plays : (existing?.periodPlays ?? 0),
-            periodWins: isFromGameLb ? wins : (existing?.periodWins ?? 0),
+            periodPlays: period === 'Daily' ? plays : (isFromGameLb ? plays : (existing?.periodPlays ?? plays)),
+            periodWins: period === 'Daily' ? wins : (isFromGameLb ? wins : (existing?.periodWins ?? wins)),
             gp: Math.max(gp, existing?.gp || 0),
             isUser: Boolean(userProfile?.uid && uid === userProfile.uid),
           });
@@ -97,7 +110,7 @@ export default function GameSectionScreen({ route, navigation }) {
     return () => {
       active = false;
     };
-  }, [period, key, userProfile?.uid]);
+  }, [period, key, userProfile?.uid, userProfile?.gamesPlayed, userProfile?.wins]);
 
   useEffect(() => {
     let live = true;

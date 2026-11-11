@@ -49,7 +49,12 @@ async function getCachedProfile(uid) {
       if (rawUid) return JSON.parse(rawUid);
     }
     const rawGlobal = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
-    return rawGlobal ? JSON.parse(rawGlobal) : null;
+    if (!rawGlobal) return null;
+    const parsed = JSON.parse(rawGlobal);
+    if (uid && parsed?.uid && parsed.uid !== uid) {
+      return null;
+    }
+    return parsed;
   } catch (e) {
     return null;
   }
@@ -73,13 +78,11 @@ async function writeCachedProfile(me, uid) {
   }
 }
 
-async function clearCachedProfile(uid) {
+async function clearCachedProfile() {
   try {
+    // Only remove the active-session pointer; preserve @gamearn_profile_${uid}
+    // so logging out and logging back in never loses a player's GP, VP, Wins, or Plays.
     await AsyncStorage.removeItem(PROFILE_CACHE_KEY);
-    const targetUid = uid || getCurrentUser()?.uid;
-    if (targetUid) {
-      await AsyncStorage.removeItem(`@gamearn_profile_${targetUid}`);
-    }
   } catch {
     // Cache clearing is best-effort.
   }
@@ -87,18 +90,105 @@ async function clearCachedProfile(uid) {
 
 
 function profileFromMe(me, cached) {
-  const meWins = Number(me?.stats?.wins ?? me?.wins ?? me?.gamesWon ?? 0);
-  const cachedWins = Number(cached?.wins ?? cached?.gamesWon ?? 0);
-  const wins = meWins;
+  const rawMeStats = {
+    ...((me && me.settings && me.settings.gameStats) || {}),
+    ...((me && me.gameStats) || {}),
+  };
+  const rawCachedStats = {
+    ...((cached && cached.settings && cached.settings.gameStats) || {}),
+    ...((cached && cached.gameStats) || {}),
+  };
+  const allStatKeys = new Set([...Object.keys(rawMeStats), ...Object.keys(rawCachedStats)]);
+  const gameStats = {};
+  for (const k of allStatKeys) {
+    const mStat = rawMeStats[k] || {};
+    const cStat = rawCachedStats[k] || {};
+    const mWins = Number(mStat.wins || 0);
+    const cWins = Number(cStat.wins || 0);
+    const mLosses = Number(mStat.losses || 0);
+    const cLosses = Number(cStat.losses || 0);
+    const mDraws = Number(mStat.draws || 0);
+    const cDraws = Number(cStat.draws || 0);
+    const mPlayed = Number(mStat.gamesPlayed ?? mStat.plays ?? (mWins + mLosses + mDraws));
+    const cPlayed = Number(cStat.gamesPlayed ?? cStat.plays ?? (cWins + cLosses + cDraws));
+    const mergedWins = Math.max(mWins, cWins);
+    const mergedLosses = Math.max(mLosses, cLosses);
+    const mergedDraws = Math.max(mDraws, cDraws);
+    const mergedPlayed = Math.max(mPlayed, cPlayed, mergedWins + mergedLosses + mergedDraws);
+    const claimedWinStreakTier = Math.max(Number(mStat.claimedWinStreakTier || 0), Number(cStat.claimedWinStreakTier || 0));
+    gameStats[k] = {
+      ...cStat,
+      ...mStat,
+      wins: mergedWins,
+      losses: mergedLosses,
+      draws: mergedDraws,
+      gamesPlayed: mergedPlayed,
+      dailyPlays: Math.max(Number(mStat.dailyPlays || 0), Number(cStat.dailyPlays || 0)),
+      dailyWins: Math.max(Number(mStat.dailyWins || 0), Number(cStat.dailyWins || 0)),
+      lastPlayedDate: mStat.lastPlayedDate || cStat.lastPlayedDate || null,
+      winStreak: Number(mStat.winStreak !== undefined ? mStat.winStreak : (cStat.winStreak ?? 0)),
+      claimedWinStreakTier,
+    };
+  }
+  if (gameStats.draft || gameStats.draughts || gameStats.checkers) {
+    const d1 = gameStats.draughts || {};
+    const d2 = gameStats.draft || {};
+    const d3 = gameStats.checkers || {};
+    const cw = Math.max(Number(d1.wins || 0), Number(d2.wins || 0), Number(d3.wins || 0));
+    const cl = Math.max(Number(d1.losses || 0), Number(d2.losses || 0), Number(d3.losses || 0));
+    const cd = Math.max(Number(d1.draws || 0), Number(d2.draws || 0), Number(d3.draws || 0));
+    const cp = Math.max(Number(d1.gamesPlayed || 0), Number(d2.gamesPlayed || 0), Number(d3.gamesPlayed || 0), cw + cl + cd);
+    const unifiedDraft = {
+      ...d2,
+      ...d1,
+      wins: cw,
+      losses: cl,
+      draws: cd,
+      gamesPlayed: cp,
+      dailyPlays: Math.max(Number(d1.dailyPlays || 0), Number(d2.dailyPlays || 0), Number(d3.dailyPlays || 0)),
+      dailyWins: Math.max(Number(d1.dailyWins || 0), Number(d2.dailyWins || 0), Number(d3.dailyWins || 0)),
+      lastPlayedDate: d1.lastPlayedDate || d2.lastPlayedDate || d3.lastPlayedDate || null,
+      winStreak: (() => {
+        const mDraft = rawMeStats.draughts || rawMeStats.draft || rawMeStats.checkers;
+        if (mDraft && mDraft.winStreak !== undefined) return Number(mDraft.winStreak);
+        return Math.max(Number(d1.winStreak || 0), Number(d2.winStreak || 0), Number(d3.winStreak || 0));
+      })(),
+      claimedWinStreakTier: Math.max(Number(d1.claimedWinStreakTier || 0), Number(d2.claimedWinStreakTier || 0), Number(d3.claimedWinStreakTier || 0)),
+    };
+    gameStats.draughts = unifiedDraft;
+    gameStats.draft = unifiedDraft;
+  }
 
-  const meLosses = Number(me?.stats?.losses ?? me?.losses ?? me?.gamesLost ?? 0);
-  const cachedLosses = Number(cached?.losses ?? cached?.gamesLost ?? 0);
-  const losses = meLosses;
+  let statsWinsSum = 0;
+  let statsLossesSum = 0;
+  let statsDrawsSum = 0;
+  let statsPlayedSum = 0;
+  for (const gk of ['whot', 'ludo', 'ayo', 'draughts']) {
+    const st = gameStats[gk];
+    if (st) {
+      statsWinsSum += Number(st.wins || 0);
+      statsLossesSum += Number(st.losses || 0);
+      statsDrawsSum += Number(st.draws || 0);
+      statsPlayedSum += Number(st.gamesPlayed || 0);
+    }
+  }
 
-  const mePlayed = Number(me?.stats?.gamesPlayed ?? me?.gamesPlayed ?? me?.stats?.games ?? 0);
-  const cachedPlayed = Number(cached?.gamesPlayed ?? 0);
-  const draws = Number(me?.stats?.draws ?? me?.draws ?? 0);
-  const gamesPlayed = wins + losses + draws;
+  const meWins = Number(me?.stats?.wins ?? me?.wins ?? me?.gamesWon ?? me?.settings?.wins ?? 0);
+  const cachedWins = Number(cached?.wins ?? cached?.gamesWon ?? cached?.settings?.wins ?? 0);
+  const wins = Math.max(meWins, cachedWins, statsWinsSum);
+
+  const meLosses = Number(me?.stats?.losses ?? me?.losses ?? me?.gamesLost ?? me?.settings?.losses ?? 0);
+  const cachedLosses = Number(cached?.losses ?? cached?.gamesLost ?? cached?.settings?.losses ?? 0);
+  const losses = Math.max(meLosses, cachedLosses, statsLossesSum);
+
+  const mePlayed = Number(me?.stats?.gamesPlayed ?? me?.gamesPlayed ?? me?.stats?.games ?? me?.settings?.gamesPlayed ?? 0);
+  const cachedPlayed = Number(cached?.gamesPlayed ?? cached?.settings?.gamesPlayed ?? 0);
+  const draws = Math.max(
+    Number(me?.stats?.draws ?? me?.draws ?? 0),
+    Number(cached?.draws ?? 0),
+    statsDrawsSum
+  );
+  const gamesPlayed = Math.max(mePlayed, cachedPlayed, statsPlayedSum, wins + losses + draws);
 
   const todayStr = getLocalDateString();
   const lastDateStr = me?.lastStreakDate || me?.lastPlayedDate || me?.lastCheckInDate || cached?.lastStreakDate || cached?.lastPlayedDate || cached?.lastCheckInDate;
@@ -140,95 +230,46 @@ function profileFromMe(me, cached) {
     Number(cached?.walletBalance ?? 0)
   );
 
-  // GP/VP are server-authoritative (GET /auth/me). Only compute locally as an
-  // offline fallback when the server value is absent, so the app can never show
-  // GP/VP that disagrees with the backend (which tournament standings use).
-  const serverGp = Number(me?.gamePower);
-  const gp = Number.isFinite(serverGp)
-    ? Math.min(100, Math.max(0, Math.round(serverGp)))
-    : calculateGamePower(gamesPlayed, wins, losses);
-
-  // Per-game careers are server-authoritative. Only fall back to the local
-  // cache when there is no server profile at all (offline), so stale/wrong-keyed
-  // cached buckets can never override fresh server data.
-  const rawMeStats = (me && me.gameStats) || {};
-  const rawCachedStats = (cached && cached.gameStats) || {};
-  const allStatKeys = new Set([...Object.keys(rawMeStats), ...Object.keys(rawCachedStats)]);
-  const gameStats = {};
-  let hasClaimedWinStreak = false;
-  for (const k of allStatKeys) {
-    const mStat = rawMeStats[k] || {};
-    const cStat = rawCachedStats[k] || {};
-    const mWins = Number(mStat.wins || 0);
-    const cWins = Number(cStat.wins || 0);
-    const mLosses = Number(mStat.losses || 0);
-    const cLosses = Number(cStat.losses || 0);
-    const mDraws = Number(mStat.draws || 0);
-    const cDraws = Number(cStat.draws || 0);
-    const mPlayed = Number(mStat.gamesPlayed ?? mStat.plays ?? (mWins + mLosses + mDraws));
-    const cPlayed = Number(cStat.gamesPlayed ?? cStat.plays ?? (cWins + cLosses + cDraws));
-    const mergedWins = Math.max(mWins, cWins);
-    const mergedLosses = Math.max(mLosses, cLosses);
-    const mergedDraws = Math.max(mDraws, cDraws);
-    const mergedPlayed = Math.max(mPlayed, cPlayed, mergedWins + mergedLosses + mergedDraws);
-    const claimedWinStreakTier = Math.max(Number(mStat.claimedWinStreakTier || 0), Number(cStat.claimedWinStreakTier || 0));
-    if (claimedWinStreakTier > 0) hasClaimedWinStreak = true;
-    gameStats[k] = {
-      ...cStat,
-      ...mStat,
-      wins: mergedWins,
-      losses: mergedLosses,
-      draws: mergedDraws,
-      gamesPlayed: mergedPlayed,
-      winStreak: Number(mStat.winStreak !== undefined ? mStat.winStreak : (cStat.winStreak ?? 0)),
-      claimedWinStreakTier,
-    };
-  }
-  if (gameStats.draft || gameStats.draughts || gameStats.checkers) {
-    const d1 = gameStats.draughts || {};
-    const d2 = gameStats.draft || {};
-    const d3 = gameStats.checkers || {};
-    const cw = Math.max(Number(d1.wins || 0), Number(d2.wins || 0), Number(d3.wins || 0));
-    const cl = Math.max(Number(d1.losses || 0), Number(d2.losses || 0), Number(d3.losses || 0));
-    const cd = Math.max(Number(d1.draws || 0), Number(d2.draws || 0), Number(d3.draws || 0));
-    const cp = Math.max(Number(d1.gamesPlayed || 0), Number(d2.gamesPlayed || 0), Number(d3.gamesPlayed || 0), cw + cl + cd);
-    const unifiedDraft = {
-      ...d2,
-      ...d1,
-      wins: cw,
-      losses: cl,
-      draws: cd,
-      gamesPlayed: cp,
-      winStreak: (() => {
-        const mDraft = rawMeStats.draughts || rawMeStats.draft || rawMeStats.checkers;
-        if (mDraft && mDraft.winStreak !== undefined) return Number(mDraft.winStreak);
-        return Math.max(Number(d1.winStreak || 0), Number(d2.winStreak || 0), Number(d3.winStreak || 0));
-      })(),
-      claimedWinStreakTier: Math.max(Number(d1.claimedWinStreakTier || 0), Number(d2.claimedWinStreakTier || 0), Number(d3.claimedWinStreakTier || 0)),
-    };
-    gameStats.draughts = unifiedDraft;
-    gameStats.draft = unifiedDraft;
-  }
+  const computedGp = calculateGamePower(gamesPlayed, wins, losses);
+  const gp = Math.min(
+    100,
+    Math.max(
+      0,
+      Math.round(
+        Math.max(
+          Number(me?.gamePower || 0),
+          Number(me?.gp || 0),
+          Number(me?.settings?.gp || me?.settings?.gamePower || 0),
+          Number(cached?.gp ?? cached?.gamePower ?? 0),
+          computedGp
+        )
+      )
+    )
+  );
 
   const lastStreakMilestoneAwarded = Math.max(
     Number(me?.lastStreakMilestoneAwarded ?? me?.settings?.lastStreakMilestoneAwarded ?? 0),
     Number(cached?.lastStreakMilestoneAwarded ?? cached?.settings?.lastStreakMilestoneAwarded ?? 0)
   );
 
-  // Value Points come from the database or earned awards (default 0 VP until won/claimed).
-  // Any legacy 10 VP floor on an account with 0 wallet balance and 0 claimed awards is reset to 0.
-  const rawServerVp = Number(me?.valuePoints ?? me?.vp ?? 0);
-  const rawEarnedVp = Number(me?.earnedVp ?? cached?.earnedVp ?? 0);
+  const rawServerVp = Number(me?.valuePoints ?? me?.vp ?? me?.settings?.valuePoints ?? 0);
+  const rawCachedVp = Number(cached?.valuePoints ?? cached?.vp ?? cached?.settings?.valuePoints ?? 0);
+  const rawEarnedVp = Math.max(
+    Number(me?.earnedVp ?? 0),
+    Number(cached?.earnedVp ?? 0),
+    rawCachedVp
+  );
   const computedVp = calculateValuePoints(rawNaira, gamesPlayed, wins);
-  const hasAnyEarnedAward = rawNaira > 0 || rawEarnedVp > 0 || lastStreakMilestoneAwarded > 0 || hasClaimedWinStreak;
-  const effectiveServerVp = (rawServerVp === 10 && !hasAnyEarnedAward) ? 0 : rawServerVp;
   const vp = Math.max(
     0,
-    Math.round(Math.max(
-      Number.isFinite(effectiveServerVp) ? effectiveServerVp : 0,
-      Number.isFinite(rawEarnedVp) ? rawEarnedVp : 0,
-      Number.isFinite(computedVp) ? computedVp : 0
-    ) * 10) / 10
+    Math.round(
+      Math.max(
+        Number.isFinite(rawServerVp) ? rawServerVp : 0,
+        Number.isFinite(rawCachedVp) ? rawCachedVp : 0,
+        Number.isFinite(rawEarnedVp) ? rawEarnedVp : 0,
+        Number.isFinite(computedVp) ? computedVp : 0
+      ) * 10
+    ) / 10
   );
 
   const fullName = me?.fullName || cached?.fullName || me?.displayName || cached?.displayName || '';
@@ -240,10 +281,19 @@ function profileFromMe(me, cached) {
                             (cached?.email?.toLowerCase() === 'abbagem@gmail.com');
   const isAdmin = !!(me?.isAdmin || cached?.isAdmin || isSuperAdminEmail);
 
-  const followingList = Array.from(new Set([
-    ...(Array.isArray(me?.followingList) ? me.followingList : []),
-    ...(Array.isArray(cached?.followingList) ? cached.followingList : []),
-  ]));
+  const followingList = Array.isArray(me?.followingList)
+    ? me.followingList
+    : (Array.isArray(cached?.followingList) ? cached.followingList : []);
+
+  const dailyPlays = Math.max(
+    Number(me?.dailyPlays ?? me?.settings?.dailyPlays ?? 0),
+    Number(cached?.dailyPlays ?? cached?.settings?.dailyPlays ?? 0)
+  );
+  const dailyWins = Math.max(
+    Number(me?.dailyWins ?? me?.settings?.dailyWins ?? 0),
+    Number(cached?.dailyWins ?? cached?.settings?.dailyWins ?? 0)
+  );
+  const lastDailyPlayDate = me?.lastDailyPlayDate || cached?.lastDailyPlayDate || newLastStreakDate;
 
   return {
     ...cached,
@@ -264,6 +314,9 @@ function profileFromMe(me, cached) {
     losses,
     gamesLost: losses,
     draws,
+    dailyPlays,
+    dailyWins,
+    lastDailyPlayDate,
     streak: updatedStreak,
     currentStreak: updatedStreak,
     lastStreakDate: newLastStreakDate,
@@ -272,18 +325,14 @@ function profileFromMe(me, cached) {
     lastStreakPersistedDate,
     followersCount: Math.max(Number(me?.followersCount ?? 0), Number(cached?.followersCount ?? 0)),
     followingList,
-    followingCount: Math.max(
-      Number(me?.followingCount ?? 0),
-      Number(cached?.followingCount ?? 0),
-      followingList.length
-    ),
+    followingCount: followingList.length,
     gamePower: gp,
     gp,
     gpText: formatGP(gp),
     valuePoints: vp,
     vp,
     vpText: formatVP(vp),
-    earnedVp: rawEarnedVp,
+    earnedVp: Math.max(rawEarnedVp, vp),
     gameStats,
     lastStreakMilestoneAwarded,
     referredByCode: me?.referredByCode || cached?.referredByCode || me?.settings?.referredByCode || cached?.settings?.referredByCode || null,
@@ -372,71 +421,71 @@ export const AuthProvider = ({ children }) => {
       const me = await authApi.me();
       const isAdmin = await isAdminUser();
 
-      let permFollowing = [];
+      let permFollowingV2 = null;
       let permFollowers = 0;
       let earnedVp = 0;
+      let legacyPermVp = 0;
       let permGameStats = {};
       let permClaimedDaily = 0;
       let storedReferredBy = null;
       try {
-        const [rawF, rawFollowers, rawEarnedVp, rawGs, rawDaily, rawRefBy] = await Promise.all([
-          AsyncStorage.getItem(`@gamearn_permanent_following_${uid}`),
+        const [rawF2, rawFollowers, rawEarnedVp, rawPermVp, rawGs, rawDaily, rawRefBy] = await Promise.all([
+          AsyncStorage.getItem(`@gamearn_following_v2_${uid}`),
           AsyncStorage.getItem(`@gamearn_permanent_followers_${uid}`),
           AsyncStorage.getItem(`@gamearn_earned_vp_${uid}`),
+          AsyncStorage.getItem(`@gamearn_permanent_vp_${uid}`),
           AsyncStorage.getItem(`@gamearn_gamestats_${uid}`),
           AsyncStorage.getItem(`@gamearn_claimed_daily_milestone_${uid}`),
           AsyncStorage.getItem(`@gamearn_referred_by_${uid}`),
         ]);
-        if (rawF) permFollowing = JSON.parse(rawF);
+        if (rawF2 !== null) permFollowingV2 = JSON.parse(rawF2);
         if (rawFollowers) permFollowers = Number(JSON.parse(rawFollowers)) || 0;
         if (rawEarnedVp) earnedVp = Number(JSON.parse(rawEarnedVp)) || 0;
+        if (rawPermVp) legacyPermVp = Number(JSON.parse(rawPermVp)) || 0;
         if (rawGs) permGameStats = JSON.parse(rawGs) || {};
         if (rawDaily) permClaimedDaily = Number(rawDaily) || 0;
         if (rawRefBy) storedReferredBy = String(rawRefBy).trim();
       } catch {}
 
-      const mergedFollowingList = Array.from(new Set([
-        ...(Array.isArray(me?.followingList) ? me.followingList : []),
-        ...(Array.isArray(cached?.followingList) ? cached.followingList : []),
-        ...(Array.isArray(permFollowing) ? permFollowing : []),
-      ]));
-      const mergedFollowingCount = Math.max(
-        Number(me?.followingCount ?? 0),
-        Number(cached?.followingCount ?? 0),
-        mergedFollowingList.length
-      );
+      const serverFollowingExplicit = Boolean(me?.settings?.followingExplicit);
+      const mergedFollowingList = Array.isArray(permFollowingV2)
+        ? permFollowingV2
+        : (serverFollowingExplicit && Array.isArray(me?.followingList) ? me.followingList : []);
+      const mergedFollowingCount = mergedFollowingList.length;
       const mergedFollowersCount = Math.max(Number(me?.followersCount ?? cached?.followersCount ?? 0), permFollowers);
 
       const rawNaira = Math.max(
         Number(me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? 0),
         Number(cached?.walletBalance ?? 0)
       );
-      const mergedGameStats = { ...(cached?.gameStats || {}), ...(permGameStats || {}), ...(me?.gameStats || {}) };
-      const hasClaimedWinStreak = Object.values(mergedGameStats).some((s) => Number(s?.claimedWinStreakTier || 0) > 0);
+      const mergedGameStats = {
+        ...(cached?.gameStats || {}),
+        ...(permGameStats || {}),
+        ...((me?.settings && me.settings.gameStats) || {}),
+        ...(me?.gameStats || {}),
+      };
       const lastDailyMilestone = Math.max(
         Number(me?.lastStreakMilestoneAwarded ?? me?.settings?.lastStreakMilestoneAwarded ?? 0),
         Number(cached?.lastStreakMilestoneAwarded ?? 0),
         permClaimedDaily
       );
-      const hasEarnedAward = rawNaira > 0 || earnedVp > 0 || lastDailyMilestone > 0 || hasClaimedWinStreak;
-      const rawServerVp = Number(me?.valuePoints ?? me?.vp ?? 0);
-      const cleanServerVp = (rawServerVp === 10 && !hasEarnedAward) ? 0 : rawServerVp;
+      const rawServerVp = Number(me?.valuePoints ?? me?.vp ?? me?.settings?.valuePoints ?? 0);
+      const rawCachedVp = Number(cached?.valuePoints ?? cached?.vp ?? cached?.earnedVp ?? 0);
+      const maxLocalVp = Math.max(Number(earnedVp || 0), Number(legacyPermVp || 0), rawCachedVp);
 
       const mergedVp = Math.max(
         0,
-        Math.round(Math.max(cleanServerVp, Number(earnedVp || 0), Math.floor(rawNaira / 50)) * 10) / 10
+        Math.round(Math.max(rawServerVp, maxLocalVp, Math.floor(rawNaira / 50)) * 10) / 10
       );
 
-      try {
-        if (mergedFollowingList.length > 0) {
-          await AsyncStorage.setItem(`@gamearn_permanent_following_${uid}`, JSON.stringify(mergedFollowingList));
-        }
-      } catch {}
+      if (mergedVp > 0) {
+        AsyncStorage.setItem(`@gamearn_earned_vp_${uid}`, String(mergedVp)).catch(() => {});
+      }
 
       const mergedMe = {
         ...me,
         isAdmin,
-        earnedVp: Number(earnedVp || 0),
+        earnedVp: mergedVp,
         valuePoints: mergedVp,
         vp: mergedVp,
         gameStats: mergedGameStats,
@@ -447,17 +496,28 @@ export const AuthProvider = ({ children }) => {
         followersCount: mergedFollowersCount,
       };
 
-      if (Number(me?.valuePoints ?? 0) !== mergedVp || Number(me?.followingCount ?? 0) < mergedFollowingCount) {
+      const profile = profileFromMe(mergedMe, cached);
+      await writeCachedProfile(profile, uid);
+
+      if (
+        Number(me?.valuePoints ?? 0) !== profile.valuePoints ||
+        Number(me?.gamesPlayed ?? 0) < profile.gamesPlayed ||
+        Number(me?.wins ?? 0) < profile.wins ||
+        Number(me?.followingCount ?? 0) !== mergedFollowingCount
+      ) {
         authApi.updateProfile({
-          valuePoints: mergedVp,
-          vp: mergedVp,
+          valuePoints: profile.valuePoints,
+          vp: profile.valuePoints,
+          gamesPlayed: profile.gamesPlayed,
+          wins: profile.wins,
+          losses: profile.losses,
+          gp: profile.gp,
+          gameStats: profile.gameStats,
           followingList: mergedFollowingList,
           followingCount: mergedFollowingCount,
         }).catch(() => {});
       }
 
-      await writeCachedProfile(mergedMe, uid);
-      const profile = profileFromMe(mergedMe, cached);
       setUserProfile(profile);
       setBackendReady(true);
       registerKnownPlatformPlayer(profile);

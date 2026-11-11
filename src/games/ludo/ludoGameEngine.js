@@ -8,7 +8,7 @@ export const PLAYERS = [
     color: '#EF4444',
     bgDark: '#991B1B',
     accentColor: '#F87171',
-    startCell: { r: 1, c: 6 },
+    startCell: { r: 6, c: 1 },
     startTrackIndex: 0,
     isAi: false,
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Player1Male',
@@ -20,7 +20,7 @@ export const PLAYERS = [
     color: '#10B981',
     bgDark: '#065F46',
     accentColor: '#34D399',
-    startCell: { r: 6, c: 13 },
+    startCell: { r: 1, c: 8 },
     startTrackIndex: 13,
     isAi: true,
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Player2Female',
@@ -32,7 +32,7 @@ export const PLAYERS = [
     color: '#3B82F6',
     bgDark: '#1E40AF',
     accentColor: '#60A5FA',
-    startCell: { r: 13, c: 8 },
+    startCell: { r: 8, c: 13 },
     startTrackIndex: 26,
     isAi: true,
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Player4Female',
@@ -44,35 +44,35 @@ export const PLAYERS = [
     color: '#F59E0B',
     bgDark: '#92400E',
     accentColor: '#FBBF24',
-    startCell: { r: 8, c: 1 },
+    startCell: { r: 13, c: 6 },
     startTrackIndex: 39,
     isAi: true,
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Player3Male',
   },
 ];
 
-// Global 52 main track coordinates in clockwise sequence starting from Red entry (1,6)
+// Global 52 main track coordinates in TRUE CLOCKWISE sequence starting from Red entry (6,1)
 export const MAIN_TRACK = [
-  { r: 1, c: 6 }, { r: 2, c: 6 }, { r: 3, c: 6 }, { r: 4, c: 6 }, { r: 5, c: 6 },
-  { r: 6, c: 5 }, { r: 6, c: 4 }, { r: 6, c: 3 }, { r: 6, c: 2 }, { r: 6, c: 1 }, { r: 6, c: 0 },
-  { r: 7, c: 0 },
-  { r: 8, c: 0 }, { r: 8, c: 1 }, { r: 8, c: 2 }, { r: 8, c: 3 }, { r: 8, c: 4 }, { r: 8, c: 5 },
-  { r: 9, c: 6 }, { r: 10, c: 6 }, { r: 11, c: 6 }, { r: 12, c: 6 }, { r: 13, c: 6 }, { r: 14, c: 6 },
-  { r: 14, c: 7 },
-  { r: 14, c: 8 }, { r: 13, c: 8 }, { r: 12, c: 8 }, { r: 11, c: 8 }, { r: 10, c: 8 }, { r: 9, c: 8 },
-  { r: 8, c: 9 }, { r: 8, c: 10 }, { r: 8, c: 11 }, { r: 8, c: 12 }, { r: 8, c: 13 }, { r: 8, c: 14 },
+  { r: 6, c: 1 }, { r: 6, c: 2 }, { r: 6, c: 3 }, { r: 6, c: 4 }, { r: 6, c: 5 },
+  { r: 5, c: 6 }, { r: 4, c: 6 }, { r: 3, c: 6 }, { r: 2, c: 6 }, { r: 1, c: 6 }, { r: 0, c: 6 },
+  { r: 0, c: 7 },
+  { r: 0, c: 8 }, { r: 1, c: 8 }, { r: 2, c: 8 }, { r: 3, c: 8 }, { r: 4, c: 8 }, { r: 5, c: 8 },
+  { r: 6, c: 9 }, { r: 6, c: 10 }, { r: 6, c: 11 }, { r: 6, c: 12 }, { r: 6, c: 13 }, { r: 6, c: 14 },
   { r: 7, c: 14 },
-  { r: 6, c: 14 }, { r: 6, c: 13 }, { r: 6, c: 12 }, { r: 6, c: 11 }, { r: 6, c: 10 }, { r: 6, c: 9 },
-  { r: 5, c: 8 }, { r: 4, c: 8 }, { r: 3, c: 8 }, { r: 2, c: 8 }, { r: 1, c: 8 }, { r: 0, c: 8 },
-  { r: 0, c: 7 }, { r: 0, c: 6 },
+  { r: 8, c: 14 }, { r: 8, c: 13 }, { r: 8, c: 12 }, { r: 8, c: 11 }, { r: 8, c: 10 }, { r: 8, c: 9 },
+  { r: 9, c: 8 }, { r: 10, c: 8 }, { r: 11, c: 8 }, { r: 12, c: 8 }, { r: 13, c: 8 }, { r: 14, c: 8 },
+  { r: 14, c: 7 },
+  { r: 14, c: 6 }, { r: 13, c: 6 }, { r: 12, c: 6 }, { r: 11, c: 6 }, { r: 10, c: 6 }, { r: 9, c: 6 },
+  { r: 8, c: 5 }, { r: 8, c: 4 }, { r: 8, c: 3 }, { r: 8, c: 2 }, { r: 8, c: 1 }, { r: 8, c: 0 },
+  { r: 7, c: 0 }, { r: 6, c: 0 },
 ];
 
-// Home stretches leading to victory center
+// Home stretches leading to victory center in clockwise layout
 export const HOME_STRETCHES = {
-  0: [{ r: 1, c: 7 }, { r: 2, c: 7 }, { r: 3, c: 7 }, { r: 4, c: 7 }, { r: 5, c: 7 }, { r: 6, c: 7 }], // Red
-  1: [{ r: 7, c: 13 }, { r: 7, c: 12 }, { r: 7, c: 11 }, { r: 7, c: 10 }, { r: 7, c: 9 }, { r: 7, c: 8 }], // Green
-  2: [{ r: 13, c: 7 }, { r: 12, c: 7 }, { r: 11, c: 7 }, { r: 10, c: 7 }, { r: 9, c: 7 }, { r: 8, c: 7 }], // Blue
-  3: [{ r: 7, c: 1 }, { r: 7, c: 2 }, { r: 7, c: 3 }, { r: 7, c: 4 }, { r: 7, c: 5 }, { r: 7, c: 6 }], // Yellow
+  0: [{ r: 7, c: 1 }, { r: 7, c: 2 }, { r: 7, c: 3 }, { r: 7, c: 4 }, { r: 7, c: 5 }, { r: 7, c: 6 }], // Red (Left -> Center)
+  1: [{ r: 1, c: 7 }, { r: 2, c: 7 }, { r: 3, c: 7 }, { r: 4, c: 7 }, { r: 5, c: 7 }, { r: 6, c: 7 }], // Green (Top -> Center)
+  2: [{ r: 7, c: 13 }, { r: 7, c: 12 }, { r: 7, c: 11 }, { r: 7, c: 10 }, { r: 7, c: 9 }, { r: 7, c: 8 }], // Blue (Right -> Center)
+  3: [{ r: 13, c: 7 }, { r: 12, c: 7 }, { r: 11, c: 7 }, { r: 10, c: 7 }, { r: 9, c: 7 }, { r: 8, c: 7 }], // Yellow (Bottom -> Center)
 };
 
 // Safe spots where tokens cannot be captured

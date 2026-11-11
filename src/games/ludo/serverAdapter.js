@@ -24,16 +24,20 @@ export const DARK_BY_INDEX = ['#980014', '#bb7300', '#0033a8', '#006320'];
 export const LIGHT_BY_INDEX = ['#fca5a5', '#fde68a', '#93c5fd', '#6ee7b7'];
 export const NAME_BY_INDEX = ['Red', 'Yellow', 'Blue', 'Green'];
 
-export const START_RING = [0, 13, 26, 39];
+// Clockwise start positions per colorIdx (0: Red -> 0, 1: Yellow -> 39, 2: Blue -> 26, 3: Green -> 13)
+export const START_RING = [0, 39, 26, 13];
 export const SAFE_RING = [0, 8, 13, 21, 26, 34, 39, 47];
 
-// The backend only stores homePosition; the lane is implied by colorIdx.
-// 0 Red -> top lane, 1 Yellow -> left lane, 2 Blue -> bottom lane, 3 Green -> right lane
+// Clockwise home stretches per colorIdx:
+// 0 Red (Top-Left) -> left lane (7, 1..6)
+// 1 Yellow (Bottom-Left) -> bottom lane (13..8, 7)
+// 2 Blue (Bottom-Right) -> right lane (7, 13..8)
+// 3 Green (Top-Right) -> top lane (1..6, 7)
 export const LANE_BY_COLORIDX = [
-  HOME_STRETCHES[0], // Red -> top (1..6, 7)
-  HOME_STRETCHES[3], // Yellow -> left (7, 1..6)
-  HOME_STRETCHES[2], // Blue -> bottom (13..8, 7)
-  HOME_STRETCHES[1], // Green -> right (7, 13..8)
+  HOME_STRETCHES[0], // Red -> left (7, 1..6)
+  HOME_STRETCHES[3], // Yellow -> bottom (13..8, 7)
+  HOME_STRETCHES[2], // Blue -> right (7, 13..8)
+  HOME_STRETCHES[1], // Green -> top (1..6, 7)
 ];
 
 // Yard quadrant origin (top-left cell on the 15x15 grid) for each colorIdx:

@@ -121,9 +121,9 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
     if (!next) return;
     animatingRef.current = true;
     const n = next.cells.length - 1;
-    // Slow down square-by-square movement (~380ms per cell) so players can count along.
-    const stepMs = 380;
-    const duration = Math.max(400, stepMs * n);
+    // Slow down square-by-square movement (~480ms per cell) so players can clearly follow each token step.
+    const stepMs = 480;
+    const duration = Math.max(480, stepMs * n);
     setAnimStep(1);
     progress.setValue(0);
     setActiveMove(next);
@@ -305,11 +305,11 @@ export default function Board({ size, viewModel, onMove, legalIds }) {
           })
         )}
 
-        {/* Center Triangles */}
-        <Polygon points="6,6 9,6 7.5,7.5" fill={COLOR_BY_INDEX[0]} stroke="#1e293b" strokeWidth="0.04" />
-        <Polygon points="9,6 9,9 7.5,7.5" fill={COLOR_BY_INDEX[3]} stroke="#1e293b" strokeWidth="0.04" />
-        <Polygon points="9,9 6,9 7.5,7.5" fill={COLOR_BY_INDEX[2]} stroke="#1e293b" strokeWidth="0.04" />
-        <Polygon points="6,9 6,6 7.5,7.5" fill={COLOR_BY_INDEX[1]} stroke="#1e293b" strokeWidth="0.04" />
+        {/* Center Triangles matching clockwise home stretches */}
+        <Polygon points="6,6 9,6 7.5,7.5" fill={COLOR_BY_INDEX[3]} stroke="#1e293b" strokeWidth="0.04" />
+        <Polygon points="9,6 9,9 7.5,7.5" fill={COLOR_BY_INDEX[2]} stroke="#1e293b" strokeWidth="0.04" />
+        <Polygon points="9,9 6,9 7.5,7.5" fill={COLOR_BY_INDEX[1]} stroke="#1e293b" strokeWidth="0.04" />
+        <Polygon points="6,9 6,6 7.5,7.5" fill={COLOR_BY_INDEX[0]} stroke="#1e293b" strokeWidth="0.04" />
 
         {/* 8 Star Safe Haven Symbols (4 Start Squares + 4 Secondary Safe Squares) */}
         {[...safeCoord].map((k) => {
