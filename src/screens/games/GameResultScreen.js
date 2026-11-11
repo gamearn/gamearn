@@ -139,13 +139,51 @@ export default function GameResultScreen({ route, navigation }) {
         const thisGameLosses = prevGameLosses + (!isWinner && !isDraw ? 1 : 0);
         const newThisGameWinStreak = isWinner ? prevWinStreak + 1 : 0;
 
+        const now = new Date();
         const todayStr = getLocalDateString();
+        const weekKey = `${now.getFullYear()}-W${Math.ceil((((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)}`;
+        const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const yearKey = `${now.getFullYear()}`;
+
         const lastPlayDate = userProfile?.lastDailyPlayDate || userProfile?.lastPlayedDate || null;
         const isSameDay = lastPlayDate === todayStr;
         const newDailyPlays = isSameDay ? (Number(userProfile?.dailyPlays || 0) + 1) : 1;
         const newDailyWins = isSameDay ? (Number(userProfile?.dailyWins || 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
-        const currentGameDailyPlays = isSameDay ? (Number(fromStorage.dailyPlays ?? fromProfile.dailyPlays ?? 0) + 1) : 1;
-        const currentGameDailyWins = isSameDay ? (Number(fromStorage.dailyWins ?? fromProfile.dailyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+
+        const lastPlayWeek = userProfile?.lastPlayedWeek || null;
+        const isSameWeek = lastPlayWeek === weekKey;
+        const newWeeklyPlays = isSameWeek ? (Number(userProfile?.weeklyPlays || 0) + 1) : 1;
+        const newWeeklyWins = isSameWeek ? (Number(userProfile?.weeklyWins || 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+
+        const lastPlayMonth = userProfile?.lastPlayedMonth || null;
+        const isSameMonth = lastPlayMonth === monthKey;
+        const newMonthlyPlays = isSameMonth ? (Number(userProfile?.monthlyPlays || 0) + 1) : 1;
+        const newMonthlyWins = isSameMonth ? (Number(userProfile?.monthlyWins || 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+
+        const lastPlayYear = userProfile?.lastPlayedYear || null;
+        const isSameYear = lastPlayYear === yearKey;
+        const newYearlyPlays = isSameYear ? (Number(userProfile?.yearlyPlays || 0) + 1) : 1;
+        const newYearlyWins = isSameYear ? (Number(userProfile?.yearlyWins || 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+
+        const gameLastDay = fromStorage.lastPlayedDate || fromProfile.lastPlayedDate || null;
+        const isGameSameDay = gameLastDay === todayStr;
+        const currentGameDailyPlays = isGameSameDay ? (Number(fromStorage.dailyPlays ?? fromProfile.dailyPlays ?? 0) + 1) : 1;
+        const currentGameDailyWins = isGameSameDay ? (Number(fromStorage.dailyWins ?? fromProfile.dailyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+
+        const gameLastWeek = fromStorage.lastPlayedWeek || fromProfile.lastPlayedWeek || null;
+        const isGameSameWeek = gameLastWeek === weekKey;
+        const currentGameWeeklyPlays = isGameSameWeek ? (Number(fromStorage.weeklyPlays ?? fromProfile.weeklyPlays ?? 0) + 1) : 1;
+        const currentGameWeeklyWins = isGameSameWeek ? (Number(fromStorage.weeklyWins ?? fromProfile.weeklyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+
+        const gameLastMonth = fromStorage.lastPlayedMonth || fromProfile.lastPlayedMonth || null;
+        const isGameSameMonth = gameLastMonth === monthKey;
+        const currentGameMonthlyPlays = isGameSameMonth ? (Number(fromStorage.monthlyPlays ?? fromProfile.monthlyPlays ?? 0) + 1) : 1;
+        const currentGameMonthlyWins = isGameSameMonth ? (Number(fromStorage.monthlyWins ?? fromProfile.monthlyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+
+        const gameLastYear = fromStorage.lastPlayedYear || fromProfile.lastPlayedYear || null;
+        const isGameSameYear = gameLastYear === yearKey;
+        const currentGameYearlyPlays = isGameSameYear ? (Number(fromStorage.yearlyPlays ?? fromProfile.yearlyPlays ?? 0) + 1) : 1;
+        const currentGameYearlyWins = isGameSameYear ? (Number(fromStorage.yearlyWins ?? fromProfile.yearlyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
 
         const updatedThisGame = {
           ...fromProfile,
@@ -156,7 +194,16 @@ export default function GameResultScreen({ route, navigation }) {
           winStreak: newThisGameWinStreak,
           dailyPlays: currentGameDailyPlays,
           dailyWins: currentGameDailyWins,
+          weeklyPlays: currentGameWeeklyPlays,
+          weeklyWins: currentGameWeeklyWins,
+          monthlyPlays: currentGameMonthlyPlays,
+          monthlyWins: currentGameMonthlyWins,
+          yearlyPlays: currentGameYearlyPlays,
+          yearlyWins: currentGameYearlyWins,
           lastPlayedDate: todayStr,
+          lastPlayedWeek: weekKey,
+          lastPlayedMonth: monthKey,
+          lastPlayedYear: yearKey,
           claimedWinStreakTier: claimedTier,
         };
 
@@ -207,8 +254,17 @@ export default function GameResultScreen({ route, navigation }) {
             gamesPlayed: newPlayed,
             dailyPlays: newDailyPlays,
             dailyWins: newDailyWins,
+            weeklyPlays: newWeeklyPlays,
+            weeklyWins: newWeeklyWins,
+            monthlyPlays: newMonthlyPlays,
+            monthlyWins: newMonthlyWins,
+            yearlyPlays: newYearlyPlays,
+            yearlyWins: newYearlyWins,
             lastDailyPlayDate: todayStr,
             lastPlayedDate: todayStr,
+            lastPlayedWeek: weekKey,
+            lastPlayedMonth: monthKey,
+            lastPlayedYear: yearKey,
             gameStats: updatedGameStats,
             gamePower: newGp,
             gp: newGp,
@@ -227,6 +283,12 @@ export default function GameResultScreen({ route, navigation }) {
             ...extraPayload,
           });
           invalidatePlatformPlayersCache();
+          leaderboardApi.recordCompletion(
+            statsKey,
+            isWinner ? 'win' : (isDraw ? 'draw' : 'loss'),
+            completionReason,
+            matchId
+          ).catch(() => {});
           await AsyncStorage.multiRemove([
             '@gamearn_leaderboard_v2_cache_Daily',
             '@gamearn_leaderboard_v2_cache_Weekly',

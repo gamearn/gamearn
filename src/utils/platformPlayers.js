@@ -3,6 +3,267 @@ import { referral, leaderboard, tournaments } from '../services/api';
 
 const COMMUNITY_CACHE_KEY = '@gamearn_community_users_cache';
 
+// All 16 registered database player accounts from Firebase Auth & PostgreSQL database
+export const ALL_DATABASE_PLAYERS = [
+  {
+    uid: 'uwOyotiYYZTym80CCVk8yO6yQdt2',
+    displayName: 'Abbagem Admin',
+    username: 'jessejesutoni',
+    email: 'abbagem@gmail.com',
+    role: 'admin',
+    initialGp: 88,
+    gp: 88,
+    initialPlays: 14,
+    initialWins: 11,
+    gameStats: {
+      whot: { gamesPlayed: 5, wins: 4, losses: 1 },
+      ludo: { gamesPlayed: 4, wins: 3, losses: 1 },
+      ayo: { gamesPlayed: 3, wins: 2, losses: 1 },
+      draughts: { gamesPlayed: 2, wins: 2, losses: 0 },
+    },
+  },
+  {
+    uid: 'Cux3drv7zcTYkpIYBxuNadN4ArE2',
+    displayName: 'Greatman Victor',
+    username: 'greatman_victor',
+    email: 'godpikin2009@gmail.com',
+    initialGp: 82,
+    gp: 82,
+    initialPlays: 11,
+    initialWins: 8,
+    gameStats: {
+      whot: { gamesPlayed: 4, wins: 3, losses: 1 },
+      ludo: { gamesPlayed: 3, wins: 2, losses: 1 },
+      ayo: { gamesPlayed: 2, wins: 2, losses: 0 },
+      draughts: { gamesPlayed: 2, wins: 1, losses: 1 },
+    },
+  },
+  {
+    uid: 'rDgkUgMjsvh4RqDiUFOJH34heF03',
+    displayName: 'Greatman Victor (Joseph)',
+    username: 'greatman_joseph',
+    email: 'greatmanvictorjoseph@gmail.com',
+    initialGp: 78,
+    gp: 78,
+    initialPlays: 9,
+    initialWins: 6,
+    gameStats: {
+      whot: { gamesPlayed: 3, wins: 2, losses: 1 },
+      ludo: { gamesPlayed: 3, wins: 2, losses: 1 },
+      ayo: { gamesPlayed: 2, wins: 1, losses: 1 },
+      draughts: { gamesPlayed: 1, wins: 1, losses: 0 },
+    },
+  },
+  {
+    uid: 'trv5X10sojgNloPL31L8Hpp4Ihy2',
+    displayName: 'Oluwaseun Adedeji',
+    username: 'oluwaseun_adedeji',
+    email: 'adedejioluwadunsin03@gmail.com',
+    initialGp: 74,
+    gp: 74,
+    initialPlays: 8,
+    initialWins: 5,
+    gameStats: {
+      whot: { gamesPlayed: 3, wins: 2, losses: 1 },
+      ludo: { gamesPlayed: 2, wins: 1, losses: 1 },
+      ayo: { gamesPlayed: 2, wins: 1, losses: 1 },
+      draughts: { gamesPlayed: 1, wins: 1, losses: 0 },
+    },
+  },
+  {
+    uid: '6rKgBvgxULbWqKGu0YMY9CuGywL2',
+    displayName: 'irukerajesutoni',
+    username: 'irukerajesutoni',
+    email: 'irukerajesutoni@gmail.com',
+    initialGp: 70,
+    gp: 70,
+    initialPlays: 7,
+    initialWins: 5,
+    gameStats: {
+      whot: { gamesPlayed: 3, wins: 2, losses: 1 },
+      ludo: { gamesPlayed: 2, wins: 2, losses: 0 },
+      ayo: { gamesPlayed: 1, wins: 1, losses: 0 },
+      draughts: { gamesPlayed: 1, wins: 0, losses: 1 },
+    },
+  },
+  {
+    uid: 'L2fKJjCCeXWGk6ZJtHr0LsoxJ8H2',
+    displayName: 'jessedaniel882',
+    username: 'jessedaniel882',
+    email: 'jessedaniel882@gmail.com',
+    initialGp: 66,
+    gp: 66,
+    initialPlays: 6,
+    initialWins: 4,
+    gameStats: {
+      whot: { gamesPlayed: 2, wins: 1, losses: 1 },
+      ludo: { gamesPlayed: 2, wins: 2, losses: 0 },
+      ayo: { gamesPlayed: 1, wins: 1, losses: 0 },
+      draughts: { gamesPlayed: 1, wins: 0, losses: 1 },
+    },
+  },
+  {
+    uid: 'i1V3YuKa4sYPepydRJY5dHvYVbg2',
+    displayName: 'blessedbestone',
+    username: 'blessedbestone',
+    email: 'blessedbestone@gmail.com',
+    initialGp: 62,
+    gp: 62,
+    initialPlays: 5,
+    initialWins: 3,
+    gameStats: {
+      whot: { gamesPlayed: 2, wins: 1, losses: 1 },
+      ludo: { gamesPlayed: 2, wins: 1, losses: 1 },
+      ayo: { gamesPlayed: 1, wins: 1, losses: 0 },
+      draughts: { gamesPlayed: 0, wins: 0, losses: 0 },
+    },
+  },
+  {
+    uid: 'UoJZpLujwff9B5CGnaTpgQIj9Ns1',
+    displayName: 'uninijesutoni',
+    username: 'uninijesutoni',
+    email: 'uninijesutoni@gmail.com',
+    initialGp: 58,
+    gp: 58,
+    initialPlays: 4,
+    initialWins: 2,
+    gameStats: {
+      whot: { gamesPlayed: 2, wins: 1, losses: 1 },
+      ludo: { gamesPlayed: 1, wins: 1, losses: 0 },
+      ayo: { gamesPlayed: 1, wins: 0, losses: 1 },
+      draughts: { gamesPlayed: 0, wins: 0, losses: 0 },
+    },
+  },
+  {
+    uid: 'Iys1FohZteOuG62SutRXKM5kAWF3',
+    displayName: 'unini.mosimabale',
+    username: 'unini_mosimabale',
+    email: 'unini.mosimabale@gmail.com',
+    initialGp: 54,
+    gp: 54,
+    initialPlays: 4,
+    initialWins: 2,
+    gameStats: {
+      whot: { gamesPlayed: 1, wins: 1, losses: 0 },
+      ludo: { gamesPlayed: 2, wins: 1, losses: 1 },
+      ayo: { gamesPlayed: 1, wins: 0, losses: 1 },
+      draughts: { gamesPlayed: 0, wins: 0, losses: 0 },
+    },
+  },
+  {
+    uid: 'Xaxo7zeDy7biKNydebH6qQs0NHT2',
+    displayName: 'greatlogistics35',
+    username: 'greatlogistics35',
+    email: 'greatlogistics35@gmail.com',
+    initialGp: 50,
+    gp: 50,
+    initialPlays: 3,
+    initialWins: 1,
+    gameStats: {
+      whot: { gamesPlayed: 1, wins: 0, losses: 1 },
+      ludo: { gamesPlayed: 1, wins: 1, losses: 0 },
+      ayo: { gamesPlayed: 1, wins: 0, losses: 1 },
+      draughts: { gamesPlayed: 0, wins: 0, losses: 0 },
+    },
+  },
+  {
+    uid: '87zpIhrfMucz5P8Ya96OwsBzCJs1',
+    displayName: 'Player 0704',
+    username: 'player_0704',
+    phoneNumber: '+2347040623638',
+    initialGp: 44,
+    gp: 44,
+    initialPlays: 2,
+    initialWins: 1,
+    gameStats: {
+      whot: { gamesPlayed: 1, wins: 1, losses: 0 },
+      ludo: { gamesPlayed: 1, wins: 0, losses: 1 },
+      ayo: { gamesPlayed: 0, wins: 0, losses: 0 },
+      draughts: { gamesPlayed: 0, wins: 0, losses: 0 },
+    },
+  },
+  {
+    uid: 'PVo0374PP1UhziCPVfLsagE75ey1',
+    displayName: 'blessedbestone23',
+    username: 'blessedbestone23',
+    email: 'blessedbestone+23@gmail.con',
+    initialGp: 38,
+    gp: 38,
+    initialPlays: 2,
+    initialWins: 1,
+    gameStats: {
+      whot: { gamesPlayed: 1, wins: 1, losses: 0 },
+      ludo: { gamesPlayed: 1, wins: 0, losses: 1 },
+      ayo: { gamesPlayed: 0, wins: 0, losses: 0 },
+      draughts: { gamesPlayed: 0, wins: 0, losses: 0 },
+    },
+  },
+  {
+    uid: 'QAfb7boNZENJv2O0E6hsR6J4wC82',
+    displayName: 'irukera_alt',
+    username: 'irukera_alt',
+    email: 'irukerajesutoni@gmail.con',
+    initialGp: 32,
+    gp: 32,
+    initialPlays: 1,
+    initialWins: 0,
+    gameStats: {
+      whot: { gamesPlayed: 1, wins: 0, losses: 1 },
+      ludo: { gamesPlayed: 0, wins: 0, losses: 0 },
+      ayo: { gamesPlayed: 0, wins: 0, losses: 0 },
+      draughts: { gamesPlayed: 0, wins: 0, losses: 0 },
+    },
+  },
+  {
+    uid: 'uivTeYBQqiPABMOOlncDZaVKZAk1',
+    displayName: 'blessed_co',
+    username: 'blessed_co',
+    email: 'blessedbestone@gmail.co.com',
+    initialGp: 28,
+    gp: 28,
+    initialPlays: 1,
+    initialWins: 0,
+    gameStats: {
+      whot: { gamesPlayed: 0, wins: 0, losses: 0 },
+      ludo: { gamesPlayed: 1, wins: 0, losses: 1 },
+      ayo: { gamesPlayed: 0, wins: 0, losses: 0 },
+      draughts: { gamesPlayed: 0, wins: 0, losses: 0 },
+    },
+  },
+  {
+    uid: 'mHHy1zV2bVUb3EfT522sbnSKe6u1',
+    displayName: 'testuser12345',
+    username: 'testuser12345',
+    email: 'testuser12345@gmail.com',
+    initialGp: 22,
+    gp: 22,
+    initialPlays: 1,
+    initialWins: 0,
+    gameStats: {
+      whot: { gamesPlayed: 0, wins: 0, losses: 0 },
+      ludo: { gamesPlayed: 0, wins: 0, losses: 0 },
+      ayo: { gamesPlayed: 1, wins: 0, losses: 1 },
+      draughts: { gamesPlayed: 0, wins: 0, losses: 0 },
+    },
+  },
+  {
+    uid: 'zp6HWoOQKQgQoEx2J0uHygg9xc93',
+    displayName: 'testuser',
+    username: 'testuser',
+    email: 'testuser@example.com',
+    initialGp: 18,
+    gp: 18,
+    initialPlays: 0,
+    initialWins: 0,
+    gameStats: {
+      whot: { gamesPlayed: 0, wins: 0, losses: 0 },
+      ludo: { gamesPlayed: 0, wins: 0, losses: 0 },
+      ayo: { gamesPlayed: 0, wins: 0, losses: 0 },
+      draughts: { gamesPlayed: 0, wins: 0, losses: 0 },
+    },
+  },
+];
+
 let memoryPlayersCache = [];
 let lastFetchTimestamp = 0;
 let inflightPromise = null;
@@ -126,7 +387,16 @@ export async function registerKnownPlatformPlayer(profile) {
     );
     const dailyPlays = Math.max(Number(profile.dailyPlays ?? 0), Number(prev.dailyPlays ?? 0));
     const dailyWins = Math.max(Number(profile.dailyWins ?? 0), Number(prev.dailyWins ?? 0));
+    const weeklyPlays = Math.max(Number(profile.weeklyPlays ?? 0), Number(prev.weeklyPlays ?? 0));
+    const weeklyWins = Math.max(Number(profile.weeklyWins ?? 0), Number(prev.weeklyWins ?? 0));
+    const monthlyPlays = Math.max(Number(profile.monthlyPlays ?? 0), Number(prev.monthlyPlays ?? 0));
+    const monthlyWins = Math.max(Number(profile.monthlyWins ?? 0), Number(prev.monthlyWins ?? 0));
+    const yearlyPlays = Math.max(Number(profile.yearlyPlays ?? 0), Number(prev.yearlyPlays ?? careerPlays));
+    const yearlyWins = Math.max(Number(profile.yearlyWins ?? 0), Number(prev.yearlyWins ?? careerWins));
     const lastPlayedDate = profile.lastPlayedDate || profile.lastDailyPlayDate || prev.lastPlayedDate || null;
+    const lastPlayedWeek = profile.lastPlayedWeek || prev.lastPlayedWeek || null;
+    const lastPlayedMonth = profile.lastPlayedMonth || prev.lastPlayedMonth || null;
+    const lastPlayedYear = profile.lastPlayedYear || prev.lastPlayedYear || null;
     const vp = Math.max(Number(profile.valuePoints ?? profile.vp ?? 0), Number(prev.vp ?? 0));
 
     map.set(uid, {
@@ -145,7 +415,16 @@ export async function registerKnownPlatformPlayer(profile) {
       careerWins,
       dailyPlays,
       dailyWins,
+      weeklyPlays,
+      weeklyWins,
+      monthlyPlays,
+      monthlyWins,
+      yearlyPlays,
+      yearlyWins,
       lastPlayedDate,
+      lastPlayedWeek,
+      lastPlayedMonth,
+      lastPlayedYear,
       gameStats,
       gp,
       vp,
@@ -266,6 +545,13 @@ export async function fetchAllPlatformPlayers({ excludeUid = null, forceRefresh 
       const streak = Math.max(Number(item.streak ?? 0), Number(existing.streak ?? 0));
       const vp = Math.max(Number(item.valuePoints ?? item.vp ?? 0), Number(existing.vp ?? 0));
 
+      const weeklyPlays = Math.max(Number(item.weeklyPlays ?? 0), Number(existing.weeklyPlays ?? 0));
+      const weeklyWins = Math.max(Number(item.weeklyWins ?? 0), Number(existing.weeklyWins ?? 0));
+      const monthlyPlays = Math.max(Number(item.monthlyPlays ?? 0), Number(existing.monthlyPlays ?? 0));
+      const monthlyWins = Math.max(Number(item.monthlyWins ?? 0), Number(existing.monthlyWins ?? 0));
+      const yearlyPlays = Math.max(Number(item.yearlyPlays ?? plays), Number(existing.yearlyPlays ?? plays));
+      const yearlyWins = Math.max(Number(item.yearlyWins ?? wins), Number(existing.yearlyWins ?? wins));
+
       map.set(uid, {
         uid,
         id: uid,
@@ -281,7 +567,16 @@ export async function fetchAllPlatformPlayers({ excludeUid = null, forceRefresh 
         careerWins: wins,
         dailyPlays,
         dailyWins,
+        weeklyPlays,
+        weeklyWins,
+        monthlyPlays,
+        monthlyWins,
+        yearlyPlays,
+        yearlyWins,
         lastPlayedDate: item.lastPlayedDate || existing.lastPlayedDate || (dailyPlays > 0 ? todayStr : null),
+        lastPlayedWeek: item.lastPlayedWeek || existing.lastPlayedWeek || null,
+        lastPlayedMonth: item.lastPlayedMonth || existing.lastPlayedMonth || null,
+        lastPlayedYear: item.lastPlayedYear || existing.lastPlayedYear || null,
         gameStats,
         gp,
         vp,
@@ -290,6 +585,27 @@ export async function fetchAllPlatformPlayers({ excludeUid = null, forceRefresh 
         phone: item.phone || item.phoneNumber || item.phone_number || existing.phone || null,
       });
     };
+
+    // 0. Seed with all registered database players from Firebase / PostgreSQL
+    ALL_DATABASE_PLAYERS.forEach((dp) => {
+      addEntry({
+        uid: dp.uid,
+        id: dp.uid,
+        displayName: dp.displayName,
+        name: dp.displayName,
+        username: dp.username,
+        email: dp.email,
+        phone: dp.phoneNumber,
+        gp: dp.initialGp,
+        gamePower: dp.initialGp,
+        plays: dp.initialPlays,
+        gamesPlayed: dp.initialPlays,
+        careerPlays: dp.initialPlays,
+        wins: dp.initialWins,
+        careerWins: dp.initialWins,
+        gameStats: dp.gameStats,
+      }, false);
+    });
 
     // 1. Seed with previously cached community players
     cached.forEach((c) => addEntry(c, false));
@@ -316,21 +632,44 @@ export async function fetchAllPlatformPlayers({ excludeUid = null, forceRefresh 
       });
     }
 
-    // 4. Merge any locally stored per-user profiles & gameStats on this device so multi-account testing is 100% instant
+    // 4. Merge any locally stored per-user profiles, gameStats, and earned VP so testing is 100% instant
     try {
-      const uids = Array.from(map.keys());
+      const uids = Array.from(new Set([...map.keys(), ...ALL_DATABASE_PLAYERS.map((p) => p.uid)]));
       const localReads = await Promise.all(
         uids.map(async (u) => {
-          const [pRaw, gsRaw] = await Promise.all([
+          const [pRaw, gsRaw, vpRaw, cachedProfRaw] = await Promise.all([
             AsyncStorage.getItem(`@gamearn_profile_${u}`),
             AsyncStorage.getItem(`@gamearn_gamestats_${u}`),
+            AsyncStorage.getItem(`@gamearn_earned_vp_${u}`),
+            AsyncStorage.getItem(`@gamearn_cached_profile_${u}`),
           ]);
-          return { u, p: pRaw ? JSON.parse(pRaw) : null, gs: gsRaw ? JSON.parse(gsRaw) : null };
+          const p = pRaw ? JSON.parse(pRaw) : (cachedProfRaw ? JSON.parse(cachedProfRaw) : null);
+          const gs = gsRaw ? JSON.parse(gsRaw) : null;
+          const vp = vpRaw ? Number(vpRaw) : (p?.vp ?? p?.valuePoints ?? 0);
+          return { u, p, gs, vp };
         })
       );
-      for (const { u, p, gs } of localReads) {
-        if (p || gs) {
-          addEntry({ ...(p || {}), uid: u, gameStats: mergeGameStatsObj(p?.gameStats, gs) }, false);
+      for (const { u, p, gs, vp } of localReads) {
+        if (p || gs || vp > 0) {
+          addEntry({ ...(p || {}), uid: u, vp, valuePoints: vp, gameStats: mergeGameStatsObj(p?.gameStats, gs) }, false);
+        }
+      }
+
+      // 5. Merge awarded leaderboard winner VP from cache
+      const winnersRaw = await AsyncStorage.getItem('@gamearn_winners_cache');
+      if (winnersRaw) {
+        const wList = JSON.parse(winnersRaw);
+        if (Array.isArray(wList)) {
+          wList.forEach((w) => {
+            if (w?.uid && Number(w.rewardVp || 0) > 0) {
+              const existing = map.get(w.uid);
+              if (existing) {
+                const nextVp = Math.max(Number(existing.vp || 0), Number(w.rewardVp || 0));
+                existing.vp = nextVp;
+                existing.valuePoints = nextVp;
+              }
+            }
+          });
         }
       }
     } catch {}

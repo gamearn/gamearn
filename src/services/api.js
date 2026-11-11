@@ -376,6 +376,12 @@ export const admin = {
   banUser: (uid, payload) => apiPost(`/admin/users/${uid}/ban`, payload),
   unbanUser: (uid, payload) => apiPost(`/admin/users/${uid}/unban`, payload),
   adjustWallet: (uid, payload) => apiPost(`/admin/wallets/${uid}/adjust`, payload),
+  creditUser: (uid, amountNaira, reason) =>
+    apiPost(`/admin/wallets/${uid}/adjust`, {
+      type: 'credit',
+      amountKobo: Math.round(Number(amountNaira || 0) * 100),
+      reason: reason || 'Admin VP credit',
+    }),
 
   // System + logs
   system: () => apiGet('/admin/system'),

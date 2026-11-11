@@ -38,7 +38,31 @@ import {
   tournaments as tournamentsApi,
   filterDeletedTournaments,
 } from '../../services/api';
-import { fetchAllPlatformPlayers } from '../../utils/platformPlayers';
+import { fetchAllPlatformPlayers, ALL_DATABASE_PLAYERS } from '../../utils/platformPlayers';
+
+const initialPlayersList = ALL_DATABASE_PLAYERS.map((p) => ({
+  uid: p.uid,
+  id: p.uid,
+  displayName: p.displayName,
+  name: p.displayName,
+  username: p.username,
+  email: p.email || `${String(p.username).toLowerCase().replace(/\s+/g, '')}@gamearn.app`,
+  phoneNumber: p.phoneNumber || '',
+  gp: p.initialGp,
+  plays: p.initialPlays,
+  wins: p.initialWins,
+  dailyPlays: 0,
+  dailyWins: 0,
+  vp: 0,
+  valuePoints: 0,
+  status: 'active',
+  isVerified: true,
+}));
+
+const initialTop3ByGp = [...initialPlayersList]
+  .sort((a, b) => (Number(b.gp || 0) - Number(a.gp || 0)) || (Number(b.wins || 0) - Number(a.wins || 0)))
+  .slice(0, 3)
+  .map((c, idx) => ({ ...c, rank: idx + 1 }));
 
 const formatNaira = (n) => `${Math.floor(Number(n || 0) / 50).toLocaleString()} VP`;
 const formatVpFromUser = (u) => {
@@ -104,16 +128,28 @@ export default function AdminDashboardScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const [stats, setStats] = useState({
-    users: { total_users: 1, verified_users: 1, daily_active: 1 },
+    users: { total_users: initialPlayersList.length, verified_users: initialPlayersList.length, daily_active: 0 },
     liveMatches: { count: 0 },
     revenue: { totalNaira: 0 },
     tournaments: { total: 0, active: 0 },
   });
-  const [verifiedUsers, setVerifiedUsers] = useState({ users: [], pagination: { total: 0 } });
+  const [verifiedUsers, setVerifiedUsers] = useState({
+    users: initialPlayersList,
+    pagination: { total: initialPlayersList.length, page: 1, limit: 100 },
+  });
   const [tournamentsData, setTournamentsData] = useState({ count: 0, tournaments: [] });
   const [tournamentQuery, setTournamentQuery] = useState('');
   const [deletingTournamentId, setDeletingTournamentId] = useState(null);
-  const [winnersData, setWinnersData] = useState({ winners: [], candidates: [], topByPeriod: {} });
+  const [winnersData, setWinnersData] = useState({
+    winners: [],
+    candidates: initialPlayersList,
+    topByPeriod: {
+      Daily: initialTop3ByGp,
+      Weekly: initialTop3ByGp,
+      Monthly: initialTop3ByGp,
+      Yearly: initialTop3ByGp,
+    },
+  });
   const [awardPeriod, setAwardPeriod] = useState('Daily');
   const [awardRank, setAwardRank] = useState(1);
   const [awardUid, setAwardUid] = useState('');
@@ -166,27 +202,26 @@ export default function AdminDashboardScreen({ navigation }) {
   // Collect all players, tournaments, leaderboards, and winners from User Dashboard caches + fast APIs
   const gatherUserDashboardMirror = useCallback(async () => {
     const todayStr = new Date().toISOString().slice(0, 10);
-    const [
-      platformPlayersRes,
-      commCacheRaw,
-      localTournamentsRaw,
-      winnersCacheRaw,
-      publicTournamentsRes,
-      dailyLbRes,
-      weeklyLbRes,
-      monthlyLbRes,
-      yearlyLbRes,
-    ] = await Promise.all([
+    const mirrorSettled = await Promise.allSettled([
       withFastTimeout(fetchAllPlatformPlayers(), 2800, []),
       AsyncStorage.getItem('@gamearn_community_users_cache').catch(() => null),
       AsyncStorage.getItem('@gamearn_local_tournaments').catch(() => null),
       AsyncStorage.getItem('@gamearn_winners_cache').catch(() => null),
-      withFastTimeout(tournamentsApi.list({ limit: 100 }), 2800, null),
+      withFastTimeout(tournamentsApi.list(), 2800, null),
       withFastTimeout(leaderboardApi.get('daily'), 2800, []),
       withFastTimeout(leaderboardApi.get('weekly'), 2800, []),
       withFastTimeout(leaderboardApi.get('monthly'), 2800, []),
       withFastTimeout(leaderboardApi.get('yearly'), 2800, []),
     ]);
+    const platformPlayersRes = mirrorSettled[0].status === 'fulfilled' ? mirrorSettled[0].value : [];
+    const commCacheRaw = mirrorSettled[1].status === 'fulfilled' ? mirrorSettled[1].value : null;
+    const localTournamentsRaw = mirrorSettled[2].status === 'fulfilled' ? mirrorSettled[2].value : null;
+    const winnersCacheRaw = mirrorSettled[3].status === 'fulfilled' ? mirrorSettled[3].value : null;
+    const publicTournamentsRes = mirrorSettled[4].status === 'fulfilled' ? mirrorSettled[4].value : null;
+    const dailyLbRes = mirrorSettled[5].status === 'fulfilled' ? mirrorSettled[5].value : [];
+    const weeklyLbRes = mirrorSettled[6].status === 'fulfilled' ? mirrorSettled[6].value : [];
+    const monthlyLbRes = mirrorSettled[7].status === 'fulfilled' ? mirrorSettled[7].value : [];
+    const yearlyLbRes = mirrorSettled[8].status === 'fulfilled' ? mirrorSettled[8].value : [];
 
     const playerMap = new Map();
     const upsertPlayer = (raw) => {
@@ -242,6 +277,9 @@ export default function AdminDashboardScreen({ navigation }) {
       });
     };
 
+    // 0. Seed immediately with all registered database accounts
+    initialPlayersList.forEach(upsertPlayer);
+
     if (user?.uid || userProfile?.uid) {
       upsertPlayer({
         uid: user?.uid || userProfile?.uid,
@@ -268,10 +306,6 @@ export default function AdminDashboardScreen({ navigation }) {
       const rows = Array.isArray(lb) ? lb : lb?.data || [];
       if (Array.isArray(rows)) rows.forEach(upsertPlayer);
     });
-
-    const allPlayers = Array.from(playerMap.values()).sort(
-      (a, b) => (b.gp - a.gp) || (b.wins - a.wins) || (b.plays - a.plays)
-    );
 
     // Merge tournaments from User Dashboard
     const tMap = new Map();
@@ -305,11 +339,53 @@ export default function AdminDashboardScreen({ navigation }) {
       ? filteredTourneysResult
       : filteredTourneysResult?.tournaments || [];
 
-    // Cached winners
+    // Cached winners from local storage & dashboard
     let cachedWinners = [];
     try {
       cachedWinners = winnersCacheRaw ? JSON.parse(winnersCacheRaw) : [];
     } catch {}
+
+    // Credit each awarded winner's VP to their player in playerMap
+    if (Array.isArray(cachedWinners)) {
+      cachedWinners.forEach((w) => {
+        if (!w || !w.uid) return;
+        const awardedVp = Number(w.rewardVp || w.vp || 0);
+        if (awardedVp > 0) {
+          const prev = playerMap.get(w.uid);
+          if (prev) {
+            const nextVp = Math.max(Number(prev.vp || 0), awardedVp);
+            prev.vp = nextVp;
+            prev.valuePoints = nextVp;
+            prev.balanceNaira = Math.max(Number(prev.balanceNaira || 0), nextVp * 50);
+          }
+        }
+      });
+    }
+
+    // Read per-user earned VP and cached profiles from local storage
+    try {
+      const uids = Array.from(playerMap.keys());
+      const vpPairs = await AsyncStorage.multiGet(uids.map((u) => `@gamearn_earned_vp_${u}`));
+      for (const [key, val] of vpPairs) {
+        if (val) {
+          const u = key.replace('@gamearn_earned_vp_', '');
+          const prev = playerMap.get(u);
+          if (prev) {
+            const storedVp = Number(val);
+            if (storedVp > 0) {
+              const nextVp = Math.max(Number(prev.vp || 0), storedVp);
+              prev.vp = nextVp;
+              prev.valuePoints = nextVp;
+              prev.balanceNaira = Math.max(Number(prev.balanceNaira || 0), nextVp * 50);
+            }
+          }
+        }
+      }
+    } catch {}
+
+    const allPlayers = Array.from(playerMap.values()).sort(
+      (a, b) => (b.gp - a.gp) || (b.wins - a.wins) || (b.plays - a.plays)
+    );
 
     return {
       allPlayers,
@@ -324,13 +400,18 @@ export default function AdminDashboardScreen({ navigation }) {
 
   const loadOverview = useCallback(async () => {
     const mirrorPromise = gatherUserDashboardMirror();
-    const [mirror, sRaw, vRaw, tRaw, uRaw] = await Promise.all([
+    const [mirrorRes, sRes, vRes, tRes, uRes] = await Promise.allSettled([
       mirrorPromise,
       withFastTimeout(admin.stats(), 3500, null),
       withFastTimeout(admin.verifiedUsers(), 3500, null),
       withFastTimeout(admin.tournaments(), 3500, null),
       withFastTimeout(admin.users({ limit: 100 }), 3500, null),
     ]);
+    const mirror = mirrorRes.status === 'fulfilled' && mirrorRes.value ? mirrorRes.value : { allPlayers: initialPlayersList, mergedTournaments: [] };
+    const sRaw = sRes.status === 'fulfilled' ? sRes.value : null;
+    const vRaw = vRes.status === 'fulfilled' ? vRes.value : null;
+    const tRaw = tRes.status === 'fulfilled' ? tRes.value : null;
+    const uRaw = uRes.status === 'fulfilled' ? uRes.value : null;
 
     const playerMap = new Map();
     mirror.allPlayers.forEach((p) => playerMap.set(p.uid, p));
@@ -387,7 +468,10 @@ export default function AdminDashboardScreen({ navigation }) {
       users: {
         total_users: Math.max(Number(sData?.users?.total_users || 0), combinedUsers.length),
         verified_users: Math.max(Number(sData?.users?.verified_users || 0), combinedUsers.length),
-        daily_active: Math.max(Number(sData?.users?.daily_active || 0), combinedUsers.filter((u) => (u.dailyPlays || 0) > 0).length || 1),
+        daily_active: Math.max(
+          Number(sData?.users?.daily_active || 0),
+          combinedUsers.filter((u) => Number(u.dailyPlays || 0) > 0).length
+        ),
       },
       liveMatches: {
         count: Number(sData?.liveMatches?.count || 0),
@@ -543,7 +627,8 @@ export default function AdminDashboardScreen({ navigation }) {
           withFastTimeout(admin.users({ q: userQuery || undefined, limit: 100 }), 3500, null),
         ]);
         const uMap = new Map();
-        mirror.allPlayers.forEach((p) => uMap.set(p.uid, p));
+        initialPlayersList.forEach((p) => uMap.set(p.uid, p));
+        mirror.allPlayers.forEach((p) => uMap.set(p.uid, { ...(uMap.get(p.uid) || {}), ...p }));
         const serverUsers = uRes?.users || uRes?.data?.users || (Array.isArray(uRes) ? uRes : []);
         if (Array.isArray(serverUsers)) {
           serverUsers.forEach((u) => {
@@ -633,6 +718,14 @@ export default function AdminDashboardScreen({ navigation }) {
     loadTab(activeTab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!navigation) return;
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadTab(activeTab);
+    });
+    return unsubscribe;
+  }, [navigation, activeTab, loadTab]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -749,10 +842,20 @@ export default function AdminDashboardScreen({ navigation }) {
           rewardVp: numericVp,
           periodDate: resolvedDate,
         });
-        serverWinner = res?.winner || res?.data?.winner || null;
-      } catch {
-        // Fallback: credit user wallet directly via admin credit endpoint if leaderboard_winners route fails
-        await admin.creditUser(cleanUid, numericVp * 50, `${period} Leaderboard Rank #${rank} Reward (${numericVp} VP)`).catch(() => {});
+        serverWinner = res?.winner || res?.data?.winner || res?.data || res || null;
+      } catch (assignErr) {
+        // Fallback: credit user wallet directly via admin endpoints if available
+        try {
+          if (typeof admin.creditUser === 'function') {
+            await admin.creditUser(cleanUid, numericVp * 50, `${period} Leaderboard Rank #${rank} Reward (${numericVp} VP)`);
+          } else if (typeof admin.adjustWallet === 'function') {
+            await admin.adjustWallet(cleanUid, {
+              type: 'credit',
+              amountKobo: numericVp * 5000,
+              reason: `${period} Leaderboard Rank #${rank} Reward (${numericVp} VP)`,
+            });
+          }
+        } catch {}
       }
 
       const cand = (winnersData?.candidates || []).find((c) => c.uid === cleanUid) || {};
@@ -813,6 +916,30 @@ export default function AdminDashboardScreen({ navigation }) {
           .concat([winnerEntry])
           .sort((a, b) => a.rank - b.rank);
         return { ...prev, winners: nextList };
+      });
+
+      setUsers((prev) => {
+        const prevList = Array.isArray(prev?.users) ? prev.users : [];
+        const nextList = prevList.map((u) => {
+          if (u.uid === cleanUid) {
+            const nextVp = Math.max(Number(u.vp || 0) + numericVp, numericVp);
+            return { ...u, vp: nextVp, valuePoints: nextVp, balanceNaira: nextVp * 50 };
+          }
+          return u;
+        });
+        return { ...prev, users: nextList };
+      });
+
+      setVerifiedUsers((prev) => {
+        const prevList = Array.isArray(prev?.users) ? prev.users : [];
+        const nextList = prevList.map((u) => {
+          if (u.uid === cleanUid) {
+            const nextVp = Math.max(Number(u.vp || 0) + numericVp, numericVp);
+            return { ...u, vp: nextVp, valuePoints: nextVp, balanceNaira: nextVp * 50 };
+          }
+          return u;
+        });
+        return { ...prev, users: nextList };
       });
 
       Alert.alert(
@@ -972,9 +1099,12 @@ export default function AdminDashboardScreen({ navigation }) {
       : tournamentsData?.tournaments || tournamentsData?.data?.tournaments || [];
 
     const vData = verifiedUsers?.users ? verifiedUsers : verifiedUsers?.data || {};
-    const vList = vData.users || users?.users || [];
+    const vList = (Array.isArray(vData.users) && vData.users.length > 0)
+      ? vData.users
+      : (Array.isArray(users?.users) && users.users.length > 0 ? users.users : initialPlayersList);
     const totalUsersCount = Math.max(Number(stats?.users?.total_users || 0), vList.length);
     const totalVpSum = vList.reduce((acc, u) => acc + Math.max(Number(u.vp ?? u.valuePoints ?? 0), 0), 0);
+    const activeTodayCount = vList.filter((u) => Number(u.dailyPlays || 0) > 0).length;
 
     const metrics = [
       {
@@ -988,8 +1118,8 @@ export default function AdminDashboardScreen({ navigation }) {
         key: 'live',
         onPress: () => setActiveTab('winners'),
         icon: <Activity size={24} color={theme.success} />,
-        value: Number(stats?.users?.daily_active ?? stats?.liveMatches?.count ?? vList.filter((u) => (u.dailyPlays || 0) > 0).length).toLocaleString(),
-        label: 'Active Players',
+        value: activeTodayCount.toLocaleString(),
+        label: 'Active Players Today',
       },
       {
         key: 'revenue',
@@ -1059,10 +1189,9 @@ export default function AdminDashboardScreen({ navigation }) {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.userName, { color: theme.textPrimary }]}>{u.displayName || u.username || 'Player'}</Text>
                 <Text style={[styles.userMeta, { color: theme.textSecondary }]}>
-                  ⚡ {Number(u.gp || 0).toLocaleString()} GP • {u.plays || 0} Plays / {u.wins || 0} Wins • Today: {u.dailyPlays || 0}P/{u.dailyWins || 0}W
+                  ⚡ {Number(u.gp || 0).toLocaleString()} GP • {u.plays || 0} Plays / {u.wins || 0} Wins
                 </Text>
               </View>
-              <Text style={[styles.userBalance, { color: theme.success }]}>{formatVpFromUser(u)}</Text>
             </GACard>
           </TouchableOpacity>
         ))}
@@ -1083,7 +1212,7 @@ export default function AdminDashboardScreen({ navigation }) {
 
         <View style={styles.sectionHeaderRow}>
           <Text style={[styles.sectionTitle, { color: theme.textPrimary, marginBottom: 0 }]}>
-            All Registered Users ({(vData.pagination?.total ?? vList.length).toLocaleString()})
+            All Registered Users ({vList.length.toLocaleString()})
           </Text>
           <TouchableOpacity onPress={() => setActiveTab('users')}>
             <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>View All</Text>
@@ -1098,7 +1227,6 @@ export default function AdminDashboardScreen({ navigation }) {
                   {u.phoneNumber || u.email || u.uid} • ⚡ {Number(u.gp || 0)} GP • {u.plays || 0}P/{u.wins || 0}W
                 </Text>
               </View>
-              <Text style={[styles.userBalance, { color: theme.success }]}>{formatVpFromUser(u)}</Text>
             </GACard>
           </TouchableOpacity>
         ))}
@@ -1148,14 +1276,20 @@ export default function AdminDashboardScreen({ navigation }) {
 
   const renderWinners = () => {
     const winners = Array.isArray(winnersData?.winners) ? winnersData.winners : [];
-    const candidates = Array.isArray(winnersData?.candidates) ? winnersData.candidates : [];
+    const candidates = Array.isArray(winnersData?.candidates) && winnersData.candidates.length > 0
+      ? winnersData.candidates
+      : (Array.isArray(users?.users) && users.users.length > 0 ? users.users : initialPlayersList);
     const currentPeriodWinners = winners
       .filter((w) => w.period === awardPeriod)
       .sort((a, b) => a.rank - b.rank);
 
-    const periodTop3 = (winnersData?.topByPeriod?.[awardPeriod] && winnersData.topByPeriod[awardPeriod].length > 0)
+    const candidatePool = candidates.length > 0 ? candidates : initialPlayersList;
+    const sortedCandidatesByGp = [...candidatePool].sort(
+      (a, b) => (Number(b.gp || 0) - Number(a.gp || 0)) || (Number(b.wins || 0) - Number(a.wins || 0)) || (Number(b.plays || 0) - Number(a.plays || 0))
+    );
+    const periodTop3 = (winnersData?.topByPeriod?.[awardPeriod] && winnersData.topByPeriod[awardPeriod].length >= 3)
       ? winnersData.topByPeriod[awardPeriod]
-      : candidates.slice(0, 3).map((c, idx) => ({ ...c, rank: idx + 1 }));
+      : sortedCandidatesByGp.slice(0, 3).map((c, idx) => ({ ...c, rank: idx + 1 }));
 
     const presetVpAmounts = [10, 20, 25, 50, 100, 200, 500];
     const defaultVpByRank = { 1: 100, 2: 50, 3: 25 };
@@ -1577,7 +1711,19 @@ export default function AdminDashboardScreen({ navigation }) {
   };
 
   const renderUsers = () => {
-    const list = users?.users || verifiedUsers?.users || [];
+    const rawList = (Array.isArray(users?.users) && users.users.length > 0)
+      ? users.users
+      : (Array.isArray(verifiedUsers?.users) && verifiedUsers.users.length > 0 ? verifiedUsers.users : initialPlayersList);
+    const qLower = userQuery.trim().toLowerCase();
+    const list = qLower
+      ? rawList.filter((u) =>
+        String(u.displayName || '').toLowerCase().includes(qLower) ||
+        String(u.username || '').toLowerCase().includes(qLower) ||
+        String(u.email || '').toLowerCase().includes(qLower) ||
+        String(u.phoneNumber || '').toLowerCase().includes(qLower) ||
+        String(u.uid || '').toLowerCase().includes(qLower)
+      )
+      : rawList;
     return (
       <>
         <View style={[styles.searchRow, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder }]}>
@@ -1593,24 +1739,28 @@ export default function AdminDashboardScreen({ navigation }) {
           />
         </View>
         <Text style={[styles.muted, { color: theme.textSecondary }]}>
-          {(users?.pagination?.total ?? list.length).toLocaleString()} users
+          {(users?.pagination?.total ?? list.length).toLocaleString()} registered user{(users?.pagination?.total ?? list.length) === 1 ? '' : 's'}
         </Text>
-        {list.map((u) => (
-          <TouchableOpacity key={u.uid} activeOpacity={0.8} onPress={() => openUser(u.uid)}>
-            <GACard style={styles.userRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.userName, { color: theme.textPrimary }]}>{u.displayName || u.username || '—'}</Text>
-                <Text style={[styles.userMeta, { color: theme.textSecondary }]}>{u.phoneNumber || u.email || u.uid}</Text>
-                <Text style={[styles.userMeta, { color: theme.primary, fontWeight: '700' }]}>
-                  ⚡ {Number(u.gp || 0).toLocaleString()} GP • {u.plays || 0} Plays / {u.wins || 0} Wins • {formatVpFromUser(u)}
-                </Text>
-              </View>
-              <View style={[styles.badge, { borderColor: statusColor(theme, u.status || 'active') }]}>
-                <Text style={[styles.badgeText, { color: statusColor(theme, u.status || 'active') }]}>{u.status || 'active'}</Text>
-              </View>
-            </GACard>
-          </TouchableOpacity>
-        ))}
+        {list.length === 0 ? (
+          <Text style={[styles.muted, { color: theme.textSecondary, marginTop: 10 }]}>No registered users match your search.</Text>
+        ) : (
+          list.map((u) => (
+            <TouchableOpacity key={u.uid} activeOpacity={0.8} onPress={() => openUser(u.uid)}>
+              <GACard style={styles.userRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.userName, { color: theme.textPrimary }]}>{u.displayName || u.username || '—'}</Text>
+                  <Text style={[styles.userMeta, { color: theme.textSecondary }]}>{u.phoneNumber || u.email || u.uid}</Text>
+                  <Text style={[styles.userMeta, { color: theme.primary, fontWeight: '700' }]}>
+                    ⚡ {Number(u.gp || 0).toLocaleString()} GP • {u.plays || 0} Plays / {u.wins || 0} Wins
+                  </Text>
+                </View>
+                <View style={[styles.badge, { borderColor: statusColor(theme, u.status || 'active') }]}>
+                  <Text style={[styles.badgeText, { color: statusColor(theme, u.status || 'active') }]}>{u.status || 'active'}</Text>
+                </View>
+              </GACard>
+            </TouchableOpacity>
+          ))
+        )}
       </>
     );
   };

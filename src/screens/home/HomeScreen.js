@@ -136,9 +136,101 @@ export default function HomeScreen({ navigation }) {
   const [winnersList, setWinnersList] = useState([]);
   const [winnersLoading, setWinnersLoading] = useState(true);
   const [winnersPeriod, setWinnersPeriod] = useState('Daily');
+  const [claimModalWinner, setClaimModalWinner] = useState(null);
+  const [claimSubmitting, setClaimSubmitting] = useState(false);
+  const [claimedWinners, setClaimedWinners] = useState({});
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
   const [notificationsList, setNotificationsList] = useState([]);
   const [showWelcomeCommunityModal, setShowWelcomeCommunityModal] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('@gamearn_claimed_winners')
+      .then((raw) => {
+        if (raw) {
+          try {
+            setClaimedWinners(JSON.parse(raw) || {});
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const getWinnerKey = useCallback((w) => {
+    if (!w) return '';
+    return String(w.id || `${w.period}_${w.rank}_${w.uid || ''}`);
+  }, []);
+
+  const isWinnerClaimed = useCallback((w) => {
+    if (!w) return false;
+    if (w.claimed) return true;
+    const k = getWinnerKey(w);
+    if (claimedWinners[k]) return true;
+    const altK = `${w.period}_${w.rank}`;
+    if (claimedWinners[altK] && (!w.uid || claimedWinners[altK] === w.uid || claimedWinners[`${altK}_${w.uid}`])) return true;
+    return false;
+  }, [claimedWinners, getWinnerKey]);
+
+  const handleClaimWinnerReward = async (winner) => {
+    if (!winner || claimSubmitting) return;
+    setClaimSubmitting(true);
+    try {
+      const rewardVp = Number(
+        winner.rewardVp ||
+        String(winner.reward || '10').replace(/[^0-9.]/g, '') ||
+        10
+      );
+      const uid = userProfile?.uid || user?.uid;
+      const curVp = Number(userProfile?.valuePoints ?? userProfile?.vp ?? 0);
+      const nextVp = curVp + rewardVp;
+
+      // 1. Update Profile & Context VP instantly
+      if (typeof updateProfileData === 'function') {
+        await updateProfileData({
+          valuePoints: nextVp,
+          vp: nextVp,
+        }).catch(() => {});
+      }
+      if (uid) {
+        await AsyncStorage.setItem(`@gamearn_earned_vp_${uid}`, String(nextVp)).catch(() => {});
+        await AsyncStorage.setItem(`@gamearn_permanent_vp_${uid}`, String(nextVp)).catch(() => {});
+      }
+
+      // 2. Mark this winner award as claimed locally & in storage
+      const key = getWinnerKey(winner);
+      const altKey = `${winner.period}_${winner.rank}`;
+      const nextClaimedMap = {
+        ...claimedWinners,
+        [key]: true,
+        [altKey]: uid || true,
+      };
+      setClaimedWinners(nextClaimedMap);
+      await AsyncStorage.setItem('@gamearn_claimed_winners', JSON.stringify(nextClaimedMap)).catch(() => {});
+
+      // 3. Update winnersList state and @gamearn_winners_cache so it reflects 'claimed' immediately
+      setWinnersList((prev) => {
+        const updated = (prev || []).map((w) => {
+          if (getWinnerKey(w) === key || (`${w.period}_${w.rank}` === altKey && (!w.uid || w.uid === winner.uid))) {
+            return { ...w, claimed: true };
+          }
+          return w;
+        });
+        AsyncStorage.setItem('@gamearn_winners_cache', JSON.stringify(updated)).catch(() => {});
+        return updated;
+      });
+
+      // 4. Close modal and show celebration alert
+      setClaimModalWinner(null);
+      Alert.alert(
+        '🏆 Reward Claimed!',
+        `Congratulations! ${rewardVp} VP has been added to your balance. Your new balance is ${nextVp.toLocaleString()} VP.`
+      );
+    } catch (err) {
+      console.warn('Failed to claim winner reward:', err);
+      Alert.alert('Notice', 'Reward was recorded. Please refresh your profile.');
+    } finally {
+      setClaimSubmitting(false);
+    }
+  };
 
   const getNotifSig = (n) =>
     `${String(n?.type || '')}:${String(n?.title || '').trim()}:${String(n?.message || n?.body || '').trim()}`;
@@ -472,21 +564,41 @@ export default function HomeScreen({ navigation }) {
             plays = Math.max(plays, rawPlays);
             wins = Math.max(wins, rawWins);
           } else if (period === 'Daily') {
-            const isToday = item.lastPlayedDate === todayStr || Number(item.dailyPlays || 0) > 0;
+            const isToday = (item.lastPlayedDate === todayStr || item.lastDailyPlayDate === todayStr) && Number(item.dailyPlays ?? 0) > 0;
             const dPlays = isToday ? Number(item.dailyPlays ?? 0) : 0;
             const dWins = isToday ? Number(item.dailyWins ?? 0) : 0;
             plays = Math.max(plays, dPlays);
             wins = Math.max(wins, dWins);
+          } else if (period === 'Weekly') {
+            const now = new Date();
+            const currentWeek = `${now.getFullYear()}-W${Math.ceil((((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)}`;
+            const isThisWeek = item.lastPlayedWeek === currentWeek;
+            const wPlays = isThisWeek ? Number(item.weeklyPlays ?? item.gamesPlayed ?? 0) : (item.weeklyPlays != null ? Number(item.weeklyPlays) : Math.min(Number(item.gamesPlayed ?? item.plays ?? 0), 10));
+            const wWins = isThisWeek ? Number(item.weeklyWins ?? item.wins ?? 0) : (item.weeklyWins != null ? Number(item.weeklyWins) : Math.min(Number(item.wins ?? item.gamesWon ?? 0), wPlays));
+            plays = Math.max(plays, wPlays);
+            wins = Math.max(wins, wWins);
+          } else if (period === 'Monthly') {
+            const now = new Date();
+            const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const isThisMonth = item.lastPlayedMonth === currentMonth;
+            const mPlays = isThisMonth ? Number(item.monthlyPlays ?? item.gamesPlayed ?? 0) : (item.monthlyPlays != null ? Number(item.monthlyPlays) : Number(item.gamesPlayed ?? item.plays ?? 0));
+            const mWins = isThisMonth ? Number(item.monthlyWins ?? item.wins ?? 0) : (item.monthlyWins != null ? Number(item.monthlyWins) : Number(item.wins ?? item.gamesWon ?? 0));
+            plays = Math.max(plays, mPlays);
+            wins = Math.max(wins, mWins);
           } else {
-            const cPlays = Number(item.careerPlays ?? item.gamesPlayed ?? item.plays ?? 0);
-            const cWins = Number(item.careerWins ?? item.wins ?? item.gamesWon ?? 0);
+            const cPlays = Number(item.yearlyPlays ?? item.careerPlays ?? item.gamesPlayed ?? item.plays ?? 0);
+            const cWins = Number(item.yearlyWins ?? item.careerWins ?? item.wins ?? item.gamesWon ?? 0);
             plays = Math.max(plays, cPlays);
             wins = Math.max(wins, cWins);
           }
 
-          const gp = item.gp != null
+          const gp = (item.gp != null && Number(item.gp) > 0)
             ? Number(item.gp)
-            : (existing?.gp != null ? existing.gp : 0);
+            : ((item.initialGp != null && Number(item.initialGp) > 0)
+                ? Number(item.initialGp)
+                : (existing?.gp != null ? existing.gp : 0));
+          const careerPlays = Math.max(Number(item.careerPlays ?? item.totalPlays ?? plays), Number(existing?.careerPlays ?? 0));
+          const careerWins = Math.max(Number(item.careerWins ?? item.totalWins ?? wins), Number(existing?.careerWins ?? 0));
 
           map.set(uid, {
             id: uid,
@@ -497,6 +609,8 @@ export default function HomeScreen({ navigation }) {
             avatar: item.avatar || item.avatarUrl || existing?.avatar || null,
             plays,
             wins,
+            careerPlays,
+            careerWins,
             periodPlays: period === 'Daily' ? plays : (isFromPeriodLb ? (item.periodPlays !== undefined ? Number(item.periodPlays) : plays) : (existing?.periodPlays ?? plays)),
             periodWins: period === 'Daily' ? wins : (isFromPeriodLb ? (item.periodWins !== undefined ? Number(item.periodWins) : wins) : (existing?.periodWins ?? wins)),
             gp: Math.max(gp, existing?.gp || 0),
@@ -1160,7 +1274,9 @@ export default function HomeScreen({ navigation }) {
           </View>
         ) : (
           periodWinners.map((w, idx) => {
-            const isUser = Boolean(userProfile?.uid && w.uid === userProfile.uid);
+            const isUser = Boolean(userProfile?.uid && (w.uid === userProfile.uid || String(w.uid).toLowerCase() === String(userProfile.uid).toLowerCase()));
+            const claimed = isWinnerClaimed(w);
+            const rewardVp = Number(w.rewardVp || String(w.reward || '10').replace(/[^0-9.]/g, '') || 10);
             return (
               <View
                 key={w.id || idx}
@@ -1220,32 +1336,103 @@ export default function HomeScreen({ navigation }) {
                   </View>
                 </View>
 
-                {/* Right: Golden Reward Ticket Voucher */}
-                <View
-                  style={{
-                    backgroundColor: 'rgba(168, 85, 0, 0.28)',
-                    borderColor: '#F59E0B',
-                    borderWidth: 1,
-                    borderRadius: 8 * scale,
-                    paddingHorizontal: 7 * scale,
-                    paddingVertical: 5 * scale,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{ fontSize: 12 * scale, marginRight: 4 * scale }}>🎁</Text>
-                  <Text
-                    style={{
-                      color: '#FBBF24',
-                      fontWeight: '900',
-                      fontSize: 10 * scale,
-                      maxWidth: 85 * scale,
+                {/* Right: Golden Reward Button / Claim Ticket */}
+                {isUser ? (
+                  claimed ? (
+                    <View
+                      style={{
+                        backgroundColor: 'rgba(16, 185, 129, 0.18)',
+                        borderColor: '#10B981',
+                        borderWidth: 1.2,
+                        borderRadius: 8 * scale,
+                        paddingHorizontal: 8 * scale,
+                        paddingVertical: 6 * scale,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ fontSize: 11 * scale, marginRight: 4 * scale, color: '#10B981' }}>✓</Text>
+                      <Text
+                        style={{
+                          color: '#10B981',
+                          fontWeight: '900',
+                          fontSize: 10.5 * scale,
+                        }}
+                      >
+                        Claimed
+                      </Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={() => setClaimModalWinner(w)}
+                      style={{
+                        backgroundColor: '#F59E0B',
+                        borderColor: '#FDE68A',
+                        borderWidth: 1.5,
+                        borderRadius: 8 * scale,
+                        paddingHorizontal: 10 * scale,
+                        paddingVertical: 6 * scale,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        shadowColor: '#F59E0B',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.45,
+                        shadowRadius: 4,
+                        elevation: 4,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12 * scale, marginRight: 4 * scale }}>🎁</Text>
+                      <Text
+                        style={{
+                          color: '#000000',
+                          fontWeight: '900',
+                          fontSize: 10.5 * scale,
+                          letterSpacing: 0.2,
+                        }}
+                      >
+                        Claim {rewardVp} VP
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                ) : (
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      if (claimed) {
+                        Alert.alert('🏆 Award Claimed', `${w.name || 'This player'} has already claimed their ${rewardVp} VP reward.`);
+                      } else {
+                        Alert.alert(
+                          '🏆 Leaderboard Winner',
+                          `Rank #${w.rank} awarded to ${w.name || 'Player'} on the ${w.period} Leaderboard for ${rewardVp} VP!`
+                        );
+                      }
                     }}
-                    numberOfLines={1}
+                    style={{
+                      backgroundColor: claimed ? 'rgba(16, 185, 129, 0.14)' : 'rgba(168, 85, 0, 0.28)',
+                      borderColor: claimed ? 'rgba(16, 185, 129, 0.5)' : '#F59E0B',
+                      borderWidth: 1,
+                      borderRadius: 8 * scale,
+                      paddingHorizontal: 7 * scale,
+                      paddingVertical: 5 * scale,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
                   >
-                    {w.rewardVp ? `${w.rewardVp} VP` : (String(w.reward || '').toUpperCase().includes('VP') ? w.reward : `${String(w.reward || '10').replace(/[^0-9.]/g, '') || 10} VP`)}
-                  </Text>
-                </View>
+                    <Text style={{ fontSize: 11 * scale, marginRight: 3 * scale }}>{claimed ? '✓' : '🎁'}</Text>
+                    <Text
+                      style={{
+                        color: claimed ? '#10B981' : '#FBBF24',
+                        fontWeight: '900',
+                        fontSize: 10 * scale,
+                        maxWidth: 85 * scale,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {claimed ? 'Claimed' : `${rewardVp} VP`}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             );
           })
@@ -1806,6 +1993,161 @@ export default function HomeScreen({ navigation }) {
               >
                 <Ionicons name="logo-whatsapp" size={20} color="#FFFFFF" />
                 <Text style={{ color: '#FFFFFF', fontSize: 15.5, fontWeight: '800' }}>Join WhatsApp Community</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 4. Leaderboard Winner Reward Claim Modal */}
+      <Modal
+        transparent
+        visible={claimModalWinner !== null}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!claimSubmitting) setClaimModalWinner(null);
+        }}
+        statusBarTranslucent
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(2, 8, 20, 0.88)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 390,
+              backgroundColor: '#07182E',
+              borderRadius: 22,
+              borderWidth: 1.8,
+              borderColor: '#F59E0B',
+              padding: 24,
+              alignItems: 'center',
+              shadowColor: '#F59E0B',
+              shadowOpacity: 0.45,
+              shadowRadius: 20,
+              elevation: 14,
+            }}
+          >
+            {/* Trophy Icon */}
+            <View
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 36,
+                backgroundColor: 'rgba(245, 158, 11, 0.16)',
+                borderWidth: 2,
+                borderColor: '#F59E0B',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 14,
+              }}
+            >
+              <Text style={{ fontSize: 38 }}>🏆</Text>
+            </View>
+
+            <Text
+              style={{
+                color: '#FFFFFF',
+                fontSize: 22,
+                fontWeight: '900',
+                textAlign: 'center',
+                marginBottom: 6,
+                letterSpacing: 0.4,
+              }}
+            >
+              Leaderboard Reward!
+            </Text>
+
+            <Text
+              style={{
+                color: '#C9D8E8',
+                fontSize: 14,
+                lineHeight: 20,
+                textAlign: 'center',
+                marginBottom: 18,
+              }}
+            >
+              Congratulations, <Text style={{ color: '#00E5FF', fontWeight: '800' }}>{claimModalWinner?.name || displayName || 'Champion'}</Text>! You placed <Text style={{ color: '#FBBF24', fontWeight: '800' }}>Rank #{claimModalWinner?.rank}</Text> on the <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{claimModalWinner?.period} Leaderboard</Text> ({claimModalWinner?.periodDate || 'Season'})!
+            </Text>
+
+            {/* Big VP Award Box */}
+            <View
+              style={{
+                width: '100%',
+                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                borderWidth: 1.5,
+                borderColor: '#F59E0B',
+                borderRadius: 16,
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                alignItems: 'center',
+                marginBottom: 20,
+              }}
+            >
+              <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                Reward Amount
+              </Text>
+              <Text style={{ color: '#FBBF24', fontSize: 32, fontWeight: '900', marginVertical: 4 }}>
+                +{Number(claimModalWinner?.rewardVp || String(claimModalWinner?.reward || '10').replace(/[^0-9.]/g, '') || 10).toLocaleString()} VP
+              </Text>
+              <Text style={{ color: '#E2E8F0', fontSize: 12, fontWeight: '600' }}>
+                Value Points will be added to your balance instantly
+              </Text>
+            </View>
+
+            {/* Actions */}
+            <View style={{ width: '100%', gap: 10 }}>
+              <TouchableOpacity
+                disabled={claimSubmitting}
+                activeOpacity={0.85}
+                onPress={() => handleClaimWinnerReward(claimModalWinner)}
+                style={{
+                  width: '100%',
+                  backgroundColor: '#F59E0B',
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  shadowColor: '#F59E0B',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 8,
+                  elevation: 6,
+                }}
+              >
+                {claimSubmitting ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <>
+                    <Text style={{ fontSize: 18, marginRight: 6 }}>🎁</Text>
+                    <Text style={{ color: '#000000', fontSize: 16, fontWeight: '900', letterSpacing: 0.3 }}>
+                      Claim It Now
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                disabled={claimSubmitting}
+                activeOpacity={0.7}
+                onPress={() => setClaimModalWinner(null)}
+                style={{
+                  width: '100%',
+                  paddingVertical: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: '#94A3B8', fontSize: 13, fontWeight: '700' }}>
+                  Claim Later
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

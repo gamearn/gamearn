@@ -69,14 +69,12 @@ function restore(value) {
 }
 
 function computeRowGp(wins = 0, played = 0, explicitGp = null) {
+  if (explicitGp !== null && explicitGp !== undefined && !isNaN(Number(explicitGp)) && Number(explicitGp) > 0) {
+    return Math.min(100, Math.max(0, Math.round(Number(explicitGp))));
+  }
   const W = Math.max(0, Number(wins) || 0);
   const P = Math.max(0, Number(played) || W);
-  if (P === 0) {
-    if (explicitGp !== null && explicitGp !== undefined && !isNaN(Number(explicitGp))) {
-      return Math.min(100, Math.max(0, Math.round(Number(explicitGp))));
-    }
-    return 0;
-  }
+  if (P === 0) return 0;
   const WR = Math.min(1, Math.max(0, W / P));
   const expScore = Math.min(1, Math.log10(P + 1) / 3);
   return Math.min(100, Math.max(0, Math.round(100 * (0.75 * WR + 0.25 * expScore))));
@@ -99,7 +97,7 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
   );
 
   const getRelevantUserStats = () => {
-    if (!userProfile) return { plays: 0, wins: 0, dailyPlays: 0, dailyWins: 0 };
+    if (!userProfile) return { plays: 0, wins: 0, dailyPlays: 0, dailyWins: 0, weeklyPlays: 0, weeklyWins: 0, monthlyPlays: 0, monthlyWins: 0, yearlyPlays: 0, yearlyWins: 0 };
     if (gameType) {
       const gKey = String(gameType).toLowerCase();
       const candidates = (gKey === 'draft' || gKey === 'checkers' || gKey === 'draught' || gKey === 'draughts')
@@ -110,6 +108,10 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
       let maxP = 0;
       let maxDailyP = 0;
       let maxDailyW = 0;
+      let maxWeeklyP = 0;
+      let maxWeeklyW = 0;
+      let maxMonthlyP = 0;
+      let maxMonthlyW = 0;
       let foundStat = false;
       let gamePlayedToday = false;
       for (const k of candidates) {
@@ -126,14 +128,29 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
             if (stat.dailyPlays !== undefined) maxDailyP = Math.max(maxDailyP, Number(stat.dailyPlays || 0));
             if (stat.dailyWins !== undefined) maxDailyW = Math.max(maxDailyW, Number(stat.dailyWins || 0));
           }
+          if (stat.weeklyPlays !== undefined) maxWeeklyP = Math.max(maxWeeklyP, Number(stat.weeklyPlays || 0));
+          if (stat.weeklyWins !== undefined) maxWeeklyW = Math.max(maxWeeklyW, Number(stat.weeklyWins || 0));
+          if (stat.monthlyPlays !== undefined) maxMonthlyP = Math.max(maxMonthlyP, Number(stat.monthlyPlays || 0));
+          if (stat.monthlyWins !== undefined) maxMonthlyW = Math.max(maxMonthlyW, Number(stat.monthlyWins || 0));
         }
       }
       if (!foundStat) {
-        return { plays: 0, wins: 0, dailyPlays: 0, dailyWins: 0 };
+        return { plays: 0, wins: 0, dailyPlays: 0, dailyWins: 0, weeklyPlays: 0, weeklyWins: 0, monthlyPlays: 0, monthlyWins: 0, yearlyPlays: 0, yearlyWins: 0 };
       }
       const finalDailyP = gamePlayedToday ? maxDailyP : 0;
       const finalDailyW = gamePlayedToday ? Math.min(maxDailyW, finalDailyP) : 0;
-      return { plays: Math.max(maxP, maxW), wins: maxW, dailyPlays: finalDailyP, dailyWins: finalDailyW };
+      return {
+        plays: Math.max(maxP, maxW),
+        wins: maxW,
+        dailyPlays: finalDailyP,
+        dailyWins: finalDailyW,
+        weeklyPlays: maxWeeklyP || Math.max(maxP, maxW),
+        weeklyWins: maxWeeklyW || maxW,
+        monthlyPlays: maxMonthlyP || Math.max(maxP, maxW),
+        monthlyWins: maxMonthlyW || maxW,
+        yearlyPlays: Math.max(maxP, maxW),
+        yearlyWins: maxW,
+      };
     }
     const totalWins = Number(userProfile.wins ?? userProfile.gamesWon ?? 0);
     const totalLosses = Number(userProfile.losses ?? userProfile.gamesLost ?? 0);
@@ -141,7 +158,18 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
     const totalPlays = Number(userProfile.gamesPlayed ?? userProfile.plays ?? (totalWins + totalLosses + totalDraws));
     const globalDailyP = playedToday ? Number(userProfile.dailyPlays || 0) : 0;
     const globalDailyW = playedToday ? Math.min(Number(userProfile.dailyWins || 0), globalDailyP) : 0;
-    return { plays: Math.max(totalPlays, totalWins), wins: totalWins, dailyPlays: globalDailyP, dailyWins: globalDailyW };
+    return {
+      plays: Math.max(totalPlays, totalWins),
+      wins: totalWins,
+      dailyPlays: globalDailyP,
+      dailyWins: globalDailyW,
+      weeklyPlays: Number(userProfile.weeklyPlays || totalPlays),
+      weeklyWins: Number(userProfile.weeklyWins || totalWins),
+      monthlyPlays: Number(userProfile.monthlyPlays || totalPlays),
+      monthlyWins: Number(userProfile.monthlyWins || totalWins),
+      yearlyPlays: Math.max(totalPlays, totalWins),
+      yearlyWins: totalWins,
+    };
   };
 
   const userStats = getRelevantUserStats();
@@ -150,10 +178,16 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
     if (period === 'Daily') {
       return { plays: userStats.dailyPlays, wins: userStats.dailyWins };
     }
-    if (isPeriodFiltered) {
+    if (period === 'Weekly') {
       return {
-        plays: userStats.dailyPlays > 0 ? Math.max(userStats.dailyPlays, userStats.plays) : userStats.plays,
-        wins: userStats.dailyWins > 0 ? Math.max(userStats.dailyWins, userStats.wins) : userStats.wins,
+        plays: userStats.weeklyPlays !== undefined ? userStats.weeklyPlays : userStats.plays,
+        wins: userStats.weeklyWins !== undefined ? userStats.weeklyWins : userStats.wins,
+      };
+    }
+    if (period === 'Monthly') {
+      return {
+        plays: userStats.monthlyPlays !== undefined ? userStats.monthlyPlays : userStats.plays,
+        wins: userStats.monthlyWins !== undefined ? userStats.monthlyWins : userStats.wins,
       };
     }
     return { plays: userStats.plays, wins: userStats.wins };
@@ -163,9 +197,9 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
 
   const getUserGp = () => {
     if (!userProfile) return 0;
-    if (userProfile.gp !== undefined && userProfile.gp !== null) return Number(userProfile.gp);
-    if (userProfile.gamePower !== undefined && userProfile.gamePower !== null) return Number(userProfile.gamePower);
-    return computeRowGp(userStats.wins, userStats.plays);
+    if (userProfile.gp !== undefined && userProfile.gp !== null && Number(userProfile.gp) > 0) return Number(userProfile.gp);
+    if (userProfile.gamePower !== undefined && userProfile.gamePower !== null && Number(userProfile.gamePower) > 0) return Number(userProfile.gamePower);
+    return computeRowGp(userStats.yearlyWins || userStats.wins, userStats.yearlyPlays || userStats.plays);
   };
 
   const rows = Array.isArray(dbRows) ? dbRows : [];
@@ -194,10 +228,16 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
         plays = Math.max(plays, effectiveStats.plays, wins);
       }
     }
-    const rowGp = isUser ? getUserGp() : computeRowGp(wins, plays, row.gp ?? row.gamePower);
+    const explicitGp = Number(row.gp ?? row.gamePower ?? (isUser ? (userProfile?.gp ?? userProfile?.gamePower) : 0) ?? 0);
+    const rowGp = explicitGp > 0
+      ? explicitGp
+      : (isUser ? getUserGp() : computeRowGp(row.careerWins ?? row.totalWins ?? wins, row.careerPlays ?? row.totalPlays ?? plays));
     return {
       id: row.id || row.uid || `player_${index}`,
+      uid: row.uid || row.id,
       name: isUser ? `${cleanName} (You)` : cleanName,
+      displayName: cleanName,
+      username: row.username || cleanName,
       plays,
       wins,
       gp: rowGp,
@@ -218,7 +258,10 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
       const cleanName = rawName.replace(/\s*\(You\)\s*$/, '');
       list.push({
         id: userProfile.uid,
+        uid: userProfile.uid,
         name: `${cleanName} (You)`,
+        displayName: cleanName,
+        username: userProfile.username || cleanName,
         plays: effectiveStats.plays,
         wins: effectiveStats.wins,
         gp: userGp,
@@ -235,6 +278,7 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
   list.sort((a, b) => {
     if (b.plays !== a.plays) return b.plays - a.plays;
     if (b.wins !== a.wins) return b.wins - a.wins;
+    if (b.gp !== a.gp) return b.gp - a.gp;
     return (a.name || '').localeCompare(b.name || '');
   });
   list.forEach((item, idx) => {

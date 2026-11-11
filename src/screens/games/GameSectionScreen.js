@@ -68,17 +68,37 @@ export default function GameSectionScreen({ route, navigation }) {
             const gs = item.gameStats || {};
             const gSt = gs[key] || (key === 'draft' ? (gs.draughts || gs.checkers) : null) || {};
             if (period === 'Daily') {
-              const isToday = gSt.lastPlayedDate === todayStr;
+              const isToday = (gSt.lastPlayedDate === todayStr || item.lastPlayedDate === todayStr) && Number(gSt.dailyPlays ?? 0) > 0;
               plays = Math.max(plays, isToday ? Number(gSt.dailyPlays ?? 0) : 0);
               wins = Math.max(wins, isToday ? Number(gSt.dailyWins ?? 0) : 0);
+            } else if (period === 'Weekly') {
+              const now = new Date();
+              const currentWeek = `${now.getFullYear()}-W${Math.ceil((((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)}`;
+              const isThisWeek = gSt.lastPlayedWeek === currentWeek;
+              const wPlays = isThisWeek ? Number(gSt.weeklyPlays ?? gSt.gamesPlayed ?? 0) : (gSt.weeklyPlays != null ? Number(gSt.weeklyPlays) : Math.min(Number(gSt.gamesPlayed ?? gSt.plays ?? 0), 10));
+              const wWins = isThisWeek ? Number(gSt.weeklyWins ?? gSt.wins ?? 0) : (gSt.weeklyWins != null ? Number(gSt.weeklyWins) : Math.min(Number(gSt.wins ?? 0), wPlays));
+              plays = Math.max(plays, wPlays);
+              wins = Math.max(wins, wWins);
+            } else if (period === 'Monthly') {
+              const now = new Date();
+              const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+              const isThisMonth = gSt.lastPlayedMonth === currentMonth;
+              const mPlays = isThisMonth ? Number(gSt.monthlyPlays ?? gSt.gamesPlayed ?? 0) : (gSt.monthlyPlays != null ? Number(gSt.monthlyPlays) : Number(gSt.gamesPlayed ?? gSt.plays ?? 0));
+              const mWins = isThisMonth ? Number(gSt.monthlyWins ?? gSt.wins ?? 0) : (gSt.monthlyWins != null ? Number(gSt.monthlyWins) : Number(gSt.wins ?? 0));
+              plays = Math.max(plays, mPlays);
+              wins = Math.max(wins, mWins);
             } else {
-              plays = Math.max(plays, Number(gSt.gamesPlayed ?? gSt.plays ?? 0));
-              wins = Math.max(wins, Number(gSt.wins ?? 0));
+              plays = Math.max(plays, Number(gSt.yearlyPlays ?? gSt.gamesPlayed ?? gSt.plays ?? 0));
+              wins = Math.max(wins, Number(gSt.yearlyWins ?? gSt.wins ?? 0));
             }
           }
-          const gp = item.gp != null
+          const gp = (item.gp != null && Number(item.gp) > 0)
             ? Number(item.gp)
-            : (existing?.gp != null ? existing.gp : 0);
+            : ((item.initialGp != null && Number(item.initialGp) > 0)
+                ? Number(item.initialGp)
+                : (existing?.gp != null ? existing.gp : 0));
+          const careerPlays = Math.max(Number(item.careerPlays ?? item.totalPlays ?? plays), Number(existing?.careerPlays ?? 0));
+          const careerWins = Math.max(Number(item.careerWins ?? item.totalWins ?? wins), Number(existing?.careerWins ?? 0));
 
           map.set(uid, {
             id: uid,
@@ -89,6 +109,8 @@ export default function GameSectionScreen({ route, navigation }) {
             avatar: item.avatar || item.avatarUrl || existing?.avatar || null,
             plays,
             wins,
+            careerPlays,
+            careerWins,
             periodPlays: period === 'Daily' ? plays : (isFromGameLb ? plays : (existing?.periodPlays ?? plays)),
             periodWins: period === 'Daily' ? wins : (isFromGameLb ? wins : (existing?.periodWins ?? wins)),
             gp: Math.max(gp, existing?.gp || 0),

@@ -273,7 +273,7 @@ export default function ProfileScreen({ navigation }) {
     if (listFilter === 'followers') return followersUids.has(pUid);
     return true;
   });
-  const effectiveFollowersCount = Math.max(Number(userProfile?.followersCount ?? 0), followersUids.size);
+  const effectiveFollowersCount = followersUids.size;
   const effectiveFollowingCount = followedUids.size;
 
   return (
@@ -650,7 +650,10 @@ export default function ProfileScreen({ navigation }) {
                         @{pUsername.replace(/^@+/, '')}
                       </Text>
                     )}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                      <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '700' }}>
+                        {person.gamesPlayed ?? person.plays ?? 0} Plays · {person.wins ?? 0} Wins
+                      </Text>
                       <View style={styles.gpBadge}>
                         <Text style={styles.gpBadgeText}>⚡ {pGp} GP</Text>
                       </View>
