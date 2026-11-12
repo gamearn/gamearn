@@ -24,9 +24,12 @@ import {
   Smartphone,
   KeyRound,
   LayoutDashboard,
+  Trash2,
 } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { auth as authApi } from '../../services/api';
 
 export default function SettingsScreen({ navigation }) {
   const { theme, isDark, toggleTheme } = useTheme();
@@ -49,6 +52,37 @@ export default function SettingsScreen({ navigation }) {
         },
       },
     ]);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account Permanently',
+      'Are you sure you want to permanently delete your account? All your game power, value points, stats, wallet records, and profile will be completely erased from the database. This action CANNOT be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Forever',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const uid = userProfile?.uid || user?.uid;
+              await authApi.deleteAccount().catch(() => {});
+              if (uid) {
+                await AsyncStorage.removeItem(`@gamearn_earned_vp_${uid}`).catch(() => {});
+                await AsyncStorage.removeItem(`@gamearn_permanent_vp_${uid}`).catch(() => {});
+                await AsyncStorage.removeItem(`@gamearn_gamestats_${uid}`).catch(() => {});
+                await AsyncStorage.removeItem(`@gamearn_following_v2_${uid}`).catch(() => {});
+              }
+              await signOut();
+              navigation.reset({ index: 0, routes: [{ name: 'Landing' }] });
+              Alert.alert('Account Deleted', 'Your account has been completely deleted.');
+            } catch (err) {
+              Alert.alert('Notice', err?.message || 'Could not complete deletion.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -256,6 +290,16 @@ export default function SettingsScreen({ navigation }) {
         >
           <LogOut size={18} color={theme.textMuted} style={{ marginRight: 8 }} />
           <Text style={[styles.logoutBtnText, { color: theme.textMuted }]}>Logout</Text>
+        </TouchableOpacity>
+
+        {/* Delete Account Permanently */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleDeleteAccount}
+          style={[styles.logoutBtn, { borderColor: '#EF444455', backgroundColor: 'rgba(239, 68, 68, 0.08)', marginTop: 12 }]}
+        >
+          <Trash2 size={18} color="#EF4444" style={{ marginRight: 8 }} />
+          <Text style={[styles.logoutBtnText, { color: '#EF4444', fontWeight: '800' }]}>Delete Account Permanently</Text>
         </TouchableOpacity>
 
         {/* Footer Version */}

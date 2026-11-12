@@ -1460,20 +1460,71 @@ export default function HomeScreen({ navigation }) {
           <Text style={[s.muted, { marginTop: 12 * scale }]}>
             {period === 'Daily' ? 'No players have played today yet.' : 'No active database rankings for this period yet.'}
           </Text>
-        ) : rows.map((player, index) => (
-          <Tap key={player.id} label={`${index + 1}, ${player.name}, ${player.plays} plays, ${player.wins} wins`} onPress={() => open('player', player)} style={[s.leaderRow, index === 0 && s.firstRow, player.isUser && { borderColor: '#00E5FF', borderWidth: 1.5, backgroundColor: 'rgba(0, 229, 255, 0.08)' }]}>
-            <View style={[s.rank, index < 3 && { borderColor: ['#eab51b', '#91a6b9', '#ff8a00'][index], backgroundColor: ['#8f6400', '#526b80', '#bf4004'][index] }]}>
-              {index < 3 && <View style={s.medalRibbon} />}
-              {txt(String(index + 1), 17, index === 0 && { color: '#fff676' })}
-            </View>
-            <Image source={resolveAvatarSource(player.avatar)} style={[s.smallAvatar, { width: 32 * scale, height: 32 * scale, borderRadius: (32 * scale) / 2 }]} />
-            <View style={{ flex: 1 }}>
-              {txt(player.name, 12)}
-              {txt(`${player.plays} Plays · ${player.wins} Wins`, 11, s.muted)}
-            </View>
-            {txt(player.gpText || `${player.gp || 0} GP`, 14, [s.bold, index === 0 && { color: '#ffe856' }])}
-          </Tap>
-        ))}
+        ) : (
+          (() => {
+            const top10 = rows.slice(0, 10);
+            const userInTop10 = top10.some((p) => p.isUser);
+            const userRow = !userInTop10 ? rows.find((p) => p.isUser) : null;
+
+            const renderRow = (player, displayRank) => {
+              const rankIdx = displayRank - 1;
+              const isTop3 = rankIdx >= 0 && rankIdx < 3;
+              return (
+                <Tap
+                  key={player.id}
+                  label={`${displayRank}, ${player.name}, ${player.plays} plays, ${player.wins} wins`}
+                  onPress={() => open('player', player)}
+                  style={[
+                    s.leaderRow,
+                    rankIdx === 0 && s.firstRow,
+                    player.isUser && { borderColor: '#00E5FF', borderWidth: 1.5, backgroundColor: 'rgba(0, 229, 255, 0.08)' },
+                  ]}
+                >
+                  <View
+                    style={[
+                      s.rank,
+                      isTop3 && {
+                        borderColor: ['#eab51b', '#91a6b9', '#ff8a00'][rankIdx],
+                        backgroundColor: ['#8f6400', '#526b80', '#bf4004'][rankIdx],
+                      },
+                      !isTop3 && player.isUser && {
+                        borderColor: '#00E5FF',
+                        backgroundColor: 'rgba(0, 229, 255, 0.2)',
+                      },
+                    ]}
+                  >
+                    {isTop3 && <View style={s.medalRibbon} />}
+                    {txt(String(displayRank), 16, rankIdx === 0 ? { color: '#fff676' } : (player.isUser ? { color: '#00E5FF', fontWeight: '900' } : {}))}
+                  </View>
+                  <Image source={resolveAvatarSource(player.avatar)} style={[s.smallAvatar, { width: 32 * scale, height: 32 * scale, borderRadius: (32 * scale) / 2 }]} />
+                  <View style={{ flex: 1 }}>
+                    {txt(player.name, 12, player.isUser ? { color: '#00E5FF', fontWeight: '800' } : {})}
+                    {txt(`${player.plays} Plays · ${player.wins} Wins`, 11, s.muted)}
+                  </View>
+                  {txt(player.gpText || `${player.gp || 0} GP`, 14, [s.bold, rankIdx === 0 && { color: '#ffe856' }, player.isUser && { color: '#00E5FF' }])}
+                </Tap>
+              );
+            };
+
+            return (
+              <>
+                {top10.map((player, index) => renderRow(player, player.rank || index + 1))}
+                {userRow && (
+                  <>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 8 * scale, gap: 8 * scale }}>
+                      <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)' }} />
+                      <Text style={{ color: '#00E5FF', fontSize: 11 * scale, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' }}>
+                        Your Standing
+                      </Text>
+                      <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)' }} />
+                    </View>
+                    {renderRow(userRow, userRow.rank || (rows.indexOf(userRow) + 1))}
+                  </>
+                )}
+              </>
+            );
+          })()
+        )}
       </View>
     );
   }

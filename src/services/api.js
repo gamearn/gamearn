@@ -109,6 +109,7 @@ export const auth = {
   mfaVerify: (payload) => apiPost('/auth/mfa/verify', payload),
 
   mfaDisable: () => apiPost('/auth/mfa/disable', {}),
+  deleteAccount: () => apiPost('/auth/delete-account', { confirmation: 'DELETE' }),
 };
 
 // ── Wallet & payments ─────────────────────────────────────────────────────────
@@ -412,6 +413,8 @@ export const admin = {
   suspendUser: (uid, payload) => apiPost(`/admin/users/${uid}/suspend`, payload),
   unsuspendUser: (uid, payload) => apiPost(`/admin/users/${uid}/unsuspend`, payload),
   softDeleteUser: (uid, payload) => apiPost(`/admin/users/${uid}/delete`, payload),
+  permanentDeleteUser: (uid) => apiDelete(`/admin/users/${encodeURIComponent(uid)}`),
+  deleteUser: (uid) => apiDelete(`/admin/users/${encodeURIComponent(uid)}`),
   revokeSessions: (uid) => apiPost(`/admin/users/${uid}/revoke-sessions`, {}),
   updateClaims: (uid, claims) => apiPatch(`/admin/users/${uid}/claims`, claims),
 

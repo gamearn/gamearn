@@ -70,7 +70,7 @@ function restore(value) {
 
 function computeRowGp(wins = 0, played = 0, explicitGp = null) {
   if (explicitGp !== null && explicitGp !== undefined && !isNaN(Number(explicitGp)) && Number(explicitGp) > 0) {
-    return Math.min(100, Math.max(0, Math.round(Number(explicitGp))));
+    return Math.max(0, Math.round(Number(explicitGp)));
   }
   const W = Math.max(0, Number(wins) || 0);
   const P = Math.max(0, Number(played) || W);

@@ -254,28 +254,56 @@ export default function GameSectionScreen({ route, navigation }) {
           ) : leaderRows.length === 0 ? (
             <Text style={styles.empty}>No {game.title} leaderboard activity recorded yet.</Text>
           ) : (
-            leaderRows.map((player, idx) => (
-              <View
-                key={player.id}
-                style={[
-                  styles.leaderRow,
-                  idx === 0 && { borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.12)' },
-                  player.isUser && { borderColor: '#00E5FF', backgroundColor: 'rgba(0, 229, 255, 0.1)' },
-                ]}
-              >
-                <View style={[styles.rankBadge, idx === 0 && { backgroundColor: '#F59E0B' }]}>
-                  <Text style={{ color: idx === 0 ? '#070C1B' : '#FFF', fontWeight: '900', fontSize: 13 }}>#{idx + 1}</Text>
-                </View>
-                <Image source={resolveAvatarSource(player.avatar)} style={{ width: 32, height: 32, borderRadius: 16, marginLeft: 10 }} />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 14 }}>{player.name}</Text>
-                  <Text style={{ color: '#94A3B8', fontSize: 11 }}>{player.plays} Plays · {player.wins} Wins</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: '#00E5FF', fontWeight: '900', fontSize: 14 }}>{player.gpText || `${player.gp || 0} GP`}</Text>
-                </View>
-              </View>
-            ))
+            (() => {
+              const top10 = leaderRows.slice(0, 10);
+              const userInTop10 = top10.some((p) => p.isUser);
+              const userRow = !userInTop10 ? leaderRows.find((p) => p.isUser) : null;
+
+              const renderItem = (player, displayRank) => {
+                const rankIdx = displayRank - 1;
+                const isFirst = rankIdx === 0;
+                return (
+                  <View
+                    key={player.id}
+                    style={[
+                      styles.leaderRow,
+                      isFirst && { borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.12)' },
+                      player.isUser && { borderColor: '#00E5FF', backgroundColor: 'rgba(0, 229, 255, 0.1)' },
+                    ]}
+                  >
+                    <View style={[styles.rankBadge, isFirst && { backgroundColor: '#F59E0B' }, player.isUser && !isFirst && { backgroundColor: '#0284C7' }]}>
+                      <Text style={{ color: isFirst ? '#070C1B' : '#FFF', fontWeight: '900', fontSize: 13 }}>#{displayRank}</Text>
+                    </View>
+                    <Image source={resolveAvatarSource(player.avatar)} style={{ width: 32, height: 32, borderRadius: 16, marginLeft: 10 }} />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={{ color: player.isUser ? '#00E5FF' : '#FFF', fontWeight: '800', fontSize: 14 }}>{player.name}</Text>
+                      <Text style={{ color: '#94A3B8', fontSize: 11 }}>{player.plays} Plays · {player.wins} Wins</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ color: player.isUser ? '#00E5FF' : '#00E5FF', fontWeight: '900', fontSize: 14 }}>{player.gpText || `${player.gp || 0} GP`}</Text>
+                    </View>
+                  </View>
+                );
+              };
+
+              return (
+                <>
+                  {top10.map((player, idx) => renderItem(player, player.rank || idx + 1))}
+                  {userRow && (
+                    <>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 6, gap: 8 }}>
+                        <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)' }} />
+                        <Text style={{ color: '#00E5FF', fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' }}>
+                          Your Standing
+                        </Text>
+                        <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)' }} />
+                      </View>
+                      {renderItem(userRow, userRow.rank || (leaderRows.indexOf(userRow) + 1))}
+                    </>
+                  )}
+                </>
+              );
+            })()
           )}
         </View>
       </ScrollView>

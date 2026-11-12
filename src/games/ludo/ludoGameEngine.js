@@ -166,7 +166,7 @@ export function moveToken(tokens, tokenId, roll) {
   if (movedToken.stepCount >= 1 && movedToken.stepCount <= 51) {
     const movedGlobal = getGlobalTrackIndex(movedToken.player, movedToken.stepCount);
 
-    if (movedGlobal !== null && !isSafeSpot(movedGlobal)) {
+    if (movedGlobal !== null) {
       for (let i = 0; i < newTokens.length; i++) {
         const other = newTokens[i];
         if (other.player !== movedToken.player && other.stepCount >= 1 && other.stepCount <= 51) {

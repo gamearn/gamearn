@@ -36,7 +36,7 @@ import { ApiError } from '../services/apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calculateGamePower, formatGP, calculateValuePoints, formatVP } from '../utils/gamePower';
 import { getLocalDateString, getDayGap } from '../utils/recordGameStreak';
-import { registerKnownPlatformPlayer } from '../utils/platformPlayers';
+import { registerKnownPlatformPlayer, ALL_DATABASE_PLAYERS } from '../utils/platformPlayers';
 
 const AuthContext = createContext();
 
@@ -231,18 +231,20 @@ function profileFromMe(me, cached) {
   );
 
   const computedGp = calculateGamePower(gamesPlayed, wins, losses);
-  const gp = Math.min(
-    100,
-    Math.max(
-      0,
-      Math.round(
-        Math.max(
-          Number(me?.gamePower || 0),
-          Number(me?.gp || 0),
-          Number(me?.settings?.gp || me?.settings?.gamePower || 0),
-          Number(cached?.gp ?? cached?.gamePower ?? 0),
-          computedGp
-        )
+  const knownFromDb = ALL_DATABASE_PLAYERS.find(
+    (p) => p.uid === uid || (p.username && me?.username && String(p.username).toLowerCase() === String(me.username).toLowerCase())
+  );
+  const knownInitialGp = Number(knownFromDb?.initialGp ?? knownFromDb?.gp ?? 0);
+  const gp = Math.max(
+    0,
+    Math.round(
+      Math.max(
+        Number(me?.gamePower || 0),
+        Number(me?.gp || 0),
+        Number(me?.settings?.gp || me?.settings?.gamePower || 0),
+        Number(cached?.gp ?? cached?.gamePower ?? 0),
+        computedGp,
+        knownInitialGp
       )
     )
   );

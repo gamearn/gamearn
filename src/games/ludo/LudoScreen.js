@@ -654,10 +654,10 @@ export default function LudoScreen({
                 <View style={styles.ruleSection}>
                   <View style={styles.ruleHeadingRow}>
                     <ShieldCheck size={16} color="#00E5FF" />
-                    <Text style={styles.ruleHeading}>Safe Zones (Star Squares)</Text>
+                    <Text style={styles.ruleHeading}>Capturing & Yard House</Text>
                   </View>
                   <Text style={styles.ruleDesc}>
-                    Pieces on the 8 star squares (starting squares & marked stars) are 100% safe and cannot be captured. Opposing pieces can safely share safe squares.
+                    Whenever your token meets an opponent's token in the same box, the opponent's token is immediately captured and sent back to its colour house!
                   </Text>
                 </View>
 

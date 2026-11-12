@@ -26,8 +26,10 @@ export function calculateGamePower(played = 0, wins = 0, _losses = 0) {
 }
 
 export function formatGP(gpValue) {
-  const val = typeof gpValue === 'number' && !isNaN(gpValue) ? Math.min(100, Math.max(0, Math.round(gpValue))) : 0;
-  return `${val} GP`;
+  const val = typeof gpValue === 'number' && !isNaN(gpValue)
+    ? Math.max(0, Math.round(gpValue))
+    : (parseFloat(gpValue) || 0);
+  return `${val.toLocaleString()} GP`;
 }
 
 export function calculateValuePoints(naira = 0, _played = 0, _wins = 0) {

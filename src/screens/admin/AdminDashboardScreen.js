@@ -784,6 +784,66 @@ export default function AdminDashboardScreen({ navigation }) {
     }
   };
 
+  const handlePermanentDeleteUser = async (uid) => {
+    setBusy(true);
+    try {
+      if (typeof admin.permanentDeleteUser === 'function') {
+        await admin.permanentDeleteUser(uid).catch(() => {});
+      } else if (typeof admin.deleteUser === 'function') {
+        await admin.deleteUser(uid).catch(() => {});
+      }
+
+      // 1. Remove from local state
+      setUsers((prev) => {
+        if (!prev) return prev;
+        const list = Array.isArray(prev.users) ? prev.users.filter((u) => u.uid !== uid) : [];
+        return { ...prev, users: list, pagination: { ...(prev.pagination || {}), total: Math.max(0, (prev.pagination?.total || list.length) - 1) } };
+      });
+      setVerifiedUsers((prev) => {
+        if (!prev) return prev;
+        const list = Array.isArray(prev.users) ? prev.users.filter((u) => u.uid !== uid) : [];
+        return { ...prev, users: list, pagination: { ...(prev.pagination || {}), total: Math.max(0, (prev.pagination?.total || list.length) - 1) } };
+      });
+      setWinnersData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          candidates: (prev.candidates || []).filter((c) => c.uid !== uid),
+          winners: (prev.winners || []).filter((w) => w.uid !== uid),
+        };
+      });
+
+      // 2. Persist deleted UID to local storage so user never re-appears in caches
+      try {
+        const rawDel = await AsyncStorage.getItem('@gamearn_deleted_uids');
+        const delList = rawDel ? JSON.parse(rawDel) : [];
+        if (!delList.includes(uid)) {
+          delList.push(uid);
+          await AsyncStorage.setItem('@gamearn_deleted_uids', JSON.stringify(delList));
+        }
+
+        // Clean from community cache
+        const commRaw = await AsyncStorage.getItem('@gamearn_community_users_cache');
+        if (commRaw) {
+          const commList = JSON.parse(commRaw);
+          if (Array.isArray(commList)) {
+            const filtered = commList.filter((u) => u.uid !== uid && u.id !== uid);
+            await AsyncStorage.setItem('@gamearn_community_users_cache', JSON.stringify(filtered));
+          }
+        }
+      } catch {}
+
+      // 3. Close detail modal
+      setSelected(null);
+      setDetail(null);
+      Alert.alert('User Deleted', 'The user has been completely deleted from the database and application.');
+    } catch (err) {
+      Alert.alert('Delete Failed', err?.message || 'Could not permanently delete user.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const runAction = async (label, fn) => {
     setBusy(true);
     try {
@@ -2056,6 +2116,26 @@ export default function AdminDashboardScreen({ navigation }) {
                     style={[styles.actionBtn, { borderColor: theme.danger || '#FF6B6B' }]}
                   >
                     <Text style={[styles.actionText, { color: theme.danger || '#FF6B6B' }]}>Soft-delete</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={busy}
+                    onPress={() =>
+                      Alert.alert(
+                        'Delete User Permanently',
+                        `Are you sure you want to permanently delete "${detail?.profile?.displayName || selected}"? This will completely remove them from the database and the entire application. This action cannot be undone.`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete Permanently',
+                            style: 'destructive',
+                            onPress: () => handlePermanentDeleteUser(selected),
+                          },
+                        ]
+                      )
+                    }
+                    style={[styles.actionBtn, { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}
+                  >
+                    <Text style={[styles.actionText, { color: '#EF4444', fontWeight: '800' }]}>Delete Permanently</Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>

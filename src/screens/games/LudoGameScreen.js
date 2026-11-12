@@ -260,9 +260,9 @@ export default function LudoGameScreen({ route, navigation }) {
     };
     newPlayers[pIdx].pieces[pieceId] = movedPiece;
 
-    // Check captures on main track if not in home stretch and not on safe zone
+    // Check captures on track: whenever a token meets an opponent token in the same box, opponent goes back to house!
     let captured = false;
-    if (!movedPiece.inHomeStretch && movedPiece.position >= 0 && !SAFE_RING.includes(movedPiece.position)) {
+    if (!movedPiece.inHomeStretch && movedPiece.position >= 0) {
       newPlayers.forEach((otherPl, otherIdx) => {
         if (otherIdx === pIdx) return;
         otherPl.pieces.forEach((otherPc, otherPcIdx) => {
