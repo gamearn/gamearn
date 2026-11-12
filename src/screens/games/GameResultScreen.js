@@ -63,6 +63,7 @@ export default function GameResultScreen({ route, navigation }) {
     targetScreen = 'WhotGame',
     stake = 250,
     matchSettings = {},
+    matchId = null,
   } = route.params || {};
 
   const [myTournaments, setMyTournaments] = useState([]);

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Wallet, Flame, Users, Play, Trophy, Settings } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
@@ -34,8 +35,9 @@ export default function GameSectionScreen({ route, navigation }) {
     Promise.allSettled([
       leaderboardApi.get(period, key),
       fetchAllPlatformPlayers(),
+      AsyncStorage.getItem('@gamearn_deleted_uids').catch(() => null),
     ])
-      .then(([lbRes, allPlayersRes]) => {
+      .then(([lbRes, allPlayersRes, delUidsRes]) => {
         if (!active) return;
         const lbRows = lbRes.status === 'fulfilled'
           ? (Array.isArray(lbRes.value) ? lbRes.value : lbRes.value?.data || [])
@@ -43,6 +45,14 @@ export default function GameSectionScreen({ route, navigation }) {
         const refRows = allPlayersRes.status === 'fulfilled' && Array.isArray(allPlayersRes.value)
           ? allPlayersRes.value
           : [];
+        let deletedUidsSet = new Set();
+        try {
+          const rawDel = delUidsRes.status === 'fulfilled' ? delUidsRes.value : null;
+          if (rawDel) {
+            const parsed = JSON.parse(rawDel);
+            if (Array.isArray(parsed)) deletedUidsSet = new Set(parsed);
+          }
+        } catch {}
 
         const d = new Date();
         const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -50,8 +60,20 @@ export default function GameSectionScreen({ route, navigation }) {
         const addEntry = (item, isFromGameLb = false) => {
           if (!item) return;
           const uid = item.uid || item.id;
-          if (!uid) return;
+          if (!uid || deletedUidsSet.has(uid)) return;
           const existing = map.get(uid);
+
+          // If entry is already populated authoritatively from the server database, do not overwrite plays/wins/gp with local phone data
+          if (existing && !isFromGameLb) {
+            if (!existing.avatar && (item.avatar || item.avatarUrl)) {
+              existing.avatar = item.avatar || item.avatarUrl;
+            }
+            if ((!existing.username || existing.username === 'Player') && item.username) {
+              existing.username = item.username;
+            }
+            return;
+          }
+
           const name = item.displayName || item.name || item.username || existing?.name || 'Player';
           let plays = existing?.plays ?? 0;
           let wins = existing?.wins ?? 0;
@@ -121,7 +143,10 @@ export default function GameSectionScreen({ route, navigation }) {
         lbRows.forEach((r) => addEntry(r, true));
         refRows.forEach((r) => addEntry(r, false));
 
-        setDbLeaderRows(Array.from(map.values()));
+        setDbLeaderRows(
+          Array.from(map.values())
+            .filter((row) => !deletedUidsSet.has(row.uid) && !deletedUidsSet.has(row.id))
+        );
       })
       .catch(() => {
         if (active) setDbLeaderRows([]);

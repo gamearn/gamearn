@@ -38,7 +38,12 @@ import {
   tournaments as tournamentsApi,
   filterDeletedTournaments,
 } from '../../services/api';
-import { fetchAllPlatformPlayers, ALL_DATABASE_PLAYERS } from '../../utils/platformPlayers';
+import {
+  fetchAllPlatformPlayers,
+  ALL_DATABASE_PLAYERS,
+  recordDeletedPlatformUid,
+  getDeletedPlatformUidsSet,
+} from '../../utils/platformPlayers';
 
 const initialPlayersList = ALL_DATABASE_PLAYERS.map((p) => ({
   uid: p.uid,
@@ -202,6 +207,7 @@ export default function AdminDashboardScreen({ navigation }) {
   // Collect all players, tournaments, leaderboards, and winners from User Dashboard caches + fast APIs
   const gatherUserDashboardMirror = useCallback(async () => {
     const todayStr = new Date().toISOString().slice(0, 10);
+    const deletedUidsSet = await getDeletedPlatformUidsSet();
     const mirrorSettled = await Promise.allSettled([
       withFastTimeout(fetchAllPlatformPlayers(), 2800, []),
       AsyncStorage.getItem('@gamearn_community_users_cache').catch(() => null),
@@ -227,7 +233,7 @@ export default function AdminDashboardScreen({ navigation }) {
     const upsertPlayer = (raw) => {
       if (!raw) return;
       const uid = raw.uid || raw.id;
-      if (!uid || String(uid).startsWith('bot_')) return;
+      if (!uid || String(uid).startsWith('bot_') || deletedUidsSet.has(uid)) return;
       const prev = playerMap.get(uid) || {};
       const displayName =
         raw.displayName || raw.name || raw.username || prev.displayName || prev.username || 'Player';
@@ -399,6 +405,7 @@ export default function AdminDashboardScreen({ navigation }) {
   }, [user?.uid, user?.email, user?.displayName, userProfile]);
 
   const loadOverview = useCallback(async () => {
+    const deletedUidsSet = await getDeletedPlatformUidsSet();
     const mirrorPromise = gatherUserDashboardMirror();
     const [mirrorRes, sRes, vRes, tRes, uRes] = await Promise.allSettled([
       mirrorPromise,
@@ -414,12 +421,12 @@ export default function AdminDashboardScreen({ navigation }) {
     const uRaw = uRes.status === 'fulfilled' ? uRes.value : null;
 
     const playerMap = new Map();
-    mirror.allPlayers.forEach((p) => playerMap.set(p.uid, p));
+    mirror.allPlayers.filter((p) => !deletedUidsSet.has(p.uid)).forEach((p) => playerMap.set(p.uid, p));
     const mergeServerList = (resObj) => {
       const arr = resObj?.users || resObj?.data?.users || (Array.isArray(resObj) ? resObj : []);
       if (Array.isArray(arr)) {
         arr.forEach((u) => {
-          if (!u?.uid) return;
+          if (!u?.uid || deletedUidsSet.has(u.uid)) return;
           const prev = playerMap.get(u.uid) || {};
           const vp = Math.max(
             Number(u.vp ?? u.valuePoints ?? 0),
@@ -526,6 +533,7 @@ export default function AdminDashboardScreen({ navigation }) {
         const merged = Array.from(tMap.values());
         setTournamentsData({ count: merged.length, tournaments: merged });
       } else if (tab === 'winners') {
+        const deletedUidsSet = await getDeletedPlatformUidsSet();
         const [mirror, wRes] = await Promise.all([
           gatherUserDashboardMirror(),
           withFastTimeout(admin.leaderboardWinners(), 3500, null),
@@ -533,17 +541,17 @@ export default function AdminDashboardScreen({ navigation }) {
         const serverW = wRes?.data || wRes || {};
         const wMap = new Map();
         mirror.cachedWinners.forEach((item) => {
-          if (item && item.period && item.rank) wMap.set(`${item.period}:${item.rank}`, item);
+          if (item && item.period && item.rank && (!item.uid || !deletedUidsSet.has(item.uid))) wMap.set(`${item.period}:${item.rank}`, item);
         });
         (Array.isArray(serverW.winners) ? serverW.winners : []).forEach((item) => {
-          if (item && item.period && item.rank) wMap.set(`${item.period}:${item.rank}`, item);
+          if (item && item.period && item.rank && (!item.uid || !deletedUidsSet.has(item.uid))) wMap.set(`${item.period}:${item.rank}`, item);
         });
         const mergedWinners = Array.from(wMap.values()).sort((a, b) => a.rank - b.rank);
 
         const candMap = new Map();
-        mirror.allPlayers.forEach((p) => candMap.set(p.uid, { ...p }));
+        mirror.allPlayers.filter((p) => !deletedUidsSet.has(p.uid)).forEach((p) => candMap.set(p.uid, { ...p }));
         (Array.isArray(serverW.candidates) ? serverW.candidates : []).forEach((u) => {
-          if (!u?.uid) return;
+          if (!u?.uid || deletedUidsSet.has(u.uid)) return;
           const prev = candMap.get(u.uid) || {};
           candMap.set(u.uid, {
             ...prev,
@@ -558,9 +566,9 @@ export default function AdminDashboardScreen({ navigation }) {
           });
         });
 
-        const allCandidates = Array.from(candMap.values()).sort(
-          (a, b) => (b.gp - a.gp) || (b.wins - a.wins) || (b.plays - a.plays)
-        );
+        const allCandidates = Array.from(candMap.values())
+          .filter((c) => !deletedUidsSet.has(c.uid))
+          .sort((a, b) => (b.gp - a.gp) || (b.wins - a.wins) || (b.plays - a.plays));
 
         const buildPeriodTop3 = (lbRows, serverList, isDaily = false) => {
           const periodMap = new Map();
@@ -815,22 +823,7 @@ export default function AdminDashboardScreen({ navigation }) {
 
       // 2. Persist deleted UID to local storage so user never re-appears in caches
       try {
-        const rawDel = await AsyncStorage.getItem('@gamearn_deleted_uids');
-        const delList = rawDel ? JSON.parse(rawDel) : [];
-        if (!delList.includes(uid)) {
-          delList.push(uid);
-          await AsyncStorage.setItem('@gamearn_deleted_uids', JSON.stringify(delList));
-        }
-
-        // Clean from community cache
-        const commRaw = await AsyncStorage.getItem('@gamearn_community_users_cache');
-        if (commRaw) {
-          const commList = JSON.parse(commRaw);
-          if (Array.isArray(commList)) {
-            const filtered = commList.filter((u) => u.uid !== uid && u.id !== uid);
-            await AsyncStorage.setItem('@gamearn_community_users_cache', JSON.stringify(filtered));
-          }
-        }
+        await recordDeletedPlatformUid(uid);
       } catch {}
 
       // 3. Close detail modal

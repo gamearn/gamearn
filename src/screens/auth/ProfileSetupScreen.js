@@ -132,7 +132,7 @@ export default function ProfileSetupScreen({ navigation }) {
       {/* Top Header Navigation */}
       <View style={styles.topHeader}>
         <TouchableOpacity
-          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs'))}
+          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Login'))}
           style={styles.backCircleBtn}
           activeOpacity={0.8}
         >

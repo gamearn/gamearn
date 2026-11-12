@@ -90,6 +90,7 @@ async function clearCachedProfile() {
 
 
 function profileFromMe(me, cached) {
+  const targetUid = me?.uid || me?.id || cached?.uid || cached?.id || getCurrentUser()?.uid || null;
   const rawMeStats = {
     ...((me && me.settings && me.settings.gameStats) || {}),
     ...((me && me.gameStats) || {}),
@@ -232,7 +233,7 @@ function profileFromMe(me, cached) {
 
   const computedGp = calculateGamePower(gamesPlayed, wins, losses);
   const knownFromDb = ALL_DATABASE_PLAYERS.find(
-    (p) => p.uid === uid || (p.username && me?.username && String(p.username).toLowerCase() === String(me.username).toLowerCase())
+    (p) => (targetUid && p.uid === targetUid) || (p.username && me?.username && String(p.username).toLowerCase() === String(me.username).toLowerCase())
   );
   const knownInitialGp = Number(knownFromDb?.initialGp ?? knownFromDb?.gp ?? 0);
   const gp = Math.max(
@@ -591,7 +592,7 @@ export const AuthProvider = ({ children }) => {
           setLoading(true);
         }
         await loadBackendProfile(fbUser);
-        if (getCurrentUser()?.uid === fbUser.uid || auth?.currentUser?.uid === fbUser.uid) {
+        if (getCurrentUser()?.uid === fbUser.uid) {
           setUser(fbUser);
         }
       } else {
@@ -602,11 +603,12 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.warn('Backend profile load notice:', error?.message || error);
       setAuthError(friendlyAuthError(error));
-      if (fbUser) {
-        setUser(fbUser);
-      } else {
-        setUser(null);
-      }
+      setUser(null);
+      setUserProfile(null);
+      setBackendReady(false);
+      try {
+        await signOutFirebase();
+      } catch {}
     } finally {
       setLoading(false);
     }

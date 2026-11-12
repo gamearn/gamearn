@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   TextInput,
+  Linking,
 } from 'react-native';
 import { ArrowLeft, Swords, Wallet, Check, X, Trophy, RefreshCw, Coins } from 'lucide-react-native';
 import BrandLogo from '../../components/BrandLogo';

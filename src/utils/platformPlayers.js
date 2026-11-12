@@ -269,6 +269,51 @@ let lastFetchTimestamp = 0;
 let inflightPromise = null;
 const CACHE_TTL_MS = 10000;
 
+export async function getDeletedPlatformUidsSet() {
+  try {
+    const raw = await AsyncStorage.getItem('@gamearn_deleted_uids');
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export async function recordDeletedPlatformUid(uid) {
+  if (!uid) return;
+  try {
+    const raw = await AsyncStorage.getItem('@gamearn_deleted_uids');
+    const list = raw ? JSON.parse(raw) : [];
+    const set = new Set(Array.isArray(list) ? list : []);
+    set.add(uid);
+    await AsyncStorage.setItem('@gamearn_deleted_uids', JSON.stringify(Array.from(set)));
+  } catch {}
+
+  memoryPlayersCache = memoryPlayersCache.filter((u) => u.uid !== uid && u.id !== uid);
+  lastFetchTimestamp = 0;
+
+  try {
+    const commRaw = await AsyncStorage.getItem(COMMUNITY_CACHE_KEY);
+    if (commRaw) {
+      const comm = JSON.parse(commRaw);
+      if (Array.isArray(comm)) {
+        const filtered = comm.filter((u) => u.uid !== uid && u.id !== uid);
+        await AsyncStorage.setItem(COMMUNITY_CACHE_KEY, JSON.stringify(filtered));
+      }
+    }
+  } catch {}
+
+  try {
+    await Promise.all([
+      AsyncStorage.removeItem(`@gamearn_profile_${uid}`),
+      AsyncStorage.removeItem(`@gamearn_gamestats_${uid}`),
+      AsyncStorage.removeItem(`@gamearn_earned_vp_${uid}`),
+      AsyncStorage.removeItem(`@gamearn_cached_profile_${uid}`),
+    ]);
+  } catch {}
+}
+
 export function invalidatePlatformPlayersCache() {
   lastFetchTimestamp = 0;
 }
@@ -285,16 +330,18 @@ export function extractArray(res) {
 }
 
 export async function getCachedPlatformPlayers() {
+  const deletedSet = await getDeletedPlatformUidsSet();
   if (memoryPlayersCache.length > 0) {
-    return memoryPlayersCache;
+    return memoryPlayersCache.filter((u) => !deletedSet.has(u.uid) && !deletedSet.has(u.id));
   }
   try {
     const raw = await AsyncStorage.getItem(COMMUNITY_CACHE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      memoryPlayersCache = parsed;
-      return parsed;
+      const filtered = parsed.filter((u) => !deletedSet.has(u.uid) && !deletedSet.has(u.id));
+      memoryPlayersCache = filtered;
+      return filtered;
     }
     return [];
   } catch {
@@ -330,11 +377,14 @@ export async function registerKnownPlatformPlayer(profile) {
   const uid = profile.uid || profile.id;
   if (!uid) return;
 
+  const deletedSet = await getDeletedPlatformUidsSet();
+  if (deletedSet.has(uid)) return;
+
   try {
     const existingList = await getCachedPlatformPlayers();
     const map = new Map();
     existingList.forEach((p) => {
-      if (p && (p.uid || p.id)) map.set(p.uid || p.id, p);
+      if (p && (p.uid || p.id) && !deletedSet.has(p.uid || p.id)) map.set(p.uid || p.id, p);
     });
 
     const prev = map.get(uid) || {};
@@ -457,6 +507,7 @@ export async function fetchAllPlatformPlayers({ excludeUid = null, forceRefresh 
   }
 
   inflightPromise = (async () => {
+    const deletedSet = await getDeletedPlatformUidsSet();
     const cached = await getCachedPlatformPlayers();
 
     const requests = [
@@ -479,7 +530,7 @@ export async function fetchAllPlatformPlayers({ excludeUid = null, forceRefresh 
     const addEntry = (item, isDailyLb = false) => {
       if (!item || typeof item !== 'object') return;
       const uid = item.uid || item.id || item.user_id;
-      if (!uid) return;
+      if (!uid || deletedSet.has(uid)) return;
 
       const existing = map.get(uid) || {};
       const rawDisplayName =
@@ -587,7 +638,7 @@ export async function fetchAllPlatformPlayers({ excludeUid = null, forceRefresh 
     };
 
     // 0. Seed with all registered database players from Firebase / PostgreSQL
-    ALL_DATABASE_PLAYERS.forEach((dp) => {
+    ALL_DATABASE_PLAYERS.filter((dp) => !deletedSet.has(dp.uid)).forEach((dp) => {
       addEntry({
         uid: dp.uid,
         id: dp.uid,
@@ -674,9 +725,11 @@ export async function fetchAllPlatformPlayers({ excludeUid = null, forceRefresh 
       }
     } catch {}
 
-    const allList = Array.from(map.values()).sort(
-      (a, b) => (b.gp - a.gp) || (b.plays - a.plays) || String(a.displayName).localeCompare(String(b.displayName))
-    );
+    const allList = Array.from(map.values())
+      .filter((u) => !deletedSet.has(u.uid) && !deletedSet.has(u.id))
+      .sort(
+        (a, b) => (b.gp - a.gp) || (b.plays - a.plays) || String(a.displayName).localeCompare(String(b.displayName))
+      );
 
     if (allList.length > 0) {
       memoryPlayersCache = allList;

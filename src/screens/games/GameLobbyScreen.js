@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput, Linking } from 'react-native';
 import { Swords, Settings, ArrowLeft, Wallet, Cpu, Users, Layers, Star } from 'lucide-react-native';
 import ActiveMatchBanner from '../../components/ActiveMatchBanner';
 import BrandLogo from '../../components/BrandLogo';
@@ -9,7 +9,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { matchmaking, challenges } from '../../services/api';
 import { GamearnSocket } from '../../services/gamearnSocket';
-import { valuePointsFromNaira, koboToN, naira, nairaToKobo } from '../../config/appConfig';
+import { valuePointsFromKobo, valuePointsFromNaira, koboToN, naira, nairaToKobo } from '../../config/appConfig';
 
 // Custom stakes: backend caps entry fees at 500000 kobo.
 const MIN_AMOUNT_N = 50;

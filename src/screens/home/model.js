@@ -213,25 +213,20 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
       plays = Number(row.periodPlays || 0);
       wins = Number(row.periodWins || 0);
     }
-    if (isUser) {
+    // Only fallback to local user device stats if the database row had no data at all
+    if (isUser && row.plays === undefined && row.gamesPlayed === undefined) {
       if (period === 'Daily') {
-        const hasServerTodayPlays = row.periodPlays !== undefined ? Number(row.periodPlays) > 0 : false;
-        if (playedToday || hasServerTodayPlays) {
-          plays = Math.max(plays, effectiveStats.plays);
-          wins = Math.max(wins, effectiveStats.wins);
-        } else {
-          plays = effectiveStats.plays;
-          wins = effectiveStats.wins;
-        }
+        plays = effectiveStats.plays;
+        wins = effectiveStats.wins;
       } else {
         wins = Math.max(wins, effectiveStats.wins);
         plays = Math.max(plays, effectiveStats.plays, wins);
       }
     }
-    const explicitGp = Number(row.gp ?? row.gamePower ?? (isUser ? (userProfile?.gp ?? userProfile?.gamePower) : 0) ?? 0);
+    const explicitGp = Number(row.gp ?? row.gamePower ?? 0);
     const rowGp = explicitGp > 0
       ? explicitGp
-      : (isUser ? getUserGp() : computeRowGp(row.careerWins ?? row.totalWins ?? wins, row.careerPlays ?? row.totalPlays ?? plays));
+      : (isUser && getUserGp() > 0 ? getUserGp() : computeRowGp(row.careerWins ?? row.totalWins ?? wins, row.careerPlays ?? row.totalPlays ?? plays));
     return {
       id: row.id || row.uid || `player_${index}`,
       uid: row.uid || row.id,

@@ -348,9 +348,17 @@ export const leaderboard = {
     return res?.data || res || [];
   },
   getWinners: async (period = null) => {
-    const qs = period ? `?period=${encodeURIComponent(period)}` : '';
-    const res = await apiGet(`/leaderboard/winners${qs}`);
-    return res?.data || res || [];
+    try {
+      const qs = period ? `?period=${encodeURIComponent(period)}` : '';
+      const res = await apiGet(`/leaderboard/winners${qs}`, { auth: false }).catch(() => null);
+      if (!res) return [];
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res.data)) return res.data;
+      if (Array.isArray(res.winners)) return res.winners;
+      return [];
+    } catch {
+      return [];
+    }
   },
   recordCompletion: async (gameType, outcome = 'win', completionReason = 'normal', matchId = null) => {
     try {

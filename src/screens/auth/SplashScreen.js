@@ -13,7 +13,7 @@ import { CrownIcon } from '../../components/SocialIcons';
 import { useAuth } from '../../context/AuthContext';
 
 export default function SplashScreen({ navigation }) {
-  const { user, userProfile, backendReady, loading } = useAuth();
+  const { user, userProfile, backendReady, loading, signOut } = useAuth();
   const [progress, setProgress] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const hasProceeded = useRef(false);
@@ -22,16 +22,17 @@ export default function SplashScreen({ navigation }) {
     if (hasProceeded.current) return;
     hasProceeded.current = true;
     if (!user) {
-      navigation.replace('Landing');
+      navigation.replace('Login');
     } else if (!user.emailVerified && user.providerData?.some(p => p.providerId === 'password')) {
       navigation.replace('EmailVerification', { email: user.email });
-    } else if (!backendReady && !userProfile?.displayName && !userProfile?.username) {
-      // Signed in to Firebase but no backend profile yet → complete onboarding.
-      navigation.replace('ProfileSetup');
-    } else {
+    } else if (backendReady || userProfile?.displayName || userProfile?.username) {
       navigation.replace('MainTabs');
+    } else {
+      // If user session is incomplete, expired, or deleted, sign out and show Login
+      if (typeof signOut === 'function') signOut().catch(() => {});
+      navigation.replace('Login');
     }
-  }, [user, userProfile, backendReady, navigation]);
+  }, [user, userProfile, backendReady, signOut, navigation]);
 
   useEffect(() => {
     const tickInterval = !loading ? 70 : 120;

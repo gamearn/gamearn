@@ -30,6 +30,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { auth as authApi } from '../../services/api';
+import { recordDeletedPlatformUid } from '../../utils/platformPlayers';
 
 export default function SettingsScreen({ navigation }) {
   const { theme, isDark, toggleTheme } = useTheme();
@@ -48,7 +49,7 @@ export default function SettingsScreen({ navigation }) {
         style: 'destructive',
         onPress: async () => {
           await signOut();
-          navigation.reset({ index: 0, routes: [{ name: 'Landing' }] });
+          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
         },
       },
     ]);
@@ -66,15 +67,16 @@ export default function SettingsScreen({ navigation }) {
           onPress: async () => {
             try {
               const uid = userProfile?.uid || user?.uid;
-              await authApi.deleteAccount().catch(() => {});
+              await authApi.deleteAccount().catch(() => { });
               if (uid) {
-                await AsyncStorage.removeItem(`@gamearn_earned_vp_${uid}`).catch(() => {});
-                await AsyncStorage.removeItem(`@gamearn_permanent_vp_${uid}`).catch(() => {});
-                await AsyncStorage.removeItem(`@gamearn_gamestats_${uid}`).catch(() => {});
-                await AsyncStorage.removeItem(`@gamearn_following_v2_${uid}`).catch(() => {});
+                await recordDeletedPlatformUid(uid).catch(() => { });
+                await AsyncStorage.removeItem(`@gamearn_earned_vp_${uid}`).catch(() => { });
+                await AsyncStorage.removeItem(`@gamearn_permanent_vp_${uid}`).catch(() => { });
+                await AsyncStorage.removeItem(`@gamearn_gamestats_${uid}`).catch(() => { });
+                await AsyncStorage.removeItem(`@gamearn_following_v2_${uid}`).catch(() => { });
               }
               await signOut();
-              navigation.reset({ index: 0, routes: [{ name: 'Landing' }] });
+              navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
               Alert.alert('Account Deleted', 'Your account has been completely deleted.');
             } catch (err) {
               Alert.alert('Notice', err?.message || 'Could not complete deletion.');

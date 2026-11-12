@@ -16,15 +16,22 @@ import { useIsFocused } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 
 export default function LandingScreen({ navigation }) {
-  const { backendReady, user, loading: authLoading } = useAuth();
+  const { backendReady, user, userProfile, loading: authLoading, signOut } = useAuth();
   const focused = useIsFocused();
   const [agreed, setAgreed] = useState(true);
 
   useEffect(() => {
     if (user && focused && !authLoading) {
-      navigation.replace(!user.emailVerified && user.providerData?.some(p => p.providerId === 'password') ? 'EmailVerification' : backendReady ? 'MainTabs' : 'ProfileSetup', { email: user.email });
+      if (!user.emailVerified && user.providerData?.some((p) => p.providerId === 'password')) {
+        navigation.replace('EmailVerification', { email: user.email });
+      } else if (backendReady || userProfile?.displayName || userProfile?.username) {
+        navigation.replace('MainTabs');
+      } else {
+        if (typeof signOut === 'function') signOut().catch(() => {});
+        navigation.replace('Login');
+      }
     }
-  }, [user, backendReady, authLoading, focused, navigation]);
+  }, [user, backendReady, userProfile, authLoading, focused, signOut, navigation]);
 
   return (
     <View style={styles.flexContainer}>

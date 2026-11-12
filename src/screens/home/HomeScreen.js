@@ -8,6 +8,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  RefreshControl,
   StatusBar,
   StyleSheet,
   Switch,
@@ -110,7 +111,7 @@ export default function HomeScreen({ navigation }) {
   const { width } = useWindowDimensions();
   const scale = Math.min(width, 650) / 590;
   const { theme, isDark, setTheme } = useTheme();
-  const { userProfile, updateProfileData, user } = useAuth() || {};
+  const { userProfile, updateProfileData, user, refreshProfile } = useAuth() || {};
   const isAdmin = !!userProfile?.isAdmin || userProfile?.username?.toLowerCase() === 'jessejesutoni' ||
     userProfile?.email?.toLowerCase() === 'abbagem@gmail.com' ||
     user?.email?.toLowerCase() === 'abbagem@gmail.com';
@@ -142,6 +143,19 @@ export default function HomeScreen({ navigation }) {
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
   const [notificationsList, setNotificationsList] = useState([]);
   const [showWelcomeCommunityModal, setShowWelcomeCommunityModal] = useState(false);
+  const [dailyMilestoneModal, setDailyMilestoneModal] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.allSettled([
+      fetchLeaderboard(),
+      fetchWinners(),
+      fetchTournaments(),
+      refreshProfile ? refreshProfile() : Promise.resolve(),
+    ]);
+    setIsRefreshing(false);
+  }, [fetchLeaderboard, fetchWinners, fetchTournaments, refreshProfile]);
 
   useEffect(() => {
     AsyncStorage.getItem('@gamearn_claimed_winners')
@@ -475,8 +489,9 @@ export default function HomeScreen({ navigation }) {
     Promise.allSettled([
       AsyncStorage.getItem('@gamearn_winners_cache'),
       leaderboardApi.getWinners(),
+      AsyncStorage.getItem('@gamearn_deleted_uids').catch(() => null),
     ])
-      .then(([cacheRes, apiRes]) => {
+      .then(([cacheRes, apiRes, delUidsRes]) => {
         let cachedList = [];
         try {
           if (cacheRes.status === 'fulfilled' && cacheRes.value) {
@@ -485,19 +500,36 @@ export default function HomeScreen({ navigation }) {
           }
         } catch {}
 
-        const apiList = apiRes.status === 'fulfilled' && Array.isArray(apiRes.value)
-          ? apiRes.value
-          : [];
+        let apiList = [];
+        if (apiRes.status === 'fulfilled' && apiRes.value) {
+          const val = apiRes.value;
+          if (Array.isArray(val)) apiList = val;
+          else if (Array.isArray(val.data)) apiList = val.data;
+          else if (Array.isArray(val.winners)) apiList = val.winners;
+        }
+
+        let deletedUidsSet = new Set();
+        try {
+          const rawDel = delUidsRes.status === 'fulfilled' ? delUidsRes.value : null;
+          if (rawDel) {
+            const parsed = JSON.parse(rawDel);
+            if (Array.isArray(parsed)) deletedUidsSet = new Set(parsed);
+          }
+        } catch {}
 
         const map = new Map();
         cachedList.forEach((w) => {
-          if (w && w.period && w.rank) {
+          if (w && w.period && w.rank && (!w.uid || !deletedUidsSet.has(w.uid))) {
             map.set(`${w.period}:${w.rank}`, w);
           }
         });
         apiList.forEach((w) => {
-          if (w && w.period && w.rank) {
-            map.set(`${w.period}:${w.rank}`, w);
+          if (w && w.period && w.rank && (!w.uid || !deletedUidsSet.has(w.uid))) {
+            map.set(`${w.period}:${w.rank}`, {
+              ...w,
+              rank: Number(w.rank),
+              rewardVp: Number(w.rewardVp || String(w.reward || '10').replace(/[^0-9.]/g, '') || 10),
+            });
           }
         });
         const merged = Array.from(map.values()).sort((a, b) => a.rank - b.rank);
@@ -514,6 +546,10 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     fetchWinners();
+    const interval = setInterval(() => {
+      fetchWinners();
+    }, 10000);
+    return () => clearInterval(interval);
   }, [fetchWinners]);
 
   const fetchLeaderboard = useCallback(() => {
@@ -533,8 +569,9 @@ export default function HomeScreen({ navigation }) {
     Promise.allSettled([
       leaderboardApi.get(period),
       fetchAllPlatformPlayers(),
+      AsyncStorage.getItem('@gamearn_deleted_uids').catch(() => null),
     ])
-      .then(([lbRes, allPlayersRes]) => {
+      .then(([lbRes, allPlayersRes, delUidsRes]) => {
         if (!active) return;
         const lbRows = lbRes.status === 'fulfilled'
           ? (Array.isArray(lbRes.value) ? lbRes.value : lbRes.value?.data || [])
@@ -542,14 +579,34 @@ export default function HomeScreen({ navigation }) {
         const refRows = allPlayersRes.status === 'fulfilled' && Array.isArray(allPlayersRes.value)
           ? allPlayersRes.value
           : [];
+        let deletedUidsSet = new Set();
+        try {
+          const rawDel = delUidsRes.status === 'fulfilled' ? delUidsRes.value : null;
+          if (rawDel) {
+            const parsed = JSON.parse(rawDel);
+            if (Array.isArray(parsed)) deletedUidsSet = new Set(parsed);
+          }
+        } catch {}
 
         const todayStr = localDay();
         const map = new Map();
         const addEntry = (item, isFromPeriodLb = false) => {
           if (!item) return;
           const uid = item.uid || item.id;
-          if (!uid) return;
+          if (!uid || deletedUidsSet.has(uid)) return;
           const existing = map.get(uid);
+
+          // If entry is already populated authoritatively from the server database, do not overwrite plays/wins/gp with local phone data
+          if (existing && !isFromPeriodLb) {
+            if (!existing.avatar && (item.avatar || item.avatarUrl)) {
+              existing.avatar = item.avatar || item.avatarUrl;
+            }
+            if ((!existing.username || existing.username === 'Player') && item.username) {
+              existing.username = item.username;
+            }
+            return;
+          }
+
           const name = item.displayName || item.name || item.username || existing?.name || 'Player';
           let plays = existing?.plays ?? 0;
           let wins = existing?.wins ?? 0;
@@ -621,9 +678,11 @@ export default function HomeScreen({ navigation }) {
         lbRows.forEach((r) => addEntry(r, true));
         refRows.forEach((r) => addEntry(r, false));
 
-        const mergedList = Array.from(map.values()).sort(
-          (a, b) => (b.plays - a.plays) || (b.wins - a.wins) || (b.gp - a.gp) || String(a.name).localeCompare(String(b.name))
-        );
+        const mergedList = Array.from(map.values())
+          .filter((row) => !deletedUidsSet.has(row.uid) && !deletedUidsSet.has(row.id))
+          .sort(
+            (a, b) => (b.plays - a.plays) || (b.wins - a.wins) || (b.gp - a.gp) || String(a.name).localeCompare(String(b.name))
+          );
         setDbLeaderboardRows(mergedList);
         if (mergedList.length > 0) {
           AsyncStorage.setItem(cacheKey, JSON.stringify(mergedList)).catch(() => {});
@@ -1227,7 +1286,10 @@ export default function HomeScreen({ navigation }) {
               <TouchableOpacity
                 key={p}
                 activeOpacity={0.8}
-                onPress={() => setWinnersPeriod(p)}
+                onPress={() => {
+                  setWinnersPeriod(p);
+                  fetchWinners();
+                }}
                 style={{
                   flex: 1,
                   paddingVertical: 7 * scale,
@@ -1979,6 +2041,14 @@ export default function HomeScreen({ navigation }) {
         overScrollMode="always"
         bounces={true}
         scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={CYAN}
+            colors={[CYAN]}
+          />
+        }
         contentContainerStyle={[
           s.content,
           {
@@ -2204,6 +2274,20 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+
+      {dailyMilestoneModal && (
+        <StreakRewardModal
+          visible={Boolean(dailyMilestoneModal)}
+          milestone={dailyMilestoneModal}
+          onClaim={async (milestone) => {
+            try {
+              await claimDailyStreakMilestone(updateProfileData, userProfile, milestone);
+            } catch {}
+            setDailyMilestoneModal(null);
+          }}
+          onClose={() => setDailyMilestoneModal(null)}
+        />
+      )}
     </View>
   );
 }
