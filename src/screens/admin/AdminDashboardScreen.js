@@ -566,22 +566,22 @@ export default function AdminDashboardScreen({ navigation }) {
         (Array.isArray(serverW.candidates) ? serverW.candidates : []).forEach((u) => {
           if (!u?.uid || deletedUidsSet.has(u.uid)) return;
           const prev = candMap.get(u.uid) || {};
-            const cP = Math.max(Number(u.plays ?? 0), Number(prev.plays ?? 0));
-            const cW = Math.max(Number(u.wins ?? 0), Number(prev.wins ?? 0));
-            const calculatedCandidateGp = cP > 0
-              ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * Math.min(1, cW / cP) + 0.25 * Math.min(1, Math.log10(cP + 1) / 3)))))
-              : 0;
-            candMap.set(u.uid, {
-              ...prev,
-              uid: u.uid,
-              displayName: u.displayName || u.name || prev.displayName || 'Player',
-              username: u.username || prev.username || 'Player',
-              avatar: u.avatar || u.avatarUrl || prev.avatar || null,
-              gp: calculatedCandidateGp,
-              plays: cP,
-              wins: cW,
-              vp: Math.max(Number(u.vp ?? u.valuePoints ?? 0), Number(prev.vp ?? 0)),
-            });
+          const cP = Math.max(Number(u.plays ?? 0), Number(prev.plays ?? 0));
+          const cW = Math.max(Number(u.wins ?? 0), Number(prev.wins ?? 0));
+          const calculatedCandidateGp = cP > 0
+            ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * Math.min(1, cW / cP) + 0.25 * Math.min(1, Math.log10(cP + 1) / 3)))))
+            : 0;
+          candMap.set(u.uid, {
+            ...prev,
+            uid: u.uid,
+            displayName: u.displayName || u.name || prev.displayName || 'Player',
+            username: u.username || prev.username || 'Player',
+            avatar: u.avatar || u.avatarUrl || prev.avatar || null,
+            gp: calculatedCandidateGp,
+            plays: cP,
+            wins: cW,
+            vp: Math.max(Number(u.vp ?? u.valuePoints ?? 0), Number(prev.vp ?? 0)),
+          });
         });
 
         const allCandidates = Array.from(candMap.values())
