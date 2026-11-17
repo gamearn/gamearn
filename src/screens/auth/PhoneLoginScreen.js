@@ -37,7 +37,7 @@ export default function PhoneLoginScreen({ navigation }) {
     const routeHome = () => {
       if (didNavigate.current || !focused || authLoading || !user) return;
       didNavigate.current = true;
-      navigation.replace(backendReady ? 'MainTabs' : 'ProfileSetup', {
+      navigation.replace('MainTabs', {
         ...(user.email ? { email: user.email } : {}),
         phone: sentTo,
       });

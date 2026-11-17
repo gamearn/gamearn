@@ -45,24 +45,31 @@ import {
   getDeletedPlatformUidsSet,
 } from '../../utils/platformPlayers';
 
-const initialPlayersList = ALL_DATABASE_PLAYERS.map((p) => ({
-  uid: p.uid,
-  id: p.uid,
-  displayName: p.displayName,
-  name: p.displayName,
-  username: p.username,
-  email: p.email || `${String(p.username).toLowerCase().replace(/\s+/g, '')}@gamearn.app`,
-  phoneNumber: p.phoneNumber || '',
-  gp: p.initialGp,
-  plays: p.initialPlays,
-  wins: p.initialWins,
-  dailyPlays: 0,
-  dailyWins: 0,
-  vp: 0,
-  valuePoints: 0,
-  status: 'active',
-  isVerified: true,
-}));
+const initialPlayersList = ALL_DATABASE_PLAYERS.map((p) => {
+  const plays = Number(p.initialPlays || 0);
+  const wins = Number(p.initialWins || 0);
+  const gp = plays > 0
+    ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * Math.min(1, wins / plays) + 0.25 * Math.min(1, Math.log10(plays + 1) / 3)))))
+    : 0;
+  return {
+    uid: p.uid,
+    id: p.uid,
+    displayName: p.displayName,
+    name: p.displayName,
+    username: p.username,
+    email: p.email || `${String(p.username).toLowerCase().replace(/\s+/g, '')}@gamearn.app`,
+    phoneNumber: p.phoneNumber || '',
+    gp,
+    plays,
+    wins,
+    dailyPlays: 0,
+    dailyWins: 0,
+    vp: 0,
+    valuePoints: 0,
+    status: 'active',
+    isVerified: true,
+  };
+});
 
 const initialTop3ByGp = [...initialPlayersList]
   .sort((a, b) => (Number(b.gp || 0) - Number(a.gp || 0)) || (Number(b.wins || 0) - Number(a.wins || 0)))
@@ -238,8 +245,11 @@ export default function AdminDashboardScreen({ navigation }) {
       const displayName =
         raw.displayName || raw.name || raw.username || prev.displayName || prev.username || 'Player';
       const username = raw.username || prev.username || displayName;
-      const plays = Math.max(Number(raw.plays ?? raw.gamesPlayed ?? 0), Number(prev.plays ?? 0));
-      const wins = Math.max(Number(raw.wins ?? raw.gamesWon ?? 0), Number(prev.wins ?? 0));
+      const isUser = Boolean(userProfile?.uid && uid === userProfile.uid);
+      const careerPlays = Math.max(Number(raw.careerPlays ?? raw.totalPlays ?? raw.gamesPlayed ?? raw.plays ?? 0), Number(prev.careerPlays ?? prev.plays ?? 0));
+      const careerWins = Math.max(Number(raw.careerWins ?? raw.totalWins ?? raw.gamesWon ?? raw.wins ?? 0), Number(prev.careerWins ?? prev.wins ?? 0));
+      const plays = careerPlays;
+      const wins = careerWins;
       const dailyPlays = Math.max(
         Number(raw.todayPlays ?? (raw.lastPlayedDate === todayStr ? raw.dailyPlays : 0) ?? 0),
         Number(prev.dailyPlays ?? 0)
@@ -248,13 +258,12 @@ export default function AdminDashboardScreen({ navigation }) {
         Number(raw.todayWins ?? (raw.lastPlayedDate === todayStr ? raw.dailyWins : 0) ?? 0),
         Number(prev.dailyWins ?? 0)
       );
-      const gp = Math.max(
-        Number(raw.gp ?? 0),
-        Number(prev.gp ?? 0),
-        plays > 0
-          ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * Math.min(1, wins / plays) + 0.25 * Math.min(1, Math.log10(plays + 1) / 3)))))
-          : 0
-      );
+      const calculatedGp = plays > 0
+        ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * Math.min(1, wins / plays) + 0.25 * Math.min(1, Math.log10(plays + 1) / 3)))))
+        : 0;
+      const gp = (isUser && userProfile?.gp != null && Number(userProfile.gp) > 0)
+        ? Number(userProfile.gp)
+        : calculatedGp;
       const vp = Math.max(
         Number(raw.vp ?? raw.valuePoints ?? 0),
         Math.floor(Number(raw.balanceNaira ?? (Number(raw.balanceKobo || 0) / 100) ?? 0) / 50),
@@ -264,7 +273,7 @@ export default function AdminDashboardScreen({ navigation }) {
         uid,
         displayName,
         username,
-        email: raw.email || prev.email || `${ String(username).toLowerCase().replace(/\s+/g, '') }@gamearn.app`,
+        email: raw.email || prev.email || `${String(username).toLowerCase().replace(/\s+/g, '')}@gamearn.app`,
         phoneNumber: raw.phoneNumber || raw.phone_number || prev.phoneNumber || '',
         avatar: raw.avatar || raw.avatarUrl || prev.avatar || null,
         status: raw.status || prev.status || 'active',
@@ -307,7 +316,7 @@ export default function AdminDashboardScreen({ navigation }) {
     try {
       const parsedComm = commCacheRaw ? JSON.parse(commCacheRaw) : [];
       if (Array.isArray(parsedComm)) parsedComm.forEach(upsertPlayer);
-    } catch {}
+    } catch { }
     [dailyLbRes, weeklyLbRes, monthlyLbRes, yearlyLbRes].forEach((lb) => {
       const rows = Array.isArray(lb) ? lb : lb?.data || [];
       if (Array.isArray(rows)) rows.forEach(upsertPlayer);
@@ -333,7 +342,7 @@ export default function AdminDashboardScreen({ navigation }) {
     try {
       const localList = localTournamentsRaw ? JSON.parse(localTournamentsRaw) : [];
       if (Array.isArray(localList)) localList.forEach(addTourney);
-    } catch {}
+    } catch { }
     const pubList = Array.isArray(publicTournamentsRes)
       ? publicTournamentsRes
       : publicTournamentsRes?.tournaments || publicTournamentsRes?.data?.tournaments || publicTournamentsRes?.data || [];
@@ -349,7 +358,7 @@ export default function AdminDashboardScreen({ navigation }) {
     let cachedWinners = [];
     try {
       cachedWinners = winnersCacheRaw ? JSON.parse(winnersCacheRaw) : [];
-    } catch {}
+    } catch { }
 
     // Credit each awarded winner's VP to their player in playerMap
     if (Array.isArray(cachedWinners)) {
@@ -387,7 +396,7 @@ export default function AdminDashboardScreen({ navigation }) {
           }
         }
       }
-    } catch {}
+    } catch { }
 
     const allPlayers = Array.from(playerMap.values()).sort(
       (a, b) => (b.gp - a.gp) || (b.wins - a.wins) || (b.plays - a.plays)
@@ -433,6 +442,8 @@ export default function AdminDashboardScreen({ navigation }) {
             Math.floor(Number(u.balanceNaira ?? (Number(u.balanceKobo || 0) / 100) ?? 0) / 50),
             Number(prev.vp ?? 0)
           );
+          const pCareer = Math.max(Number(u.plays ?? 0), Number(prev.plays ?? 0));
+          const wCareer = Math.max(Number(u.wins ?? 0), Number(prev.wins ?? 0));
           playerMap.set(u.uid, {
             ...prev,
             ...u,
@@ -440,9 +451,11 @@ export default function AdminDashboardScreen({ navigation }) {
             email: u.email || prev.email,
             phoneNumber: u.phoneNumber || prev.phoneNumber,
             status: u.status || prev.status || 'active',
-            gp: Math.max(Number(u.gp ?? 0), Number(prev.gp ?? 0)),
-            plays: Math.max(Number(u.plays ?? 0), Number(prev.plays ?? 0)),
-            wins: Math.max(Number(u.wins ?? 0), Number(prev.wins ?? 0)),
+            gp: pCareer > 0
+              ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * Math.min(1, wCareer / pCareer) + 0.25 * Math.min(1, Math.log10(pCareer + 1) / 3)))))
+              : 0,
+            plays: pCareer,
+            wins: wCareer,
             vp,
             valuePoints: vp,
             balanceNaira: Math.max(Number(u.balanceNaira ?? 0), vp * 50, Number(prev.balanceNaira ?? 0)),
@@ -553,17 +566,22 @@ export default function AdminDashboardScreen({ navigation }) {
         (Array.isArray(serverW.candidates) ? serverW.candidates : []).forEach((u) => {
           if (!u?.uid || deletedUidsSet.has(u.uid)) return;
           const prev = candMap.get(u.uid) || {};
-          candMap.set(u.uid, {
-            ...prev,
-            uid: u.uid,
-            displayName: u.displayName || u.name || prev.displayName || 'Player',
-            username: u.username || prev.username || 'Player',
-            avatar: u.avatar || u.avatarUrl || prev.avatar || null,
-            gp: Math.max(Number(u.gp ?? 0), Number(prev.gp ?? 0)),
-            plays: Math.max(Number(u.plays ?? 0), Number(prev.plays ?? 0)),
-            wins: Math.max(Number(u.wins ?? 0), Number(prev.wins ?? 0)),
-            vp: Math.max(Number(u.vp ?? u.valuePoints ?? 0), Number(prev.vp ?? 0)),
-          });
+            const cP = Math.max(Number(u.plays ?? 0), Number(prev.plays ?? 0));
+            const cW = Math.max(Number(u.wins ?? 0), Number(prev.wins ?? 0));
+            const calculatedCandidateGp = cP > 0
+              ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * Math.min(1, cW / cP) + 0.25 * Math.min(1, Math.log10(cP + 1) / 3)))))
+              : 0;
+            candMap.set(u.uid, {
+              ...prev,
+              uid: u.uid,
+              displayName: u.displayName || u.name || prev.displayName || 'Player',
+              username: u.username || prev.username || 'Player',
+              avatar: u.avatar || u.avatarUrl || prev.avatar || null,
+              gp: calculatedCandidateGp,
+              plays: cP,
+              wins: cW,
+              vp: Math.max(Number(u.vp ?? u.valuePoints ?? 0), Number(prev.vp ?? 0)),
+            });
         });
 
         const allCandidates = Array.from(candMap.values())
@@ -796,9 +814,9 @@ export default function AdminDashboardScreen({ navigation }) {
     setBusy(true);
     try {
       if (typeof admin.permanentDeleteUser === 'function') {
-        await admin.permanentDeleteUser(uid).catch(() => {});
+        await admin.permanentDeleteUser(uid).catch(() => { });
       } else if (typeof admin.deleteUser === 'function') {
-        await admin.deleteUser(uid).catch(() => {});
+        await admin.deleteUser(uid).catch(() => { });
       }
 
       // 1. Remove from local state
@@ -824,7 +842,7 @@ export default function AdminDashboardScreen({ navigation }) {
       // 2. Persist deleted UID to local storage so user never re-appears in caches
       try {
         await recordDeletedPlatformUid(uid);
-      } catch {}
+      } catch { }
 
       // 3. Close detail modal
       setSelected(null);
@@ -908,7 +926,7 @@ export default function AdminDashboardScreen({ navigation }) {
               reason: `${period} Leaderboard Rank #${rank} Reward (${numericVp} VP)`,
             });
           }
-        } catch {}
+        } catch { }
       }
 
       const cand = (winnersData?.candidates || []).find((c) => c.uid === cleanUid) || {};
@@ -937,14 +955,14 @@ export default function AdminDashboardScreen({ navigation }) {
         filtered.push(winnerEntry);
         filtered.sort((a, b) => a.rank - b.rank);
         await AsyncStorage.setItem('@gamearn_winners_cache', JSON.stringify(filtered));
-      } catch {}
+      } catch { }
 
       // Also update local earned VP if awarded player is on this device
       try {
         const existingVpRaw = await AsyncStorage.getItem(`@gamearn_earned_vp_${cleanUid}`);
         const baseVp = Math.max(Number(existingVpRaw || 0), 0);
         await AsyncStorage.setItem(`@gamearn_earned_vp_${cleanUid}`, String(baseVp + numericVp));
-      } catch {}
+      } catch { }
 
       // Dispatch local notification in AsyncStorage as well
       try {
@@ -960,7 +978,7 @@ export default function AdminDashboardScreen({ navigation }) {
         const listAll = rawAll ? JSON.parse(rawAll) : [];
         listAll.unshift(notif);
         await AsyncStorage.setItem('@gamearn_notifications_all', JSON.stringify(listAll.slice(0, 50)));
-      } catch {}
+      } catch { }
 
       setWinnersData((prev) => {
         const prevList = Array.isArray(prev?.winners) ? prev.winners : [];
@@ -1032,7 +1050,7 @@ export default function AdminDashboardScreen({ navigation }) {
           onPress: async () => {
             try {
               if (w.id && !String(w.id).includes('_')) {
-                await admin.deleteLeaderboardWinner(w.id).catch(() => {});
+                await admin.deleteLeaderboardWinner(w.id).catch(() => { });
               }
               try {
                 const raw = await AsyncStorage.getItem('@gamearn_winners_cache');
@@ -1041,7 +1059,7 @@ export default function AdminDashboardScreen({ navigation }) {
                   (item) => !(item.period === w.period && Number(item.rank) === Number(w.rank))
                 );
                 await AsyncStorage.setItem('@gamearn_winners_cache', JSON.stringify(next));
-              } catch {}
+              } catch { }
               setWinnersData((prev) => ({
                 ...prev,
                 winners: (prev?.winners || []).filter(
@@ -1327,14 +1345,95 @@ export default function AdminDashboardScreen({ navigation }) {
   };
 
 
+  const parseWinnerDate = (w) => {
+    if (!w) return null;
+    if (w.createdAt || w.created_at) {
+      const d = new Date(w.createdAt || w.created_at);
+      if (!isNaN(d.getTime())) return d;
+    }
+    if (w.periodDate || w.period_date) {
+      const raw = String(w.periodDate || w.period_date).trim();
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) return d;
+      const parts = raw.split(/\s+/);
+      if (parts.length >= 3) {
+        const day = parseInt(parts[0], 10);
+        const monthStr = parts[1].toLowerCase().slice(0, 3);
+        const year = parseInt(parts[2], 10);
+        const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+        const monthIdx = months.indexOf(monthStr);
+        if (!isNaN(day) && monthIdx !== -1 && !isNaN(year)) {
+          return new Date(year, monthIdx, day);
+        }
+      }
+    }
+    return null;
+  };
+
+  const isWinnerToday = (w) => {
+    const d = parseWinnerDate(w);
+    if (!d) return false;
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+  };
+
+  const isWinnerThisWeek = (w) => {
+    const d = parseWinnerDate(w);
+    if (!d) return false;
+    const now = new Date();
+    const r = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dayOfWeek = (r.getDay() + 6) % 7;
+    const mon = new Date(r);
+    mon.setDate(r.getDate() - dayOfWeek);
+    mon.setHours(0, 0, 0, 0);
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    sun.setHours(23, 59, 59, 999);
+    return d >= mon && d <= sun;
+  };
+
+  const isWinnerThisMonth = (w) => {
+    const d = parseWinnerDate(w);
+    if (!d) return false;
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  };
+
+  const isWinnerThisYear = (w) => {
+    const d = parseWinnerDate(w);
+    if (!d) return false;
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear();
+  };
+
   const renderWinners = () => {
     const winners = Array.isArray(winnersData?.winners) ? winnersData.winners : [];
     const candidates = Array.isArray(winnersData?.candidates) && winnersData.candidates.length > 0
       ? winnersData.candidates
       : (Array.isArray(users?.users) && users.users.length > 0 ? users.users : initialPlayersList);
-    const currentPeriodWinners = winners
-      .filter((w) => w.period === awardPeriod)
-      .sort((a, b) => a.rank - b.rank);
+
+    let currentPeriodWinners = [];
+    if (awardPeriod === 'Daily') {
+      currentPeriodWinners = winners.filter((w) => w.period === 'Daily' && isWinnerToday(w));
+    } else if (awardPeriod === 'Weekly') {
+      currentPeriodWinners = winners.filter((w) => (w.period === 'Weekly' && isWinnerThisWeek(w)) || (w.period === 'Daily' && isWinnerThisWeek(w) && !isWinnerToday(w)) || (w.period === 'Weekly'));
+    } else if (awardPeriod === 'Monthly') {
+      currentPeriodWinners = winners.filter((w) => (w.period === 'Monthly' && isWinnerThisMonth(w)) || (['Daily', 'Weekly'].includes(w.period) && isWinnerThisMonth(w) && !isWinnerToday(w)) || (w.period === 'Monthly'));
+    } else if (awardPeriod === 'Yearly') {
+      currentPeriodWinners = winners.filter((w) => (w.period === 'Yearly' && isWinnerThisYear(w)) || (['Daily', 'Weekly', 'Monthly'].includes(w.period) && isWinnerThisYear(w) && !isWinnerToday(w)) || (w.period === 'Yearly'));
+    }
+    const seenUids = new Set();
+    const dedupedWinners = [];
+    for (const w of currentPeriodWinners) {
+      const uKey = `${w.uid}_${w.rank}`;
+      if (!seenUids.has(uKey)) {
+        seenUids.add(uKey);
+        dedupedWinners.push(w);
+      }
+    }
+    currentPeriodWinners = dedupedWinners.sort((a, b) => a.rank - b.rank);
 
     const candidatePool = candidates.length > 0 ? candidates : initialPlayersList;
     const sortedCandidatesByGp = [...candidatePool].sort(
@@ -1541,7 +1640,9 @@ export default function AdminDashboardScreen({ navigation }) {
         </Text>
         {currentPeriodWinners.length === 0 ? (
           <Text style={[styles.muted, { color: theme.textSecondary }]}>
-            No winners assigned for {awardPeriod} yet. Award 1st–3rd above to display them on Leaderboard Winners.
+            {awardPeriod === 'Daily'
+              ? "No player awarded today yet. Award 1st–3rd above to display today's winners."
+              : `No winners assigned for ${awardPeriod} yet. Award 1st–3rd above to display them on Leaderboard Winners.`}
           </Text>
         ) : (
           currentPeriodWinners.map((w) => (

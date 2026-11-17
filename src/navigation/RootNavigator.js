@@ -6,7 +6,6 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import PhoneLoginScreen from '../screens/auth/PhoneLoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
-import ProfileSetupScreen from '../screens/auth/ProfileSetupScreen';
 import TabNavigator from './TabNavigator';
 import GameLobbyScreen from '../screens/games/GameLobbyScreen';
 import WhotGameScreen from '../screens/games/WhotGameScreen';
@@ -63,7 +62,6 @@ export default function RootNavigator() {
       <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
       <Stack.Screen name="ProfileCreation" component={ProfileCreationScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-      <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
       <Stack.Screen name="MainTabs" component={TabNavigator} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="GameLobby" component={GameLobbyScreen} />

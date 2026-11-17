@@ -97,7 +97,7 @@ export default function GameResultScreen({ route, navigation }) {
     const outcome = isWinner ? 'win' : (isDraw ? 'draw' : 'loss');
     invalidatePlatformPlayersCache();
     leaderboardApi
-      .recordCompletion(statsKey, outcome, completionReason)
+      .recordCompletion(statsKey, outcome, completionReason, matchId)
       .then(() => {
         invalidatePlatformPlayersCache();
       })
@@ -289,7 +289,7 @@ export default function GameResultScreen({ route, navigation }) {
             isWinner ? 'win' : (isDraw ? 'draw' : 'loss'),
             completionReason,
             matchId
-          ).catch(() => {});
+          ).catch(() => { });
           await AsyncStorage.multiRemove([
             '@gamearn_leaderboard_v2_cache_Daily',
             '@gamearn_leaderboard_v2_cache_Weekly',

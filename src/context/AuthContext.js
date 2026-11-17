@@ -232,23 +232,7 @@ function profileFromMe(me, cached) {
   );
 
   const computedGp = calculateGamePower(gamesPlayed, wins, losses);
-  const knownFromDb = ALL_DATABASE_PLAYERS.find(
-    (p) => (targetUid && p.uid === targetUid) || (p.username && me?.username && String(p.username).toLowerCase() === String(me.username).toLowerCase())
-  );
-  const knownInitialGp = Number(knownFromDb?.initialGp ?? knownFromDb?.gp ?? 0);
-  const gp = Math.max(
-    0,
-    Math.round(
-      Math.max(
-        Number(me?.gamePower || 0),
-        Number(me?.gp || 0),
-        Number(me?.settings?.gp || me?.settings?.gamePower || 0),
-        Number(cached?.gp ?? cached?.gamePower ?? 0),
-        computedGp,
-        knownInitialGp
-      )
-    )
-  );
+  const gp = gamesPlayed > 0 ? computedGp : 0;
 
   const lastStreakMilestoneAwarded = Math.max(
     Number(me?.lastStreakMilestoneAwarded ?? me?.settings?.lastStreakMilestoneAwarded ?? 0),
@@ -281,7 +265,7 @@ function profileFromMe(me, cached) {
   const name = displayName || username || '';
 
   const isSuperAdminEmail = (me?.email?.toLowerCase() === 'abbagem@gmail.com') || (me?.username?.toLowerCase() === 'jessejesutoni') || (me?.displayName?.toLowerCase() === 'jessejesutoni') ||
-                            (cached?.email?.toLowerCase() === 'abbagem@gmail.com');
+    (cached?.email?.toLowerCase() === 'abbagem@gmail.com');
   const isAdmin = !!(me?.isAdmin || cached?.isAdmin || isSuperAdminEmail);
 
   const followingList = Array.isArray(me?.followingList)
@@ -392,7 +376,7 @@ export const AuthProvider = ({ children }) => {
           try {
             const rawPend = await AsyncStorage.getItem('@gamearn_pending_signup');
             if (rawPend) pendingSaved = JSON.parse(rawPend);
-          } catch {}
+          } catch { }
           const rawName = cached.username || cached.displayName || fbUser?.displayName || fbUser?.email?.split('@')[0] || 'gamer';
           const cleanUser = String(rawName).toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 24) || ('gamer' + String(uid).slice(0, 6).toLowerCase());
           const safeUser = cleanUser.length >= 3 ? cleanUser : `${cleanUser}99`;
@@ -414,7 +398,7 @@ export const AuthProvider = ({ children }) => {
               displayName: altUser,
               fullName: cached.fullName || altUser,
               referralCode: refCode,
-            }).catch(() => {});
+            }).catch(() => { });
           }
           await authApi.login({});
         } else {
@@ -448,7 +432,7 @@ export const AuthProvider = ({ children }) => {
         if (rawGs) permGameStats = JSON.parse(rawGs) || {};
         if (rawDaily) permClaimedDaily = Number(rawDaily) || 0;
         if (rawRefBy) storedReferredBy = String(rawRefBy).trim();
-      } catch {}
+      } catch { }
 
       const serverFollowingExplicit = Boolean(me?.settings?.followingExplicit);
       const mergedFollowingList = Array.isArray(permFollowingV2)
@@ -482,7 +466,7 @@ export const AuthProvider = ({ children }) => {
       );
 
       if (mergedVp > 0) {
-        AsyncStorage.setItem(`@gamearn_earned_vp_${uid}`, String(mergedVp)).catch(() => {});
+        AsyncStorage.setItem(`@gamearn_earned_vp_${uid}`, String(mergedVp)).catch(() => { });
       }
 
       const mergedMe = {
@@ -518,7 +502,7 @@ export const AuthProvider = ({ children }) => {
           gameStats: profile.gameStats,
           followingList: mergedFollowingList,
           followingCount: mergedFollowingCount,
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       setUserProfile(profile);
@@ -608,7 +592,7 @@ export const AuthProvider = ({ children }) => {
       setBackendReady(false);
       try {
         await signOutFirebase();
-      } catch {}
+      } catch { }
     } finally {
       setLoading(false);
     }
@@ -655,19 +639,20 @@ export const AuthProvider = ({ children }) => {
     return confirmPhoneCode(confirmation, code);
   });
 
-  const signUp = async (email, password, displayName = null, phoneNumber = null, referralCode = null) => {
+  const signUp = async (email, password, displayName = null, phoneNumber = null, referralCode = null, username = null) => {
     if (activeLogin.current) return null;
     activeLogin.current = true;
     setLoading(true);
     setAuthError('');
     const cleanRef = referralCode ? String(referralCode).trim() : null;
-    const pendingObj = { displayName, fullName: displayName, phoneNumber, referralCode: cleanRef };
+    const cleanUser = username ? String(username).trim().toLowerCase() : (displayName ? String(displayName).toLowerCase().replace(/[^a-z0-9]/g, '') : null);
+    const pendingObj = { displayName, fullName: displayName, phoneNumber, referralCode: cleanRef, username: cleanUser };
     pendingProfile.current = pendingObj;
-    await AsyncStorage.setItem('@gamearn_pending_signup', JSON.stringify(pendingObj)).catch(() => {});
+    await AsyncStorage.setItem('@gamearn_pending_signup', JSON.stringify(pendingObj)).catch(() => { });
     try {
       const fbUser = await registerEmailPassword(email, password);
       if (fbUser?.uid && cleanRef) {
-        await AsyncStorage.setItem(`@gamearn_referred_by_${fbUser.uid}`, cleanRef).catch(() => {});
+        await AsyncStorage.setItem(`@gamearn_referred_by_${fbUser.uid}`, cleanRef).catch(() => { });
       }
       setUserProfile(null);
       setBackendReady(false);
@@ -687,14 +672,14 @@ export const AuthProvider = ({ children }) => {
       const res = await authApi.requestSignupEmailOtp(cleanEmail);
       const code = res?.verificationCode || res?.code || null;
       if (code) {
-        await AsyncStorage.setItem(`@gamearn_signup_otp_${cleanEmail}`, String(code)).catch(() => {});
+        await AsyncStorage.setItem(`@gamearn_signup_otp_${cleanEmail}`, String(code)).catch(() => { });
       }
       return res;
     } catch (err) {
       let existing = await AsyncStorage.getItem(`@gamearn_signup_otp_${cleanEmail}`).catch(() => null);
       if (!existing || !/^\d{6}$/.test(existing)) {
         existing = String(Math.floor(100000 + Math.random() * 900000));
-        await AsyncStorage.setItem(`@gamearn_signup_otp_${cleanEmail}`, existing).catch(() => {});
+        await AsyncStorage.setItem(`@gamearn_signup_otp_${cleanEmail}`, existing).catch(() => { });
       }
       return { email: cleanEmail, expiresInMinutes: 10, verificationCode: existing, delivered: false };
     }
@@ -713,8 +698,8 @@ export const AuthProvider = ({ children }) => {
         throw err;
       }
     }
-    await reloadCurrentUser().catch(() => {});
-    await getCurrentUser()?.getIdToken(true).catch(() => {});
+    await reloadCurrentUser().catch(() => { });
+    await getCurrentUser()?.getIdToken(true).catch(() => { });
     const fbUser = getCurrentUser();
     setUser(fbUser);
     return fbUser;
@@ -785,12 +770,12 @@ export const AuthProvider = ({ children }) => {
     }
   });
 
-  const backendRegister = async ({ phoneNumber, displayName, referralCode }) => {
+  const backendRegister = async ({ phoneNumber, displayName, referralCode } = {}) => {
     let savedPending = {};
     try {
       const rawPend = await AsyncStorage.getItem('@gamearn_pending_signup');
       if (rawPend) savedPending = JSON.parse(rawPend) || {};
-    } catch {}
+    } catch { }
 
     const currentUid = getCurrentUser()?.uid || ('user_' + Date.now());
     const storedRefBy = await AsyncStorage.getItem(`@gamearn_referred_by_${currentUid}`).catch(() => null);
@@ -800,7 +785,7 @@ export const AuthProvider = ({ children }) => {
     const finalFullName = pendingProfile.current?.fullName || savedPending?.fullName || displayName || 'Player';
     // CRITICAL: Postgres `users_claim_username` trigger requires `username` (which `/auth/register` sets from `displayName`)
     // to match `^[A-Za-z0-9_-]{2,32}$` with NO spaces! Always pass a sanitized alphanumeric username as `displayName`.
-    const rawUsername = displayName || pendingProfile.current?.username || finalFullName || 'gamer';
+    const rawUsername = displayName || pendingProfile.current?.username || savedPending?.username || finalFullName || 'gamer';
     let cleanUsername = String(rawUsername).toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 24);
     if (!cleanUsername || cleanUsername.length < 3) {
       cleanUsername = `gamer_${String(currentUid).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 6)}`;
@@ -849,7 +834,7 @@ export const AuthProvider = ({ children }) => {
     let me = null;
     try {
       me = await authApi.me();
-    } catch {}
+    } catch { }
 
     // Record referral in local multi-account registry and sync to profile
     if (finalCode) {
@@ -871,11 +856,11 @@ export const AuthProvider = ({ children }) => {
           joinedAt: new Date().toISOString(),
         });
         await AsyncStorage.setItem('@gamearn_referrals_registry', JSON.stringify(filtered));
-      } catch {}
+      } catch { }
     }
 
     if (registeredOk) {
-      await AsyncStorage.removeItem('@gamearn_pending_signup').catch(() => {});
+      await AsyncStorage.removeItem('@gamearn_pending_signup').catch(() => { });
     }
 
     const isAdmin = await isAdminUser().catch(() => false);
@@ -931,23 +916,23 @@ export const AuthProvider = ({ children }) => {
       if (updates.valuePoints !== undefined || updates.vp !== undefined) {
         const nextVp = Math.max(0, Number(updates.valuePoints ?? updates.vp ?? updated.valuePoints ?? 0));
         if (targetUid) {
-          AsyncStorage.setItem(`@gamearn_earned_vp_${targetUid}`, String(nextVp)).catch(() => {});
+          AsyncStorage.setItem(`@gamearn_earned_vp_${targetUid}`, String(nextVp)).catch(() => { });
         }
       }
       registerKnownPlatformPlayer(updated);
       if (updates.gameStats && typeof updates.gameStats === 'object') {
         const jsonGs = JSON.stringify(updated.gameStats || updates.gameStats);
         if (targetUid) {
-          AsyncStorage.setItem(`@gamearn_gamestats_${targetUid}`, jsonGs).catch(() => {});
+          AsyncStorage.setItem(`@gamearn_gamestats_${targetUid}`, jsonGs).catch(() => { });
         }
-        AsyncStorage.setItem('@gamearn_gamestats_current', jsonGs).catch(() => {});
+        AsyncStorage.setItem('@gamearn_gamestats_current', jsonGs).catch(() => { });
       }
       if (updates.lastStreakMilestoneAwarded !== undefined) {
         const mVal = String(updates.lastStreakMilestoneAwarded);
         if (targetUid) {
-          AsyncStorage.setItem(`@gamearn_claimed_daily_milestone_${targetUid}`, mVal).catch(() => {});
+          AsyncStorage.setItem(`@gamearn_claimed_daily_milestone_${targetUid}`, mVal).catch(() => { });
         }
-        AsyncStorage.setItem('@gamearn_claimed_daily_milestone_current', mVal).catch(() => {});
+        AsyncStorage.setItem('@gamearn_claimed_daily_milestone_current', mVal).catch(() => { });
       }
       return updated;
     });
@@ -997,7 +982,7 @@ export const AuthProvider = ({ children }) => {
     // cache behind let a stale/phantom session survive a sign-out or account
     // deletion (the "valid token still exists" trap).
     await clearCachedProfile(uid);
-    await AsyncStorage.removeItem(PROFILE_CACHE_KEY).catch(() => {});
+    await AsyncStorage.removeItem(PROFILE_CACHE_KEY).catch(() => { });
     await signOutFirebase();
     setUser(null);
     setUserProfile(null);

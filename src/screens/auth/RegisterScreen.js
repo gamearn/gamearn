@@ -13,11 +13,14 @@ import {
 import { User, Mail, Lock, Check, ArrowLeft, Gift } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
 import GAInput from '../../components/GAInput';
+import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 
 export default function RegisterScreen({ navigation }) {
+  const { theme } = useTheme();
   const { signUp } = useAuth();
   const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [phoneCode, setPhoneCode] = useState('+234');
@@ -28,9 +31,16 @@ export default function RegisterScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const sanitizeUsername = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
+
   const handleRegister = async () => {
-    if (!fullName || !email || !password || !confirmPassword) {
+    const cleanUsername = sanitizeUsername(username);
+    if (!fullName || !cleanUsername || !email || !password || !confirmPassword) {
       setError('Please fill in all required fields');
+      return;
+    }
+    if (cleanUsername.length < 3) {
+      setError('Username must be at least 3 characters long and contain only lowercase letters (a-z) and numbers (0-9)');
       return;
     }
     if (password.length < 8) {
@@ -48,8 +58,8 @@ export default function RegisterScreen({ navigation }) {
     setError('');
     setLoading(true);
     try {
-      await signUp(email.trim(), password, fullName, phone, referralCode.trim());
-      navigation.navigate('EmailVerification', { email: email.trim() });
+      await signUp(email.trim(), password, fullName.trim(), phone.trim(), referralCode.trim(), cleanUsername);
+      navigation.navigate('EmailVerification', { email: email.trim(), username: cleanUsername });
     } catch (e) {
       setError(e.message || 'Registration failed.');
     } finally {
@@ -119,6 +129,21 @@ export default function RegisterScreen({ navigation }) {
             placeholder="e.g. Chinelo Adebayo"
             leftIcon={<User size={20} color="#64748B" />}
           />
+
+          <View style={styles.fieldWrap}>
+            <GAInput
+              label="Gamertag / Username"
+              value={username}
+              onChangeText={(text) => setUsername(sanitizeUsername(text))}
+              placeholder="e.g. mastergamer99"
+              autoCapitalize="none"
+              autoCorrect={false}
+              leftIcon={<User size={20} color={theme.textMuted} />}
+            />
+            <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4 }}>
+              Only lowercase letters (a-z) and numbers (0-9) allowed. No spaces or special characters.
+            </Text>
+          </View>
 
           <GAInput
             label="Email Address"
@@ -323,6 +348,9 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     width: '100%',
+  },
+  fieldWrap: {
+    marginBottom: 16,
   },
   errorText: {
     color: '#EF4444',

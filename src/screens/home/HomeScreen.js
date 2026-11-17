@@ -41,6 +41,7 @@ import { resolveAvatarSource } from '../../utils/avatarPresets';
 import { TELEGRAM_COMMUNITY_LINK, WHATSAPP_COMMUNITY_LINK } from '../../config/appConfig';
 const GAMEARN_LOGO = require('../../../assets/logos/gamearn_g_logo.png');
 import ActiveMatchBanner from '../../components/ActiveMatchBanner';
+import { calculateGamePower } from '../../utils/gamePower';
 const { INITIAL_STATE, reducer, parseAmount, money, localDay, leaderboard } = require('./model');
 
 const STORAGE_KEY = '@gamearn/home_ui.v1';
@@ -163,10 +164,10 @@ export default function HomeScreen({ navigation }) {
         if (raw) {
           try {
             setClaimedWinners(JSON.parse(raw) || {});
-          } catch {}
+          } catch { }
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const getWinnerKey = useCallback((w) => {
@@ -202,11 +203,11 @@ export default function HomeScreen({ navigation }) {
         await updateProfileData({
           valuePoints: nextVp,
           vp: nextVp,
-        }).catch(() => {});
+        }).catch(() => { });
       }
       if (uid) {
-        await AsyncStorage.setItem(`@gamearn_earned_vp_${uid}`, String(nextVp)).catch(() => {});
-        await AsyncStorage.setItem(`@gamearn_permanent_vp_${uid}`, String(nextVp)).catch(() => {});
+        await AsyncStorage.setItem(`@gamearn_earned_vp_${uid}`, String(nextVp)).catch(() => { });
+        await AsyncStorage.setItem(`@gamearn_permanent_vp_${uid}`, String(nextVp)).catch(() => { });
       }
 
       // 2. Mark this winner award as claimed locally & in storage
@@ -218,7 +219,7 @@ export default function HomeScreen({ navigation }) {
         [altKey]: uid || true,
       };
       setClaimedWinners(nextClaimedMap);
-      await AsyncStorage.setItem('@gamearn_claimed_winners', JSON.stringify(nextClaimedMap)).catch(() => {});
+      await AsyncStorage.setItem('@gamearn_claimed_winners', JSON.stringify(nextClaimedMap)).catch(() => { });
 
       // 3. Update winnersList state and @gamearn_winners_cache so it reflects 'claimed' immediately
       setWinnersList((prev) => {
@@ -228,7 +229,7 @@ export default function HomeScreen({ navigation }) {
           }
           return w;
         });
-        AsyncStorage.setItem('@gamearn_winners_cache', JSON.stringify(updated)).catch(() => {});
+        AsyncStorage.setItem('@gamearn_winners_cache', JSON.stringify(updated)).catch(() => { });
         return updated;
       });
 
@@ -313,7 +314,7 @@ export default function HomeScreen({ navigation }) {
       }
       unique.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       setNotificationsList(unique);
-    } catch {}
+    } catch { }
   }, [userProfile?.uid, user?.uid]);
 
   const markAllNotificationsAsRead = useCallback(async (currentList) => {
@@ -370,9 +371,9 @@ export default function HomeScreen({ navigation }) {
 
       await Promise.all(writes);
       if (userProfile?.uid) {
-        await notificationsApi.markRead().catch(() => {});
+        await notificationsApi.markRead().catch(() => { });
       }
-    } catch {}
+    } catch { }
   }, [userProfile?.uid, user?.uid, notificationsList]);
 
   const handleDeleteNotification = useCallback(async (notificationId) => {
@@ -423,8 +424,8 @@ export default function HomeScreen({ navigation }) {
       if (nextMe !== null) writes.push(AsyncStorage.setItem('@gamearn_notifications_me', nextMe));
 
       await Promise.all(writes);
-      await notificationsApi.delete(notificationId).catch(() => {});
-    } catch {}
+      await notificationsApi.delete(notificationId).catch(() => { });
+    } catch { }
   }, [userProfile?.uid, user?.uid]);
 
   useEffect(() => {
@@ -470,18 +471,18 @@ export default function HomeScreen({ navigation }) {
         await AsyncStorage.setItem(`@gamearn_community_link_clicked_${uid}`, 'true');
       }
       if (userProfile) {
-        settingsApi.patch({ communityLinkClicked: true, communityLinkPlatform: platform }).catch(() => {});
+        settingsApi.patch({ communityLinkClicked: true, communityLinkPlatform: platform }).catch(() => { });
         if (typeof updateProfileData === 'function') {
           updateProfileData({
             welcomeCommunityClicked: true,
             welcomeCommunityPlatform: platform,
-          }).catch(() => {});
+          }).catch(() => { });
         }
       }
-    } catch {}
+    } catch { }
     try {
       await Linking.openURL(url);
-    } catch {}
+    } catch { }
   }, [userProfile, user?.uid, updateProfileData]);
 
 
@@ -498,7 +499,7 @@ export default function HomeScreen({ navigation }) {
             const parsed = JSON.parse(cacheRes.value);
             if (Array.isArray(parsed)) cachedList = parsed;
           }
-        } catch {}
+        } catch { }
 
         let apiList = [];
         if (apiRes.status === 'fulfilled' && apiRes.value) {
@@ -515,17 +516,19 @@ export default function HomeScreen({ navigation }) {
             const parsed = JSON.parse(rawDel);
             if (Array.isArray(parsed)) deletedUidsSet = new Set(parsed);
           }
-        } catch {}
+        } catch { }
 
         const map = new Map();
         cachedList.forEach((w) => {
           if (w && w.period && w.rank && (!w.uid || !deletedUidsSet.has(w.uid))) {
-            map.set(`${w.period}:${w.rank}`, w);
+            const key = `${w.period}:${w.rank}:${w.periodDate || w.period_date || ''}:${w.uid || ''}`;
+            map.set(key, w);
           }
         });
         apiList.forEach((w) => {
           if (w && w.period && w.rank && (!w.uid || !deletedUidsSet.has(w.uid))) {
-            map.set(`${w.period}:${w.rank}`, {
+            const key = `${w.period}:${w.rank}:${w.periodDate || w.period_date || ''}:${w.uid || ''}`;
+            map.set(key, {
               ...w,
               rank: Number(w.rank),
               rewardVp: Number(w.rewardVp || String(w.reward || '10').replace(/[^0-9.]/g, '') || 10),
@@ -535,10 +538,10 @@ export default function HomeScreen({ navigation }) {
         const merged = Array.from(map.values()).sort((a, b) => a.rank - b.rank);
         setWinnersList(merged);
         if (merged.length > 0) {
-          AsyncStorage.setItem('@gamearn_winners_cache', JSON.stringify(merged)).catch(() => {});
+          AsyncStorage.setItem('@gamearn_winners_cache', JSON.stringify(merged)).catch(() => { });
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => {
         setWinnersLoading(false);
       });
@@ -564,7 +567,7 @@ export default function HomeScreen({ navigation }) {
           setLeaderboardLoading(false);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     Promise.allSettled([
       leaderboardApi.get(period),
@@ -586,7 +589,7 @@ export default function HomeScreen({ navigation }) {
             const parsed = JSON.parse(rawDel);
             if (Array.isArray(parsed)) deletedUidsSet = new Set(parsed);
           }
-        } catch {}
+        } catch { }
 
         const todayStr = localDay();
         const map = new Map();
@@ -608,54 +611,59 @@ export default function HomeScreen({ navigation }) {
           }
 
           const name = item.displayName || item.name || item.username || existing?.name || 'Player';
-          let plays = existing?.plays ?? 0;
-          let wins = existing?.wins ?? 0;
+          const isUser = Boolean(userProfile?.uid && uid === userProfile.uid);
+
+          // 1. Authoritative career plays & wins (used strictly for Game Power calculation)
+          const careerPlays = Math.max(
+            Number(item.careerPlays ?? item.totalPlays ?? (isUser ? userProfile?.gamesPlayed : 0) ?? 0),
+            Number(existing?.careerPlays ?? 0)
+          );
+          const careerWins = Math.max(
+            Number(item.careerWins ?? item.totalWins ?? (isUser ? userProfile?.wins : 0) ?? 0),
+            Number(existing?.careerWins ?? 0)
+          );
+
+          // 2. Period plays & wins strictly isolated to the selected period
+          let plays = 0;
+          let wins = 0;
 
           if (isFromPeriodLb) {
-            const rawPlays = period === 'Daily' && item.periodPlays !== undefined
-              ? Number(item.periodPlays)
-              : Number(item.plays ?? item.gamesPlayed ?? 0);
-            const rawWins = period === 'Daily' && item.periodWins !== undefined
-              ? Number(item.periodWins)
-              : Number(item.wins ?? item.gamesWon ?? 0);
-            plays = Math.max(plays, rawPlays);
-            wins = Math.max(wins, rawWins);
-          } else if (period === 'Daily') {
-            const isToday = (item.lastPlayedDate === todayStr || item.lastDailyPlayDate === todayStr) && Number(item.dailyPlays ?? 0) > 0;
-            const dPlays = isToday ? Number(item.dailyPlays ?? 0) : 0;
-            const dWins = isToday ? Number(item.dailyWins ?? 0) : 0;
-            plays = Math.max(plays, dPlays);
-            wins = Math.max(wins, dWins);
-          } else if (period === 'Weekly') {
-            const now = new Date();
-            const currentWeek = `${now.getFullYear()}-W${Math.ceil((((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)}`;
-            const isThisWeek = item.lastPlayedWeek === currentWeek;
-            const wPlays = isThisWeek ? Number(item.weeklyPlays ?? item.gamesPlayed ?? 0) : (item.weeklyPlays != null ? Number(item.weeklyPlays) : Math.min(Number(item.gamesPlayed ?? item.plays ?? 0), 10));
-            const wWins = isThisWeek ? Number(item.weeklyWins ?? item.wins ?? 0) : (item.weeklyWins != null ? Number(item.weeklyWins) : Math.min(Number(item.wins ?? item.gamesWon ?? 0), wPlays));
-            plays = Math.max(plays, wPlays);
-            wins = Math.max(wins, wWins);
-          } else if (period === 'Monthly') {
-            const now = new Date();
-            const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-            const isThisMonth = item.lastPlayedMonth === currentMonth;
-            const mPlays = isThisMonth ? Number(item.monthlyPlays ?? item.gamesPlayed ?? 0) : (item.monthlyPlays != null ? Number(item.monthlyPlays) : Number(item.gamesPlayed ?? item.plays ?? 0));
-            const mWins = isThisMonth ? Number(item.monthlyWins ?? item.wins ?? 0) : (item.monthlyWins != null ? Number(item.monthlyWins) : Number(item.wins ?? item.gamesWon ?? 0));
-            plays = Math.max(plays, mPlays);
-            wins = Math.max(wins, mWins);
+            // From server leaderboard (authoritative period-filtered SQL on game_results)
+            plays = Number(item.periodPlays !== undefined ? item.periodPlays : (item.plays ?? 0));
+            wins = Number(item.periodWins !== undefined ? item.periodWins : (item.wins ?? 0));
           } else {
-            const cPlays = Number(item.yearlyPlays ?? item.careerPlays ?? item.gamesPlayed ?? item.plays ?? 0);
-            const cWins = Number(item.yearlyWins ?? item.careerWins ?? item.wins ?? item.gamesWon ?? 0);
-            plays = Math.max(plays, cPlays);
-            wins = Math.max(wins, cWins);
+            // From platform players / local storage
+            if (period === 'Daily') {
+              const isToday = isUser
+                ? Boolean(userProfile?.lastPlayedDate === todayStr || userProfile?.lastDailyPlayDate === todayStr)
+                : Boolean(item.lastPlayedDate === todayStr || item.lastDailyPlayDate === todayStr);
+              plays = isToday ? Number(isUser ? (userProfile?.dailyPlays ?? item.dailyPlays ?? 0) : (item.dailyPlays ?? 0)) : 0;
+              wins = isToday ? Number(isUser ? (userProfile?.dailyWins ?? item.dailyWins ?? 0) : (item.dailyWins ?? 0)) : 0;
+            } else if (period === 'Weekly') {
+              const now = new Date();
+              const currentWeek = `${now.getFullYear()}-W${Math.ceil((((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)}`;
+              const isThisWeek = isUser
+                ? Boolean(userProfile?.lastPlayedWeek === currentWeek || userProfile?.lastPlayedDate === todayStr)
+                : Boolean(item.lastPlayedWeek === currentWeek || item.lastPlayedDate === todayStr);
+              plays = isThisWeek ? Number(isUser ? (userProfile?.weeklyPlays ?? item.weeklyPlays ?? 0) : (item.weeklyPlays ?? 0)) : 0;
+              wins = isThisWeek ? Number(isUser ? (userProfile?.weeklyWins ?? item.weeklyWins ?? 0) : (item.weeklyWins ?? 0)) : 0;
+            } else if (period === 'Monthly') {
+              const now = new Date();
+              const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+              const isThisMonth = isUser
+                ? Boolean(userProfile?.lastPlayedMonth === currentMonth || userProfile?.lastPlayedDate === todayStr)
+                : Boolean(item.lastPlayedMonth === currentMonth || item.lastPlayedDate === todayStr);
+              plays = isThisMonth ? Number(isUser ? (userProfile?.monthlyPlays ?? item.monthlyPlays ?? 0) : (item.monthlyPlays ?? 0)) : 0;
+              wins = isThisMonth ? Number(isUser ? (userProfile?.monthlyWins ?? item.monthlyWins ?? 0) : (item.monthlyWins ?? 0)) : 0;
+            } else {
+              // Yearly / All-time
+              plays = careerPlays;
+              wins = careerWins;
+            }
           }
 
-          const gp = (item.gp != null && Number(item.gp) > 0)
-            ? Number(item.gp)
-            : ((item.initialGp != null && Number(item.initialGp) > 0)
-                ? Number(item.initialGp)
-                : (existing?.gp != null ? existing.gp : 0));
-          const careerPlays = Math.max(Number(item.careerPlays ?? item.totalPlays ?? plays), Number(existing?.careerPlays ?? 0));
-          const careerWins = Math.max(Number(item.careerWins ?? item.totalWins ?? wins), Number(existing?.careerWins ?? 0));
+          // Authoritative GP calculated strictly via Game Power formula from career totals
+          const gp = calculateGamePower(careerPlays, careerWins);
 
           map.set(uid, {
             id: uid,
@@ -666,12 +674,15 @@ export default function HomeScreen({ navigation }) {
             avatar: item.avatar || item.avatarUrl || existing?.avatar || null,
             plays,
             wins,
+            periodPlays: plays,
+            periodWins: wins,
             careerPlays,
             careerWins,
-            periodPlays: period === 'Daily' ? plays : (isFromPeriodLb ? (item.periodPlays !== undefined ? Number(item.periodPlays) : plays) : (existing?.periodPlays ?? plays)),
-            periodWins: period === 'Daily' ? wins : (isFromPeriodLb ? (item.periodWins !== undefined ? Number(item.periodWins) : wins) : (existing?.periodWins ?? wins)),
-            gp: Math.max(gp, existing?.gp || 0),
-            isUser: Boolean(userProfile?.uid && uid === userProfile.uid),
+            totalPlays: careerPlays,
+            totalWins: careerWins,
+            gp,
+            gpText: `${gp} GP`,
+            isUser,
           });
         };
 
@@ -685,10 +696,10 @@ export default function HomeScreen({ navigation }) {
           );
         setDbLeaderboardRows(mergedList);
         if (mergedList.length > 0) {
-          AsyncStorage.setItem(cacheKey, JSON.stringify(mergedList)).catch(() => {});
+          AsyncStorage.setItem(cacheKey, JSON.stringify(mergedList)).catch(() => { });
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => {
         if (active) setLeaderboardLoading(false);
       });
@@ -711,13 +722,13 @@ export default function HomeScreen({ navigation }) {
 
         const rawList = tournamentResult.status === 'fulfilled'
           ? (Array.isArray(tournamentResult.value)
-              ? tournamentResult.value
-              : tournamentResult.value?.tournaments || tournamentResult.value?.data || [])
+            ? tournamentResult.value
+            : tournamentResult.value?.tournaments || tournamentResult.value?.data || [])
           : [];
         const myList = myTournamentsResult.status === 'fulfilled'
           ? (Array.isArray(myTournamentsResult.value)
-              ? myTournamentsResult.value
-              : myTournamentsResult.value?.tournaments || myTournamentsResult.value?.data || [])
+            ? myTournamentsResult.value
+            : myTournamentsResult.value?.tournaments || myTournamentsResult.value?.data || [])
           : [];
 
         if (myTournamentsResult.status === 'fulfilled') {
@@ -850,7 +861,7 @@ export default function HomeScreen({ navigation }) {
   // Purge any legacy 10 VP notifications and check <4h Daily Streak reminder (2.3)
   useEffect(() => {
     if (userProfile?.uid) {
-      checkAndTriggerVp5Notification(0, userProfile.uid).catch(() => {});
+      checkAndTriggerVp5Notification(0, userProfile.uid).catch(() => { });
       checkAndTriggerStreak4hNotification(userProfile).then((triggered) => {
         if (triggered) loadNotifications();
       });
@@ -1218,13 +1229,91 @@ export default function HomeScreen({ navigation }) {
   }
 
   function LeaderboardWinners() {
-    const periodWinners = (winnersList || [])
-      .filter((w) => w.period === winnersPeriod)
-      .sort((a, b) => a.rank - b.rank);
+    const parseWinnerDate = (w) => {
+      if (!w) return null;
+      if (w.createdAt || w.created_at) {
+        const d = new Date(w.createdAt || w.created_at);
+        if (!isNaN(d.getTime())) return d;
+      }
+      if (w.periodDate || w.period_date) {
+        const raw = String(w.periodDate || w.period_date).trim();
+        const d = new Date(raw);
+        if (!isNaN(d.getTime())) return d;
+        const parts = raw.split(/\s+/);
+        if (parts.length >= 3) {
+          const day = parseInt(parts[0], 10);
+          const monthStr = parts[1].toLowerCase().slice(0, 3);
+          const year = parseInt(parts[2], 10);
+          const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+          const monthIdx = months.indexOf(monthStr);
+          if (!isNaN(day) && monthIdx !== -1 && !isNaN(year)) {
+            return new Date(year, monthIdx, day);
+          }
+        }
+      }
+      return null;
+    };
+
+    const isWinnerToday = (w) => {
+      const d = parseWinnerDate(w);
+      if (!d) return false;
+      const now = new Date();
+      return d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate();
+    };
+
+    const isWinnerThisWeek = (w) => {
+      const d = parseWinnerDate(w);
+      if (!d) return false;
+      const now = new Date();
+      const r = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const dayOfWeek = (r.getDay() + 6) % 7;
+      const mon = new Date(r);
+      mon.setDate(r.getDate() - dayOfWeek);
+      mon.setHours(0, 0, 0, 0);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      sun.setHours(23, 59, 59, 999);
+      return d >= mon && d <= sun;
+    };
+
+    const isWinnerThisMonth = (w) => {
+      const d = parseWinnerDate(w);
+      if (!d) return false;
+      const now = new Date();
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    };
+
+    const isWinnerThisYear = (w) => {
+      const d = parseWinnerDate(w);
+      if (!d) return false;
+      const now = new Date();
+      return d.getFullYear() === now.getFullYear();
+    };
+
+    let periodWinners = [];
+    if (winnersPeriod === 'Daily') {
+      periodWinners = (winnersList || []).filter((w) => w.period === 'Daily' && isWinnerToday(w));
+    } else if (winnersPeriod === 'Weekly') {
+      periodWinners = (winnersList || []).filter((w) => (w.period === 'Weekly' && isWinnerThisWeek(w)) || (w.period === 'Daily' && isWinnerThisWeek(w) && !isWinnerToday(w)) || (w.period === 'Weekly'));
+    } else if (winnersPeriod === 'Monthly') {
+      periodWinners = (winnersList || []).filter((w) => (w.period === 'Monthly' && isWinnerThisMonth(w)) || (['Daily', 'Weekly'].includes(w.period) && isWinnerThisMonth(w) && !isWinnerToday(w)) || (w.period === 'Monthly'));
+    } else if (winnersPeriod === 'Yearly') {
+      periodWinners = (winnersList || []).filter((w) => (w.period === 'Yearly' && isWinnerThisYear(w)) || (['Daily', 'Weekly', 'Monthly'].includes(w.period) && isWinnerThisYear(w) && !isWinnerToday(w)) || (w.period === 'Yearly'));
+    }
+    const seenUids = new Set();
+    const dedupedWinners = [];
+    for (const w of periodWinners) {
+      const uKey = `${w.uid}_${w.rank}`;
+      if (!seenUids.has(uKey)) {
+        seenUids.add(uKey);
+        dedupedWinners.push(w);
+      }
+    }
+    periodWinners = dedupedWinners.sort((a, b) => a.rank - b.rank);
 
     const getPeriodDateLabel = (p) => {
-      const matchWinner = (winnersList || []).find((w) => w.period === p && w.periodDate);
-      if (matchWinner?.periodDate) return matchWinner.periodDate;
       const now = new Date();
       const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const fullMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -1331,7 +1420,7 @@ export default function HomeScreen({ navigation }) {
         ) : periodWinners.length === 0 ? (
           <View style={{ paddingVertical: 18 * scale, alignItems: 'center' }}>
             <Text style={[s.muted, { fontSize: 13 * scale, textAlign: 'center' }]}>
-              No winners awarded for this period yet.
+              {winnersPeriod === 'Daily' ? 'No player awarded today' : `No winners awarded for this ${winnersPeriod.toLowerCase()} yet.`}
             </Text>
           </View>
         ) : (
@@ -1743,7 +1832,7 @@ export default function HomeScreen({ navigation }) {
                   const handleNotificationPress = () => {
                     setSheet(null);
                     if (userProfile?.uid && item.id) {
-                      notificationsApi.markRead(item.id).catch(() => {});
+                      notificationsApi.markRead(item.id).catch(() => { });
                     }
                     const act = item.actionType || item.type;
                     const payload = item.actionPayload || {};
@@ -1764,10 +1853,10 @@ export default function HomeScreen({ navigation }) {
                     item.type === 'follow' || item.type === 'referral'
                       ? 'person-add'
                       : item.type === 'tournament' || item.type === 'tournament_available' || item.type === 'tournament_ended' || item.type === 'tournament_ping'
-                      ? 'trophy'
-                      : item.type === 'streak_reminder' || item.type === 'streak_ping'
-                      ? 'flame'
-                      : 'notifications';
+                        ? 'trophy'
+                        : item.type === 'streak_reminder' || item.type === 'streak_ping'
+                          ? 'flame'
+                          : 'notifications';
                   return (
                     <View
                       key={item.id}
@@ -2086,7 +2175,7 @@ export default function HomeScreen({ navigation }) {
         transparent
         visible={showWelcomeCommunityModal}
         animationType="fade"
-        onRequestClose={() => {}}
+        onRequestClose={() => { }}
         statusBarTranslucent
       >
         <View style={{ flex: 1, backgroundColor: 'rgba(2, 10, 24, 0.85)', alignItems: 'center', justifyContent: 'center', padding: 22 }}>
@@ -2282,7 +2371,7 @@ export default function HomeScreen({ navigation }) {
           onClaim={async (milestone) => {
             try {
               await claimDailyStreakMilestone(updateProfileData, userProfile, milestone);
-            } catch {}
+            } catch { }
             setDailyMilestoneModal(null);
           }}
           onClose={() => setDailyMilestoneModal(null)}

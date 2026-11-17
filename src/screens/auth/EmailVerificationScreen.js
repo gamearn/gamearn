@@ -10,29 +10,53 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal,
 } from 'react-native';
-import { Mail, ArrowLeft, ArrowRight, ShieldCheck, Clock } from 'lucide-react-native';
+import { Mail, ArrowLeft, ArrowRight, ShieldCheck, Clock, CheckCircle2 } from 'lucide-react-native';
 import GAButton from '../../components/GAButton';
 import { useAuth } from '../../context/AuthContext';
 
 export default function EmailVerificationScreen({ route, navigation }) {
-  const { sendEmailOtp, verifyEmailOtp } = useAuth();
+  const { sendEmailOtp, verifyEmailOtp, backendRegister } = useAuth();
   const email = route?.params?.email || 'player@gamearn.com';
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(119); // 01:59 countdown
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [issuedCode, setIssuedCode] = useState('');
+  const [verifiedModalVisible, setVerifiedModalVisible] = useState(false);
+  const autoRedirectTimer = useRef(null);
 
   const inputRefs = [useRef(null), useRef(null), useRef(null), useRef(null), useRef(null), useRef(null)];
+
+  const handleGetStarted = () => {
+    if (autoRedirectTimer.current) {
+      clearTimeout(autoRedirectTimer.current);
+      autoRedirectTimer.current = null;
+    }
+    setVerifiedModalVisible(false);
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'MainTabs' }],
+    });
+  };
+
+  useEffect(() => {
+    if (verifiedModalVisible) {
+      autoRedirectTimer.current = setTimeout(() => {
+        handleGetStarted();
+      }, 3000);
+    }
+    return () => {
+      if (autoRedirectTimer.current) {
+        clearTimeout(autoRedirectTimer.current);
+      }
+    };
+  }, [verifiedModalVisible]);
 
   const requestOtp = async () => {
     setError('');
     try {
-      const res = await sendEmailOtp(email);
-      if (res?.verificationCode) {
-        setIssuedCode(String(res.verificationCode));
-      }
+      await sendEmailOtp(email);
     } catch (e) {
       setError(e.message || 'Could not send the verification code. Try again.');
     }
@@ -77,10 +101,7 @@ export default function EmailVerificationScreen({ route, navigation }) {
     setTimer(119);
     setError('');
     try {
-      const res = await sendEmailOtp(email);
-      if (res?.verificationCode) {
-        setIssuedCode(String(res.verificationCode));
-      }
+      await sendEmailOtp(email);
     } catch (e) {
       setError(e.message || 'Could not resend the code. Try again.');
     }
@@ -96,8 +117,14 @@ export default function EmailVerificationScreen({ route, navigation }) {
     setLoading(true);
     try {
       await verifyEmailOtp(email, enteredCode);
-      // Email verified in Firebase — continue to backend registration.
-      navigation.replace('ProfileSetup', { email });
+      // Finalize backend registration with Postgres user profile
+      try {
+        await backendRegister();
+      } catch (regErr) {
+        console.log('Backend register note:', regErr?.message || regErr);
+      }
+      setLoading(false);
+      setVerifiedModalVisible(true);
     } catch (e) {
       setError(e.message || 'That code is incorrect or has expired. Try again.');
       setLoading(false);
@@ -148,27 +175,6 @@ export default function EmailVerificationScreen({ route, navigation }) {
           </Text>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-          {issuedCode ? (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => setCode(String(issuedCode).slice(0, 6).split(''))}
-              style={{
-                backgroundColor: 'rgba(0, 229, 255, 0.12)',
-                borderColor: '#00E5FF',
-                borderWidth: 1,
-                borderRadius: 12,
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                marginBottom: 16,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ color: '#00E5FF', fontSize: 13, fontWeight: '800' }}>
-                Verification Code: {issuedCode} (Tap to auto-fill)
-              </Text>
-            </TouchableOpacity>
-          ) : null}
 
           {/* 6 Digit Boxes */}
           <View style={styles.otpRow}>
@@ -222,6 +228,35 @@ export default function EmailVerificationScreen({ route, navigation }) {
           <Text style={styles.footerShieldText}>SECURED BY GAMEARN SHIELD</Text>
         </View>
       </ScrollView>
+
+      {/* Email Verified Success Modal */}
+      <Modal
+        visible={verifiedModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleGetStarted}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.successIconCircle}>
+              <CheckCircle2 size={46} color="#10B981" />
+            </View>
+
+            <Text style={styles.modalTitle}>Email Verified Successful</Text>
+            <Text style={styles.modalSubtitle}>
+              Your account has been verified successfully. Welcome to GAMEARN!
+            </Text>
+
+            <GAButton
+              title="Let's Get Started"
+              onPress={handleGetStarted}
+              variant="primary"
+              showArrow={true}
+              style={styles.modalButton}
+            />
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -403,5 +438,62 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(5, 8, 20, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#0F192D',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+    alignItems: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  successIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 2,
+    borderColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  modalButton: {
+    width: '100%',
   },
 });

@@ -8,6 +8,7 @@ import { wallet, tournaments, leaderboard as leaderboardApi } from '../../servic
 import { leaderboard } from '../home/model';
 import { resolveAvatarSource } from '../../utils/avatarPresets';
 import { fetchAllPlatformPlayers } from '../../utils/platformPlayers';
+import { calculateGamePower } from '../../utils/gamePower';
 import ActiveMatchBanner from '../../components/ActiveMatchBanner';
 
 const GAMES = {
@@ -21,7 +22,7 @@ export default function GameSectionScreen({ route, navigation }) {
   const key = route.params?.gameId || 'ludo';
   const game = GAMES[key] || GAMES.ludo;
   const { userProfile } = useAuth();
-  
+
   const [w, setW] = useState(null);
   const [ts, setTs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +53,7 @@ export default function GameSectionScreen({ route, navigation }) {
             const parsed = JSON.parse(rawDel);
             if (Array.isArray(parsed)) deletedUidsSet = new Set(parsed);
           }
-        } catch {}
+        } catch { }
 
         const d = new Date();
         const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -75,52 +76,57 @@ export default function GameSectionScreen({ route, navigation }) {
           }
 
           const name = item.displayName || item.name || item.username || existing?.name || 'Player';
-          let plays = existing?.plays ?? 0;
-          let wins = existing?.wins ?? 0;
+          const isUser = Boolean(userProfile?.uid && uid === userProfile.uid);
+          const gs = item.gameStats || {};
+          const gSt = gs[key] || (key === 'draft' ? (gs.draughts || gs.checkers) : null) || {};
+          const userGs = userProfile?.gameStats || {};
+          const userGSt = userGs[key] || (key === 'draft' ? (userGs.draughts || userGs.checkers) : null) || {};
+          const effectiveGSt = isUser ? { ...gSt, ...userGSt } : gSt;
+
+          let plays = 0;
+          let wins = 0;
+
           if (isFromGameLb) {
-            const rawPlays = period === 'Daily' && item.periodPlays !== undefined
-              ? Number(item.periodPlays)
-              : Number(item.plays ?? item.gamesPlayed ?? 0);
-            const rawWins = period === 'Daily' && item.periodWins !== undefined
-              ? Number(item.periodWins)
-              : Number(item.wins ?? item.gamesWon ?? 0);
-            plays = Math.max(plays, rawPlays);
-            wins = Math.max(wins, rawWins);
+            plays = Number(item.periodPlays !== undefined ? item.periodPlays : (item.plays ?? 0));
+            wins = Number(item.periodWins !== undefined ? item.periodWins : (item.wins ?? 0));
           } else {
-            const gs = item.gameStats || {};
-            const gSt = gs[key] || (key === 'draft' ? (gs.draughts || gs.checkers) : null) || {};
             if (period === 'Daily') {
-              const isToday = (gSt.lastPlayedDate === todayStr || item.lastPlayedDate === todayStr) && Number(gSt.dailyPlays ?? 0) > 0;
-              plays = Math.max(plays, isToday ? Number(gSt.dailyPlays ?? 0) : 0);
-              wins = Math.max(wins, isToday ? Number(gSt.dailyWins ?? 0) : 0);
+              const isToday = isUser
+                ? Boolean(effectiveGSt.lastPlayedDate === todayStr || userProfile?.lastPlayedDate === todayStr)
+                : Boolean(effectiveGSt.lastPlayedDate === todayStr || item.lastPlayedDate === todayStr);
+              plays = isToday ? Number(isUser ? (effectiveGSt.dailyPlays ?? userProfile?.dailyPlays ?? 0) : (effectiveGSt.dailyPlays ?? 0)) : 0;
+              wins = isToday ? Number(isUser ? (effectiveGSt.dailyWins ?? userProfile?.dailyWins ?? 0) : (effectiveGSt.dailyWins ?? 0)) : 0;
             } else if (period === 'Weekly') {
               const now = new Date();
               const currentWeek = `${now.getFullYear()}-W${Math.ceil((((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)}`;
-              const isThisWeek = gSt.lastPlayedWeek === currentWeek;
-              const wPlays = isThisWeek ? Number(gSt.weeklyPlays ?? gSt.gamesPlayed ?? 0) : (gSt.weeklyPlays != null ? Number(gSt.weeklyPlays) : Math.min(Number(gSt.gamesPlayed ?? gSt.plays ?? 0), 10));
-              const wWins = isThisWeek ? Number(gSt.weeklyWins ?? gSt.wins ?? 0) : (gSt.weeklyWins != null ? Number(gSt.weeklyWins) : Math.min(Number(gSt.wins ?? 0), wPlays));
-              plays = Math.max(plays, wPlays);
-              wins = Math.max(wins, wWins);
+              const isThisWeek = isUser
+                ? Boolean(effectiveGSt.lastPlayedWeek === currentWeek || userProfile?.lastPlayedWeek === currentWeek || userProfile?.lastPlayedDate === todayStr)
+                : Boolean(effectiveGSt.lastPlayedWeek === currentWeek || effectiveGSt.lastPlayedDate === todayStr);
+              plays = isThisWeek ? Number(effectiveGSt.weeklyPlays ?? (effectiveGSt.lastPlayedDate === todayStr ? effectiveGSt.dailyPlays : 0) ?? 0) : 0;
+              wins = isThisWeek ? Number(effectiveGSt.weeklyWins ?? (effectiveGSt.lastPlayedDate === todayStr ? effectiveGSt.dailyWins : 0) ?? 0) : 0;
             } else if (period === 'Monthly') {
               const now = new Date();
               const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-              const isThisMonth = gSt.lastPlayedMonth === currentMonth;
-              const mPlays = isThisMonth ? Number(gSt.monthlyPlays ?? gSt.gamesPlayed ?? 0) : (gSt.monthlyPlays != null ? Number(gSt.monthlyPlays) : Number(gSt.gamesPlayed ?? gSt.plays ?? 0));
-              const mWins = isThisMonth ? Number(gSt.monthlyWins ?? gSt.wins ?? 0) : (gSt.monthlyWins != null ? Number(gSt.monthlyWins) : Number(gSt.wins ?? 0));
-              plays = Math.max(plays, mPlays);
-              wins = Math.max(wins, mWins);
+              const isThisMonth = isUser
+                ? Boolean(effectiveGSt.lastPlayedMonth === currentMonth || userProfile?.lastPlayedMonth === currentMonth || userProfile?.lastPlayedDate === todayStr)
+                : Boolean(effectiveGSt.lastPlayedMonth === currentMonth || effectiveGSt.lastPlayedDate === todayStr);
+              plays = isThisMonth ? Number(effectiveGSt.monthlyPlays ?? (effectiveGSt.lastPlayedDate === todayStr ? effectiveGSt.dailyPlays : 0) ?? 0) : 0;
+              wins = isThisMonth ? Number(effectiveGSt.monthlyWins ?? (effectiveGSt.lastPlayedDate === todayStr ? effectiveGSt.dailyWins : 0) ?? 0) : 0;
             } else {
-              plays = Math.max(plays, Number(gSt.yearlyPlays ?? gSt.gamesPlayed ?? gSt.plays ?? 0));
-              wins = Math.max(wins, Number(gSt.yearlyWins ?? gSt.wins ?? 0));
+              plays = Number(effectiveGSt.yearlyPlays ?? effectiveGSt.gamesPlayed ?? effectiveGSt.plays ?? 0);
+              wins = Number(effectiveGSt.yearlyWins ?? effectiveGSt.wins ?? 0);
             }
           }
-          const gp = (item.gp != null && Number(item.gp) > 0)
-            ? Number(item.gp)
-            : ((item.initialGp != null && Number(item.initialGp) > 0)
-                ? Number(item.initialGp)
-                : (existing?.gp != null ? existing.gp : 0));
-          const careerPlays = Math.max(Number(item.careerPlays ?? item.totalPlays ?? plays), Number(existing?.careerPlays ?? 0));
-          const careerWins = Math.max(Number(item.careerWins ?? item.totalWins ?? wins), Number(existing?.careerWins ?? 0));
+
+          const careerPlays = Math.max(
+            Number(item.careerPlays ?? item.totalPlays ?? (isUser ? userProfile?.gamesPlayed : 0) ?? 0),
+            Number(existing?.careerPlays ?? 0)
+          );
+          const careerWins = Math.max(
+            Number(item.careerWins ?? item.totalWins ?? (isUser ? userProfile?.wins : 0) ?? 0),
+            Number(existing?.careerWins ?? 0)
+          );
+          const gp = calculateGamePower(careerPlays, careerWins);
 
           map.set(uid, {
             id: uid,
@@ -131,12 +137,15 @@ export default function GameSectionScreen({ route, navigation }) {
             avatar: item.avatar || item.avatarUrl || existing?.avatar || null,
             plays,
             wins,
+            periodPlays: plays,
+            periodWins: wins,
             careerPlays,
             careerWins,
-            periodPlays: period === 'Daily' ? plays : (isFromGameLb ? plays : (existing?.periodPlays ?? plays)),
-            periodWins: period === 'Daily' ? wins : (isFromGameLb ? wins : (existing?.periodWins ?? wins)),
-            gp: Math.max(gp, existing?.gp || 0),
-            isUser: Boolean(userProfile?.uid && uid === userProfile.uid),
+            totalPlays: careerPlays,
+            totalWins: careerWins,
+            gp,
+            gpText: `${gp} GP`,
+            isUser,
           });
         };
 
@@ -181,11 +190,11 @@ export default function GameSectionScreen({ route, navigation }) {
     if (!navigation) return;
     const unsubscribe = navigation.addListener('focus', () => {
       fetchLeaderboard();
-      wallet.get().then(setW).catch(() => {});
+      wallet.get().then(setW).catch(() => { });
       tournaments.list(key).then((val) => {
         const list = Array.isArray(val) ? val : (val?.tournaments || val?.data || []);
         setTs(list.filter((t) => ['open', 'live', 'registration_open', 'pending', 'scheduled', 'in_progress'].includes(String(t.status || t.state || 'registration_open').toLowerCase())));
-      }).catch(() => {});
+      }).catch(() => { });
     });
     return unsubscribe;
   }, [navigation, fetchLeaderboard, key]);
@@ -200,7 +209,7 @@ export default function GameSectionScreen({ route, navigation }) {
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#070C1B" />
       <LinearGradient colors={['#091026', '#060919', '#040612']} style={StyleSheet.absoluteFillObject} />
-      
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.navigate('MainTabs')} style={styles.back} accessibilityLabel="Back to Dashboard">
           <ArrowLeft size={20} color="#fff" />

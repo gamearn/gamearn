@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { referral, leaderboard, tournaments } from '../services/api';
+import { calculateGamePower } from './gamePower';
 
 const COMMUNITY_CACHE_KEY = '@gamearn_community_users_cache';
 
@@ -264,6 +265,15 @@ export const ALL_DATABASE_PLAYERS = [
   },
 ];
 
+// Initialize authoritative Game Power (GP) strictly via the official formula for all registered database players
+ALL_DATABASE_PLAYERS.forEach((dp) => {
+  const pPlays = Number(dp.initialPlays || 0);
+  const pWins = Number(dp.initialWins || 0);
+  const authoritativeGp = calculateGamePower(pPlays, pWins);
+  dp.initialGp = authoritativeGp;
+  dp.gp = authoritativeGp;
+});
+
 let memoryPlayersCache = [];
 let lastFetchTimestamp = 0;
 let inflightPromise = null;
@@ -422,31 +432,55 @@ export async function registerKnownPlatformPlayer(profile) {
       Number(prev.careerWins ?? prev.wins ?? 0),
       statsWins
     );
-    const computedGp =
-      careerPlays > 0
-        ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * (careerWins / Math.max(1, careerPlays)) + 0.25 * Math.min(1, Math.log10(careerPlays + 1) / 3)))))
-        : 0;
-    const gp = Math.max(
-      Number(profile.gp ?? profile.gamePower ?? 0),
-      Number(prev.gp ?? 0),
-      computedGp
-    );
+    const computedGp = calculateGamePower(careerPlays, careerWins);
+    const gp = computedGp;
     const streak = Math.max(
       Number(profile.streak ?? profile.currentStreak ?? 0),
       Number(prev.streak ?? 0)
     );
-    const dailyPlays = Math.max(Number(profile.dailyPlays ?? 0), Number(prev.dailyPlays ?? 0));
-    const dailyWins = Math.max(Number(profile.dailyWins ?? 0), Number(prev.dailyWins ?? 0));
-    const weeklyPlays = Math.max(Number(profile.weeklyPlays ?? 0), Number(prev.weeklyPlays ?? 0));
-    const weeklyWins = Math.max(Number(profile.weeklyWins ?? 0), Number(prev.weeklyWins ?? 0));
-    const monthlyPlays = Math.max(Number(profile.monthlyPlays ?? 0), Number(prev.monthlyPlays ?? 0));
-    const monthlyWins = Math.max(Number(profile.monthlyWins ?? 0), Number(prev.monthlyWins ?? 0));
-    const yearlyPlays = Math.max(Number(profile.yearlyPlays ?? 0), Number(prev.yearlyPlays ?? careerPlays));
-    const yearlyWins = Math.max(Number(profile.yearlyWins ?? 0), Number(prev.yearlyWins ?? careerWins));
-    const lastPlayedDate = profile.lastPlayedDate || profile.lastDailyPlayDate || prev.lastPlayedDate || null;
-    const lastPlayedWeek = profile.lastPlayedWeek || prev.lastPlayedWeek || null;
-    const lastPlayedMonth = profile.lastPlayedMonth || prev.lastPlayedMonth || null;
-    const lastPlayedYear = profile.lastPlayedYear || prev.lastPlayedYear || null;
+
+    const todayStr = (() => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    })();
+    const now = new Date();
+    const currentWeek = `${now.getFullYear()}-W${Math.ceil((((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)}`;
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentYear = `${now.getFullYear()}`;
+
+    const isToday = Boolean(profile.lastPlayedDate === todayStr || profile.lastDailyPlayDate === todayStr);
+    const prevIsToday = Boolean(prev.lastPlayedDate === todayStr || prev.lastDailyPlayDate === todayStr);
+    const dailyPlays = isToday
+      ? Number(profile.dailyPlays !== undefined ? profile.dailyPlays : (prevIsToday ? prev.dailyPlays : 0))
+      : (prevIsToday ? Number(prev.dailyPlays || 0) : 0);
+    const dailyWins = isToday
+      ? Number(profile.dailyWins !== undefined ? profile.dailyWins : (prevIsToday ? prev.dailyWins : 0))
+      : (prevIsToday ? Number(prev.dailyWins || 0) : 0);
+
+    const isThisWeek = Boolean(profile.lastPlayedWeek === currentWeek || isToday);
+    const prevIsThisWeek = Boolean(prev.lastPlayedWeek === currentWeek || prevIsToday);
+    const weeklyPlays = isThisWeek
+      ? Number(profile.weeklyPlays !== undefined ? profile.weeklyPlays : (prevIsThisWeek ? prev.weeklyPlays : dailyPlays))
+      : (prevIsThisWeek ? Number(prev.weeklyPlays || 0) : dailyPlays);
+    const weeklyWins = isThisWeek
+      ? Number(profile.weeklyWins !== undefined ? profile.weeklyWins : (prevIsThisWeek ? prev.weeklyWins : dailyWins))
+      : (prevIsThisWeek ? Number(prev.weeklyWins || 0) : dailyWins);
+
+    const isThisMonth = Boolean(profile.lastPlayedMonth === currentMonth || isToday);
+    const prevIsThisMonth = Boolean(prev.lastPlayedMonth === currentMonth || prevIsToday);
+    const monthlyPlays = isThisMonth
+      ? Number(profile.monthlyPlays !== undefined ? profile.monthlyPlays : (prevIsThisMonth ? prev.monthlyPlays : weeklyPlays))
+      : (prevIsThisMonth ? Number(prev.monthlyPlays || 0) : weeklyPlays);
+    const monthlyWins = isThisMonth
+      ? Number(profile.monthlyWins !== undefined ? profile.monthlyWins : (prevIsThisMonth ? prev.monthlyWins : weeklyWins))
+      : (prevIsThisMonth ? Number(prev.monthlyWins || 0) : weeklyWins);
+
+    const yearlyPlays = Math.max(Number(profile.yearlyPlays ?? 0), Number(prev.yearlyPlays ?? careerPlays), monthlyPlays);
+    const yearlyWins = Math.max(Number(profile.yearlyWins ?? 0), Number(prev.yearlyWins ?? careerWins), monthlyWins);
+    const lastPlayedDate = isToday ? todayStr : (prevIsToday ? todayStr : (profile.lastPlayedDate || prev.lastPlayedDate || null));
+    const lastPlayedWeek = isThisWeek ? currentWeek : (profile.lastPlayedWeek || prev.lastPlayedWeek || null);
+    const lastPlayedMonth = isThisMonth ? currentMonth : (profile.lastPlayedMonth || prev.lastPlayedMonth || null);
+    const lastPlayedYear = profile.lastPlayedYear || prev.lastPlayedYear || currentYear;
     const vp = Math.max(Number(profile.valuePoints ?? profile.vp ?? 0), Number(prev.vp ?? 0));
 
     map.set(uid, {
@@ -574,25 +608,17 @@ export async function fetchAllPlatformPlayers({ excludeUid = null, forceRefresh 
         Number(existing.careerWins ?? existing.wins ?? 0),
         statsWins
       );
-      const dailyPlays = Math.max(
-        Number(isDailyLb ? (item.periodPlays ?? item.plays ?? 0) : (item.todayPlays ?? item.dailyPlays ?? 0)),
-        Number(existing.dailyPlays ?? 0),
-        statsDailyP
-      );
-      const dailyWins = Math.max(
-        Number(isDailyLb ? (item.periodWins ?? item.wins ?? 0) : (item.todayWins ?? item.dailyWins ?? 0)),
-        Number(existing.dailyWins ?? 0),
-        statsDailyW
-      );
-      const computedGp =
-        plays > 0
-          ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * (wins / Math.max(1, plays)) + 0.25 * Math.min(1, Math.log10(plays + 1) / 3)))))
-          : 0;
-      const gp = Math.max(
-        Number(item.gp ?? item.gamePower ?? 0),
-        Number(existing.gp ?? 0),
-        computedGp
-      );
+      const isItemToday = Boolean(item.lastPlayedDate === todayStr || item.lastDailyPlayDate === todayStr);
+      const existingIsToday = Boolean(existing.lastPlayedDate === todayStr || existing.lastDailyPlayDate === todayStr);
+      const dailyPlays = isDailyLb
+        ? Number(item.periodPlays !== undefined ? item.periodPlays : item.plays || 0)
+        : (isItemToday ? Number(item.dailyPlays ?? item.todayPlays ?? 0) : (existingIsToday ? Number(existing.dailyPlays || 0) : statsDailyP));
+      const dailyWins = isDailyLb
+        ? Number(item.periodWins !== undefined ? item.periodWins : item.wins || 0)
+        : (isItemToday ? Number(item.dailyWins ?? item.todayWins ?? 0) : (existingIsToday ? Number(existing.dailyWins || 0) : statsDailyW));
+
+      const computedGp = calculateGamePower(plays, wins);
+      const gp = computedGp;
       const streak = Math.max(Number(item.streak ?? 0), Number(existing.streak ?? 0));
       const vp = Math.max(Number(item.valuePoints ?? item.vp ?? 0), Number(existing.vp ?? 0));
 
@@ -639,6 +665,7 @@ export async function fetchAllPlatformPlayers({ excludeUid = null, forceRefresh 
 
     // 0. Seed with all registered database players from Firebase / PostgreSQL
     ALL_DATABASE_PLAYERS.filter((dp) => !deletedSet.has(dp.uid)).forEach((dp) => {
+      const calculatedGp = calculateGamePower(dp.initialPlays, dp.initialWins);
       addEntry({
         uid: dp.uid,
         id: dp.uid,
@@ -647,13 +674,21 @@ export async function fetchAllPlatformPlayers({ excludeUid = null, forceRefresh 
         username: dp.username,
         email: dp.email,
         phone: dp.phoneNumber,
-        gp: dp.initialGp,
-        gamePower: dp.initialGp,
+        gp: calculatedGp,
+        gamePower: calculatedGp,
         plays: dp.initialPlays,
         gamesPlayed: dp.initialPlays,
         careerPlays: dp.initialPlays,
         wins: dp.initialWins,
         careerWins: dp.initialWins,
+        dailyPlays: 0,
+        dailyWins: 0,
+        weeklyPlays: 0,
+        weeklyWins: 0,
+        monthlyPlays: 0,
+        monthlyWins: 0,
+        yearlyPlays: dp.initialPlays,
+        yearlyWins: dp.initialWins,
         gameStats: dp.gameStats,
       }, false);
     });

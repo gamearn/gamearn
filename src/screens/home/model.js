@@ -35,10 +35,12 @@ function reducer(state, action) {
       if (!Number.isSafeInteger(action.amount) || action.amount < 10000 || action.amount > 100000000) return state;
       if (!Number.isSafeInteger(state.balance + action.amount)) return state;
       if (state.transactions.some(t => t.id === action.id)) return state;
-      return { ...state, balance: state.balance + action.amount, transactions: [
-        { id: action.id, label: 'Wallet top-up', amount: action.amount, date: action.date },
-        ...state.transactions,
-      ].slice(0, 100) };
+      return {
+        ...state, balance: state.balance + action.amount, transactions: [
+          { id: action.id, label: 'Wallet top-up', amount: action.amount, date: action.date },
+          ...state.transactions,
+        ].slice(0, 100)
+      };
     }
     case 'JOIN': return { ...state, joined: true };
     case 'READ_NOTIFICATIONS': return { ...state, notificationsRead: true };
@@ -144,10 +146,10 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
         wins: maxW,
         dailyPlays: finalDailyP,
         dailyWins: finalDailyW,
-        weeklyPlays: maxWeeklyP || Math.max(maxP, maxW),
-        weeklyWins: maxWeeklyW || maxW,
-        monthlyPlays: maxMonthlyP || Math.max(maxP, maxW),
-        monthlyWins: maxMonthlyW || maxW,
+        weeklyPlays: maxWeeklyP || finalDailyP,
+        weeklyWins: Math.min(maxWeeklyW || finalDailyW, maxWeeklyP || finalDailyP),
+        monthlyPlays: maxMonthlyP || maxWeeklyP || finalDailyP,
+        monthlyWins: Math.min(maxMonthlyW || maxWeeklyW || finalDailyW, maxMonthlyP || maxWeeklyP || finalDailyP),
         yearlyPlays: Math.max(maxP, maxW),
         yearlyWins: maxW,
       };
@@ -156,19 +158,35 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
     const totalLosses = Number(userProfile.losses ?? userProfile.gamesLost ?? 0);
     const totalDraws = Number(userProfile.draws ?? userProfile.gamesDrawn ?? 0);
     const totalPlays = Number(userProfile.gamesPlayed ?? userProfile.plays ?? (totalWins + totalLosses + totalDraws));
+    const now = new Date();
+    const weekKey = `${now.getFullYear()}-W${Math.ceil((((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)}`;
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const yearKey = `${now.getFullYear()}`;
+
+    const isPlayedWeek = userProfile?.lastPlayedWeek === weekKey || playedToday;
+    const isPlayedMonth = userProfile?.lastPlayedMonth === monthKey || playedToday;
+    const isPlayedYear = userProfile?.lastPlayedYear === yearKey || playedToday;
+
     const globalDailyP = playedToday ? Number(userProfile.dailyPlays || 0) : 0;
     const globalDailyW = playedToday ? Math.min(Number(userProfile.dailyWins || 0), globalDailyP) : 0;
+    const globalWeeklyP = isPlayedWeek ? Number(userProfile.weeklyPlays || globalDailyP) : 0;
+    const globalWeeklyW = isPlayedWeek ? Math.min(Number(userProfile.weeklyWins || globalDailyW), globalWeeklyP) : 0;
+    const globalMonthlyP = isPlayedMonth ? Number(userProfile.monthlyPlays || globalWeeklyP) : 0;
+    const globalMonthlyW = isPlayedMonth ? Math.min(Number(userProfile.monthlyWins || globalWeeklyW), globalMonthlyP) : 0;
+    const globalYearlyP = isPlayedYear ? Number(userProfile.yearlyPlays || totalPlays) : totalPlays;
+    const globalYearlyW = isPlayedYear ? Math.min(Number(userProfile.yearlyWins || totalWins), globalYearlyP) : totalWins;
+
     return {
       plays: Math.max(totalPlays, totalWins),
       wins: totalWins,
       dailyPlays: globalDailyP,
       dailyWins: globalDailyW,
-      weeklyPlays: Number(userProfile.weeklyPlays || totalPlays),
-      weeklyWins: Number(userProfile.weeklyWins || totalWins),
-      monthlyPlays: Number(userProfile.monthlyPlays || totalPlays),
-      monthlyWins: Number(userProfile.monthlyWins || totalWins),
-      yearlyPlays: Math.max(totalPlays, totalWins),
-      yearlyWins: totalWins,
+      weeklyPlays: globalWeeklyP,
+      weeklyWins: globalWeeklyW,
+      monthlyPlays: globalMonthlyP,
+      monthlyWins: globalMonthlyW,
+      yearlyPlays: globalYearlyP,
+      yearlyWins: globalYearlyW,
     };
   };
 
@@ -180,14 +198,20 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
     }
     if (period === 'Weekly') {
       return {
-        plays: userStats.weeklyPlays !== undefined ? userStats.weeklyPlays : userStats.plays,
-        wins: userStats.weeklyWins !== undefined ? userStats.weeklyWins : userStats.wins,
+        plays: userStats.weeklyPlays !== undefined ? userStats.weeklyPlays : 0,
+        wins: userStats.weeklyWins !== undefined ? userStats.weeklyWins : 0,
       };
     }
     if (period === 'Monthly') {
       return {
-        plays: userStats.monthlyPlays !== undefined ? userStats.monthlyPlays : userStats.plays,
-        wins: userStats.monthlyWins !== undefined ? userStats.monthlyWins : userStats.wins,
+        plays: userStats.monthlyPlays !== undefined ? userStats.monthlyPlays : 0,
+        wins: userStats.monthlyWins !== undefined ? userStats.monthlyWins : 0,
+      };
+    }
+    if (period === 'Yearly') {
+      return {
+        plays: userStats.yearlyPlays !== undefined ? userStats.yearlyPlays : 0,
+        wins: userStats.yearlyWins !== undefined ? userStats.yearlyWins : 0,
       };
     }
     return { plays: userStats.plays, wins: userStats.wins };
@@ -197,9 +221,10 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
 
   const getUserGp = () => {
     if (!userProfile) return 0;
-    if (userProfile.gp !== undefined && userProfile.gp !== null && Number(userProfile.gp) > 0) return Number(userProfile.gp);
-    if (userProfile.gamePower !== undefined && userProfile.gamePower !== null && Number(userProfile.gamePower) > 0) return Number(userProfile.gamePower);
-    return computeRowGp(userStats.yearlyWins || userStats.wins, userStats.yearlyPlays || userStats.plays);
+    const totalP = Number(userProfile.gamesPlayed ?? userProfile.plays ?? 0);
+    const totalW = Number(userProfile.wins ?? userProfile.gamesWon ?? 0);
+    if (totalP === 0) return 0;
+    return computeRowGp(totalW, totalP);
   };
 
   const rows = Array.isArray(dbRows) ? dbRows : [];
@@ -207,26 +232,29 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
     const isUser = Boolean(userProfile?.uid && (row.id === userProfile.uid || row.uid === userProfile.uid || row.isUser));
     const rawName = row.username || row.displayName || row.name || (isUser ? (userProfile?.username || userProfile?.displayName || 'You') : 'Player');
     const cleanName = rawName.replace(/\s*\(You\)\s*$/, '');
-    let wins = Number(row.wins || 0);
-    let plays = Number(row.plays ?? row.gamesPlayed ?? row.played ?? 0);
-    if (period === 'Daily' && row.periodPlays !== undefined) {
-      plays = Number(row.periodPlays || 0);
-      wins = Number(row.periodWins || 0);
-    }
-    // Only fallback to local user device stats if the database row had no data at all
-    if (isUser && row.plays === undefined && row.gamesPlayed === undefined) {
+    let plays = Number(row.periodPlays !== undefined ? row.periodPlays : (row.plays ?? 0));
+    let wins = Number(row.periodWins !== undefined ? row.periodWins : (row.wins ?? 0));
+
+    // For the authenticated user, ensure active period plays and wins are respected
+    if (isUser) {
       if (period === 'Daily') {
         plays = effectiveStats.plays;
         wins = effectiveStats.wins;
+      } else if (period === 'Weekly') {
+        plays = effectiveStats.plays;
+        wins = effectiveStats.wins;
+      } else if (period === 'Monthly') {
+        plays = effectiveStats.plays;
+        wins = effectiveStats.wins;
       } else {
-        wins = Math.max(wins, effectiveStats.wins);
-        plays = Math.max(plays, effectiveStats.plays, wins);
+        plays = Math.max(Number(userProfile?.gamesPlayed ?? 0), Number(row.careerPlays ?? plays));
+        wins = Math.max(Number(userProfile?.wins ?? 0), Number(row.careerWins ?? wins));
       }
     }
-    const explicitGp = Number(row.gp ?? row.gamePower ?? 0);
-    const rowGp = explicitGp > 0
-      ? explicitGp
-      : (isUser && getUserGp() > 0 ? getUserGp() : computeRowGp(row.careerWins ?? row.totalWins ?? wins, row.careerPlays ?? row.totalPlays ?? plays));
+
+    const careerP = Math.max(Number(row.careerPlays ?? row.totalPlays ?? 0), isUser ? Number(userProfile?.gamesPlayed ?? 0) : 0, plays);
+    const careerW = Math.max(Number(row.careerWins ?? row.totalWins ?? 0), isUser ? Number(userProfile?.wins ?? 0) : 0, wins);
+    const rowGp = (isUser && getUserGp() > 0) ? getUserGp() : computeRowGp(careerW, careerP);
     return {
       id: row.id || row.uid || `player_${index}`,
       uid: row.uid || row.id,
@@ -235,6 +263,10 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
       username: row.username || cleanName,
       plays,
       wins,
+      periodPlays: plays,
+      periodWins: wins,
+      careerPlays: careerP,
+      careerWins: careerW,
       gp: rowGp,
       gpText: `${rowGp} GP`,
       xp: rowGp,

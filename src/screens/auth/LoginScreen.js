@@ -30,7 +30,7 @@ export default function LoginScreen({ navigation }) {
     const routeHome = () => {
       if (didNavigate.current || !focused || authLoading || !user) return;
       didNavigate.current = true;
-      navigation.replace(!user.emailVerified && user.providerData?.some(p => p.providerId === 'password') ? 'EmailVerification' : backendReady ? 'MainTabs' : 'ProfileSetup', { email: user.email });
+      navigation.replace(!user.emailVerified && user.providerData?.some(p => p.providerId === 'password') ? 'EmailVerification' : 'MainTabs', { email: user.email });
     };
     routeHome();
   }, [user, backendReady, authLoading, focused, navigation]);
