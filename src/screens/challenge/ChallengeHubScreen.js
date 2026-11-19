@@ -56,6 +56,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
   const [freeChallenge, setFreeChallenge] = useState(false);
   const [amountText, setAmountText] = useState('500');
   const [creating, setCreating] = useState(false);
+  const [opponentUsername, setOpponentUsername] = useState('');
 
   const sockRef = useRef(null);
 
@@ -84,6 +85,12 @@ export default function ChallengeHubScreen({ route, navigation }) {
       onChallengeCreated: () => loadAll(),
       onChallengeAccepted: () => {
         loadAll();
+      },
+      // Someone sent me a direct request: refresh and tell me.
+      onChallengeRequest: (p) => {
+        loadAll();
+        setTab('open');
+        Alert.alert('Challenge request', `${p?.creatorName || 'A player'} wants to play you at ${GAME_BY_TYPE[p?.gameType]?.name || 'a game'}. Accept or decline it in the Open tab.`);
       },
       onMatchFound: (p) => {
         // Another player accepted MY open challenge -> jump straight into the
@@ -188,6 +195,18 @@ export default function ChallengeHubScreen({ route, navigation }) {
     }
   };
 
+  const declineChallenge = async (ch) => {
+    setBusyId(ch.id);
+    try {
+      await challenges.decline(ch.id);
+      await loadAll();
+    } catch (err) {
+      Alert.alert('Decline failed', err?.message || 'Could not decline the challenge.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const cancelChallenge = async (ch) => {
     setBusyId(ch.id);
     try {
@@ -222,11 +241,17 @@ export default function ChallengeHubScreen({ route, navigation }) {
       );
       return;
     }
+    const targetName = opponentUsername.trim().replace(/^@+/, '');
+    if (opponentUsername.trim() && targetName.length < 2) {
+      Alert.alert('Check the username', 'Enter the full username of the player you want to challenge, or clear the field to post an open challenge.');
+      return;
+    }
     setCreating(true);
     try {
       const res = await challenges.create({
         gameType: createGameType,
         entryFeeKobo: selectedFee,
+        opponentUsername: targetName || undefined,
         options: {
           timer: '2m',
           aiDifficulty: 'auto',
@@ -236,7 +261,13 @@ export default function ChallengeHubScreen({ route, navigation }) {
           enableSpecialCards: true,
         },
       });
-      Alert.alert('Challenge Created', `${selectedFee === 0 ? 'Free' : `N${naira(koboToN(selectedFee))}`} ${GAME_BY_TYPE[createGameType].name} challenge is now open. Every player has been notified.`);
+      const feeLabel = selectedFee === 0 ? 'Free' : `N${naira(koboToN(selectedFee))}`;
+      if (targetName) {
+        Alert.alert('Request Sent', `Your ${feeLabel} ${GAME_BY_TYPE[createGameType].name} request was sent to @${targetName}. You will be taken into the room when they accept.`);
+      } else {
+        Alert.alert('Challenge Created', `${feeLabel} ${GAME_BY_TYPE[createGameType].name} challenge is now open. Every player has been notified.`);
+      }
+      setOpponentUsername('');
       setTab('mine');
       await loadAll();
     } catch (err) {
@@ -272,7 +303,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
           <Text style={[styles.cardAmount, { color: theme.primary }]}>{fee === 0 ? 'FREE' : naira(koboToN(fee))}</Text>
         </View>
         <Text style={[styles.cardSub, { color: theme.textSecondary }]}>
-          {ch.creatorDisplayName || 'A player'} · {ch.gameType} {fee > 0 ? `· ${valuePointsFromKobo(fee).toLocaleString()} Value Points` : ''}
+          {ch.isDirect ? '🎯 Challenged you · ' : ''}{ch.creatorDisplayName || 'A player'} · {ch.gameType} {fee > 0 ? `· ${valuePointsFromKobo(fee).toLocaleString()} Value Points` : ''}
         </Text>
         {!!settingsSummary && (
           <Text style={[styles.cardSub, { color: '#00E5FF', fontWeight: '700', marginTop: 2 }]}>
@@ -297,6 +328,11 @@ export default function ChallengeHubScreen({ route, navigation }) {
             style={styles.cardBtn}
           />
         )}
+        {!isEnded && !isAccepted && ch.isDirect && (
+          <TouchableOpacity onPress={() => declineChallenge(ch)} disabled={busyId !== null} style={styles.cancelLink}>
+            <Text style={[styles.cancelText, { color: theme.danger || '#FF3B30' }]}>Decline</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -313,7 +349,11 @@ export default function ChallengeHubScreen({ route, navigation }) {
       : isAccepted
       ? `⚔️ Challenge Accepted by ${ch.acceptedDisplayName || 'a player'}`
       : isOpen
-      ? 'Open — waiting for a challenger'
+      ? (ch.isDirect
+          ? `Request sent to ${ch.targetUsername ? `@${ch.targetUsername}` : (ch.targetDisplayName || 'a player')} — waiting for a reply`
+          : 'Open — waiting for a challenger')
+      : ch.status === 'declined'
+      ? `Declined by ${ch.targetUsername ? `@${ch.targetUsername}` : (ch.targetDisplayName || 'the player')}`
       : 'Cancelled';
 
     const labelColor = isEnded ? theme.textMuted : isAccepted ? theme.success : isOpen ? theme.accent : theme.textMuted;
@@ -403,6 +443,23 @@ export default function ChallengeHubScreen({ route, navigation }) {
             );
           })}
         </View>
+
+        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Challenge a specific player (optional)</Text>
+        <View style={[styles.amountRow, { borderColor: theme.inputBorder }]}>
+          <Text style={[styles.amountPrefix, { color: theme.textSecondary }]}>@</Text>
+          <TextInput
+            value={opponentUsername}
+            onChangeText={setOpponentUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="their username"
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.amountInput, { color: theme.textPrimary }]}
+          />
+        </View>
+        <Text style={[styles.amountHint, { color: theme.textSecondary }]}>
+          Leave empty to post an open challenge that every player can see.
+        </Text>
 
         <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Challenge Amount</Text>
         <View style={styles.freeRow}>
@@ -495,7 +552,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
         </View>
 
         <GAButton
-          title="Create Challenge"
+          title={opponentUsername.trim() ? 'Send Challenge Request' : 'Create Challenge'}
           onPress={create}
           loading={creating}
           icon={<Swords size={20} color="#FFF" />}

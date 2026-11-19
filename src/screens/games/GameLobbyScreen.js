@@ -34,6 +34,7 @@ export default function GameLobbyScreen({ route, navigation }) {
   const [isSearching, setIsSearching] = useState(false);
   const [queueLen, setQueueLen] = useState(0);
   const sockRef = useRef(null);
+  const queuedRef = useRef(false); // true while we sit in the server's matchmaking queue
 
   const [selectedTimer, setSelectedTimer] = useState('2m');
   const [tokenCount, setTokenCount] = useState(4);
@@ -72,6 +73,14 @@ export default function GameLobbyScreen({ route, navigation }) {
     navigation.navigate('MainTabs');
   };
 
+  // Leave the server queue if we joined it and were not matched. Without this a
+  // player who gives up stays queued, and the next searcher is paired with them.
+  const leaveQueue = () => {
+    if (!queuedRef.current) return;
+    queuedRef.current = false;
+    matchmaking.leave(gameType).catch(() => { });
+  };
+
   const cleanup = () => {
     setIsSearching(false);
     setQueueLen(0);
@@ -79,7 +88,7 @@ export default function GameLobbyScreen({ route, navigation }) {
     sockRef.current = null;
   };
 
-  useEffect(() => () => cleanup(), []);
+  useEffect(() => () => { leaveQueue(); cleanup(); }, []);
 
   const navigateToMatch = (p) => {
     sockRef.current?.disconnect();
@@ -118,12 +127,16 @@ export default function GameLobbyScreen({ route, navigation }) {
       });
       if (res?.status === 'already_in_room' && res.roomId) {
         navigateToMatch({ roomId: res.roomId, entryFee: fee, prizePool: 0, opponent: null });
-        return;
+        return true;
       }
+      queuedRef.current = true;
       if (res) setQueueLen(res.position || 0);
+      return true;
     } catch (err) {
+      queuedRef.current = false;
       cleanup();
       Alert.alert('Matchmaking failed', err?.message || 'Could not join the queue.');
+      return false;
     }
   };
 
@@ -169,6 +182,11 @@ export default function GameLobbyScreen({ route, navigation }) {
     const launchMatch = (p = null) => {
       if (matchHandled) return;
       matchHandled = true;
+      if (p && p.roomId) {
+        queuedRef.current = false; // the server already took us out of the queue
+      } else {
+        leaveQueue();
+      }
       cleanup();
       setIsSearching(false);
 
@@ -202,16 +220,21 @@ export default function GameLobbyScreen({ route, navigation }) {
       }
     };
 
+    // The server pairs you with a real player, or fills the match with a bot,
+    // after about 12s. Only fall back to local practice if that never arrives.
     const fallbackTimer = setTimeout(() => {
       launchMatch();
-    }, 2500);
+    }, 20000);
 
     try {
       const sock = new GamearnSocket({
         onConnected: () => {
-          joinQueue(0).catch(() => {
-            clearTimeout(fallbackTimer);
-            launchMatch();
+          joinQueue(0).then((ok) => {
+            if (!ok) {
+              // joinQueue already showed the error and reset the UI.
+              clearTimeout(fallbackTimer);
+              matchHandled = true;
+            }
           });
         },
         onMatchFound: (p) => {
