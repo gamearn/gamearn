@@ -231,8 +231,15 @@ export const matchmaking = {
 export const challenges = {
   // Create an open challenge. entryFeeKobo is in kobo (e.g. 10000 = N100).
   // No fee is deducted until the match actually starts (both players joined).
-  create: ({ gameType, entryFeeKobo, options = {} }) =>
-    apiPost('/challenges', { gameType, entryFeeKobo, options }),
+  // Pass opponentUsername to send a direct request to one player instead of
+  // posting to the open board.
+  create: ({ gameType, entryFeeKobo, options = {}, opponentUsername }) =>
+    apiPost('/challenges', {
+      gameType,
+      entryFeeKobo,
+      options,
+      ...(opponentUsername ? { opponentUsername } : {}),
+    }),
 
   // Open challenges from other players (accept ready).
   list: (gameType) =>
@@ -243,6 +250,8 @@ export const challenges = {
 
   accept: (id) => apiPost(`/challenges/${id}/accept`, {}),
   cancel: (id) => apiPost(`/challenges/${id}/cancel`, {}),
+  // Target player refuses a direct request.
+  decline: (id) => apiPost(`/challenges/${id}/decline`, {}),
 };
 
 // ── Tournaments ───────────────────────────────────────────────────────────────
