@@ -7,7 +7,7 @@ import GAButton from '../../components/GAButton';
 import GACard from '../../components/GACard';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { matchmaking, challenges } from '../../services/api';
+import { matchmaking } from '../../services/api';
 import { GamearnSocket } from '../../services/gamearnSocket';
 import { valuePointsFromKobo, valuePointsFromNaira, koboToN, naira, nairaToKobo } from '../../config/appConfig';
 
@@ -254,62 +254,6 @@ export default function GameLobbyScreen({ route, navigation }) {
     } catch (_err) {
       clearTimeout(fallbackTimer);
       launchMatch();
-    }
-  };
-
-  const handleCreateChallenge = async () => {
-    if (!amountValid) {
-      Alert.alert('Enter an amount', `Amount must be between ${naira(MIN_AMOUNT_N)} and ${naira(MAX_AMOUNT_N)}.`);
-      return;
-    }
-    if (!userProfile) {
-      Alert.alert('Sign in required', 'Create an account to issue challenges.', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') },
-      ]);
-      return;
-    }
-    if (balanceKobo < selectedFee) {
-      Alert.alert(
-        'Insufficient balance',
-        `This challenge costs ${naira(koboToN(selectedFee))}. Your balance is ${naira(balanceNaira)}.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Get Value Points', onPress: () => Linking.openURL('https://www.gamearn.app').catch(() => {}) /* navigation.navigate('BuyValuePoints') */ },
-        ]
-      );
-      return;
-    }
-
-    try {
-      await challenges.create({
-        gameType,
-        entryFeeKobo: selectedFee,
-        options: {
-          timer: selectedTimer,
-          tokenCount,
-          playerCount,
-          playerColor,
-          cardCount,
-          enableSpecialCards,
-          specialCards,
-          nulled,
-          removed,
-          seedCount,
-        },
-      });
-
-      Alert.alert(
-        '⚔️ Challenge Created!',
-        `Your ${valuePointsFromKobo(selectedFee).toLocaleString()} VP ${gameName} match has been published. All online players have been notified to join!`,
-        [
-          {
-            text: 'View My Matches',
-            onPress: () => navigation.navigate('MainTabs'),
-          },
-        ]
-      );
-    } catch (err) {
-      Alert.alert('Create failed', err?.message || 'Could not create the challenge.');
     }
   };
 

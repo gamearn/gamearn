@@ -9,26 +9,14 @@ import {
   ActivityIndicator,
   RefreshControl,
   TextInput,
-  Linking,
 } from 'react-native';
-import { ArrowLeft, Swords, Wallet, Check, X, Trophy, RefreshCw, Coins } from 'lucide-react-native';
+import { ArrowLeft, Swords, Check, Trophy, RefreshCw } from 'lucide-react-native';
 import BrandLogo from '../../components/BrandLogo';
 import GAButton from '../../components/GAButton';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { challenges } from '../../services/api';
 import { GamearnSocket } from '../../services/gamearnSocket';
-import { valuePointsFromKobo, valuePointsFromNaira, koboToN, naira, nairaToKobo } from '../../config/appConfig';
-
-// Challenge amount limits (₦). Backend caps entry fees at 500000 kobo.
-const MIN_AMOUNT_N = 50;
-const MAX_AMOUNT_N = 5000;
-const CHALLENGE_QUICK_AMOUNTS = [100, 500, 2000, 5000];
-
-function parseAmount(raw) {
-  const n = Number(String(raw || '').replace(/,/g, ''));
-  return Number.isFinite(n) ? n : 0;
-}
 
 // gameType -> how to navigate into that game's screen. gameId mirrors the
 // GameLobbyScreen convention ('draft' -> draughts) so setup params match.
@@ -50,35 +38,50 @@ export default function ChallengeHubScreen({ route, navigation }) {
   const [mineList, setMineList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
   const [createGameType, setCreateGameType] = useState(routeGameType);
-  const [freeChallenge, setFreeChallenge] = useState(false);
-  const [amountText, setAmountText] = useState('500');
   const [creating, setCreating] = useState(false);
   const [opponentUsername, setOpponentUsername] = useState('');
 
   const sockRef = useRef(null);
 
-  const amountN = freeChallenge ? 0 : parseAmount(amountText);
-  const selectedFee = nairaToKobo(amountN);
-  const amountValid = freeChallenge || (amountN >= MIN_AMOUNT_N && amountN <= MAX_AMOUNT_N);
-  const balanceNaira = Number(userProfile?.walletBalance ?? userProfile?.valuePoints ?? 0);
-  const balanceKobo = Math.round(balanceNaira * 100);
+  // Normalize the many shapes a list endpoint can return after apiClient has
+  // already unwrapped the { success, data } envelope.
+  const normalizeList = (value) => {
+    if (Array.isArray(value)) return value;
+    if (value && typeof value === 'object') {
+      for (const key of ['challenges', 'data', 'items', 'list', 'open', 'mine']) {
+        if (Array.isArray(value[key])) return value[key];
+      }
+    }
+    return [];
+  };
 
-  const loadAll = useCallback(async () => {
-    try {
-      const [openRes, mineRes] = await Promise.allSettled([challenges.list(), challenges.my()]);
-      if (openRes.status === 'fulfilled') setOpenList(openRes.value?.data ?? openRes.value ?? []);
-      if (mineRes.status === 'fulfilled') setMineList(mineRes.value?.data ?? mineRes.value ?? []);
-    } catch (err) {
-      // silent — UI still renders with whatever loaded
+  const loadAll = useCallback(async (showError = false) => {
+    const [openRes, mineRes] = await Promise.allSettled([challenges.list(), challenges.my()]);
+
+    const openOk = openRes.status === 'fulfilled';
+    const mineOk = mineRes.status === 'fulfilled';
+    if (openOk) setOpenList(normalizeList(openRes.value));
+    if (mineOk) setMineList(normalizeList(mineRes.value));
+
+    if (!openOk || !mineOk) {
+      const reason = !openOk
+        ? openRes.reason?.message || 'Could not load open challenges'
+        : mineRes.reason?.message || 'Could not load your challenges';
+      setLoadError(reason);
+      if (showError) Alert.alert('Could not load challenges', reason);
+    } else {
+      setLoadError(null);
     }
   }, []);
 
   useEffect(() => {
     setLoading(true);
     loadAll().finally(() => setLoading(false));
+    // Note: load failures are shown via the error banner (loadError state).
 
     const sock = new GamearnSocket({
       onConnected: () => {},
@@ -93,8 +96,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
         Alert.alert('Challenge request', `${p?.creatorName || 'A player'} wants to play you at ${GAME_BY_TYPE[p?.gameType]?.name || 'a game'}. Accept or decline it in the Open tab.`);
       },
       onMatchFound: (p) => {
-        // Another player accepted MY open challenge -> jump straight into the
-        // waiting room (the creator's side; fees debit at start once we join).
+        // Another player accepted MY challenge -> jump straight into the room.
         const mapped = GAME_BY_TYPE[p.gameType];
         if (!mapped) return;
         sockRef.current?.disconnect();
@@ -103,8 +105,8 @@ export default function ChallengeHubScreen({ route, navigation }) {
           mode: 'multiplayer',
           gameId: mapped.gameId,
           roomId: p.roomId,
-          entryFee: p.entryFee,
-          prizePool: p.prizePool,
+          entryFee: 0,
+          prizePool: 0,
           opponent: p.opponent,
           timer: '2m',
           aiDifficulty: 'auto',
@@ -141,14 +143,13 @@ export default function ChallengeHubScreen({ route, navigation }) {
       Alert.alert('Unsupported game', 'This challenge is for a game that is not available yet.');
       return;
     }
-    const prizePool = p.prizePool || Math.floor((p.entryFee || 0) * 1.6);
     const opts = p.options || {};
     navigation.navigate(mapped.targetScreen, {
       mode: 'multiplayer',
       gameId: mapped.gameId,
       roomId: p.roomId,
-      entryFee: p.entryFee,
-      prizePool: prizePool,
+      entryFee: 0,
+      prizePool: 0,
       opponent: p.opponent,
       timer: opts.timer || '2m',
       aiDifficulty: opts.aiDifficulty || 'auto',
@@ -162,18 +163,6 @@ export default function ChallengeHubScreen({ route, navigation }) {
   };
 
   const acceptChallenge = async (ch) => {
-    const fee = ch.entryFeeKobo ?? ch.entryFee * 100;
-    if (fee > 0 && balanceKobo < fee) {
-      Alert.alert(
-        'Insufficient balance',
-        `This challenge costs ${naira(koboToN(fee))}. Your balance is ${naira(balanceNaira)}.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Get Value Points', onPress: () => Linking.openURL('https://www.gamearn.app').catch(() => {}) /* navigation.navigate('BuyValuePoints') */ },
-        ],
-      );
-      return;
-    }
     setBusyId(ch.id);
     try {
       const res = await challenges.accept(ch.id);
@@ -183,8 +172,8 @@ export default function ChallengeHubScreen({ route, navigation }) {
       joinRoom({
         gameType: matchPayload?.gameType ?? ch.gameType,
         roomId: matchPayload?.roomId ?? room?.roomId,
-        entryFee: matchPayload?.entryFee ?? room?.entryFee,
-        prizePool: matchPayload?.prizePool ?? room?.prizePool,
+        entryFee: 0,
+        prizePool: 0,
         opponent: matchPayload?.opponent ?? null,
         options: ch.options,
       });
@@ -226,21 +215,6 @@ export default function ChallengeHubScreen({ route, navigation }) {
       ]);
       return;
     }
-    if (!amountValid) {
-      Alert.alert('Enter an amount', `Challenge amounts run from ${naira(MIN_AMOUNT_N)} to ${naira(MAX_AMOUNT_N)}, or pick Free.`);
-      return;
-    }
-    if (selectedFee > 0 && balanceKobo < selectedFee) {
-      Alert.alert(
-        'Insufficient balance',
-        `This challenge costs ${naira(koboToN(selectedFee))}. Your balance is ${naira(balanceNaira)}.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Get Value Points', onPress: () => Linking.openURL('https://www.gamearn.app').catch(() => {}) /* navigation.navigate('BuyValuePoints') */ },
-        ],
-      );
-      return;
-    }
     const targetName = opponentUsername.trim().replace(/^@+/, '');
     if (opponentUsername.trim() && targetName.length < 2) {
       Alert.alert('Check the username', 'Enter the full username of the player you want to challenge, or clear the field to post an open challenge.');
@@ -250,7 +224,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
     try {
       const res = await challenges.create({
         gameType: createGameType,
-        entryFeeKobo: selectedFee,
+        entryFeeKobo: 0,
         opponentUsername: targetName || undefined,
         options: {
           timer: '2m',
@@ -261,15 +235,18 @@ export default function ChallengeHubScreen({ route, navigation }) {
           enableSpecialCards: true,
         },
       });
-      const feeLabel = selectedFee === 0 ? 'Free' : `N${naira(koboToN(selectedFee))}`;
+      // Optimistically insert the returned challenge so it appears immediately
+      // even if the subsequent GET fails.
+      const created = res?.data ?? res;
+      if (created?.id) setMineList((prev) => [created, ...prev.filter((c) => c.id !== created.id)]);
       if (targetName) {
-        Alert.alert('Request Sent', `Your ${feeLabel} ${GAME_BY_TYPE[createGameType].name} request was sent to @${targetName}. You will be taken into the room when they accept.`);
+        Alert.alert('Request Sent', `Your ${GAME_BY_TYPE[createGameType].name} request was sent to @${targetName}. You will be taken into the room when they accept.`);
       } else {
-        Alert.alert('Challenge Created', `${feeLabel} ${GAME_BY_TYPE[createGameType].name} challenge is now open. Every player has been notified.`);
+        Alert.alert('Challenge Created', `${GAME_BY_TYPE[createGameType].name} challenge is now open. Every player has been notified.`);
       }
       setOpponentUsername('');
       setTab('mine');
-      await loadAll();
+      loadAll();
     } catch (err) {
       Alert.alert('Create failed', err?.message || 'Could not create the challenge.');
     } finally {
@@ -278,7 +255,6 @@ export default function ChallengeHubScreen({ route, navigation }) {
   };
 
   const renderOpenItem = (ch) => {
-    const fee = ch.entryFeeKobo ?? ch.entryFee * 100;
     const mapped = GAME_BY_TYPE[ch.gameType];
     const isEnded = ['ended', 'completed', 'finished'].includes(String(ch.status).toLowerCase());
     const isAccepted = ch.status === 'accepted';
@@ -300,10 +276,9 @@ export default function ChallengeHubScreen({ route, navigation }) {
               {mapped?.name || ch.gameType}
             </Text>
           </View>
-          <Text style={[styles.cardAmount, { color: theme.primary }]}>{fee === 0 ? 'FREE' : naira(koboToN(fee))}</Text>
         </View>
         <Text style={[styles.cardSub, { color: theme.textSecondary }]}>
-          {ch.isDirect ? '🎯 Challenged you · ' : ''}{ch.creatorDisplayName || 'A player'} · {ch.gameType} {fee > 0 ? `· ${valuePointsFromKobo(fee).toLocaleString()} Value Points` : ''}
+          {ch.isDirect ? '🎯 Challenged you · ' : ''}{ch.creatorDisplayName || 'A player'} · {ch.gameType}
         </Text>
         {!!settingsSummary && (
           <Text style={[styles.cardSub, { color: '#00E5FF', fontWeight: '700', marginTop: 2 }]}>
@@ -338,7 +313,6 @@ export default function ChallengeHubScreen({ route, navigation }) {
   };
 
   const renderMineItem = (ch) => {
-    const fee = ch.entryFeeKobo ?? ch.entryFee * 100;
     const mapped = GAME_BY_TYPE[ch.gameType];
     const isAccepted = ch.status === 'accepted';
     const isOpen = ch.status === 'open';
@@ -376,7 +350,6 @@ export default function ChallengeHubScreen({ route, navigation }) {
               {mapped?.name || ch.gameType}
             </Text>
           </View>
-          <Text style={[styles.cardAmount, { color: theme.primary }]}>{fee === 0 ? 'FREE' : naira(koboToN(fee))}</Text>
         </View>
         <Text style={[styles.cardSub, { color: labelColor, fontWeight: '700' }]}>{label}</Text>
         {!!settingsSummary && (
@@ -394,8 +367,8 @@ export default function ChallengeHubScreen({ route, navigation }) {
               joinRoom({
                 gameType: ch.gameType,
                 roomId: ch.roomId,
-                entryFee: fee,
-                prizePool: Math.floor(fee * 1.6),
+                entryFee: 0,
+                prizePool: 0,
                 opponent: { displayName: ch.acceptedDisplayName || 'Your opponent' },
                 options: ch.options,
               })
@@ -461,95 +434,16 @@ export default function ChallengeHubScreen({ route, navigation }) {
           Leave empty to post an open challenge that every player can see.
         </Text>
 
-        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Challenge Amount</Text>
-        <View style={styles.freeRow}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => setFreeChallenge(!freeChallenge)}
-            style={[
-              styles.freeChip,
-              {
-                backgroundColor: freeChallenge ? theme.cardBg : theme.inputBg,
-                borderColor: freeChallenge ? theme.primary : theme.inputBorder,
-              },
-            ]}
-          >
-            {freeChallenge ? <Check size={14} color={theme.accent} /> : <X size={14} color={theme.textMuted} />}
-            <Text style={[styles.freeChipText, { color: freeChallenge ? theme.accent : theme.textMuted }]}>
-              Free challenge (no prize)
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {freeChallenge ? (
-          <View style={[styles.amountCard, { backgroundColor: theme.cardBg, borderColor: theme.inputBorder }]}>
-            <Coins size={16} color="#FF5500" />
-            <Text style={[styles.freeNote, { color: theme.textSecondary }]}>
-              Free challenges have no entry fee and no prize pool.
-            </Text>
-          </View>
-        ) : (
-          <View>
-            <View style={[styles.amountRow, { borderColor: amountValid ? theme.inputBorder : '#EF4444' }]}>
-              <Text style={[styles.amountPrefix, { color: theme.textSecondary }]}>VP</Text>
-              <TextInput
-                value={amountText}
-                onChangeText={setAmountText}
-                keyboardType="numeric"
-                placeholder={`${valuePointsFromNaira(MIN_AMOUNT_N)} - ${valuePointsFromNaira(MAX_AMOUNT_N)}`}
-                placeholderTextColor={theme.textSecondary}
-                style={[styles.amountInput, { color: theme.textPrimary }]}
-              />
-            </View>
-            <Text style={[styles.amountHint, { color: amountValid ? theme.textSecondary : '#EF4444' }]}>
-              {amountValid
-                ? `Stake ${valuePointsFromNaira(amountN).toLocaleString()} Value Points`
-                : `Amount must be between ${valuePointsFromNaira(MIN_AMOUNT_N)} VP and ${valuePointsFromNaira(MAX_AMOUNT_N)} VP`}
-            </Text>
-            <View style={styles.quickRow}>
-              {CHALLENGE_QUICK_AMOUNTS.map((amt) => {
-                const active = amountN === amt;
-                return (
-                  <TouchableOpacity
-                    key={amt}
-                    onPress={() => setAmountText(String(amt))}
-                    style={[
-                      styles.quickChip,
-                      { backgroundColor: active ? theme.cardBg : theme.inputBg, borderColor: active ? theme.primary : theme.inputBorder },
-                    ]}
-                  >
-                    <Text style={[styles.quickChipText, { color: active ? theme.accent : theme.textMuted }]}>
-                      {valuePointsFromNaira(amt)} VP
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <Text style={{ color: theme.textSecondary }}>Acquired Value Points:</Text>
-            <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>{valuePointsFromNaira(balanceNaira).toLocaleString()} VP</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={{ color: theme.textSecondary }}>Entry fee (deducted at match start):</Text>
-            <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>
-              {amountValid || freeChallenge ? (selectedFee === 0 ? 'FREE' : naira(koboToN(selectedFee))) : '—'}
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={{ color: theme.textSecondary }}>Winner takes (up to):</Text>
-            <Text style={{ color: theme.success, fontWeight: '800' }}>
-              {amountValid || freeChallenge ? (selectedFee === 0 ? 'No prize' : naira(koboToN(Math.floor(selectedFee * 2 * 0.80)))) : '—'}
-            </Text>
-          </View>
-          <Text style={[styles.note, { color: theme.textMuted }]}>
-            Open challenges have no expiry. Every player is notified; your match
-            starts once an acceptor joins and you rejoin the room. A 20% platform fee applies to prize payouts. Free challenges have no prize pool.
+        <View style={[styles.amountCard, { backgroundColor: theme.cardBg, borderColor: theme.inputBorder }]}>
+          <Text style={[styles.freeNote, { color: theme.textSecondary }]}>
+            Challenges are free to create and play — no entry fee, no stake, no prize pool.
           </Text>
         </View>
+
+        <Text style={[styles.note, { color: theme.textMuted }]}>
+          Open challenges have no expiry. Every player is notified; your match
+          starts once an acceptor joins and you rejoin the room.
+        </Text>
 
         <GAButton
           title={opponentUsername.trim() ? 'Send Challenge Request' : 'Create Challenge'}
@@ -603,6 +497,12 @@ export default function ChallengeHubScreen({ route, navigation }) {
           );
         })}
       </View>
+
+      {!!loadError && (
+        <TouchableOpacity onPress={() => loadAll(true)} style={[styles.errorBanner, { backgroundColor: theme.danger || '#FF3B30' }]}>
+          <Text style={styles.errorBannerText}>⚠️ {loadError} — tap to retry</Text>
+        </TouchableOpacity>
+      )}
 
       {loading ? (
         <View style={styles.center}>
@@ -839,6 +739,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     marginTop: 4,
+  },
+  errorBanner: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  errorBannerText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 13,
   },
   center: {
     flex: 1,
