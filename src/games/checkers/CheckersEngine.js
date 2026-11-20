@@ -1,0 +1,362 @@
+export const initialBoardState = () => {
+  return Array.from({ length: 64 }, (_, i) => {
+    const r = Math.floor(i / 8);
+    const c = i % 8;
+    if ((r + c) % 2 === 0) return null;
+    if (r < 3) return { side: 'white' };
+    if (r > 4) return { side: 'black' };
+    return null;
+  });
+};
+
+/** Get row and column for 0..63 index */
+export function getCoord(index) {
+  return { r: Math.floor(index / 8), c: index % 8 };
+}
+
+/** Get index from row and column */
+export function getIndex(r, c) {
+  if (r < 0 || r > 7 || c < 0 || c > 7) return null;
+  return r * 8 + c;
+}
+
+/** Check if index is on playable dark square */
+export function isDarkSquare(index) {
+  const { r, c } = getCoord(index);
+  return (r + c) % 2 === 1;
+}
+
+/** Get simple movement directions for a piece:
+ * Regular men only move forward diagonally (white moves down dr: 1, black moves up dr: -1).
+ * Kings can move all 4 diagonal directions (both forward and backward).
+ */
+export function getDirections(piece) {
+  if (!piece) return [];
+  if (piece.king) {
+    return [
+      { dr: 1, dc: -1 },
+      { dr: 1, dc: 1 },
+      { dr: -1, dc: -1 },
+      { dr: -1, dc: 1 },
+    ];
+  }
+  return piece.side === 'white'
+    ? [{ dr: 1, dc: -1 }, { dr: 1, dc: 1 }]
+    : [{ dr: -1, dc: -1 }, { dr: -1, dc: 1 }];
+}
+
+/** All 4 diagonal directions for jumping and capture moves */
+export const ALL_DIAGONAL_DIRS = [
+  { dr: 1, dc: -1 },
+  { dr: 1, dc: 1 },
+  { dr: -1, dc: -1 },
+  { dr: -1, dc: 1 },
+];
+
+/** Generate single capture moves for a piece (each jump is 2 squares diagonally) */
+export function getSingleCaptureMovesForPiece(board, squareIndex, piece = null) {
+  const currentPiece = piece || board[squareIndex];
+  if (!currentPiece) return [];
+
+  const moves = [];
+  const { r, c } = getCoord(squareIndex);
+  const dirs = ALL_DIAGONAL_DIRS;
+
+  for (const { dr, dc } of dirs) {
+    const midR = r + dr;
+    const midC = c + dc;
+    const midIdx = getIndex(midR, midC);
+
+    const landR = r + dr * 2;
+    const landC = c + dc * 2;
+    const landIdx = getIndex(landR, landC);
+
+    if (
+      midIdx !== null &&
+      landIdx !== null &&
+      board[landIdx] === null
+    ) {
+      const midPiece = board[midIdx];
+      if (midPiece !== null && midPiece.side !== currentPiece.side) {
+        moves.push({
+          from: squareIndex,
+          to: landIdx,
+          captures: [midIdx],
+          path: [squareIndex, landIdx],
+        });
+      }
+    }
+  }
+
+  return moves;
+}
+
+/** Get all single-step capture moves for a side */
+export function getAllCaptureMoves(board, side, forcedSquare = null) {
+  if (forcedSquare !== null && forcedSquare !== undefined) {
+    const p = board[forcedSquare];
+    if (p && p.side === side) {
+      return getSingleCaptureMovesForPiece(board, forcedSquare, p);
+    }
+    return [];
+  }
+
+  const captureMoves = [];
+  for (let i = 0; i < 64; i++) {
+    const piece = board[i];
+    if (piece && piece.side === side) {
+      const pieceCaptures = getSingleCaptureMovesForPiece(board, i, piece);
+      captureMoves.push(...pieceCaptures);
+    }
+  }
+  return captureMoves;
+}
+
+/** Get all legal moves for a side (allows player to choose both simple moves and captures freely) */
+export function getAllLegalMoves(board, side, forcedSquare = null) {
+  if (!board || !Array.isArray(board)) return [];
+  const captures = getAllCaptureMoves(board, side, forcedSquare);
+
+  // If a piece is currently in a multi-jump sequence, it must continue jumping with that piece
+  if (forcedSquare !== null && forcedSquare !== undefined) {
+    return captures;
+  }
+
+  const simpleMoves = [];
+  for (let i = 0; i < 64; i++) {
+    const piece = board[i];
+    if (piece && piece.side === side) {
+      const { r, c } = getCoord(i);
+      const dirs = getDirections(piece);
+      const maxSteps = piece.king ? 7 : 1;
+      for (const { dr, dc } of dirs) {
+        for (let step = 1; step <= maxSteps; step++) {
+          const destR = r + dr * step;
+          const destC = c + dc * step;
+          const destIdx = getIndex(destR, destC);
+          if (destIdx === null || board[destIdx] !== null) break;
+          simpleMoves.push({
+            from: i,
+            to: destIdx,
+            captures: [],
+            path: [i, destIdx],
+          });
+        }
+      }
+    }
+  }
+
+  return [...captures, ...simpleMoves];
+}
+
+/** Get legal moves starting from a specific square directly and fast */
+export function getLegalMovesForSquare(board, side, squareIndex, forcedSquare = null) {
+  if (!board || !Array.isArray(board) || squareIndex == null || squareIndex < 0 || squareIndex >= 64) return [];
+  if (forcedSquare !== null && forcedSquare !== undefined && forcedSquare !== squareIndex) {
+    return [];
+  }
+  const piece = board[squareIndex];
+  if (!piece || piece.side !== side) return [];
+
+  const captures = getSingleCaptureMovesForPiece(board, squareIndex, piece);
+  if (forcedSquare !== null && forcedSquare !== undefined) {
+    return captures;
+  }
+
+  const simpleMoves = [];
+  const { r, c } = getCoord(squareIndex);
+  const dirs = getDirections(piece);
+  const maxSteps = piece.king ? 7 : 1;
+  for (const { dr, dc } of dirs) {
+    for (let step = 1; step <= maxSteps; step++) {
+      const destR = r + dr * step;
+      const destC = c + dc * step;
+      const destIdx = getIndex(destR, destC);
+      if (destIdx === null || board[destIdx] !== null) break;
+      simpleMoves.push({
+        from: squareIndex,
+        to: destIdx,
+        captures: [],
+        path: [squareIndex, destIdx],
+      });
+    }
+  }
+
+  return [...captures, ...simpleMoves];
+}
+
+/** Execute a move on the board and return new board state */
+export function applyMove(board, move) {
+  if (!board || !Array.isArray(board) || !move) return board || [];
+  const newBoard = [...board];
+  if (move.from === undefined || move.to === undefined) return newBoard;
+  const movingPiece = newBoard[move.from];
+  if (!movingPiece) return newBoard;
+
+  newBoard[move.from] = null;
+  const captures = Array.isArray(move.captures) ? move.captures : [];
+  for (const capIdx of captures) {
+    if (capIdx !== null && capIdx !== undefined && capIdx >= 0 && capIdx < newBoard.length) {
+      newBoard[capIdx] = null;
+    }
+  }
+
+  const { r: destR } = getCoord(move.to);
+  const promotes =
+    !movingPiece.king &&
+    ((movingPiece.side === 'white' && destR === 7) ||
+      (movingPiece.side === 'black' && destR === 0));
+
+  newBoard[move.to] = {
+    side: movingPiece.side,
+    king: movingPiece.king || promotes,
+  };
+
+  return newBoard;
+}
+
+/** Evaluate board position score for Minimax AI */
+export function evaluateBoard(board) {
+  if (!board || !Array.isArray(board)) return 0;
+  let score = 0;
+  for (let i = 0; i < 64; i++) {
+    const piece = board[i];
+    if (!piece) continue;
+
+    const { r, c } = getCoord(i);
+    let pieceValue = piece.king ? 18 : 10;
+
+    // Positional bonuses: center control & advancement
+    if (r >= 2 && r <= 5 && c >= 2 && c <= 5) pieceValue += 2;
+    if (!piece.king) {
+      if (piece.side === 'white') pieceValue += r;     // Advancing down
+      else pieceValue += (7 - r);                     // Advancing up
+    }
+
+    // Back-row guard bonus
+    if (!piece.king) {
+      if (piece.side === 'white' && r === 0) pieceValue += 3;
+      if (piece.side === 'black' && r === 7) pieceValue += 3;
+    }
+
+    if (piece.side === 'black') {
+      score += pieceValue;
+    } else {
+      score -= pieceValue;
+    }
+  }
+  return score;
+}
+
+/** Minimax search algorithm with Alpha-Beta pruning */
+function minimax(board, depth, alpha, beta, isMaximizing) {
+  const turn = isMaximizing ? 'black' : 'white';
+  const legalMoves = getAllLegalMoves(board, turn);
+
+  if (depth === 0 || legalMoves.length === 0) {
+    return { score: evaluateBoard(board), move: null };
+  }
+
+  // Prioritize captures first for strategic play and fast alpha-beta pruning
+  legalMoves.sort((a, b) => (b.captures?.length || 0) - (a.captures?.length || 0));
+
+  let bestMove = legalMoves[0] || null;
+
+  if (isMaximizing) {
+    let maxEval = -Infinity;
+    for (const move of legalMoves) {
+      const nextBoard = applyMove(board, move);
+      const evalResult = minimax(nextBoard, depth - 1, alpha, beta, false);
+      if (evalResult.score > maxEval) {
+        maxEval = evalResult.score;
+        bestMove = move;
+      }
+      alpha = Math.max(alpha, evalResult.score);
+      if (beta <= alpha) break;
+    }
+    return { score: maxEval, move: bestMove };
+  } else {
+    let minEval = Infinity;
+    for (const move of legalMoves) {
+      const nextBoard = applyMove(board, move);
+      const evalResult = minimax(nextBoard, depth - 1, alpha, beta, true);
+      if (evalResult.score < minEval) {
+        minEval = evalResult.score;
+        bestMove = move;
+      }
+      beta = Math.min(beta, evalResult.score);
+      if (beta <= alpha) break;
+    }
+    return { score: minEval, move: bestMove };
+  }
+}
+
+/** Get best move for Computer AI based on difficulty */
+export function getBestAIMove(board, side = 'black', difficulty = 'medium') {
+  const legalMoves = getAllLegalMoves(board, side);
+  if (legalMoves.length === 0) return null;
+
+  // Prioritize capture moves first
+  legalMoves.sort((a, b) => (b.captures?.length || 0) - (a.captures?.length || 0));
+
+  if (difficulty === 'easy') {
+    // 40% chance to play casual random move for beginners
+    if (Math.random() < 0.40) {
+      return legalMoves[Math.floor(Math.random() * legalMoves.length)];
+    }
+    const result = minimax(board, 2, -Infinity, Infinity, side === 'black');
+    return result.move || legalMoves[0];
+  }
+
+  if (difficulty === 'hard') {
+    // Expert depth 3 with capture-first alpha-beta pruning
+    const result = minimax(board, 3, -Infinity, Infinity, side === 'black');
+    return result.move || legalMoves[0];
+  }
+
+  // Medium depth 2 minimax
+  const result = minimax(board, 2, -Infinity, Infinity, side === 'black');
+  return result.move || legalMoves[0];
+}
+
+/** Get hint move for player */
+export function getHintMove(board, side) {
+  const moves = getAllLegalMoves(board, side);
+  if (moves.length === 0) return null;
+
+  // Pick move with maximum score after opponent response
+  let bestMove = moves[0];
+  let bestScore = side === 'white' ? Infinity : -Infinity;
+
+  for (const move of moves) {
+    const nextBoard = applyMove(board, move);
+    const score = evaluateBoard(nextBoard);
+    if (side === 'white' && score < bestScore) {
+      bestScore = score;
+      bestMove = move;
+    } else if (side === 'black' && score > bestScore) {
+      bestScore = score;
+      bestMove = move;
+    }
+  }
+
+  return bestMove;
+}
+
+/** Check if game has ended */
+export function checkGameEnd(board, currentTurn) {
+  if (!board || !Array.isArray(board)) return { isOver: false, winner: null };
+  const legalMoves = getAllLegalMoves(board, currentTurn);
+  const whitePieces = board.filter((p) => p?.side === 'white').length;
+  const blackPieces = board.filter((p) => p?.side === 'black').length;
+
+  if (whitePieces === 0) return { isOver: true, winner: 'black' };
+  if (blackPieces === 0) return { isOver: true, winner: 'white' };
+
+  if (legalMoves.length === 0) {
+    // Current player has no legal moves -> opposite side wins
+    return { isOver: true, winner: currentTurn === 'white' ? 'black' : 'white' };
+  }
+
+  return { isOver: false, winner: null };
+}

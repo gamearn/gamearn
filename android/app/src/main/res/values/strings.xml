@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- This is the most important one to stop the build error -->
-    <string name="app_name">Gamearn</string>
-    
-    <string name="facebook_app_id">1762055368454928</string>
-    <string name="fb_login_protocol_scheme">fb1762055368454928</string>
-    <string name="facebook_client_token">2d00aeac07f93e470965ea94ad521883</string>
-</resources>

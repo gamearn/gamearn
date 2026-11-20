@@ -1,0 +1,1693 @@
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  Alert,
+  StatusBar,
+  Modal,
+  Share,
+  ActivityIndicator,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Clipboard from 'expo-clipboard';
+import {
+  ArrowLeft,
+  Copy,
+  Share2,
+  Users,
+  Search,
+  Check,
+  HelpCircle,
+  QrCode,
+  Flame,
+  Gamepad2,
+  Trophy,
+  Send,
+  Sparkles,
+  TrendingUp,
+  Coins,
+  ChevronRight,
+  X,
+} from 'lucide-react-native';
+import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { referral, tournaments as tournamentsApi } from '../../services/api';
+import {
+  referralUniversalLink,
+  referralDeepLink,
+  playStoreLink,
+  appStoreLink,
+} from '../../config/appConfig';
+
+const PING_RATE = 0.05;
+const PING_TYPE_MAP = {
+  'Daily Streak': 'streak',
+  'Challenge Match': 'challenge',
+  'Tournament': 'tournament',
+};
+
+// Normalize the backend referral or searched user object into the shape the member cards render.
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchAllPlatformPlayers } from '../../utils/platformPlayers';
+
+const toUiRef = (r) => {
+  const streakCount = Number(r.streak || 0);
+  const tournamentsCount = Number(r.tournamentsCount || 0);
+  const tournamentWins = Number(r.tournamentWins || 0);
+  const activeTournamentName = r.activeTournamentName || null;
+  const latestTournamentName = r.latestTournamentName || null;
+  const status = r.status || (streakCount > 0 ? 'active' : 'inactive');
+  const isActiveToday = Boolean(r.isActiveToday || status === 'active');
+  const statusLabel = r.statusLabel || (status === 'risk' ? 'At Risk' : isActiveToday ? 'Active Today' : 'Inactive');
+
+  const streakSummary =
+    r.streakSummary ||
+    (streakCount > 0
+      ? `Streak: Day ${streakCount}${status === 'risk' ? ' (At Risk)' : ''}`
+      : 'Streak: Day 0');
+
+  const tournamentSummary =
+    r.tournamentSummary ||
+    (activeTournamentName
+      ? `Tournament: ${activeTournamentName} (Active)`
+      : latestTournamentName
+      ? `Tournament: ${latestTournamentName}`
+      : tournamentsCount > 0
+      ? `Tournaments: ${tournamentsCount} joined`
+      : 'No tournament yet');
+
+  return {
+    id: r.uid,
+    uid: r.uid,
+    name: r.displayName || r.username || 'Player',
+    username: r.username || r.displayName || 'player',
+    handle: r.phone || `@${(r.username || r.displayName || 'player').toLowerCase()}`,
+    avatar: r.avatar || null,
+    streak: streakCount,
+    gamesPlayed: Number(r.gamesPlayed || 0),
+    tournamentsCount,
+    tournamentWins,
+    activeTournamentId: r.activeTournamentId || null,
+    activeTournamentName,
+    latestTournamentName,
+    status,
+    isActiveToday,
+    statusLabel,
+    streakSummary,
+    tournamentSummary,
+    totalEarned: Math.round((r.totalCommissionKobo || 0) / PING_RATE),
+    yourCommission: r.totalCommissionKobo || 0,
+    todayCommission: r.todayCommissionKobo || 0,
+    activityNote: `${streakSummary} • ${tournamentSummary}`,
+    lastEarnedAt: r.lastEarnedAt,
+    isMyReferral: r.isMyReferral !== false,
+    history:
+      Array.isArray(r.history) && r.history.length > 0
+        ? r.history
+        : r.lastEarnedAt
+        ? [
+            {
+              id: `h_${r.uid}`,
+              source: 'Referral earnings',
+              date: new Date(r.lastEarnedAt).toLocaleDateString(),
+              commission: r.totalCommissionKobo || 0,
+              amount: Math.round((r.totalCommissionKobo || 0) / PING_RATE),
+            },
+          ]
+        : [],
+  };
+};
+
+export default function InviteFriendsScreen({ navigation }) {
+  const { userProfile, updateProfileData } = useAuth();
+  const { theme, isDark } = useTheme();
+
+  const userName = userProfile?.username || userProfile?.displayName || userProfile?.name || 'gamer';
+  const [serverCode, setServerCode] = useState(null);
+  const referralCode = useMemo(() => {
+    const raw = userProfile?.username || userProfile?.displayName || userProfile?.referralCode || serverCode || userName;
+    const clean = String(raw).toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (clean && clean.length >= 3) return clean;
+    const uid = String(userProfile?.uid || userProfile?.id || '').trim();
+    if (uid && uid.length >= 6) {
+      return uid.substring(0, 8).toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+    return 'gamer88';
+  }, [serverCode, userProfile?.referralCode, userProfile?.username, userProfile?.displayName, userProfile?.uid, userName]);
+
+  const referralUpdatedRef = useRef(false);
+  useEffect(() => {
+    if (referralCode && !userProfile?.referralCode && updateProfileData && !referralUpdatedRef.current) {
+      referralUpdatedRef.current = true;
+      updateProfileData({ referralCode });
+    }
+  }, [referralCode, userProfile?.referralCode]);
+
+  const referralLink = referralUniversalLink(referralCode);
+
+  const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState('all'); // 'all', 'active', 'risk', 'inactive'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [timeFilter, setTimeFilter] = useState('This Week');
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [activePingModal, setActivePingModal] = useState(null);
+  const [viewReferralDetails, setViewReferralDetails] = useState(null);
+
+  const toggleTimeFilter = () => {
+    setTimeFilter((prev) => (prev === 'This Week' ? 'Last Week' : 'This Week'));
+  };
+
+  const [referrals, setReferrals] = useState([]);
+  const [totalCommissionKobo, setTotalCommissionKobo] = useState(0);
+  const [todayCommissionKobo, setTodayCommissionKobo] = useState(0);
+  const [featuredTournament, setFeaturedTournament] = useState(null);
+  const [applyCodeInput, setApplyCodeInput] = useState('');
+  const [applyingCode, setApplyingCode] = useState(false);
+
+  const fetchReferrals = useCallback(async () => {
+    try {
+      const uid = userProfile?.uid;
+      const [res, tourRes, allPlayers, regRaw, savedRefBy] = await Promise.all([
+        referral.me().catch(() => null),
+        tournamentsApi.list().catch(() => null),
+        fetchAllPlatformPlayers().catch(() => []),
+        AsyncStorage.getItem('@gamearn_referrals_registry').catch(() => null),
+        uid ? AsyncStorage.getItem(`@gamearn_referred_by_${uid}`).catch(() => null) : Promise.resolve(null),
+      ]);
+
+      const mergedByUid = new Map();
+      const addRef = (r) => {
+        if (!r) return;
+        const rUid = r.uid || r.id;
+        if (!rUid || (uid && rUid === uid)) return;
+        if (!mergedByUid.has(rUid)) {
+          mergedByUid.set(rUid, toUiRef(r));
+        }
+      };
+
+      if (res) {
+        const payload = res.data || res;
+        if (payload?.referralCode) setServerCode(payload.referralCode);
+        if (typeof payload?.totalCommissionKobo === 'number') setTotalCommissionKobo(payload.totalCommissionKobo);
+        if (typeof payload?.todayCommissionKobo === 'number') setTodayCommissionKobo(payload.todayCommissionKobo);
+        const list = payload?.referrals || (Array.isArray(payload) ? payload : []);
+        if (Array.isArray(list)) {
+          list.forEach(addRef);
+        }
+      }
+
+      if (Array.isArray(userProfile?.referredUsers)) {
+        userProfile.referredUsers.forEach(addRef);
+      }
+
+      const playersList = Array.isArray(allPlayers) ? allPlayers : [];
+      const registry = regRaw ? JSON.parse(regRaw) : [];
+      const myCleanCodes = new Set(
+        [
+          referralCode,
+          serverCode,
+          userProfile?.referralCode,
+          userProfile?.username,
+          userProfile?.displayName,
+          uid ? uid.slice(0, 8) : null,
+        ]
+          .filter(Boolean)
+          .map((c) => String(c).trim().toLowerCase().replace(/[^a-z0-9]/g, ''))
+      );
+
+      let myReferredByCode = String(userProfile?.referredByCode || savedRefBy || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+
+      if (Array.isArray(registry)) {
+        for (const entry of registry) {
+          if (!entry) continue;
+          const entryCode = String(entry.referrerCode || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '');
+          // 1. Someone used MY referral code -> they count for me!
+          if (entryCode && myCleanCodes.has(entryCode) && entry.refereeUid && entry.refereeUid !== uid) {
+            const matchedPlayer = playersList.find((p) => (p.uid || p.id) === entry.refereeUid);
+            addRef(
+              matchedPlayer || {
+                uid: entry.refereeUid,
+                displayName: entry.refereeName || entry.refereeUsername || 'Player',
+                username: entry.refereeUsername || entry.refereeName || 'player',
+                phone: entry.refereePhone || '',
+                isMyReferral: true,
+              }
+            );
+          }
+          // 2. I am the referee in the registry -> remember who referred me!
+          if (uid && entry.refereeUid === uid && entryCode && !myReferredByCode) {
+            myReferredByCode = entryCode;
+          }
+        }
+      }
+
+      // 3. If I used someone's referral code -> they also count & appear for me!
+      if (myReferredByCode && !myCleanCodes.has(myReferredByCode)) {
+        let referrerMatch = playersList.find((p) => {
+          const pUname = String(p.username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const pDname = String(p.displayName || p.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const pCode = String(p.referralCode || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const pUid8 = String(p.uid || p.id || '').slice(0, 8).toLowerCase().replace(/[^a-z0-9]/g, '');
+          return (
+            pUname === myReferredByCode ||
+            pDname === myReferredByCode ||
+            pCode === myReferredByCode ||
+            pUid8 === myReferredByCode
+          );
+        });
+        if (!referrerMatch) {
+          try {
+            const sRes = await referral.searchUsers(myReferredByCode);
+            const sArr = Array.isArray(sRes) ? sRes : (sRes?.data || []);
+            referrerMatch = sArr.find((p) => (p.uid || p.id) !== uid) || null;
+          } catch {}
+        }
+        if (referrerMatch) {
+          addRef({ ...referrerMatch, isMyReferral: true });
+        } else {
+          addRef({
+            uid: `referrer_${myReferredByCode}`,
+            displayName: myReferredByCode,
+            username: myReferredByCode,
+            isMyReferral: true,
+          });
+        }
+      }
+
+      setReferrals(Array.from(mergedByUid.values()));
+
+      if (tourRes) {
+        const rawT = Array.isArray(tourRes) ? tourRes : tourRes?.tournaments || tourRes?.data || [];
+        const activeT = rawT.find((t) => !['cancelled', 'completed'].includes(String(t?.status || '').toLowerCase()));
+        if (activeT) setFeaturedTournament(activeT);
+      }
+    } catch {
+      if (Array.isArray(userProfile?.referredUsers)) {
+        setReferrals(userProfile.referredUsers.map(toUiRef));
+      }
+    }
+  }, [userProfile, referralCode, serverCode]);
+
+  const handleApplyReferralCode = async () => {
+    const cleanCode = String(applyCodeInput || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!cleanCode || cleanCode.length < 3) {
+      Alert.alert('Invalid Code', 'Please enter a valid referral code.');
+      return;
+    }
+    const uid = userProfile?.uid;
+    const myCodes = [referralCode, serverCode, userProfile?.username, userProfile?.displayName]
+      .filter(Boolean)
+      .map((c) => String(c).toLowerCase().replace(/[^a-z0-9]/g, ''));
+    if (myCodes.includes(cleanCode)) {
+      Alert.alert('Invalid Referral Code', 'You cannot use your own referral code.');
+      return;
+    }
+
+    setApplyingCode(true);
+    try {
+      await referral.apply(cleanCode).catch(() => null);
+      if (uid) {
+        await AsyncStorage.setItem(`@gamearn_referred_by_${uid}`, cleanCode).catch(() => {});
+        const rawReg = await AsyncStorage.getItem('@gamearn_referrals_registry').catch(() => null);
+        const regList = rawReg ? JSON.parse(rawReg) : [];
+        const arr = Array.isArray(regList) ? regList : [];
+        if (!arr.some((r) => r.refereeUid === uid && r.referrerCode === cleanCode)) {
+          arr.push({
+            referrerCode: cleanCode,
+            refereeUid: uid,
+            refereeName: userProfile?.username || userProfile?.displayName || 'Player',
+            refereeUsername: userProfile?.username || userProfile?.displayName || 'player',
+            refereePhone: userProfile?.phone || '',
+            createdAt: new Date().toISOString(),
+          });
+          await AsyncStorage.setItem('@gamearn_referrals_registry', JSON.stringify(arr)).catch(() => {});
+        }
+      }
+      if (updateProfileData) {
+        await updateProfileData({ referredByCode: cleanCode }).catch(() => {});
+      }
+      setApplyCodeInput('');
+      await fetchReferrals();
+      Alert.alert('Referral Linked! 🎉', `Referral code "${cleanCode}" has been applied to your account.`);
+    } catch (err) {
+      Alert.alert('Error', err?.message || 'Could not apply referral code.');
+    } finally {
+      setApplyingCode(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReferrals();
+  }, [fetchReferrals]);
+
+  useEffect(() => {
+    if (!navigation?.addListener) return;
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchReferrals();
+    });
+    return unsubscribe;
+  }, [navigation, fetchReferrals]);
+
+  const handleCopyCode = async () => {
+    try {
+      await Clipboard.setStringAsync(referralCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      Alert.alert('Referral Code Copied', `Code "${referralCode}" saved to your clipboard.`);
+    } catch {
+      Alert.alert('Copy Failed', 'Could not write to the clipboard. Please try again.');
+    }
+  };
+
+  const handleShareInvite = async () => {
+    const message =
+      `Join me on Gamearn — play Whot, Ludo, Ayo & Draughts with friends and earn together! ` +
+      `Use my invite code ${referralCode} to get free bonus Value Points: ${referralLink}\n\n` +
+      `Haven't installed the app yet? Grab it here: ${playStoreLink(referralCode)}`;
+    try {
+      await Share.share({ message });
+    } catch {
+      Alert.alert('Share', `Invite Link: ${referralLink}`);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await Clipboard.setStringAsync(referralLink);
+      Alert.alert('Invite Link Copied', `Link saved to your clipboard:\n${referralLink}`);
+    } catch {
+      Alert.alert('Copy Failed', 'Could not write to the clipboard. Please try again.');
+    }
+  };
+
+  const handleSendPing = async (refItem, pingType) => {
+    setActivePingModal(null);
+    const targetUid = refItem?.uid || refItem?.id;
+    if (!targetUid) {
+      Alert.alert('Ping Failed', 'This user is not linked yet.');
+      return;
+    }
+    const mappedType = PING_TYPE_MAP[pingType] || 'streak';
+    const tourName =
+      refItem?.activeTournamentName ||
+      featuredTournament?.name ||
+      refItem?.latestTournamentName ||
+      'featured GAMEARN';
+    const tourId = refItem?.activeTournamentId || featuredTournament?.id || undefined;
+    try {
+      await referral.ping({
+        refereeUids: [targetUid],
+        type: mappedType,
+        ...(mappedType === 'tournament' ? { tournamentId: tourId, tournamentName: tourName } : {}),
+      });
+      const friendLabel = refItem.name || refItem.username || 'your friend';
+      if (mappedType === 'streak') {
+        Alert.alert(
+          'Streak Ping Sent! 🔥',
+          `${friendLabel} was notified: "${userName} is reminding you to keep your daily streak alive on GAMEARN!"`
+        );
+      } else if (mappedType === 'tournament') {
+        Alert.alert(
+          'Tournament Ping Sent! 🏆',
+          `${friendLabel} was invited to check out the ${tourName} tournament on GAMEARN!`
+        );
+      } else {
+        Alert.alert(
+          'Ping Sent',
+          `Sent a ${pingType} reminder to ${friendLabel}.`
+        );
+      }
+      fetchReferrals();
+    } catch (err) {
+      Alert.alert('Ping Failed', err?.message || 'Could not send ping. Please try again.');
+    }
+  };
+
+  const handleCategoryPing = async (type = 'streak') => {
+    if (referrals.length === 0) {
+      Alert.alert('Squad Ping', 'You currently have no referrals to ping. Share your invite code to build your squad!');
+      return;
+    }
+    const targetList =
+      type === 'streak'
+        ? (referrals.filter((r) => r.status === 'risk' || !r.isActiveToday).length > 0
+            ? referrals.filter((r) => r.status === 'risk' || !r.isActiveToday)
+            : referrals)
+        : referrals;
+    const uids = targetList.map((r) => r.uid || r.id).filter(Boolean);
+    if (uids.length === 0) return;
+
+    try {
+      const tourName = featuredTournament?.name || 'featured GAMEARN';
+      const tourId = featuredTournament?.id || undefined;
+      const res = await referral.ping({
+        refereeUids: uids,
+        type,
+        ...(type === 'tournament' ? { tournamentId: tourId, tournamentName: tourName } : {}),
+      });
+      const sent = res?.data?.sent || res?.sent || uids.length;
+      if (type === 'streak') {
+        Alert.alert('Streak Ping Sent! 🔥', `Reminded ${sent} friend(s) to keep their daily streak alive on GAMEARN!`);
+      } else if (type === 'tournament') {
+        Alert.alert('Tournament Ping Sent! 🏆', `Invited ${sent} friend(s) to join the ${tourName} tournament on GAMEARN!`);
+      } else {
+        Alert.alert('Squad Ping Sent!', `Sent ${type} reminders to ${sent} squad member(s)!`);
+      }
+      fetchReferrals();
+    } catch (err) {
+      if (err?.message?.includes('limit')) {
+        Alert.alert('Daily Limit', 'You have reached the daily ping limit of 50. Try again tomorrow.');
+        return;
+      }
+      Alert.alert('Ping Failed', err?.message || 'Could not send pings. Please try again.');
+    }
+  };
+
+  const handlePingAll = () => handleCategoryPing('streak');
+
+  const activeCount = referrals.filter((r) => r.status === 'active' || r.isActiveToday).length;
+  const riskCount = referrals.filter((r) => r.status === 'risk').length;
+  const inactiveCount = referrals.filter((r) => r.status === 'inactive' || (!r.status && !r.isActiveToday)).length;
+  const totalEarnings = totalCommissionKobo || referrals.reduce((sum, r) => sum + (r.yourCommission || 0), 0);
+  const todayEarnings = todayCommissionKobo || referrals.reduce((sum, r) => sum + (r.todayCommission || 0), 0);
+
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setIsSearchingUsers(true);
+      try {
+        const res = await referral.searchUsers(q);
+        if (!cancelled && res?.data) {
+          const mapped = Array.isArray(res.data) ? res.data.map(toUiRef) : [];
+          setSearchResults(mapped);
+        }
+      } catch (err) {
+        console.log('User search error:', err?.message || err);
+      } finally {
+        if (!cancelled) setIsSearchingUsers(false);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
+
+  const handleInviteUser = async (targetUser) => {
+    const name = targetUser.name || targetUser.username || 'friend';
+    const message =
+      `Hey ${name}! Join my squad on Gamearn — play games and earn rewards together! ` +
+      `Use my referral code ${referralCode}: ${referralLink}`;
+    try {
+      await Share.share({ message });
+    } catch {
+      Alert.alert('Invite Friend', `Share code "${referralCode}" with ${name}!`);
+    }
+  };
+
+  const filteredReferrals = referrals.filter((item) => {
+    const nameStr = (item.name || item.username || '').toLowerCase();
+    const handleStr = (item.handle || '').toLowerCase();
+    const query = searchQuery.toLowerCase();
+    const matchesSearch = nameStr.includes(query) || handleStr.includes(query);
+    if (!matchesSearch) return false;
+
+    if (activeTab === 'active') return item.status === 'active' || item.isActiveToday;
+    if (activeTab === 'risk') return item.status === 'risk';
+    if (activeTab === 'inactive') return item.status === 'inactive' || (!item.status && !item.isActiveToday);
+    return true;
+  });
+
+  const displayedReferrals = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) {
+      return filteredReferrals;
+    }
+    // Combine local matched referrals + remote user search results by uid
+    const map = new Map();
+    filteredReferrals.forEach((r) => map.set(r.uid || r.id, r));
+    searchResults.forEach((r) => {
+      const id = r.uid || r.id;
+      if (!map.has(id)) {
+        map.set(id, r);
+      }
+    });
+    return Array.from(map.values());
+  }, [searchQuery, filteredReferrals, searchResults]);
+
+  return (
+    <View style={[styles.screenRoot, { backgroundColor: '#070C1B' }]}>
+      <StatusBar barStyle="light-content" backgroundColor="#070C1B" />
+
+      {/* Top Header */}
+      <View style={styles.topHeader}>
+        <TouchableOpacity
+          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs'))}
+          style={styles.backCircleBtn}
+        >
+          <ArrowLeft size={18} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <View style={{ alignItems: 'center' }}>
+          <Text style={styles.headerTitle}>{userName}'s Referrals</Text>
+          <Text style={styles.headerSubtitle}>Invite. Play. Earn Together.</Text>
+        </View>
+
+        <TouchableOpacity onPress={() => setShowHelpModal(true)} style={styles.helpCircleBtn}>
+          <HelpCircle size={18} color="#60A5FA" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Grow Your Squad Hero Banner */}
+        <LinearGradient
+          colors={['#0F172A', '#1E1B4B', '#1E293B']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroBannerCard}
+        >
+          <View style={styles.heroTextCol}>
+            <Text style={styles.heroTitle}>Grow Your Squad, {userName}.</Text>
+            <Text style={styles.heroTitleAccent}>Earn Together.</Text>
+            <Text style={styles.heroDesc}>
+              Earn <Text style={{ color: '#60A5FA', fontWeight: '900' }}>5%</Text> of everything your referrals earn from streaks, challenges, tournaments and more.
+            </Text>
+          </View>
+
+          <View style={styles.heroCrownBadgeWrap}>
+            <LinearGradient colors={['#F59E0B', '#B45309']} style={styles.crownBadgeGradient}>
+              <Sparkles size={16} color="#FFFFFF" />
+              <Text style={styles.crownBadgePct}>5%</Text>
+              <Text style={styles.crownBadgeSub}>COMMISSION</Text>
+              <Text style={styles.crownBadgeSub2}>FOREVER</Text>
+            </LinearGradient>
+          </View>
+        </LinearGradient>
+
+        {/* Your Referral Code Card */}
+        <View style={styles.referralCodeBoxCard}>
+          <Text style={styles.boxLabel}>Your Referral Code</Text>
+          <View style={styles.codeRowWrap}>
+            <View style={styles.codeDisplayPill}>
+              <Text style={styles.codeText}>{referralCode}</Text>
+              <TouchableOpacity onPress={handleCopyCode} style={styles.copyBtnInline}>
+                {copied ? <Check size={16} color="#10B981" /> : <Copy size={16} color="#60A5FA" />}
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity activeOpacity={0.85} onPress={handleShareInvite} style={styles.shareBtnPrimary}>
+              <LinearGradient colors={['#2563EB', '#1D4ED8']} style={styles.shareBtnGradient}>
+                <Share2 size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
+                <Text style={styles.shareBtnText}>Share Invite</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setShowQrModal(true)} style={styles.qrCodeBtn}>
+              <QrCode size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.codeSubNote}>Invite friends to join GAMEARN using your code or link.</Text>
+          <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+            <Text style={[styles.boxLabel, { marginBottom: 6 }]}>Were You Referred by a Friend?</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TextInput
+                style={{
+                  flex: 1,
+                  backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(96, 165, 250, 0.25)',
+                  borderRadius: 10,
+                  paddingHorizontal: 12,
+                  paddingVertical: 9,
+                  color: '#FFFFFF',
+                  fontSize: 13,
+                  fontWeight: '700',
+                }}
+                placeholder="Enter friend's referral code"
+                placeholderTextColor="#64748B"
+                value={applyCodeInput}
+                onChangeText={setApplyCodeInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                activeOpacity={0.85}
+                disabled={applyingCode}
+                onPress={handleApplyReferralCode}
+                style={{
+                  backgroundColor: '#2563EB',
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  opacity: applyingCode ? 0.6 : 1,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>
+                  {applyingCode ? 'Applying...' : 'Apply'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Network Stats Grid */}
+        <View style={styles.statsGridRow}>
+          <View style={styles.statGridCard}>
+            <View style={styles.statHeaderInline}>
+              <Users size={15} color="#60A5FA" />
+              <Text style={styles.statCardVal}>{referrals.length}</Text>
+            </View>
+            <Text style={styles.statCardLabel}>Total Referrals</Text>
+          </View>
+
+          <View style={styles.statGridCard}>
+            <View style={styles.statHeaderInline}>
+              <View style={styles.activeDotGreen} />
+              <Text style={styles.statCardVal}>{activeCount}</Text>
+            </View>
+            <Text style={styles.statCardLabel}>Active Today</Text>
+          </View>
+
+          <View style={styles.statGridCard}>
+            <View style={styles.statHeaderInline}>
+              <Coins size={15} color="#F59E0B" />
+              <Text style={styles.statCardVal}>{totalEarnings.toLocaleString()}</Text>
+            </View>
+            <Text style={styles.statCardLabel}>Referral Earnings</Text>
+            <Text style={styles.statCardSub}>Total Earned</Text>
+          </View>
+
+          <View style={styles.statGridCard}>
+            <View style={styles.statHeaderInline}>
+              <TrendingUp size={15} color="#10B981" />
+              <Text style={[styles.statCardVal, { color: '#10B981' }]}>{todayEarnings}</Text>
+            </View>
+            <Text style={styles.statCardLabel}>Earned Today</Text>
+          </View>
+        </View>
+
+        {/* Earnings Overview Chart Section */}
+        <View style={styles.earningsChartCard}>
+          <View style={styles.chartHeaderRow}>
+            <View>
+              <Text style={styles.chartTitle}>Earnings Overview</Text>
+              <Text style={styles.chartBigUnits}>{totalEarnings.toLocaleString()} <Text style={styles.chartSubUnits}>Units</Text></Text>
+              <Text style={styles.chartCommissionSub}>Your 5% referral earnings</Text>
+            </View>
+
+            <TouchableOpacity onPress={toggleTimeFilter} style={styles.periodFilterBtn}>
+              <Text style={styles.periodFilterText}>{timeFilter}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Bar Chart Visual */}
+          <View style={styles.chartBarGrid}>
+            {[
+              { day: 'Mon', h: referrals.length > 0 ? '45%' : '10%' },
+              { day: 'Tue', h: referrals.length > 0 ? '65%' : '10%' },
+              { day: 'Wed', h: referrals.length > 0 ? '40%' : '10%' },
+              { day: 'Thu', h: referrals.length > 0 ? '85%' : '10%' },
+              { day: 'Fri', h: referrals.length > 0 ? '55%' : '10%' },
+              { day: 'Sat', h: referrals.length > 0 ? '95%' : '10%' },
+              { day: 'Sun', h: referrals.length > 0 ? '75%' : '10%' },
+            ].map((bar, i) => (
+              <View key={i} style={styles.chartBarCol}>
+                <View style={styles.chartBarTrack}>
+                  <LinearGradient colors={['#3B82F6', '#1D4ED8']} style={[styles.chartBarFill, { height: bar.h }]} />
+                </View>
+                <Text style={styles.chartDayText}>{bar.day}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Keep Your Squad Active Section */}
+        <View style={styles.squadActiveSectionCard}>
+          <View style={styles.squadActiveHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.squadActiveTitle}>Keep Your Squad Active</Text>
+              <Text style={styles.squadActiveSub}>Remind your referrals to stay active and earn more!</Text>
+            </View>
+
+            <TouchableOpacity onPress={handlePingAll} style={styles.pingAllBtn}>
+              <Send size={12} color="#60A5FA" style={{ marginRight: 3 }} />
+              <Text style={styles.pingAllText}>Ping All</Text>
+              <ChevronRight size={12} color="#60A5FA" />
+            </TouchableOpacity>
+          </View>
+
+          {/* 3 Ping Action Categories */}
+          <View style={styles.pingCategoryRow}>
+            <TouchableOpacity
+              onPress={() => {
+                setActiveTab(riskCount > 0 ? 'risk' : 'all');
+                if (referrals.length > 0) handleCategoryPing('streak');
+              }}
+              style={[styles.pingCategoryBox, { borderColor: '#EF444444' }]}
+            >
+              <Flame size={16} color="#EF4444" fill="#EF4444" />
+              <View style={{ marginLeft: 6 }}>
+                <Text style={styles.pingCatTitle}>Streak Ping</Text>
+                <Text style={[styles.pingCatVal, { color: '#EF4444' }]}>{riskCount} at risk</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setActiveTab(inactiveCount > 0 ? 'inactive' : 'all');
+                if (referrals.length > 0) handleCategoryPing('challenge');
+              }}
+              style={[styles.pingCategoryBox, { borderColor: '#F59E0B44' }]}
+            >
+              <Gamepad2 size={16} color="#F59E0B" />
+              <View style={{ marginLeft: 6 }}>
+                <Text style={styles.pingCatTitle}>Challenge Ping</Text>
+                <Text style={[styles.pingCatVal, { color: '#F59E0B' }]}>{inactiveCount} inactive</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setActiveTab('all');
+                if (referrals.length > 0) handleCategoryPing('tournament');
+              }}
+              style={[styles.pingCategoryBox, { borderColor: '#3B82F644' }]}
+            >
+              <Trophy size={16} color="#60A5FA" />
+              <View style={{ marginLeft: 6 }}>
+                <Text style={styles.pingCatTitle}>Tournament Ping</Text>
+                <Text style={[styles.pingCatVal, { color: '#60A5FA' }]}>{referrals.length} squad</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* My Referrals Member List */}
+        <View style={styles.referralsListCard}>
+          <View style={styles.referralsHeaderRow}>
+            <Text style={styles.myReferralsTitle}>
+              My Referrals <Text style={styles.countPill}>({referrals.length})</Text>
+            </Text>
+
+            {/* Search Input */}
+            <View style={styles.searchBarInline}>
+              <Search size={14} color="#64748B" style={{ marginRight: 4 }} />
+              <TextInput
+                style={styles.searchInputText}
+                placeholder="Search username or name..."
+                placeholderTextColor="#64748B"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {isSearchingUsers && (
+                <ActivityIndicator size="small" color="#60A5FA" style={{ marginLeft: 4 }} />
+              )}
+            </View>
+          </View>
+
+          {/* Filter Tabs */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterTabRow}>
+            {[
+              { key: 'all', label: `All (${displayedReferrals.length})` },
+              { key: 'active', label: `Active (${activeCount})` },
+              { key: 'risk', label: `At Risk (${riskCount})` },
+              { key: 'inactive', label: `Inactive (${inactiveCount})` },
+            ].map((tab) => (
+              <TouchableOpacity
+                key={tab.key}
+                onPress={() => setActiveTab(tab.key)}
+                style={[
+                  styles.filterTabPill,
+                  activeTab === tab.key && styles.filterTabPillActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.filterTabText,
+                    activeTab === tab.key && styles.filterTabTextActive,
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Referrals List Cards or Empty State */}
+          <View style={{ gap: 10, marginTop: 12 }}>
+            {displayedReferrals.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Users size={28} color="#64748B" style={{ marginBottom: 6 }} />
+                <Text style={styles.emptyTitle}>
+                  {searchQuery.trim() ? 'No Players Found' : 'No Referrals Found'}
+                </Text>
+                <Text style={styles.emptySub}>
+                  {searchQuery.trim()
+                    ? `No registered players found matching "${searchQuery}". Check the username and try again.`
+                    : `Share your referral code ${referralCode} with friends to build your squad and start earning 5% commission!`}
+                </Text>
+              </View>
+            ) : (
+              displayedReferrals.map((item, index) => (
+                <View key={item.id || index} style={styles.referralMemberCard}>
+                  <View style={styles.memberAvatarWrap}>
+                    <Image
+                      source={{
+                        uri:
+                          item.avatar ||
+                          'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+                      }}
+                      style={styles.memberAvatarImg}
+                    />
+                    <View
+                      style={[
+                        styles.statusDotOverlay,
+                        {
+                          backgroundColor:
+                            item.status === 'active' || item.isActiveToday
+                              ? '#10B981'
+                              : item.status === 'risk'
+                              ? '#F59E0B'
+                              : '#64748B',
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  {/* Member Info */}
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={styles.memberName}>{item.name || item.username || 'Gamer'}</Text>
+                    <Text style={styles.memberHandle}>{item.handle || `@${item.username || 'player'}`}</Text>
+                    <View
+                      style={[
+                        styles.statusBadgePill,
+                        {
+                          backgroundColor:
+                            item.status === 'active' || item.isActiveToday
+                              ? '#10B98122'
+                              : item.status === 'risk'
+                              ? '#F59E0B22'
+                              : '#64748B22',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusBadgeText,
+                          {
+                            color:
+                              item.status === 'active' || item.isActiveToday
+                                ? '#10B981'
+                                : item.status === 'risk'
+                                ? '#F59E0B'
+                                : '#94A3B8',
+                          },
+                        ]}
+                      >
+                        {item.statusLabel || (item.isActiveToday ? 'Active Today' : 'Inactive')}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Earnings Column */}
+                  <View style={{ alignItems: 'flex-end', marginRight: 8 }}>
+                    <Text style={styles.totalEarnedVal}>{(item.totalEarned || 0).toLocaleString()}</Text>
+                    <Text style={styles.totalEarnedLabel}>Total Earned</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                      <Coins size={10} color="#F59E0B" style={{ marginRight: 2 }} />
+                      <Text style={styles.yourCommissionVal}>{item.yourCommission || 0}</Text>
+                      <Text style={styles.yourCommissionLabel}>Your 5%</Text>
+                    </View>
+                    <Text style={styles.streakNoteText}>🔥 {item.streakSummary || `Streak: Day ${item.streak || 0}`}</Text>
+                    <Text style={[styles.streakNoteText, { color: '#60A5FA', marginTop: 1 }]}>🏆 {item.tournamentSummary || 'No tournament yet'}</Text>
+                  </View>
+
+                  {/* Actions (View & Ping / Invite) */}
+                  <View style={{ gap: 4 }}>
+                    <TouchableOpacity
+                      onPress={() => setViewReferralDetails(item)}
+                      style={styles.viewBtn}
+                    >
+                      <Text style={styles.viewBtnText}>View</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => item.isMyReferral !== false ? setActivePingModal(item) : handleInviteUser(item)}
+                      style={[styles.pingBtnPrimary, item.isMyReferral === false && { backgroundColor: '#2563EB' }]}
+                    >
+                      <Send size={10} color="#FFFFFF" style={{ marginRight: 2 }} />
+                      <Text style={styles.pingBtnText}>{item.isMyReferral !== false ? 'Ping' : 'Invite'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* QR Code Scan Modal */}
+      <Modal visible={showQrModal} transparent animationType="fade" onRequestClose={() => setShowQrModal(false)}>
+        <View style={styles.modalScrim}>
+          <View style={styles.modalDialogCard}>
+            <TouchableOpacity onPress={() => setShowQrModal(false)} style={styles.modalCloseBtn}>
+              <X size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <Text style={styles.modalTitle}>Scan Referral QR Code</Text>
+            <Text style={styles.modalSub}>Scan this code to join GAMEARN with code {referralCode}:</Text>
+
+            <View style={styles.qrCodeBoxDisplay}>
+              <QrCode size={150} color="#3B82F6" />
+            </View>
+
+            <Text style={styles.qrLinkText}>{referralLink}</Text>
+            <TouchableOpacity onPress={handleCopyLink} style={styles.modalPrimaryBtn}>
+              <Text style={styles.modalPrimaryBtnText}>Copy Link</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Ping Selector Modal */}
+      <Modal visible={activePingModal !== null} transparent animationType="fade" onRequestClose={() => setActivePingModal(null)}>
+        <View style={styles.modalScrim}>
+          <View style={styles.modalDialogCard}>
+            <TouchableOpacity onPress={() => setActivePingModal(null)} style={styles.modalCloseBtn}>
+              <X size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <Text style={styles.modalTitle}>Ping {activePingModal?.name || activePingModal?.username || 'Referral'}</Text>
+            <Text style={styles.modalSub}>Select reminder type to push notification:</Text>
+
+            <View style={{ gap: 8, marginVertical: 12, width: '100%' }}>
+              <TouchableOpacity
+                onPress={() => handleSendPing(activePingModal, 'Daily Streak')}
+                style={styles.pingModalChoiceBtn}
+              >
+                <Flame size={16} color="#EF4444" fill="#EF4444" />
+                <Text style={styles.pingModalChoiceText}>🔥 Daily Streak Reminder</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleSendPing(activePingModal, 'Challenge Match')}
+                style={styles.pingModalChoiceBtn}
+              >
+                <Gamepad2 size={16} color="#F59E0B" />
+                <Text style={styles.pingModalChoiceText}>🎮 Game Challenge Reminder</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleSendPing(activePingModal, 'Tournament')}
+                style={styles.pingModalChoiceBtn}
+              >
+                <Trophy size={16} color="#60A5FA" />
+                <Text style={styles.pingModalChoiceText}>🏆 Tournament Reminder</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Referral Activity Log Modal */}
+      <Modal visible={viewReferralDetails !== null} transparent animationType="fade" onRequestClose={() => setViewReferralDetails(null)}>
+        <View style={styles.modalScrim}>
+          <View style={styles.modalDialogCard}>
+            <TouchableOpacity onPress={() => setViewReferralDetails(null)} style={styles.modalCloseBtn}>
+              <X size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <Text style={styles.modalTitle}>{viewReferralDetails?.name || viewReferralDetails?.username}'s Log</Text>
+            <Text style={styles.modalSub}>
+              🔥 {viewReferralDetails?.streakSummary || `Streak: Day ${viewReferralDetails?.streak || 0}`}  •  🏆 {viewReferralDetails?.tournamentSummary || 'No tournament yet'}
+            </Text>
+            <Text style={[styles.modalSub, { marginTop: 2 }]}>Your 5% referral commission breakdown:</Text>
+
+            <ScrollView style={{ maxHeight: 200, width: '100%', marginVertical: 10 }}>
+              {(viewReferralDetails?.history || []).length === 0 ? (
+                <Text style={{ color: '#94A3B8', fontSize: 10, textAlign: 'center', marginVertical: 16 }}>No earnings history available yet.</Text>
+              ) : (
+                viewReferralDetails?.history?.map((log, i) => (
+                  <View key={log.id || i} style={styles.logItemRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 11 }}>{log.source}</Text>
+                      <Text style={{ color: '#64748B', fontSize: 9.5 }}>{log.date}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ color: '#10B981', fontWeight: '900', fontSize: 11 }}>+{log.commission} Units</Text>
+                      <Text style={{ color: '#94A3B8', fontSize: 9 }}>Referred Earned: {log.amount}</Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Help Modal */}
+      <Modal visible={showHelpModal} transparent animationType="fade" onRequestClose={() => setShowHelpModal(false)}>
+        <View style={styles.modalScrim}>
+          <View style={styles.modalDialogCard}>
+            <TouchableOpacity onPress={() => setShowHelpModal(false)} style={styles.modalCloseBtn}>
+              <X size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <Text style={styles.modalTitle}>How 5% Referral Earning Works</Text>
+            <ScrollView style={{ maxHeight: 220, marginVertical: 10 }}>
+              <Text style={styles.helpTextStep}>1. Share your code or invite link with friends.</Text>
+              <Text style={styles.helpTextStep}>2. When they join, they are permanently linked to your squad.</Text>
+              <Text style={styles.helpTextStep}>3. Every time they earn from Daily Streaks, Challenges, or Tournaments, you get 5% automatically credited to your wallet!</Text>
+              <Text style={styles.helpTextStep}>4. Monitor active status and Ping them to keep earning 5% forever.</Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+    backgroundColor: '#070C1B',
+  },
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingTop: 48,
+    paddingBottom: 10,
+  },
+  backCircleBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1E293B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helpCircleBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1E293B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  headerSubtitle: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  scrollContent: {
+    paddingHorizontal: 14,
+    paddingBottom: 200,
+  },
+  heroBannerCard: {
+    borderRadius: 16,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#3B82F633',
+  },
+  heroTextCol: {
+    flex: 1,
+    paddingRight: 6,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  heroTitleAccent: {
+    color: '#60A5FA',
+    fontSize: 15,
+    fontWeight: '900',
+    marginBottom: 2,
+  },
+  heroDesc: {
+    color: '#94A3B8',
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  heroCrownBadgeWrap: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    overflow: 'hidden',
+  },
+  crownBadgeGradient: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 4,
+  },
+  crownBadgePct: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  crownBadgeSub: {
+    color: '#FEF08A',
+    fontSize: 7.5,
+    fontWeight: '900',
+  },
+  crownBadgeSub2: {
+    color: '#FFFFFF',
+    fontSize: 7.5,
+    fontWeight: '900',
+  },
+  referralCodeBoxCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  boxLabel: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  codeRowWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  codeDisplayPill: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#3B82F644',
+  },
+  codeText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  copyBtnInline: {
+    padding: 2,
+  },
+  shareBtnPrimary: {
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  shareBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  shareBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  qrCodeBtn: {
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#3B82F644',
+  },
+  codeSubNote: {
+    color: '#64748B',
+    fontSize: 9.5,
+    marginTop: 6,
+  },
+  statsGridRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  statGridCard: {
+    width: '48%',
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  statHeaderInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  activeDotGreen: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  statCardVal: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  statCardLabel: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  statCardSub: {
+    color: '#64748B',
+    fontSize: 8.5,
+  },
+  earningsChartCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  chartHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  chartTitle: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  chartBigUnits: {
+    color: '#F59E0B',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  chartSubUnits: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  chartCommissionSub: {
+    color: '#64748B',
+    fontSize: 9.5,
+  },
+  periodFilterBtn: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  periodFilterText: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  chartBarGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 70,
+    paddingTop: 6,
+  },
+  chartBarCol: {
+    alignItems: 'center',
+    height: '100%',
+    justifyContent: 'flex-end',
+  },
+  chartBarTrack: {
+    width: 10,
+    height: 50,
+    backgroundColor: '#1E293B',
+    borderRadius: 4,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  chartBarFill: {
+    width: '100%',
+    borderRadius: 4,
+  },
+  chartDayText: {
+    color: '#64748B',
+    fontSize: 8.5,
+    marginTop: 4,
+  },
+  squadActiveSectionCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  squadActiveHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  squadActiveTitle: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  squadActiveSub: {
+    color: '#94A3B8',
+    fontSize: 9.5,
+  },
+  pingAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1D4ED822',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3B82F644',
+  },
+  pingAllText: {
+    color: '#60A5FA',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  pingCategoryRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  pingCategoryBox: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  pingCatTitle: {
+    color: '#FFFFFF',
+    fontSize: 8.5,
+    fontWeight: '700',
+  },
+  pingCatVal: {
+    fontSize: 9.5,
+    fontWeight: '900',
+  },
+  referralsListCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  referralsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  myReferralsTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  countPill: {
+    color: '#60A5FA',
+    fontSize: 11,
+  },
+  searchBarInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    width: 110,
+  },
+  searchInputText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    flex: 1,
+  },
+  filterTabRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  filterTabPill: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  filterTabPillActive: {
+    backgroundColor: '#2563EB',
+  },
+  filterTabText: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  filterTabTextActive: {
+    color: '#FFFFFF',
+  },
+  emptyContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B66',
+    borderRadius: 12,
+  },
+  emptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  emptySub: {
+    color: '#94A3B8',
+    fontSize: 9.5,
+    textAlign: 'center',
+    marginTop: 4,
+    maxWidth: 240,
+    lineHeight: 14,
+  },
+  referralMemberCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  memberAvatarWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    position: 'relative',
+  },
+  memberAvatarImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 18,
+  },
+  statusDotOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#1E293B',
+  },
+  memberName: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  memberHandle: {
+    color: '#64748B',
+    fontSize: 9.5,
+  },
+  statusBadgePill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    marginTop: 2,
+  },
+  statusBadgeText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+  },
+  totalEarnedVal: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  totalEarnedLabel: {
+    color: '#64748B',
+    fontSize: 8.5,
+  },
+  yourCommissionVal: {
+    color: '#F59E0B',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  yourCommissionLabel: {
+    color: '#94A3B8',
+    fontSize: 8.5,
+    marginLeft: 2,
+  },
+  streakNoteText: {
+    color: '#EF4444',
+    fontSize: 8.5,
+    marginTop: 1,
+  },
+  viewBtn: {
+    backgroundColor: '#334155',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  viewBtnText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    fontWeight: '800',
+  },
+  pingBtnPrimary: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pingBtnText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    fontWeight: '900',
+  },
+  modalScrim: {
+    flex: 1,
+    backgroundColor: '#000000bb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  modalDialogCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#3B82F644',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  modalCloseBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    padding: 4,
+  },
+  modalTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  modalSub: {
+    color: '#94A3B8',
+    fontSize: 10,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  qrCodeBoxDisplay: {
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    borderRadius: 12,
+    marginVertical: 10,
+  },
+  qrLinkText: {
+    color: '#60A5FA',
+    fontSize: 10,
+    marginBottom: 10,
+  },
+  modalPrimaryBtn: {
+    backgroundColor: '#2563EB',
+    width: '100%',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalPrimaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  pingModalChoiceBtn: {
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  pingModalChoiceText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    marginLeft: 8,
+  },
+  logItemRow: {
+    backgroundColor: '#1E293B',
+    padding: 10,
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  helpTextStep: {
+    color: '#E2E8F0',
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+});
