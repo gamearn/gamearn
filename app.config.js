@@ -21,6 +21,11 @@ module.exports = ({ config }) => {
       ...(hasIosGoogleServices ? { googleServicesFile: './GoogleService-Info.plist' } : {}),
       ...(process.env.TEAM_ID ? { appleTeamId: process.env.TEAM_ID } : {}),
     },
-    plugins: [...(config.plugins || []), './plugins/withReleaseSigning', './plugins/withFixFirebaseIOS'],
+    plugins: [
+      ...(config.plugins || []),
+      './plugins/withReleaseSigning',
+      './plugins/withFixFirebaseIOS',
+      './plugins/withPushNotifications',
+    ],
   };
 };

@@ -32,6 +32,7 @@ import {
   isNativeAuthAvailable,
 } from '../services/firebase';
 import { auth as authApi, wallet } from '../services/api';
+import { registerFcmToken, unregisterFcmToken } from '../services/pushNotifications';
 import { ApiError } from '../services/apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calculateGamePower, formatGP, calculateValuePoints, formatVP } from '../utils/gamePower';
@@ -405,6 +406,11 @@ export const AuthProvider = ({ children }) => {
           throw loginErr;
         }
       }
+      // Register this device for push notifications (best-effort — never
+      // blocks profile loading or sign-in). The token is saved on the backend
+      // so challenge FCM pushes can reach this device.
+      registerFcmToken().catch(() => {});
+
       const me = await authApi.me();
       const isAdmin = await isAdminUser();
 
@@ -986,6 +992,7 @@ export const AuthProvider = ({ children }) => {
     // deletion (the "valid token still exists" trap).
     await clearCachedProfile(uid);
     await AsyncStorage.removeItem(PROFILE_CACHE_KEY).catch(() => { });
+    unregisterFcmToken().catch(() => {});
     await signOutFirebase();
     setUser(null);
     setUserProfile(null);

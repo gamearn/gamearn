@@ -57,6 +57,7 @@ function harness(options = {}) {
     '../services/firebase':firebase,
     '../services/apiClient':{ApiError},
     '../services/api':{auth:{login:async()=>{calls.push(['backend']);if(options.backendStatus)throw new ApiError(options.backendStatus);},me:async()=>({wallet:{balance:10}})},wallet:{}},
+    '../services/pushNotifications':{registerFcmToken:async()=>null,unregisterFcmToken:async()=>{}},
   };
   const context={exports:{},require:name=>{if(!(name in mocks))throw Error(`Unexpected import: ${name}`);return mocks[name];}};
   vm.runInNewContext(source,context);

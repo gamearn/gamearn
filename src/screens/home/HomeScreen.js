@@ -27,6 +27,8 @@ import { reference, regions } from './art';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { settings as settingsApi, wallet, tournaments, leaderboard as leaderboardApi, notifications as notificationsApi, referral as referralApi } from '../../services/api';
+import { GamearnSocket } from '../../services/gamearnSocket';
+import { onNotificationOpen } from '../../services/pushNotifications';
 import {
   getStreakInfo,
   DAILY_STREAK_MILESTONES,
@@ -867,6 +869,22 @@ export default function HomeScreen({ navigation }) {
       });
     }
   }, [userProfile?.uid, userProfile?.streak, userProfile?.lastPlayedDate, loadNotifications]);
+
+  // Real-time in-app notifications: refresh the list the moment the backend
+  // emits `notification:new` (challenge requests, accepted challenges, etc.).
+  useEffect(() => {
+    if (!userProfile?.uid) return undefined;
+    const sock = new GamearnSocket({
+      onNotificationNew: () => loadNotifications(),
+      onError: () => {},
+    });
+    sock.connect();
+    return () => sock.disconnect();
+  }, [userProfile?.uid, loadNotifications]);
+
+  // Refresh the in-app list whenever a push notification is tapped so the
+  // notification the user opened is marked/read consistently.
+  useEffect(() => onNotificationOpen(() => loadNotifications()), [loadNotifications]);
 
   const displayName = userProfile?.username || userProfile?.displayName || userProfile?.name || state.name || 'Gamer';
 
@@ -1845,6 +1863,13 @@ export default function HomeScreen({ navigation }) {
                       } else {
                         changeTab('Tournaments');
                       }
+                    } else if (
+                      act === 'challenge' ||
+                      item.type === 'challenge_request' ||
+                      item.type === 'challenge_created' ||
+                      item.type === 'challenge_accepted'
+                    ) {
+                      navigation?.navigate('ChallengeHub', { tab: 'open' });
                     } else {
                       changeTab('Home');
                     }

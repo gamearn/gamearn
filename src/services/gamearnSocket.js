@@ -75,6 +75,7 @@ export class GamearnSocket {
     this._bind('game_error', 'onGameError');
     this._bind('chat_message', 'onChatMessage');
     this._bind('chat_typing', 'onChatTyping');
+    this._bind('notification:new', 'onNotificationNew');
   }
 
   _bind(serverEvent, handlerKey) {
