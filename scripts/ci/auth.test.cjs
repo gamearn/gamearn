@@ -34,7 +34,9 @@ function harness(options = {}) {
     '@react-native-async-storage/async-storage':{getItem:async()=>null,setItem:async()=>{},removeItem:async()=>{}},
     'expo-constants':{executionEnvironment:'standalone'},
     'expo-auth-session/providers/google':{
-      discovery:{},useAuthRequest:()=>[{clientId:'client',redirectUri:'com.gamearn:/oauthredirect',codeVerifier:'verifier'},null,async()=>response],
+      discovery:{},
+      useAuthRequest:()=>[{clientId:'client',redirectUri:'com.gamearn:/oauthredirect',codeVerifier:'verifier'},null,async()=>response],
+      useIdTokenAuthRequest:()=>[{clientId:'client',redirectUri:'com.gamearn:/oauthredirect',codeVerifier:'verifier'},null,async()=>response],
     },
     'expo-auth-session':{
       ResponseType:{IdToken:'id_token',Code:'code',Token:'token'},
@@ -50,6 +52,8 @@ function harness(options = {}) {
     },
     '../config/appConfig':{GOOGLE_CLIENT_IDS:{iosClientId:'ios.apps.googleusercontent.com'},FACEBOOK_APP_ID:'fb-id'},
     '../utils/gamePower':{calculateGamePower:()=>0,formatGP:(x)=>String(x),calculateValuePoints:()=>0,formatVP:(x)=>String(x)},
+    '../utils/recordGameStreak':{getLocalDateString:()=>'2026-01-01',getDayGap:()=>0},
+    '../utils/platformPlayers':{registerKnownPlatformPlayer:()=>{},ALL_DATABASE_PLAYERS:[]},
     '../services/firebase':firebase,
     '../services/apiClient':{ApiError},
     '../services/api':{auth:{login:async()=>{calls.push(['backend']);if(options.backendStatus)throw new ApiError(options.backendStatus);},me:async()=>({wallet:{balance:10}})},wallet:{}},

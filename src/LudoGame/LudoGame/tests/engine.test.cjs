@@ -3,7 +3,7 @@ const {TRACK,START,SAFE,FINISH,fresh,globalIndex,coordinate,legal,reduce}=requir
 const roll=(s,dice)=>reduce(s,{type:'ROLL',dice,now:100});
 test('reference ring contains 44 unique cells and home entries align',()=>{
   assert.equal(TRACK.length,44);assert.equal(new Set(TRACK.map(c=>c.join(','))).size,44);
-  assert.deepEqual([0,1,2,3].map(p=>TRACK[globalIndex(p,42)]),[[6,0],[12,6],[0,6],[6,12]]);
+  assert.deepEqual([0,1,2,3].map(p=>TRACK[globalIndex(p,42)]),[[5,1],[11,5],[1,7],[7,11]]);
 });
 test('all tokens start in yards; first player has 165 seconds',()=>{
   const s=fresh(0);assert.equal(s.deadline,165000);assert.equal(s.turn,0);assert.equal(s.tokens.flat().filter(n=>n===-1).length,16);

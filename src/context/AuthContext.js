@@ -511,6 +511,9 @@ export const AuthProvider = ({ children }) => {
 
       return me;
     } catch (err) {
+      // Authentication failures must reach the login screen; only transient
+      // backend/network errors may fall back to a cached or derived profile.
+      if (err instanceof ApiError && err.statusCode === 401) throw err;
       if (err instanceof ApiError && err.statusCode === 404) {
         if (fbUser?.email?.toLowerCase() === 'abbagem@gmail.com') {
           const fallback = profileFromMe({
