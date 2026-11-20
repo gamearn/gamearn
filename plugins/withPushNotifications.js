@@ -16,8 +16,12 @@ module.exports = function withPushNotifications(config) {
   });
 
   config = withEntitlementsPlist(config, (mod) => {
-    const isRelease = process.env.EAS_BUILD_PROFILE === 'production' || process.env.NODE_ENV === 'production';
-    mod.modResults['aps-environment'] = isRelease ? 'production' : 'development';
+    // GitHub iOS release uses an App Store (`appstore`) provisioning profile,
+    // which requires `production`. EAS production builds also set this env var
+    // to `production`. Only a local/EAS `development` client build should use
+    // the sandbox (`development`) entitlement — otherwise default to production.
+    const isDevClient = process.env.EAS_BUILD_PROFILE === 'development';
+    mod.modResults['aps-environment'] = isDevClient ? 'development' : 'production';
     return mod;
   });
 
