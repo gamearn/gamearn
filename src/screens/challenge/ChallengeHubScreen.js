@@ -45,7 +45,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
 
   const routeGameType = GAME_BY_TYPE[route.params?.gameType] ? route.params.gameType : 'whot';
 
-  const [tab, setTab] = useState('open'); // open | mine | create
+  const [tab, setTab] = useState(['open', 'mine', 'create'].includes(route.params?.tab) ? route.params.tab : 'open'); // open | mine | create
   const [openList, setOpenList] = useState([]);
   const [mineList, setMineList] = useState([]);
   const [loading, setLoading] = useState(false);

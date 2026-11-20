@@ -780,13 +780,23 @@ export default function GameLobbyScreen({ route, navigation }) {
       />
 
       {!isSearching ? (
-        <GAButton
-          title="Quick Match (Free Broadcast) ⚡"
-          onPress={handleQuickMatch}
-          variant="outline"
-          icon={<Swords size={20} color="#FFF" />}
-          style={{ marginTop: 12 }}
-        />
+        <>
+          <GAButton
+            title="Quick Match (Free Broadcast) ⚡"
+            onPress={handleQuickMatch}
+            variant="outline"
+            icon={<Swords size={20} color="#FFF" />}
+            style={{ marginTop: 12 }}
+          />
+          {/* Opens the Challenge Hub on its Create tab, where a username can be entered. */}
+          <GAButton
+            title="Challenge a Player 🎯"
+            onPress={() => navigation.navigate('ChallengeHub', { gameType, tab: 'create' })}
+            variant="outline"
+            icon={<Users size={20} color="#FFF" />}
+            style={{ marginTop: 12 }}
+          />
+        </>
       ) : (
         <View style={styles.searchBox}>
           <ActivityIndicator size="large" color={theme.primary} />
