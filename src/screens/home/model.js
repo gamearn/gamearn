@@ -235,6 +235,12 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
     let plays = Number(row.periodPlays !== undefined ? row.periodPlays : (row.plays ?? 0));
     let wins = Number(row.periodWins !== undefined ? row.periodWins : (row.wins ?? 0));
 
+    if (isUser && effectiveStats) {
+      plays = Math.max(plays, Number(effectiveStats.plays || 0));
+      wins = Math.max(wins, Number(effectiveStats.wins || 0));
+    }
+    wins = Math.min(wins, plays);
+
     const careerP = Math.max(Number(row.careerPlays ?? row.totalPlays ?? 0), isUser ? Number(userProfile?.gamesPlayed ?? 0) : 0, plays);
     const careerW = Math.max(Number(row.careerWins ?? row.totalWins ?? 0), isUser ? Number(userProfile?.wins ?? 0) : 0, wins);
     const rowVp = Number(row.vp ?? (isUser ? (userProfile?.valuePoints ?? userProfile?.vp ?? 0) : 0));
@@ -253,6 +259,8 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
       periodWins: wins,
       careerPlays: careerP,
       careerWins: careerW,
+      totalPlays: careerP,
+      totalWins: careerW,
       gp: rowGp,
       gpText: `${rowGp} GP`,
       vp: rowVp,
@@ -270,6 +278,8 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
       const userGp = getUserGp();
       const rawName = userProfile.username || userProfile.displayName || userProfile.name || 'You';
       const cleanName = rawName.replace(/\s*\(You\)\s*$/, '');
+      const userCareerP = Number(userProfile.gamesPlayed ?? userProfile.plays ?? 0);
+      const userCareerW = Number(userProfile.wins ?? userProfile.gamesWon ?? 0);
       list.push({
         id: userProfile.uid,
         uid: userProfile.uid,
@@ -278,6 +288,12 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
         username: userProfile.username || cleanName,
         plays: effectiveStats.plays,
         wins: effectiveStats.wins,
+        periodPlays: effectiveStats.plays,
+        periodWins: effectiveStats.wins,
+        careerPlays: userCareerP,
+        careerWins: userCareerW,
+        totalPlays: userCareerP,
+        totalWins: userCareerW,
         gp: userGp,
         gpText: `${userGp} GP`,
         vp: Number(userProfile.valuePoints ?? userProfile.vp ?? 0),

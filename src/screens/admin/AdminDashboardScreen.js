@@ -212,17 +212,40 @@ export default function AdminDashboardScreen({ navigation }) {
         raw.displayName || raw.name || raw.username || prev.displayName || prev.username || 'Player';
       const username = raw.username || prev.username || displayName;
       const isUser = Boolean(userProfile?.uid && uid === userProfile.uid);
-      const careerPlays = Math.max(Number(raw.careerPlays ?? raw.totalPlays ?? raw.gamesPlayed ?? raw.plays ?? 0), Number(prev.careerPlays ?? prev.plays ?? 0));
-      const careerWins = Math.max(Number(raw.careerWins ?? raw.totalWins ?? raw.gamesWon ?? raw.wins ?? 0), Number(prev.careerWins ?? prev.wins ?? 0));
+      const hasPeriodPlays = raw.periodPlays !== undefined;
+      const careerPlays = Math.max(
+        Number(raw.careerPlays ?? raw.totalPlays ?? raw.gamesPlayed ?? (!hasPeriodPlays ? raw.plays : 0) ?? 0),
+        Number(prev.careerPlays ?? prev.totalPlays ?? prev.plays ?? 0)
+      );
+      const careerWins = Math.max(
+        Number(raw.careerWins ?? raw.totalWins ?? raw.gamesWon ?? (!hasPeriodPlays ? raw.wins : 0) ?? 0),
+        Number(prev.careerWins ?? prev.totalWins ?? prev.wins ?? 0)
+      );
       const plays = careerPlays;
       const wins = careerWins;
       const dailyPlays = Math.max(
-        Number(raw.todayPlays ?? (raw.lastPlayedDate === todayStr ? raw.dailyPlays : 0) ?? 0),
+        Number(raw.dailyPlays ?? (raw.period === 'Daily' ? (raw.periodPlays ?? raw.plays) : (raw.lastPlayedDate === todayStr ? raw.dailyPlays : 0)) ?? 0),
         Number(prev.dailyPlays ?? 0)
       );
       const dailyWins = Math.max(
-        Number(raw.todayWins ?? (raw.lastPlayedDate === todayStr ? raw.dailyWins : 0) ?? 0),
+        Number(raw.dailyWins ?? (raw.period === 'Daily' ? (raw.periodWins ?? raw.wins) : (raw.lastPlayedDate === todayStr ? raw.dailyWins : 0)) ?? 0),
         Number(prev.dailyWins ?? 0)
+      );
+      const weeklyPlays = Math.max(
+        Number(raw.weeklyPlays ?? (raw.period === 'Weekly' ? (raw.periodPlays ?? raw.plays) : 0) ?? 0),
+        Number(prev.weeklyPlays ?? 0)
+      );
+      const weeklyWins = Math.max(
+        Number(raw.weeklyWins ?? (raw.period === 'Weekly' ? (raw.periodWins ?? raw.wins) : 0) ?? 0),
+        Number(prev.weeklyWins ?? 0)
+      );
+      const monthlyPlays = Math.max(
+        Number(raw.monthlyPlays ?? (raw.period === 'Monthly' ? (raw.periodPlays ?? raw.plays) : 0) ?? 0),
+        Number(prev.monthlyPlays ?? 0)
+      );
+      const monthlyWins = Math.max(
+        Number(raw.monthlyWins ?? (raw.period === 'Monthly' ? (raw.periodWins ?? raw.wins) : 0) ?? 0),
+        Number(prev.monthlyWins ?? 0)
       );
       const calculatedGp = plays > 0
         ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * Math.min(1, wins / plays) + 0.25 * Math.min(1, Math.log10(plays + 1) / 3)))))
@@ -246,10 +269,20 @@ export default function AdminDashboardScreen({ navigation }) {
         status: raw.status || prev.status || 'active',
         isVerified: raw.isVerified ?? prev.isVerified ?? true,
         gp,
-        plays,
-        wins,
+        plays: careerPlays,
+        wins: careerWins,
+        careerPlays,
+        careerWins,
+        totalPlays: careerPlays,
+        totalWins: careerWins,
         dailyPlays,
         dailyWins,
+        weeklyPlays,
+        weeklyWins,
+        monthlyPlays,
+        monthlyWins,
+        yearlyPlays: careerPlays,
+        yearlyWins: careerWins,
         vp,
         valuePoints: vp,
         balanceNaira: Math.max(Number(raw.balanceNaira ?? 0), vp * 50, Number(prev.balanceNaira ?? 0)),
@@ -269,6 +302,8 @@ export default function AdminDashboardScreen({ navigation }) {
         gp: userProfile?.gp,
         plays: userProfile?.gamesPlayed || userProfile?.plays,
         wins: userProfile?.wins,
+        careerPlays: userProfile?.gamesPlayed || userProfile?.plays,
+        careerWins: userProfile?.wins,
         vp: userProfile?.vp ?? userProfile?.valuePoints,
         streak: userProfile?.streak,
         status: 'active',
@@ -277,10 +312,16 @@ export default function AdminDashboardScreen({ navigation }) {
     }
 
     if (Array.isArray(platformPlayersRes)) platformPlayersRes.forEach(upsertPlayer);
-    [dailyLbRes, weeklyLbRes, monthlyLbRes, yearlyLbRes].forEach((lb) => {
+    const markLbRows = (lb, periodName) => {
       const rows = Array.isArray(lb) ? lb : lb?.data || [];
-      if (Array.isArray(rows)) rows.forEach(upsertPlayer);
-    });
+      if (Array.isArray(rows)) {
+        rows.forEach((r) => upsertPlayer({ ...r, period: periodName }));
+      }
+    };
+    markLbRows(dailyLbRes, 'Daily');
+    markLbRows(weeklyLbRes, 'Weekly');
+    markLbRows(monthlyLbRes, 'Monthly');
+    markLbRows(yearlyLbRes, 'Yearly');
 
     // Merge tournaments from User Dashboard
     const tMap = new Map();
@@ -548,58 +589,67 @@ export default function AdminDashboardScreen({ navigation }) {
           .filter((c) => !deletedUidsSet.has(c.uid))
           .sort((a, b) => (b.gp - a.gp) || (b.wins - a.wins) || (b.plays - a.plays));
 
-        const buildPeriodTop3 = (lbRows, serverList, isDaily = false) => {
+        const buildPeriodTop3 = (lbRows, serverList, periodName) => {
+          const rawLb = Array.isArray(lbRows) ? lbRows : (lbRows?.data || []);
+          if (rawLb.length > 0) {
+            return rawLb
+              .filter((r) => r?.uid && !deletedUidsSet.has(r.uid))
+              .slice(0, 3)
+              .map((r, idx) => ({
+                uid: r.uid || r.id,
+                name: r.displayName || r.name || r.username || 'Player',
+                displayName: r.displayName || r.name || r.username || 'Player',
+                username: r.username || r.displayName || 'Player',
+                avatar: r.avatar || r.avatarUrl || null,
+                plays: Number(r.periodPlays !== undefined ? r.periodPlays : (r.plays ?? 0)),
+                wins: Number(r.periodWins !== undefined ? r.periodWins : (r.wins ?? 0)),
+                careerPlays: Number(r.careerPlays ?? r.totalPlays ?? r.plays ?? 0),
+                careerWins: Number(r.careerWins ?? r.totalWins ?? r.wins ?? 0),
+                gp: Number(r.gp ?? 0),
+                rank: idx + 1,
+              }));
+          }
+
+          const isDaily = periodName === 'Daily';
+          const isWeekly = periodName === 'Weekly';
+          const isMonthly = periodName === 'Monthly';
           const periodMap = new Map();
-          allCandidates.forEach((c) =>
+          allCandidates.forEach((c) => {
+            const pPlays = isDaily ? (c.dailyPlays ?? 0) : isWeekly ? (c.weeklyPlays ?? 0) : isMonthly ? (c.monthlyPlays ?? 0) : (c.careerPlays ?? c.plays ?? 0);
+            const pWins = isDaily ? (c.dailyWins ?? 0) : isWeekly ? (c.weeklyWins ?? 0) : isMonthly ? (c.monthlyWins ?? 0) : (c.careerWins ?? c.wins ?? 0);
             periodMap.set(c.uid, {
               ...c,
-              plays: isDaily ? (c.dailyPlays ?? 0) : (c.plays ?? 0),
-              wins: isDaily ? (c.dailyWins ?? 0) : (c.wins ?? 0),
-            })
-          );
+              plays: pPlays,
+              wins: pWins,
+            });
+          });
           if (Array.isArray(serverList)) {
             serverList.forEach((r) => {
               const uid = r?.uid || r?.id;
-              if (!uid) return;
+              if (!uid || deletedUidsSet.has(uid)) return;
               const existing = periodMap.get(uid) || {};
               periodMap.set(uid, {
                 ...existing,
                 uid,
                 displayName: r.displayName || r.name || existing.displayName || 'Player',
                 username: r.username || existing.username || 'Player',
-                gp: Math.max(Number(r.gp ?? 0), Number(existing.gp ?? 0)),
-                plays: Math.max(Number(r.plays ?? 0), Number(existing.plays ?? 0)),
-                wins: Math.max(Number(r.wins ?? 0), Number(existing.wins ?? 0)),
-              });
-            });
-          }
-          if (Array.isArray(lbRows)) {
-            lbRows.forEach((r) => {
-              const uid = r?.uid || r?.id;
-              if (!uid) return;
-              const existing = periodMap.get(uid) || {};
-              periodMap.set(uid, {
-                ...existing,
-                uid,
-                displayName: r.displayName || r.name || existing.displayName || 'Player',
-                username: r.username || existing.username || 'Player',
-                gp: Math.max(Number(r.gp ?? 0), Number(existing.gp ?? 0)),
-                plays: Math.max(Number(r.plays ?? 0), Number(existing.plays ?? 0)),
-                wins: Math.max(Number(r.wins ?? 0), Number(existing.wins ?? 0)),
+                gp: Number(r.gp ?? existing.gp ?? 0),
+                plays: Number(r.plays !== undefined ? r.plays : (existing.plays ?? 0)),
+                wins: Number(r.wins !== undefined ? r.wins : (existing.wins ?? 0)),
               });
             });
           }
           return Array.from(periodMap.values())
-            .sort((a, b) => (b.gp - a.gp) || (b.wins - a.wins) || (b.plays - a.plays))
+            .sort((a, b) => (b.plays - a.plays) || (b.wins - a.wins) || (b.gp - a.gp))
             .slice(0, 3)
             .map((c, idx) => ({ ...c, rank: idx + 1 }));
         };
 
         const topByPeriod = {
-          Daily: buildPeriodTop3(mirror.dailyLb, serverW.topByPeriod?.Daily, true),
-          Weekly: buildPeriodTop3(mirror.weeklyLb, serverW.topByPeriod?.Weekly, false),
-          Monthly: buildPeriodTop3(mirror.monthlyLb, serverW.topByPeriod?.Monthly, false),
-          Yearly: buildPeriodTop3(mirror.yearlyLb, serverW.topByPeriod?.Yearly, false),
+          Daily: buildPeriodTop3(mirror.dailyLb, serverW.topByPeriod?.Daily, 'Daily'),
+          Weekly: buildPeriodTop3(mirror.weeklyLb, serverW.topByPeriod?.Weekly, 'Weekly'),
+          Monthly: buildPeriodTop3(mirror.monthlyLb, serverW.topByPeriod?.Monthly, 'Monthly'),
+          Yearly: buildPeriodTop3(mirror.yearlyLb, serverW.topByPeriod?.Yearly, 'Yearly'),
         };
 
         setWinnersData({
@@ -1168,9 +1218,11 @@ export default function AdminDashboardScreen({ navigation }) {
       },
     ];
 
-    const leaderboardStandings = [...vList].sort(
-      (a, b) => (Number(b.gp || 0) - Number(a.gp || 0)) || (Number(b.wins || 0) - Number(a.wins || 0)) || (Number(b.plays || 0) - Number(a.plays || 0))
-    );
+    const liveDailyRows = Array.isArray(mirror.dailyLb) && mirror.dailyLb.length > 0
+      ? mirror.dailyLb
+      : (Array.isArray(dailyLbRes) ? dailyLbRes : []);
+    const leaderboardStandings = (liveDailyRows.length > 0 ? liveDailyRows : vList)
+      .slice(0, 10);
 
     return (
       <>
@@ -1201,7 +1253,7 @@ export default function AdminDashboardScreen({ navigation }) {
           </TouchableOpacity>
         </View>
         {leaderboardStandings.slice(0, 6).map((u, idx) => (
-          <TouchableOpacity key={`lb_${u.uid}`} activeOpacity={0.8} onPress={() => openUser(u.uid)}>
+          <TouchableOpacity key={`lb_${u.uid || u.id || idx}`} activeOpacity={0.8} onPress={() => openUser(u.uid || u.id)}>
             <GACard style={styles.userRow}>
               <View
                 style={{
@@ -1220,7 +1272,7 @@ export default function AdminDashboardScreen({ navigation }) {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.userName, { color: theme.textPrimary }]}>{u.displayName || u.username || 'Player'}</Text>
                 <Text style={[styles.userMeta, { color: theme.textSecondary }]}>
-                  ⚡ {Number(u.gp || 0).toLocaleString()} GP • {u.plays || 0} Plays / {u.wins || 0} Wins
+                  ⚡ {Number(u.gp || 0).toLocaleString()} GP • {Number(u.periodPlays !== undefined ? u.periodPlays : (u.plays ?? 0))} Plays / {Number(u.periodWins !== undefined ? u.periodWins : (u.wins ?? 0))} Wins ({Number(u.careerPlays ?? u.totalPlays ?? u.plays ?? 0)} Career)
                 </Text>
               </View>
             </GACard>
@@ -1255,7 +1307,7 @@ export default function AdminDashboardScreen({ navigation }) {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.userName, { color: theme.textPrimary }]}>{u.displayName || u.username || '—'}</Text>
                 <Text style={[styles.userMeta, { color: theme.textSecondary }]}>
-                  {u.phoneNumber || u.email || u.uid} • ⚡ {Number(u.gp || 0)} GP • {u.plays || 0}P/{u.wins || 0}W
+                  {u.phoneNumber || u.email || u.uid} • ⚡ {Number(u.gp || 0)} GP • {Number(u.careerPlays ?? u.plays ?? 0)} Plays / {Number(u.careerWins ?? u.wins ?? 0)} Wins • {Number(u.dailyPlays ?? 0)} Today
                 </Text>
               </View>
             </GACard>
@@ -2122,7 +2174,8 @@ export default function AdminDashboardScreen({ navigation }) {
                 <InfoRow theme={theme} label="Suspended until" value={p.suspendedUntil} />
                 <InfoRow theme={theme} label="Value Points (VP)" value={formatVpFromUser(p)} />
                 <InfoRow theme={theme} label="Game Power (GP)" value={`${Number(p.gp || 0).toLocaleString()} GP`} />
-                <InfoRow theme={theme} label="Plays / Wins" value={`${Number(p.plays ?? detail?.gamesPlayed ?? 0)} Plays / ${Number(p.wins ?? 0)} Wins`} />
+                <InfoRow theme={theme} label="Career Plays / Wins" value={`${Number(p.careerPlays ?? p.plays ?? detail?.gamesPlayed ?? 0)} Plays / ${Number(p.careerWins ?? p.wins ?? 0)} Wins`} />
+                <InfoRow theme={theme} label="Today's Plays / Wins" value={`${Number(p.dailyPlays ?? 0)} Plays / ${Number(p.dailyWins ?? 0)} Wins`} />
                 <InfoRow theme={theme} label="Verified" value={p.isVerified ? 'Yes' : 'No'} />
                 <InfoRow theme={theme} label="Created" value={p.createdAt} />
 
