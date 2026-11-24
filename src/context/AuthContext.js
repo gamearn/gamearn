@@ -302,7 +302,7 @@ function profileFromMe(me, cached) {
     valuePoints: vp,
     vp,
     vpText: formatVP(vp),
-    earnedVp: Math.max(rawEarnedVp, vp),
+    earnedVp: vp,
     gameStats,
     lastStreakMilestoneAwarded,
     referredByCode: me?.referredByCode || cached?.referredByCode || me?.settings?.referredByCode || cached?.settings?.referredByCode || null,
