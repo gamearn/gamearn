@@ -361,11 +361,11 @@ export default function GameResultScreen({ route, navigation }) {
     }
   };
 
-  // Per-game specific stats for display on this result screen
+  // Total stats matching Profile, Admin, and Leaderboard
   const currentGameStats = localGameStats || userProfile?.gameStats?.[statsKey] || (isCheckers ? (userProfile?.gameStats?.draft || userProfile?.gameStats?.draughts) : {}) || {};
-  const thisGamePlayed = Number(currentGameStats.gamesPlayed ?? 0);
-  const thisGameWins = Number(currentGameStats.wins ?? 0);
-  const thisGameLosses = Number(currentGameStats.losses ?? 0);
+  const thisGamePlayed = Math.max(Number(userProfile?.gamesPlayed ?? 0), Number(currentGameStats.gamesPlayed ?? 0));
+  const thisGameWins = Math.max(Number(userProfile?.wins ?? userProfile?.gamesWon ?? 0), Number(currentGameStats.wins ?? 0));
+  const thisGameLosses = Math.max(Number(userProfile?.losses ?? userProfile?.gamesLost ?? 0), Number(currentGameStats.losses ?? 0));
   const winRate = thisGamePlayed > 0 ? Math.round((thisGameWins / thisGamePlayed) * 100) : 0;
 
   const streakCount = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
