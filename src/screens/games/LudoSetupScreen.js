@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,12 +17,36 @@ import {
   Coins,
   Dices,
 } from 'lucide-react-native';
+import { useAuth } from '../../context/AuthContext';
+import { leaderboard as leaderboardApi } from '../../services/api';
 
 export default function LudoSetupScreen({ navigation }) {
+  const { userProfile } = useAuth();
   const [playerCount, setPlayerCount] = useState(4); // 2, 3, 4
   const [tokenCount, setTokenCount] = useState(4); // 1, 2, 3, 4
   const diceCount = 2; // Standard Ludo uses two dice.
   const [turnTimer, setTurnTimer] = useState('2m'); // '30s', '1m', '2m', '3m'
+  const [dbRank, setDbRank] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await leaderboardApi.get('Daily', 'ludo');
+        if (alive && res?.data) {
+          const myEntry = res.currentUser || (userProfile?.uid && res.data.find((r) => r.uid === userProfile.uid || r.id === userProfile.uid));
+          if (myEntry?.rank && (Number(myEntry.plays || 0) > 0 || Number(myEntry.totalPlays || 0) > 0)) {
+            setDbRank(`#${myEntry.rank}`);
+          } else {
+            setDbRank('#--');
+          }
+        }
+      } catch {}
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [userProfile?.uid]);
 
   const handleStartGame = () => {
     navigation.navigate('LudoGame', {
@@ -179,7 +203,7 @@ export default function LudoSetupScreen({ navigation }) {
             <Text style={styles.summaryLabel}>LEADERBOARD POSITION</Text>
             <View style={styles.summaryValRow}>
               <Trophy size={16} color="#00E5FF" style={{ marginRight: 4 }} />
-              <Text style={styles.summaryCyanVal}>3,450</Text>
+              <Text style={styles.summaryCyanVal}>{dbRank || '#--'}</Text>
             </View>
           </View>
 

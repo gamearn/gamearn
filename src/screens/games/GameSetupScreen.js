@@ -14,14 +14,42 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { getAiDifficulty } from '../../utils/aiDifficulty';
 import { getActiveMatch, clearActiveMatch } from '../../utils/activeMatch';
+import { leaderboard as leaderboardApi } from '../../services/api';
 
 export default function GameSetupScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
   const { userProfile } = useAuth();
   const gameName = route.params?.gameName || 'Dráfù Game';
   const targetScreen = route.params?.targetScreen || 'DraughtsGame';
-  const leaderboardRank = route.params?.rank || '2,625';
+  const [dbRank, setDbRank] = useState(null);
+  const displayRank = dbRank || (route.params?.rank ? (String(route.params.rank).startsWith('#') ? route.params.rank : `#${route.params.rank}`) : '#--');
   const entryFee = route.params?.entryFee || 'Free';
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const gameKey = route.params?.gameId || (
+          String(targetScreen).toLowerCase().includes('ludo') ? 'ludo' :
+          String(targetScreen).toLowerCase().includes('ayo') ? 'ayo' :
+          String(targetScreen).toLowerCase().includes('whot') ? 'whot' :
+          'draughts'
+        );
+        const res = await leaderboardApi.get('Daily', gameKey);
+        if (alive && res?.data) {
+          const myEntry = res.currentUser || (userProfile?.uid && res.data.find(r => r.uid === userProfile.uid || r.id === userProfile.uid));
+          if (myEntry?.rank && (Number(myEntry.plays || 0) > 0 || Number(myEntry.totalPlays || 0) > 0)) {
+            setDbRank(`#${myEntry.rank}`);
+          } else {
+            setDbRank('#--');
+          }
+        }
+      } catch {}
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [targetScreen, route.params?.gameId, userProfile?.uid]);
 
   const [selectedTimer, setSelectedTimer] = useState('2m');
   const TIMERS = ['30s', '1m', '2m', '3m'];
@@ -386,7 +414,7 @@ export default function GameSetupScreen({ route, navigation }) {
             <Text style={styles.metaLabel}>LEADERBOARD POSITION</Text>
             <View style={styles.metaValueRow}>
               <Trophy size={16} color="#00E5FF" style={{ marginRight: 6 }} />
-              <Text style={styles.metaValueCyan}>{leaderboardRank}</Text>
+              <Text style={styles.metaValueCyan}>{displayRank}</Text>
             </View>
           </View>
 

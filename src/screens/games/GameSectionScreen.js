@@ -1,13 +1,10 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Wallet, Flame, Users, Play, Trophy, Settings } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { wallet, tournaments, leaderboard as leaderboardApi } from '../../services/api';
-import { leaderboard } from '../home/model';
 import { resolveAvatarSource } from '../../utils/avatarPresets';
-import { fetchAllPlatformPlayers } from '../../utils/platformPlayers';
 import { calculateGamePower } from '../../utils/gamePower';
 import ActiveMatchBanner from '../../components/ActiveMatchBanner';
 
@@ -33,129 +30,47 @@ export default function GameSectionScreen({ route, navigation }) {
   const fetchLeaderboard = useCallback(() => {
     let active = true;
     setLeaderLoading(true);
-    Promise.allSettled([
-      leaderboardApi.get(period, key),
-      fetchAllPlatformPlayers(),
-      AsyncStorage.getItem('@gamearn_deleted_uids').catch(() => null),
-    ])
-      .then(([lbRes, allPlayersRes, delUidsRes]) => {
+
+    leaderboardApi.get(period, key)
+      .then((lbRes) => {
         if (!active) return;
-        const lbRows = lbRes.status === 'fulfilled'
-          ? (Array.isArray(lbRes.value) ? lbRes.value : lbRes.value?.data || [])
+        const lbRows = lbRes
+          ? (Array.isArray(lbRes) ? lbRes : lbRes.data || [])
           : [];
-        const refRows = allPlayersRes.status === 'fulfilled' && Array.isArray(allPlayersRes.value)
-          ? allPlayersRes.value
-          : [];
-        let deletedUidsSet = new Set();
-        try {
-          const rawDel = delUidsRes.status === 'fulfilled' ? delUidsRes.value : null;
-          if (rawDel) {
-            const parsed = JSON.parse(rawDel);
-            if (Array.isArray(parsed)) deletedUidsSet = new Set(parsed);
-          }
-        } catch { }
 
-        const d = new Date();
-        const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const map = new Map();
-        const addEntry = (item, isFromGameLb = false) => {
-          if (!item) return;
-          const uid = item.uid || item.id;
-          if (!uid || deletedUidsSet.has(uid)) return;
-          const existing = map.get(uid);
+        const list = lbRows
+          .filter((r) => r && (r.plays > 0 || r.periodPlays > 0 || period === 'Yearly' || (userProfile?.uid && r.uid === userProfile.uid)))
+          .map((r, index) => {
+            const plays = Number(r.periodPlays !== undefined ? r.periodPlays : (r.plays ?? 0));
+            const wins = Number(r.periodWins !== undefined ? r.periodWins : (r.wins ?? 0));
+            const careerPlays = Number(r.careerPlays ?? r.totalPlays ?? plays);
+            const careerWins = Number(r.careerWins ?? r.totalWins ?? wins);
+            const gp = r.gp != null ? Number(r.gp) : calculateGamePower(careerPlays, careerWins);
+            const isUser = Boolean(userProfile?.uid && (r.uid === userProfile.uid || r.id === userProfile.uid || r.isUser));
 
-          // If entry is already populated authoritatively from the server database, do not overwrite plays/wins/gp with local phone data
-          if (existing && !isFromGameLb) {
-            if (!existing.avatar && (item.avatar || item.avatarUrl)) {
-              existing.avatar = item.avatar || item.avatarUrl;
-            }
-            if ((!existing.username || existing.username === 'Player') && item.username) {
-              existing.username = item.username;
-            }
-            return;
-          }
-
-          const name = item.displayName || item.name || item.username || existing?.name || 'Player';
-          const isUser = Boolean(userProfile?.uid && uid === userProfile.uid);
-          const gs = item.gameStats || {};
-          const gSt = gs[key] || (key === 'draft' ? (gs.draughts || gs.checkers) : null) || {};
-          const userGs = userProfile?.gameStats || {};
-          const userGSt = userGs[key] || (key === 'draft' ? (userGs.draughts || userGs.checkers) : null) || {};
-          const effectiveGSt = isUser ? { ...gSt, ...userGSt } : gSt;
-
-          let plays = 0;
-          let wins = 0;
-
-          if (isFromGameLb) {
-            plays = Number(item.periodPlays !== undefined ? item.periodPlays : (item.plays ?? 0));
-            wins = Number(item.periodWins !== undefined ? item.periodWins : (item.wins ?? 0));
-          } else {
-            if (period === 'Daily') {
-              const isToday = isUser
-                ? Boolean(effectiveGSt.lastPlayedDate === todayStr || userProfile?.lastPlayedDate === todayStr)
-                : Boolean(effectiveGSt.lastPlayedDate === todayStr || item.lastPlayedDate === todayStr);
-              plays = isToday ? Number(isUser ? (effectiveGSt.dailyPlays ?? userProfile?.dailyPlays ?? 0) : (effectiveGSt.dailyPlays ?? 0)) : 0;
-              wins = isToday ? Number(isUser ? (effectiveGSt.dailyWins ?? userProfile?.dailyWins ?? 0) : (effectiveGSt.dailyWins ?? 0)) : 0;
-            } else if (period === 'Weekly') {
-              const now = new Date();
-              const currentWeek = `${now.getFullYear()}-W${Math.ceil((((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)}`;
-              const isThisWeek = isUser
-                ? Boolean(effectiveGSt.lastPlayedWeek === currentWeek || userProfile?.lastPlayedWeek === currentWeek || userProfile?.lastPlayedDate === todayStr)
-                : Boolean(effectiveGSt.lastPlayedWeek === currentWeek || effectiveGSt.lastPlayedDate === todayStr);
-              plays = isThisWeek ? Number(effectiveGSt.weeklyPlays ?? (effectiveGSt.lastPlayedDate === todayStr ? effectiveGSt.dailyPlays : 0) ?? 0) : 0;
-              wins = isThisWeek ? Number(effectiveGSt.weeklyWins ?? (effectiveGSt.lastPlayedDate === todayStr ? effectiveGSt.dailyWins : 0) ?? 0) : 0;
-            } else if (period === 'Monthly') {
-              const now = new Date();
-              const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-              const isThisMonth = isUser
-                ? Boolean(effectiveGSt.lastPlayedMonth === currentMonth || userProfile?.lastPlayedMonth === currentMonth || userProfile?.lastPlayedDate === todayStr)
-                : Boolean(effectiveGSt.lastPlayedMonth === currentMonth || effectiveGSt.lastPlayedDate === todayStr);
-              plays = isThisMonth ? Number(effectiveGSt.monthlyPlays ?? (effectiveGSt.lastPlayedDate === todayStr ? effectiveGSt.dailyPlays : 0) ?? 0) : 0;
-              wins = isThisMonth ? Number(effectiveGSt.monthlyWins ?? (effectiveGSt.lastPlayedDate === todayStr ? effectiveGSt.dailyWins : 0) ?? 0) : 0;
-            } else {
-              plays = Number(effectiveGSt.yearlyPlays ?? effectiveGSt.gamesPlayed ?? effectiveGSt.plays ?? 0);
-              wins = Number(effectiveGSt.yearlyWins ?? effectiveGSt.wins ?? 0);
-            }
-          }
-
-          const careerPlays = Math.max(
-            Number(item.careerPlays ?? item.totalPlays ?? (isUser ? userProfile?.gamesPlayed : 0) ?? 0),
-            Number(existing?.careerPlays ?? 0)
-          );
-          const careerWins = Math.max(
-            Number(item.careerWins ?? item.totalWins ?? (isUser ? userProfile?.wins : 0) ?? 0),
-            Number(existing?.careerWins ?? 0)
-          );
-          const gp = calculateGamePower(careerPlays, careerWins);
-
-          map.set(uid, {
-            id: uid,
-            uid,
-            name,
-            displayName: name,
-            username: item.username || existing?.username || name,
-            avatar: item.avatar || item.avatarUrl || existing?.avatar || null,
-            plays,
-            wins,
-            periodPlays: plays,
-            periodWins: wins,
-            careerPlays,
-            careerWins,
-            totalPlays: careerPlays,
-            totalWins: careerWins,
-            gp,
-            gpText: `${gp} GP`,
-            isUser,
+            return {
+              id: r.uid || r.id || `lb_${index}`,
+              uid: r.uid || r.id,
+              name: r.displayName || r.name || r.username || 'Player',
+              displayName: r.displayName || r.name || r.username || 'Player',
+              username: r.username || r.displayName || 'Player',
+              avatar: r.avatar || r.avatarUrl || null,
+              plays,
+              wins,
+              periodPlays: plays,
+              periodWins: wins,
+              careerPlays,
+              careerWins,
+              totalPlays: careerPlays,
+              totalWins: careerWins,
+              gp,
+              gpText: `${gp} GP`,
+              isUser,
+              rank: r.rank || index + 1,
+            };
           });
-        };
 
-        lbRows.forEach((r) => addEntry(r, true));
-        refRows.forEach((r) => addEntry(r, false));
-
-        setDbLeaderRows(
-          Array.from(map.values())
-            .filter((row) => !deletedUidsSet.has(row.uid) && !deletedUidsSet.has(row.id))
-        );
+        setDbLeaderRows(list);
       })
       .catch(() => {
         if (active) setDbLeaderRows([]);
@@ -166,7 +81,7 @@ export default function GameSectionScreen({ route, navigation }) {
     return () => {
       active = false;
     };
-  }, [period, key, userProfile?.uid, userProfile?.gamesPlayed, userProfile?.wins]);
+  }, [period, key, userProfile?.uid]);
 
   useEffect(() => {
     let live = true;
@@ -199,7 +114,7 @@ export default function GameSectionScreen({ route, navigation }) {
     return unsubscribe;
   }, [navigation, fetchLeaderboard, key]);
 
-  const leaderRows = useMemo(() => leaderboard(dbLeaderRows, userProfile, period, key), [dbLeaderRows, userProfile, period, key]);
+  const leaderRows = dbLeaderRows;
 
   const play = () => navigation.navigate('GameLobby', { gameId: key, gameName: game.title, targetScreen: game.target, setupTarget: 'GameSetup' });
   const balance = Number(w?.balance ?? userProfile?.walletBalance ?? 0);
