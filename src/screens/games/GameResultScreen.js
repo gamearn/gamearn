@@ -255,7 +255,6 @@ export default function GameResultScreen({ route, navigation }) {
           }
           invalidatePlatformPlayersCache();
         }
-        }
       } catch (err) {
         console.log('Notice updating result stats:', err?.message || err);
       }
