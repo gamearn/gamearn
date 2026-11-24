@@ -38,9 +38,7 @@ export default function GameSectionScreen({ route, navigation }) {
           ? (Array.isArray(lbRes) ? lbRes : lbRes.data || [])
           : [];
 
-        const list = lbRows
-          .filter((r) => r && (r.plays > 0 || r.periodPlays > 0 || period === 'Yearly' || (userProfile?.uid && r.uid === userProfile.uid)))
-          .map((r, index) => {
+        const list = lbRows.map((r, index) => {
             const plays = Number(r.periodPlays !== undefined ? r.periodPlays : (r.plays ?? 0));
             const wins = Number(r.periodWins !== undefined ? r.periodWins : (r.wins ?? 0));
             const careerPlays = Number(r.careerPlays ?? r.totalPlays ?? plays);
