@@ -1278,7 +1278,7 @@ export default function AdminDashboardScreen({ navigation }) {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.userName, { color: theme.textPrimary }]}>{u.displayName || u.username || 'Player'}</Text>
                 <Text style={[styles.userMeta, { color: theme.textSecondary }]}>
-                  ⚡ {Number(u.gp || 0).toLocaleString()} GP • {Number(u.periodPlays !== undefined ? u.periodPlays : (u.plays ?? 0))} Plays / {Number(u.periodWins !== undefined ? u.periodWins : (u.wins ?? 0))} Wins ({Number(u.careerPlays ?? u.totalPlays ?? u.plays ?? 0)} Career)
+                  ⚡ {Number(u.gp || 0).toLocaleString()} GP • {Number(u.periodPlays !== undefined ? u.periodPlays : (u.plays ?? 0))} Plays / {Number(u.periodWins !== undefined ? u.periodWins : (u.wins ?? 0))} Wins
                 </Text>
               </View>
             </GACard>
@@ -2180,8 +2180,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 <InfoRow theme={theme} label="Suspended until" value={p.suspendedUntil} />
                 <InfoRow theme={theme} label="Value Points (VP)" value={formatVpFromUser(p)} />
                 <InfoRow theme={theme} label="Game Power (GP)" value={`${Number(p.gp || 0).toLocaleString()} GP`} />
-                <InfoRow theme={theme} label="Career Plays / Wins" value={`${Number(p.careerPlays ?? p.plays ?? detail?.gamesPlayed ?? 0)} Plays / ${Number(p.careerWins ?? p.wins ?? 0)} Wins`} />
-                <InfoRow theme={theme} label="Today's Plays / Wins" value={`${Number(p.dailyPlays ?? 0)} Plays / ${Number(p.dailyWins ?? 0)} Wins`} />
+                <InfoRow theme={theme} label="Plays / Wins" value={`${Number(p.careerPlays ?? p.plays ?? detail?.gamesPlayed ?? 0)} Plays / ${Number(p.careerWins ?? p.wins ?? 0)} Wins`} />
                 <InfoRow theme={theme} label="Verified" value={p.isVerified ? 'Yes' : 'No'} />
                 <InfoRow theme={theme} label="Created" value={p.createdAt} />
 

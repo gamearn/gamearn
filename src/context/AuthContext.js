@@ -175,33 +175,28 @@ function profileFromMe(me, cached) {
     }
   }
 
+  // Strictly read authoritative match stats and GP/VP from the server response
   const meWins = Number(me?.stats?.wins ?? me?.wins ?? me?.gamesWon ?? me?.settings?.wins ?? 0);
-  const cachedWins = Number(cached?.wins ?? cached?.gamesWon ?? cached?.settings?.wins ?? 0);
-  const wins = Math.max(meWins, cachedWins, statsWinsSum);
+  const wins = Math.max(meWins, statsWinsSum);
 
   const meLosses = Number(me?.stats?.losses ?? me?.losses ?? me?.gamesLost ?? me?.settings?.losses ?? 0);
-  const cachedLosses = Number(cached?.losses ?? cached?.gamesLost ?? cached?.settings?.losses ?? 0);
-  const losses = Math.max(meLosses, cachedLosses, statsLossesSum);
+  const losses = Math.max(meLosses, statsLossesSum);
 
   const mePlayed = Number(me?.stats?.gamesPlayed ?? me?.gamesPlayed ?? me?.stats?.games ?? me?.settings?.gamesPlayed ?? 0);
-  const cachedPlayed = Number(cached?.gamesPlayed ?? cached?.settings?.gamesPlayed ?? 0);
   const draws = Math.max(
     Number(me?.stats?.draws ?? me?.draws ?? 0),
-    Number(cached?.draws ?? 0),
     statsDrawsSum
   );
-  const gamesPlayed = Math.max(mePlayed, cachedPlayed, statsPlayedSum, wins + losses + draws);
+  const gamesPlayed = Math.max(mePlayed, statsPlayedSum, wins + losses + draws);
 
   const todayStr = getLocalDateString();
-  const lastDateStr = me?.lastStreakDate || me?.lastPlayedDate || me?.lastCheckInDate || cached?.lastStreakDate || cached?.lastPlayedDate || cached?.lastCheckInDate;
+  const lastDateStr = me?.lastStreakDate || me?.lastPlayedDate || me?.lastCheckInDate || null;
 
-  const meStreak = Number(me?.streak ?? me?.currentStreak ?? me?.stats?.streak ?? 0);
-  const cachedStreak = Number(cached?.streak ?? cached?.currentStreak ?? 0);
-  const baseStreak = Math.max(meStreak, cachedStreak);
+  const baseStreak = Number(me?.streak ?? me?.currentStreak ?? me?.stats?.streak ?? 0);
 
   let updatedStreak = 0;
   let newLastStreakDate = lastDateStr ? String(lastDateStr).split('T')[0] : null;
-  let lastStreakPersistedDate = me?.lastStreakPersistedDate || cached?.lastStreakPersistedDate || (me?.lastStreakDate === todayStr ? todayStr : null);
+  let lastStreakPersistedDate = me?.lastStreakPersistedDate || (me?.lastStreakDate === todayStr ? todayStr : null);
 
   if (gamesPlayed > 0 || baseStreak > 0) {
     if (lastDateStr) {
@@ -227,34 +222,21 @@ function profileFromMe(me, cached) {
     newLastStreakDate = null;
   }
 
-  const rawNaira = Math.max(
-    Number(me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? 0),
-    Number(cached?.walletBalance ?? 0)
-  );
+  const rawNaira = Number(me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? 0);
 
+  const serverGp = me?.gp != null ? Number(me.gp) : (me?.gamePower != null ? Number(me.gamePower) : null);
   const computedGp = calculateGamePower(gamesPlayed, wins, losses);
-  const gp = gamesPlayed > 0 ? computedGp : 0;
+  const gp = serverGp !== null && Number.isFinite(serverGp) ? serverGp : (gamesPlayed > 0 ? computedGp : 0);
 
-  const lastStreakMilestoneAwarded = Math.max(
-    Number(me?.lastStreakMilestoneAwarded ?? me?.settings?.lastStreakMilestoneAwarded ?? 0),
-    Number(cached?.lastStreakMilestoneAwarded ?? cached?.settings?.lastStreakMilestoneAwarded ?? 0)
-  );
+  const lastStreakMilestoneAwarded = Number(me?.lastStreakMilestoneAwarded ?? me?.settings?.lastStreakMilestoneAwarded ?? 0);
 
   const rawServerVp = Number(me?.valuePoints ?? me?.vp ?? me?.settings?.valuePoints ?? 0);
-  const rawCachedVp = Number(cached?.valuePoints ?? cached?.vp ?? cached?.settings?.valuePoints ?? 0);
-  const rawEarnedVp = Math.max(
-    Number(me?.earnedVp ?? 0),
-    Number(cached?.earnedVp ?? 0),
-    rawCachedVp
-  );
   const computedVp = calculateValuePoints(rawNaira, gamesPlayed, wins);
   const vp = Math.max(
     0,
     Math.round(
       Math.max(
         Number.isFinite(rawServerVp) ? rawServerVp : 0,
-        Number.isFinite(rawCachedVp) ? rawCachedVp : 0,
-        Number.isFinite(rawEarnedVp) ? rawEarnedVp : 0,
         Number.isFinite(computedVp) ? computedVp : 0
       ) * 10
     ) / 10
@@ -447,33 +429,17 @@ export const AuthProvider = ({ children }) => {
       const mergedFollowingCount = mergedFollowingList.length;
       const mergedFollowersCount = Math.max(Number(me?.followersCount ?? cached?.followersCount ?? 0), permFollowers);
 
-      const rawNaira = Math.max(
-        Number(me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? 0),
-        Number(cached?.walletBalance ?? 0)
-      );
+      const rawNaira = Number(me?.stats?.balance ?? me?.wallet?.balance ?? me?.walletBalance ?? 0);
       const mergedGameStats = {
-        ...(cached?.gameStats || {}),
-        ...(permGameStats || {}),
         ...((me?.settings && me.settings.gameStats) || {}),
         ...(me?.gameStats || {}),
       };
-      const lastDailyMilestone = Math.max(
-        Number(me?.lastStreakMilestoneAwarded ?? me?.settings?.lastStreakMilestoneAwarded ?? 0),
-        Number(cached?.lastStreakMilestoneAwarded ?? 0),
-        permClaimedDaily
-      );
+      const lastDailyMilestone = Number(me?.lastStreakMilestoneAwarded ?? me?.settings?.lastStreakMilestoneAwarded ?? 0);
       const rawServerVp = Number(me?.valuePoints ?? me?.vp ?? me?.settings?.valuePoints ?? 0);
-      const rawCachedVp = Number(cached?.valuePoints ?? cached?.vp ?? cached?.earnedVp ?? 0);
-      const maxLocalVp = Math.max(Number(earnedVp || 0), Number(legacyPermVp || 0), rawCachedVp);
-
       const mergedVp = Math.max(
         0,
-        Math.round(Math.max(rawServerVp, maxLocalVp, Math.floor(rawNaira / 50)) * 10) / 10
+        Math.round(Math.max(rawServerVp, Math.floor(rawNaira / 50)) * 10) / 10
       );
-
-      if (mergedVp > 0) {
-        AsyncStorage.setItem(`@gamearn_earned_vp_${uid}`, String(mergedVp)).catch(() => { });
-      }
 
       const mergedMe = {
         ...me,
@@ -483,13 +449,13 @@ export const AuthProvider = ({ children }) => {
         vp: mergedVp,
         gameStats: mergedGameStats,
         lastStreakMilestoneAwarded: lastDailyMilestone,
-        referredByCode: me?.referredByCode || me?.settings?.referredByCode || storedReferredBy || cached?.referredByCode || null,
+        referredByCode: me?.referredByCode || me?.settings?.referredByCode || storedReferredBy || null,
         followingList: mergedFollowingList,
         followingCount: mergedFollowingCount,
         followersCount: mergedFollowersCount,
       };
 
-      const profile = profileFromMe(mergedMe, cached);
+      const profile = profileFromMe(mergedMe, null);
       await writeCachedProfile(profile, uid);
 
       if (

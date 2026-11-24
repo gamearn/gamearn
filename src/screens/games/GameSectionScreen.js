@@ -32,43 +32,55 @@ export default function GameSectionScreen({ route, navigation }) {
     setLeaderLoading(true);
 
     leaderboardApi.get(period, key)
-      .then((lbRes) => {
+      .then(async (lbRes) => {
         if (!active) return;
-        const lbRows = lbRes
+        let lbRows = lbRes
           ? (Array.isArray(lbRes) ? lbRes : lbRes.data || [])
           : [];
+        let isGlobalFallback = false;
+        if (lbRows.length === 0) {
+          const globalRes = await leaderboardApi.get(period, null).catch(() => null);
+          const globalRows = globalRes
+            ? (Array.isArray(globalRes) ? globalRes : globalRes.data || [])
+            : [];
+          if (globalRows.length > 0) {
+            lbRows = globalRows;
+            isGlobalFallback = true;
+          }
+        }
+        if (!active) return;
 
         const list = lbRows.map((r, index) => {
-            const plays = Number(r.periodPlays !== undefined ? r.periodPlays : (r.plays ?? 0));
-            const wins = Number(r.periodWins !== undefined ? r.periodWins : (r.wins ?? 0));
-            const careerPlays = Number(r.careerPlays ?? r.totalPlays ?? plays);
-            const careerWins = Number(r.careerWins ?? r.totalWins ?? wins);
-            const gp = r.gp != null ? Number(r.gp) : calculateGamePower(careerPlays, careerWins);
-            const vp = Number(r.vp ?? r.valuePoints ?? 0);
-            const isUser = Boolean(userProfile?.uid && (r.uid === userProfile.uid || r.id === userProfile.uid || r.isUser));
+          const plays = isGlobalFallback ? 0 : Number(r.periodPlays !== undefined ? r.periodPlays : (r.plays ?? 0));
+          const wins = isGlobalFallback ? 0 : Number(r.periodWins !== undefined ? r.periodWins : (r.wins ?? 0));
+          const careerPlays = Number(r.careerPlays ?? r.totalPlays ?? plays);
+          const careerWins = Number(r.careerWins ?? r.totalWins ?? wins);
+          const gp = r.gp != null ? Number(r.gp) : calculateGamePower(careerPlays, careerWins);
+          const vp = Number(r.vp ?? r.valuePoints ?? 0);
+          const isUser = Boolean(userProfile?.uid && (r.uid === userProfile.uid || r.id === userProfile.uid || r.isUser));
 
-            return {
-              id: r.uid || r.id || `lb_${index}`,
-              uid: r.uid || r.id,
-              name: r.displayName || r.name || r.username || 'Player',
-              displayName: r.displayName || r.name || r.username || 'Player',
-              username: r.username || r.displayName || 'Player',
-              avatar: r.avatar || r.avatarUrl || null,
-              plays,
-              wins,
-              periodPlays: plays,
-              periodWins: wins,
-              careerPlays,
-              careerWins,
-              totalPlays: careerPlays,
-              totalWins: careerWins,
-              gp,
-              gpText: `${gp} GP`,
-              vp,
-              isUser,
-              rank: r.rank || index + 1,
-            };
-          });
+          return {
+            id: r.uid || r.id || `lb_${index}`,
+            uid: r.uid || r.id,
+            name: r.displayName || r.name || r.username || 'Player',
+            displayName: r.displayName || r.name || r.username || 'Player',
+            username: r.username || r.displayName || 'Player',
+            avatar: r.avatar || r.avatarUrl || null,
+            plays,
+            wins,
+            periodPlays: plays,
+            periodWins: wins,
+            careerPlays,
+            careerWins,
+            totalPlays: careerPlays,
+            totalWins: careerWins,
+            gp,
+            gpText: `${gp} GP`,
+            vp,
+            isUser,
+            rank: r.rank || index + 1,
+          };
+        });
 
         setDbLeaderRows(list);
       })

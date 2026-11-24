@@ -1991,7 +1991,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={ui.heading}>{sheet.data.name}</Text>
             <Text style={ui.body}>
               {period} Leaderboard: {sheet.data.plays || 0} Plays · {sheet.data.wins || 0} Wins{'\n'}
-              Career: {sheet.data.careerPlays || sheet.data.plays || 0} Plays · {sheet.data.careerWins || sheet.data.wins || 0} Wins{'\n'}
+              Total: {sheet.data.careerPlays || sheet.data.plays || 0} Plays · {sheet.data.careerWins || sheet.data.wins || 0} Wins{'\n'}
               {sheet.data.gpText || `${sheet.data.gp || 0} GP`} • {sheet.data.vp || 0} VP
             </Text>
             <Text style={ui.caption}>Player profile</Text>
