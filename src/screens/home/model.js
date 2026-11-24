@@ -235,26 +235,11 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
     let plays = Number(row.periodPlays !== undefined ? row.periodPlays : (row.plays ?? 0));
     let wins = Number(row.periodWins !== undefined ? row.periodWins : (row.wins ?? 0));
 
-    // For the authenticated user, ensure active period plays and wins are respected
-    if (isUser) {
-      if (period === 'Daily') {
-        plays = effectiveStats.plays;
-        wins = effectiveStats.wins;
-      } else if (period === 'Weekly') {
-        plays = effectiveStats.plays;
-        wins = effectiveStats.wins;
-      } else if (period === 'Monthly') {
-        plays = effectiveStats.plays;
-        wins = effectiveStats.wins;
-      } else {
-        plays = Math.max(Number(userProfile?.gamesPlayed ?? 0), Number(row.careerPlays ?? plays));
-        wins = Math.max(Number(userProfile?.wins ?? 0), Number(row.careerWins ?? wins));
-      }
-    }
-
     const careerP = Math.max(Number(row.careerPlays ?? row.totalPlays ?? 0), isUser ? Number(userProfile?.gamesPlayed ?? 0) : 0, plays);
     const careerW = Math.max(Number(row.careerWins ?? row.totalWins ?? 0), isUser ? Number(userProfile?.wins ?? 0) : 0, wins);
-    const rowGp = (isUser && getUserGp() > 0) ? getUserGp() : computeRowGp(careerW, careerP);
+    const rowGp = (row.gp != null && Number(row.gp) >= 0)
+      ? Number(row.gp)
+      : ((isUser && getUserGp() > 0) ? getUserGp() : computeRowGp(careerW, careerP));
     return {
       id: row.id || row.uid || `player_${index}`,
       uid: row.uid || row.id,

@@ -40,41 +40,13 @@ import {
 } from '../../services/api';
 import {
   fetchAllPlatformPlayers,
-  ALL_DATABASE_PLAYERS,
   recordDeletedPlatformUid,
   getDeletedPlatformUidsSet,
 } from '../../utils/platformPlayers';
 
-const initialPlayersList = ALL_DATABASE_PLAYERS.map((p) => {
-  const plays = Number(p.initialPlays || 0);
-  const wins = Number(p.initialWins || 0);
-  const gp = plays > 0
-    ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * Math.min(1, wins / plays) + 0.25 * Math.min(1, Math.log10(plays + 1) / 3)))))
-    : 0;
-  return {
-    uid: p.uid,
-    id: p.uid,
-    displayName: p.displayName,
-    name: p.displayName,
-    username: p.username,
-    email: p.email || `${String(p.username).toLowerCase().replace(/\s+/g, '')}@gamearn.app`,
-    phoneNumber: p.phoneNumber || '',
-    gp,
-    plays,
-    wins,
-    dailyPlays: 0,
-    dailyWins: 0,
-    vp: 0,
-    valuePoints: 0,
-    status: 'active',
-    isVerified: true,
-  };
-});
-
-const initialTop3ByGp = [...initialPlayersList]
-  .sort((a, b) => (Number(b.gp || 0) - Number(a.gp || 0)) || (Number(b.wins || 0) - Number(a.wins || 0)))
-  .slice(0, 3)
-  .map((c, idx) => ({ ...c, rank: idx + 1 }));
+// Empty lists: mock/seed players removed so admin only reflects live database data.
+const initialPlayersList = [];
+const initialTop3ByGp = [];
 
 const formatNaira = (n) => `${Math.floor(Number(n || 0) / 50).toLocaleString()} VP`;
 const formatVpFromUser = (u) => {
@@ -217,9 +189,6 @@ export default function AdminDashboardScreen({ navigation }) {
     const deletedUidsSet = await getDeletedPlatformUidsSet();
     const mirrorSettled = await Promise.allSettled([
       withFastTimeout(fetchAllPlatformPlayers(), 2800, []),
-      AsyncStorage.getItem('@gamearn_community_users_cache').catch(() => null),
-      AsyncStorage.getItem('@gamearn_local_tournaments').catch(() => null),
-      AsyncStorage.getItem('@gamearn_winners_cache').catch(() => null),
       withFastTimeout(tournamentsApi.list(), 2800, null),
       withFastTimeout(leaderboardApi.get('daily'), 2800, []),
       withFastTimeout(leaderboardApi.get('weekly'), 2800, []),
@@ -227,14 +196,11 @@ export default function AdminDashboardScreen({ navigation }) {
       withFastTimeout(leaderboardApi.get('yearly'), 2800, []),
     ]);
     const platformPlayersRes = mirrorSettled[0].status === 'fulfilled' ? mirrorSettled[0].value : [];
-    const commCacheRaw = mirrorSettled[1].status === 'fulfilled' ? mirrorSettled[1].value : null;
-    const localTournamentsRaw = mirrorSettled[2].status === 'fulfilled' ? mirrorSettled[2].value : null;
-    const winnersCacheRaw = mirrorSettled[3].status === 'fulfilled' ? mirrorSettled[3].value : null;
-    const publicTournamentsRes = mirrorSettled[4].status === 'fulfilled' ? mirrorSettled[4].value : null;
-    const dailyLbRes = mirrorSettled[5].status === 'fulfilled' ? mirrorSettled[5].value : [];
-    const weeklyLbRes = mirrorSettled[6].status === 'fulfilled' ? mirrorSettled[6].value : [];
-    const monthlyLbRes = mirrorSettled[7].status === 'fulfilled' ? mirrorSettled[7].value : [];
-    const yearlyLbRes = mirrorSettled[8].status === 'fulfilled' ? mirrorSettled[8].value : [];
+    const publicTournamentsRes = mirrorSettled[1].status === 'fulfilled' ? mirrorSettled[1].value : null;
+    const dailyLbRes = mirrorSettled[2].status === 'fulfilled' ? mirrorSettled[2].value : [];
+    const weeklyLbRes = mirrorSettled[3].status === 'fulfilled' ? mirrorSettled[3].value : [];
+    const monthlyLbRes = mirrorSettled[4].status === 'fulfilled' ? mirrorSettled[4].value : [];
+    const yearlyLbRes = mirrorSettled[5].status === 'fulfilled' ? mirrorSettled[5].value : [];
 
     const playerMap = new Map();
     const upsertPlayer = (raw) => {
@@ -261,9 +227,10 @@ export default function AdminDashboardScreen({ navigation }) {
       const calculatedGp = plays > 0
         ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * Math.min(1, wins / plays) + 0.25 * Math.min(1, Math.log10(plays + 1) / 3)))))
         : 0;
-      const gp = (isUser && userProfile?.gp != null && Number(userProfile.gp) > 0)
-        ? Number(userProfile.gp)
-        : calculatedGp;
+      // Authoritative GP strictly follows the server's record
+      const gp = raw.gp != null && Number(raw.gp) >= 0
+        ? Number(raw.gp)
+        : ((isUser && userProfile?.gp != null && Number(userProfile.gp) >= 0) ? Number(userProfile.gp) : calculatedGp);
       const vp = Math.max(
         Number(raw.vp ?? raw.valuePoints ?? 0),
         Math.floor(Number(raw.balanceNaira ?? (Number(raw.balanceKobo || 0) / 100) ?? 0) / 50),
@@ -292,9 +259,6 @@ export default function AdminDashboardScreen({ navigation }) {
       });
     };
 
-    // 0. Seed immediately with all registered database accounts
-    initialPlayersList.forEach(upsertPlayer);
-
     if (user?.uid || userProfile?.uid) {
       upsertPlayer({
         uid: user?.uid || userProfile?.uid,
@@ -313,10 +277,6 @@ export default function AdminDashboardScreen({ navigation }) {
     }
 
     if (Array.isArray(platformPlayersRes)) platformPlayersRes.forEach(upsertPlayer);
-    try {
-      const parsedComm = commCacheRaw ? JSON.parse(commCacheRaw) : [];
-      if (Array.isArray(parsedComm)) parsedComm.forEach(upsertPlayer);
-    } catch { }
     [dailyLbRes, weeklyLbRes, monthlyLbRes, yearlyLbRes].forEach((lb) => {
       const rows = Array.isArray(lb) ? lb : lb?.data || [];
       if (Array.isArray(rows)) rows.forEach(upsertPlayer);

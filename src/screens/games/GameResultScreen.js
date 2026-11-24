@@ -106,34 +106,16 @@ export default function GameResultScreen({ route, navigation }) {
     (async () => {
       try {
         const uid = userProfile?.uid;
-        let storedAllStats = {};
-        try {
-          const [rawUidGs, rawCurGs] = await Promise.all([
-            uid ? AsyncStorage.getItem(`@gamearn_gamestats_${uid}`) : Promise.resolve(null),
-            AsyncStorage.getItem('@gamearn_gamestats_current'),
-          ]);
-          if (rawUidGs) storedAllStats = JSON.parse(rawUidGs) || {};
-          else if (rawCurGs) storedAllStats = JSON.parse(rawCurGs) || {};
-        } catch { }
-
         const profileGameStats = userProfile?.gameStats || {};
         const fromProfile = isCheckers
           ? (profileGameStats.draughts || profileGameStats.draft || profileGameStats.checkers || {})
           : (profileGameStats[statsKey] || {});
-        const fromStorage = isCheckers
-          ? (storedAllStats.draughts || storedAllStats.draft || storedAllStats.checkers || {})
-          : (storedAllStats[statsKey] || {});
 
-        const prevGamePlayed = Math.max(Number(fromStorage.gamesPlayed || 0), Number(fromProfile.gamesPlayed || 0));
-        const prevGameWins = Math.max(Number(fromStorage.wins || 0), Number(fromProfile.wins || 0));
-        const prevGameLosses = Math.max(Number(fromStorage.losses || 0), Number(fromProfile.losses || 0));
-        const prevWinStreak = Number(
-          fromStorage.winStreak !== undefined ? fromStorage.winStreak : (fromProfile.winStreak ?? 0)
-        );
-        const claimedTier = Math.max(
-          Number(fromStorage.claimedWinStreakTier || 0),
-          Number(fromProfile.claimedWinStreakTier || 0)
-        );
+        const prevGamePlayed = Number(fromProfile.gamesPlayed || 0);
+        const prevGameWins = Number(fromProfile.wins || 0);
+        const prevGameLosses = Number(fromProfile.losses || 0);
+        const prevWinStreak = Number(fromProfile.winStreak ?? 0);
+        const claimedTier = Number(fromProfile.claimedWinStreakTier || 0);
 
         const thisGamePlayed = prevGamePlayed + 1;
         const thisGameWins = prevGameWins + (isWinner ? 1 : 0);
@@ -166,29 +148,28 @@ export default function GameResultScreen({ route, navigation }) {
         const newYearlyPlays = isSameYear ? (Number(userProfile?.yearlyPlays || 0) + 1) : 1;
         const newYearlyWins = isSameYear ? (Number(userProfile?.yearlyWins || 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
 
-        const gameLastDay = fromStorage.lastPlayedDate || fromProfile.lastPlayedDate || null;
+        const gameLastDay = fromProfile.lastPlayedDate || null;
         const isGameSameDay = gameLastDay === todayStr;
-        const currentGameDailyPlays = isGameSameDay ? (Number(fromStorage.dailyPlays ?? fromProfile.dailyPlays ?? 0) + 1) : 1;
-        const currentGameDailyWins = isGameSameDay ? (Number(fromStorage.dailyWins ?? fromProfile.dailyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+        const currentGameDailyPlays = isGameSameDay ? (Number(fromProfile.dailyPlays ?? 0) + 1) : 1;
+        const currentGameDailyWins = isGameSameDay ? (Number(fromProfile.dailyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
 
-        const gameLastWeek = fromStorage.lastPlayedWeek || fromProfile.lastPlayedWeek || null;
+        const gameLastWeek = fromProfile.lastPlayedWeek || null;
         const isGameSameWeek = gameLastWeek === weekKey;
-        const currentGameWeeklyPlays = isGameSameWeek ? (Number(fromStorage.weeklyPlays ?? fromProfile.weeklyPlays ?? 0) + 1) : 1;
-        const currentGameWeeklyWins = isGameSameWeek ? (Number(fromStorage.weeklyWins ?? fromProfile.weeklyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+        const currentGameWeeklyPlays = isGameSameWeek ? (Number(fromProfile.weeklyPlays ?? 0) + 1) : 1;
+        const currentGameWeeklyWins = isGameSameWeek ? (Number(fromProfile.weeklyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
 
-        const gameLastMonth = fromStorage.lastPlayedMonth || fromProfile.lastPlayedMonth || null;
+        const gameLastMonth = fromProfile.lastPlayedMonth || null;
         const isGameSameMonth = gameLastMonth === monthKey;
-        const currentGameMonthlyPlays = isGameSameMonth ? (Number(fromStorage.monthlyPlays ?? fromProfile.monthlyPlays ?? 0) + 1) : 1;
-        const currentGameMonthlyWins = isGameSameMonth ? (Number(fromStorage.monthlyWins ?? fromProfile.monthlyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+        const currentGameMonthlyPlays = isGameSameMonth ? (Number(fromProfile.monthlyPlays ?? 0) + 1) : 1;
+        const currentGameMonthlyWins = isGameSameMonth ? (Number(fromProfile.monthlyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
 
-        const gameLastYear = fromStorage.lastPlayedYear || fromProfile.lastPlayedYear || null;
+        const gameLastYear = fromProfile.lastPlayedYear || null;
         const isGameSameYear = gameLastYear === yearKey;
-        const currentGameYearlyPlays = isGameSameYear ? (Number(fromStorage.yearlyPlays ?? fromProfile.yearlyPlays ?? 0) + 1) : 1;
-        const currentGameYearlyWins = isGameSameYear ? (Number(fromStorage.yearlyWins ?? fromProfile.yearlyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
+        const currentGameYearlyPlays = isGameSameYear ? (Number(fromProfile.yearlyPlays ?? 0) + 1) : 1;
+        const currentGameYearlyWins = isGameSameYear ? (Number(fromProfile.yearlyWins ?? 0) + (isWinner ? 1 : 0)) : (isWinner ? 1 : 0);
 
         const updatedThisGame = {
           ...fromProfile,
-          ...fromStorage,
           gamesPlayed: thisGamePlayed,
           wins: thisGameWins,
           losses: thisGameLosses,
@@ -210,7 +191,6 @@ export default function GameResultScreen({ route, navigation }) {
 
         const updatedGameStats = {
           ...profileGameStats,
-          ...storedAllStats,
           [statsKey]: updatedThisGame,
         };
         if (isCheckers) {
@@ -218,13 +198,7 @@ export default function GameResultScreen({ route, navigation }) {
           updatedGameStats.draughts = updatedThisGame;
         }
 
-        // Persist immediately in AsyncStorage and local component state so UI shows exact winStreak right away
         setLocalGameStats(updatedThisGame);
-        const jsonGs = JSON.stringify(updatedGameStats);
-        if (uid) {
-          await AsyncStorage.setItem(`@gamearn_gamestats_${uid}`, jsonGs).catch(() => { });
-        }
-        await AsyncStorage.setItem('@gamearn_gamestats_current', jsonGs).catch(() => { });
 
         // Check if active Win Streak milestone (3, 5, 7, 10) is now reached and unclaimed -> open Gift Box Modal!
         const activeTierObj = claimedTier < WIN_STREAK_TIERS.length ? WIN_STREAK_TIERS[claimedTier] : null;
@@ -279,23 +253,8 @@ export default function GameResultScreen({ route, navigation }) {
           if (streakResult?.unlockedDailyMilestone) {
             setDailyStreakModalMilestone(streakResult.unlockedDailyMilestone);
           }
-          await registerKnownPlatformPlayer({
-            ...(userProfile || {}),
-            ...extraPayload,
-          });
           invalidatePlatformPlayersCache();
-          leaderboardApi.recordCompletion(
-            statsKey,
-            isWinner ? 'win' : (isDraw ? 'draw' : 'loss'),
-            completionReason,
-            matchId
-          ).catch(() => { });
-          await AsyncStorage.multiRemove([
-            '@gamearn_leaderboard_v2_cache_Daily',
-            '@gamearn_leaderboard_v2_cache_Weekly',
-            '@gamearn_leaderboard_v2_cache_Monthly',
-            '@gamearn_leaderboard_v2_cache_Yearly',
-          ]).catch(() => { });
+        }
         }
       } catch (err) {
         console.log('Notice updating result stats:', err?.message || err);

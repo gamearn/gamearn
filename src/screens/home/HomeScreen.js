@@ -37,7 +37,7 @@ import {
   claimDailyStreakMilestone,
 } from '../../utils/recordGameStreak';
 import StreakRewardModal from '../../components/StreakRewardModal';
-import { fetchAllPlatformPlayers } from '../../utils/platformPlayers';
+import { fetchAllPlatformPlayers, clearLegacyDeviceCache } from '../../utils/platformPlayers';
 import { checkAndTriggerVp5Notification } from '../../utils/vpNotification';
 import { resolveAvatarSource } from '../../utils/avatarPresets';
 import { TELEGRAM_COMMUNITY_LINK, WHATSAPP_COMMUNITY_LINK } from '../../config/appConfig';
@@ -489,59 +489,24 @@ export default function HomeScreen({ navigation }) {
 
 
   const fetchWinners = useCallback(() => {
-    Promise.allSettled([
-      AsyncStorage.getItem('@gamearn_winners_cache'),
-      leaderboardApi.getWinners(),
-      AsyncStorage.getItem('@gamearn_deleted_uids').catch(() => null),
-    ])
-      .then(([cacheRes, apiRes, delUidsRes]) => {
-        let cachedList = [];
-        try {
-          if (cacheRes.status === 'fulfilled' && cacheRes.value) {
-            const parsed = JSON.parse(cacheRes.value);
-            if (Array.isArray(parsed)) cachedList = parsed;
-          }
-        } catch { }
-
+    leaderboardApi.getWinners()
+      .then((apiRes) => {
         let apiList = [];
-        if (apiRes.status === 'fulfilled' && apiRes.value) {
-          const val = apiRes.value;
-          if (Array.isArray(val)) apiList = val;
-          else if (Array.isArray(val.data)) apiList = val.data;
-          else if (Array.isArray(val.winners)) apiList = val.winners;
+        if (apiRes) {
+          if (Array.isArray(apiRes)) apiList = apiRes;
+          else if (Array.isArray(apiRes.data)) apiList = apiRes.data;
+          else if (Array.isArray(apiRes.winners)) apiList = apiRes.winners;
         }
 
-        let deletedUidsSet = new Set();
-        try {
-          const rawDel = delUidsRes.status === 'fulfilled' ? delUidsRes.value : null;
-          if (rawDel) {
-            const parsed = JSON.parse(rawDel);
-            if (Array.isArray(parsed)) deletedUidsSet = new Set(parsed);
-          }
-        } catch { }
-
-        const map = new Map();
-        cachedList.forEach((w) => {
-          if (w && w.period && w.rank && (!w.uid || !deletedUidsSet.has(w.uid))) {
-            const key = `${w.period}:${w.rank}:${w.periodDate || w.period_date || ''}:${w.uid || ''}`;
-            map.set(key, w);
-          }
-        });
-        apiList.forEach((w) => {
-          if (w && w.period && w.rank && (!w.uid || !deletedUidsSet.has(w.uid))) {
-            const key = `${w.period}:${w.rank}:${w.periodDate || w.period_date || ''}:${w.uid || ''}`;
-            map.set(key, {
-              ...w,
-              rank: Number(w.rank),
-              rewardVp: Number(w.rewardVp || String(w.reward || '10').replace(/[^0-9.]/g, '') || 10),
-            });
-          }
-        });
-        const merged = Array.from(map.values()).sort((a, b) => a.rank - b.rank);
-        setWinnersList(merged);
-        if (merged.length > 0) {
-          AsyncStorage.setItem('@gamearn_winners_cache', JSON.stringify(merged)).catch(() => { });
-        }
+        const cleaned = apiList
+          .filter((w) => w && w.rank)
+          .map((w) => ({
+            ...w,
+            rank: Number(w.rank),
+            rewardVp: Number(w.rewardVp || String(w.reward || '10').replace(/[^0-9.]/g, '') || 10),
+          }))
+          .sort((a, b) => a.rank - b.rank);
+        setWinnersList(cleaned);
       })
       .catch(() => { })
       .finally(() => {
@@ -559,121 +524,29 @@ export default function HomeScreen({ navigation }) {
 
   const fetchLeaderboard = useCallback(() => {
     let active = true;
-    const cacheKey = `@gamearn_leaderboard_v2_cache_${period}`;
-    AsyncStorage.getItem(cacheKey)
-      .then((raw) => {
-        if (!active || !raw) return;
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setDbLeaderboardRows(parsed);
-          setLeaderboardLoading(false);
-        }
-      })
-      .catch(() => { });
 
-    Promise.allSettled([
-      leaderboardApi.get(period),
-      fetchAllPlatformPlayers(),
-      AsyncStorage.getItem('@gamearn_deleted_uids').catch(() => null),
-    ])
-      .then(([lbRes, allPlayersRes, delUidsRes]) => {
+    leaderboardApi.get(period)
+      .then((lbRes) => {
         if (!active) return;
-        const lbRows = lbRes.status === 'fulfilled'
-          ? (Array.isArray(lbRes.value) ? lbRes.value : lbRes.value?.data || [])
+        const lbRows = lbRes
+          ? (Array.isArray(lbRes) ? lbRes : lbRes.data || [])
           : [];
-        const refRows = allPlayersRes.status === 'fulfilled' && Array.isArray(allPlayersRes.value)
-          ? allPlayersRes.value
-          : [];
-        let deletedUidsSet = new Set();
-        try {
-          const rawDel = delUidsRes.status === 'fulfilled' ? delUidsRes.value : null;
-          if (rawDel) {
-            const parsed = JSON.parse(rawDel);
-            if (Array.isArray(parsed)) deletedUidsSet = new Set(parsed);
-          }
-        } catch { }
 
-        const todayStr = localDay();
-        const map = new Map();
-        const addEntry = (item, isFromPeriodLb = false) => {
-          if (!item) return;
-          const uid = item.uid || item.id;
-          if (!uid || deletedUidsSet.has(uid)) return;
-          const existing = map.get(uid);
+        const list = lbRows.map((r, index) => {
+          const plays = Number(r.periodPlays !== undefined ? r.periodPlays : (r.plays ?? 0));
+          const wins = Number(r.periodWins !== undefined ? r.periodWins : (r.wins ?? 0));
+          const careerPlays = Number(r.careerPlays ?? r.totalPlays ?? plays);
+          const careerWins = Number(r.careerWins ?? r.totalWins ?? wins);
+          const gp = r.gp != null ? Number(r.gp) : calculateGamePower(careerPlays, careerWins);
+          const isUser = Boolean(userProfile?.uid && (r.uid === userProfile.uid || r.id === userProfile.uid || r.isUser));
 
-          // If entry is already populated authoritatively from the server database, do not overwrite plays/wins/gp with local phone data
-          if (existing && !isFromPeriodLb) {
-            if (!existing.avatar && (item.avatar || item.avatarUrl)) {
-              existing.avatar = item.avatar || item.avatarUrl;
-            }
-            if ((!existing.username || existing.username === 'Player') && item.username) {
-              existing.username = item.username;
-            }
-            return;
-          }
-
-          const name = item.displayName || item.name || item.username || existing?.name || 'Player';
-          const isUser = Boolean(userProfile?.uid && uid === userProfile.uid);
-
-          // 1. Authoritative career plays & wins (used strictly for Game Power calculation)
-          const careerPlays = Math.max(
-            Number(item.careerPlays ?? item.totalPlays ?? (isUser ? userProfile?.gamesPlayed : 0) ?? 0),
-            Number(existing?.careerPlays ?? 0)
-          );
-          const careerWins = Math.max(
-            Number(item.careerWins ?? item.totalWins ?? (isUser ? userProfile?.wins : 0) ?? 0),
-            Number(existing?.careerWins ?? 0)
-          );
-
-          // 2. Period plays & wins strictly isolated to the selected period
-          let plays = 0;
-          let wins = 0;
-
-          if (isFromPeriodLb) {
-            // From server leaderboard (authoritative period-filtered SQL on game_results)
-            plays = Number(item.periodPlays !== undefined ? item.periodPlays : (item.plays ?? 0));
-            wins = Number(item.periodWins !== undefined ? item.periodWins : (item.wins ?? 0));
-          } else {
-            // From platform players / local storage
-            if (period === 'Daily') {
-              const isToday = isUser
-                ? Boolean(userProfile?.lastPlayedDate === todayStr || userProfile?.lastDailyPlayDate === todayStr)
-                : Boolean(item.lastPlayedDate === todayStr || item.lastDailyPlayDate === todayStr);
-              plays = isToday ? Number(isUser ? (userProfile?.dailyPlays ?? item.dailyPlays ?? 0) : (item.dailyPlays ?? 0)) : 0;
-              wins = isToday ? Number(isUser ? (userProfile?.dailyWins ?? item.dailyWins ?? 0) : (item.dailyWins ?? 0)) : 0;
-            } else if (period === 'Weekly') {
-              const now = new Date();
-              const currentWeek = `${now.getFullYear()}-W${Math.ceil((((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)}`;
-              const isThisWeek = isUser
-                ? Boolean(userProfile?.lastPlayedWeek === currentWeek || userProfile?.lastPlayedDate === todayStr)
-                : Boolean(item.lastPlayedWeek === currentWeek || item.lastPlayedDate === todayStr);
-              plays = isThisWeek ? Number(isUser ? (userProfile?.weeklyPlays ?? item.weeklyPlays ?? 0) : (item.weeklyPlays ?? 0)) : 0;
-              wins = isThisWeek ? Number(isUser ? (userProfile?.weeklyWins ?? item.weeklyWins ?? 0) : (item.weeklyWins ?? 0)) : 0;
-            } else if (period === 'Monthly') {
-              const now = new Date();
-              const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-              const isThisMonth = isUser
-                ? Boolean(userProfile?.lastPlayedMonth === currentMonth || userProfile?.lastPlayedDate === todayStr)
-                : Boolean(item.lastPlayedMonth === currentMonth || item.lastPlayedDate === todayStr);
-              plays = isThisMonth ? Number(isUser ? (userProfile?.monthlyPlays ?? item.monthlyPlays ?? 0) : (item.monthlyPlays ?? 0)) : 0;
-              wins = isThisMonth ? Number(isUser ? (userProfile?.monthlyWins ?? item.monthlyWins ?? 0) : (item.monthlyWins ?? 0)) : 0;
-            } else {
-              // Yearly / All-time
-              plays = careerPlays;
-              wins = careerWins;
-            }
-          }
-
-          // Authoritative GP calculated strictly via Game Power formula from career totals
-          const gp = calculateGamePower(careerPlays, careerWins);
-
-          map.set(uid, {
-            id: uid,
-            uid,
-            name,
-            displayName: name,
-            username: item.username || existing?.username || name,
-            avatar: item.avatar || item.avatarUrl || existing?.avatar || null,
+          return {
+            id: r.uid || r.id || `lb_${index}`,
+            uid: r.uid || r.id,
+            name: r.displayName || r.name || r.username || 'Player',
+            displayName: r.displayName || r.name || r.username || 'Player',
+            username: r.username || r.displayName || 'Player',
+            avatar: r.avatar || r.avatarUrl || null,
             plays,
             wins,
             periodPlays: plays,
@@ -685,21 +558,11 @@ export default function HomeScreen({ navigation }) {
             gp,
             gpText: `${gp} GP`,
             isUser,
-          });
-        };
+            rank: r.rank || index + 1,
+          };
+        });
 
-        lbRows.forEach((r) => addEntry(r, true));
-        refRows.forEach((r) => addEntry(r, false));
-
-        const mergedList = Array.from(map.values())
-          .filter((row) => !deletedUidsSet.has(row.uid) && !deletedUidsSet.has(row.id))
-          .sort(
-            (a, b) => (b.plays - a.plays) || (b.wins - a.wins) || (b.gp - a.gp) || String(a.name).localeCompare(String(b.name))
-          );
-        setDbLeaderboardRows(mergedList);
-        if (mergedList.length > 0) {
-          AsyncStorage.setItem(cacheKey, JSON.stringify(mergedList)).catch(() => { });
-        }
+        setDbLeaderboardRows(list);
       })
       .catch(() => { })
       .finally(() => {
@@ -708,7 +571,11 @@ export default function HomeScreen({ navigation }) {
     return () => {
       active = false;
     };
-  }, [period, userProfile?.uid, userProfile?.gamesPlayed, userProfile?.wins]);
+  }, [period, userProfile?.uid]);
+
+  useEffect(() => {
+    clearLegacyDeviceCache().catch(() => {});
+  }, []);
 
   useEffect(() => {
     const cancel = fetchLeaderboard();
