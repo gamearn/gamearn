@@ -46,6 +46,7 @@ export default function GameSectionScreen({ route, navigation }) {
             const careerPlays = Number(r.careerPlays ?? r.totalPlays ?? plays);
             const careerWins = Number(r.careerWins ?? r.totalWins ?? wins);
             const gp = r.gp != null ? Number(r.gp) : calculateGamePower(careerPlays, careerWins);
+            const vp = Number(r.vp ?? r.valuePoints ?? 0);
             const isUser = Boolean(userProfile?.uid && (r.uid === userProfile.uid || r.id === userProfile.uid || r.isUser));
 
             return {
@@ -65,6 +66,7 @@ export default function GameSectionScreen({ route, navigation }) {
               totalWins: careerWins,
               gp,
               gpText: `${gp} GP`,
+              vp,
               isUser,
               rank: r.rank || index + 1,
             };
@@ -226,7 +228,7 @@ export default function GameSectionScreen({ route, navigation }) {
                     <Image source={resolveAvatarSource(player.avatar)} style={{ width: 32, height: 32, borderRadius: 16, marginLeft: 10 }} />
                     <View style={{ flex: 1, marginLeft: 10 }}>
                       <Text style={{ color: player.isUser ? '#00E5FF' : '#FFF', fontWeight: '800', fontSize: 14 }}>{player.name}</Text>
-                      <Text style={{ color: '#94A3B8', fontSize: 11 }}>{player.plays} Plays · {player.wins} Wins</Text>
+                      <Text style={{ color: '#94A3B8', fontSize: 11 }}>{player.plays} Plays · {player.wins} Wins · {player.vp || 0} VP</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={{ color: player.isUser ? '#00E5FF' : '#00E5FF', fontWeight: '900', fontSize: 14 }}>{player.gpText || `${player.gp || 0} GP`}</Text>

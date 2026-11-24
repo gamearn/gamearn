@@ -538,6 +538,7 @@ export default function HomeScreen({ navigation }) {
           const careerPlays = Number(r.careerPlays ?? r.totalPlays ?? plays);
           const careerWins = Number(r.careerWins ?? r.totalWins ?? wins);
           const gp = r.gp != null ? Number(r.gp) : calculateGamePower(careerPlays, careerWins);
+          const vp = Number(r.vp ?? r.valuePoints ?? 0);
           const isUser = Boolean(userProfile?.uid && (r.uid === userProfile.uid || r.id === userProfile.uid || r.isUser));
 
           return {
@@ -557,6 +558,7 @@ export default function HomeScreen({ navigation }) {
             totalWins: careerWins,
             gp,
             gpText: `${gp} GP`,
+            vp,
             isUser,
             rank: r.rank || index + 1,
           };
@@ -1535,7 +1537,7 @@ export default function HomeScreen({ navigation }) {
                   <Image source={resolveAvatarSource(player.avatar)} style={[s.smallAvatar, { width: 32 * scale, height: 32 * scale, borderRadius: (32 * scale) / 2 }]} />
                   <View style={{ flex: 1 }}>
                     {txt(player.name, 12, player.isUser ? { color: '#00E5FF', fontWeight: '800' } : {})}
-                    {txt(`${player.plays} Plays · ${player.wins} Wins`, 11, s.muted)}
+                    {txt(`${player.plays} Plays · ${player.wins} Wins · ${player.vp || 0} VP`, 11, s.muted)}
                   </View>
                   {txt(player.gpText || `${player.gp || 0} GP`, 14, [s.bold, rankIdx === 0 && { color: '#ffe856' }, player.isUser && { color: '#00E5FF' }])}
                 </Tap>

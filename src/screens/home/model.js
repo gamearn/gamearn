@@ -237,6 +237,7 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
 
     const careerP = Math.max(Number(row.careerPlays ?? row.totalPlays ?? 0), isUser ? Number(userProfile?.gamesPlayed ?? 0) : 0, plays);
     const careerW = Math.max(Number(row.careerWins ?? row.totalWins ?? 0), isUser ? Number(userProfile?.wins ?? 0) : 0, wins);
+    const rowVp = Number(row.vp ?? (isUser ? (userProfile?.valuePoints ?? userProfile?.vp ?? 0) : 0));
     const rowGp = (row.gp != null && Number(row.gp) >= 0)
       ? Number(row.gp)
       : ((isUser && getUserGp() > 0) ? getUserGp() : computeRowGp(careerW, careerP));
@@ -254,6 +255,7 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
       careerWins: careerW,
       gp: rowGp,
       gpText: `${rowGp} GP`,
+      vp: rowVp,
       xp: rowGp,
       avatar: row.avatar || (isUser ? userProfile?.avatar : null),
       isUser,
@@ -278,6 +280,7 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
         wins: effectiveStats.wins,
         gp: userGp,
         gpText: `${userGp} GP`,
+        vp: Number(userProfile.valuePoints ?? userProfile.vp ?? 0),
         xp: userGp,
         avatar: userProfile.avatar || null,
         isUser: true,
@@ -291,6 +294,7 @@ function leaderboard(dbRows = [], userProfile = null, period = 'Daily', gameType
     if (b.plays !== a.plays) return b.plays - a.plays;
     if (b.wins !== a.wins) return b.wins - a.wins;
     if (b.gp !== a.gp) return b.gp - a.gp;
+    if ((b.vp || 0) !== (a.vp || 0)) return (b.vp || 0) - (a.vp || 0);
     return (a.name || '').localeCompare(b.name || '');
   });
   list.forEach((item, idx) => {

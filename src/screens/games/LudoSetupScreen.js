@@ -41,7 +41,7 @@ export default function LudoSetupScreen({ navigation }) {
             setDbRank('#--');
           }
         }
-      } catch {}
+      } catch { }
     })();
     return () => {
       alive = false;
@@ -163,15 +163,14 @@ export default function LudoSetupScreen({ navigation }) {
               style={[
                 styles.sliderTrackFill,
                 {
-                  width: `${
-                    turnTimer === '30s'
-                      ? 0
-                      : turnTimer === '1m'
+                  width: `${turnTimer === '30s'
+                    ? 0
+                    : turnTimer === '1m'
                       ? 33
                       : turnTimer === '2m'
-                      ? 66
-                      : 100
-                  }%`,
+                        ? 66
+                        : 100
+                    }%`,
                 },
               ]}
             />
