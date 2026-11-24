@@ -121,6 +121,7 @@ export default function AdminDashboardScreen({ navigation }) {
     users: initialPlayersList,
     pagination: { total: initialPlayersList.length, page: 1, limit: 100 },
   });
+  const [liveDailyLeaderboard, setLiveDailyLeaderboard] = useState([]);
   const [tournamentsData, setTournamentsData] = useState({ count: 0, tournaments: [] });
   const [tournamentQuery, setTournamentQuery] = useState('');
   const [deletingTournamentId, setDeletingTournamentId] = useState(null);
@@ -424,7 +425,10 @@ export default function AdminDashboardScreen({ navigation }) {
       withFastTimeout(admin.tournaments(), 3500, null),
       withFastTimeout(admin.users({ limit: 100 }), 3500, null),
     ]);
-    const mirror = mirrorRes.status === 'fulfilled' && mirrorRes.value ? mirrorRes.value : { allPlayers: initialPlayersList, mergedTournaments: [] };
+    const mirror = mirrorRes.status === 'fulfilled' && mirrorRes.value ? mirrorRes.value : { allPlayers: initialPlayersList, mergedTournaments: [], dailyLb: [] };
+    if (Array.isArray(mirror.dailyLb)) {
+      setLiveDailyLeaderboard(mirror.dailyLb);
+    }
     const sRaw = sRes.status === 'fulfilled' ? sRes.value : null;
     const vRaw = vRes.status === 'fulfilled' ? vRes.value : null;
     const tRaw = tRes.status === 'fulfilled' ? tRes.value : null;
@@ -443,8 +447,11 @@ export default function AdminDashboardScreen({ navigation }) {
             Math.floor(Number(u.balanceNaira ?? (Number(u.balanceKobo || 0) / 100) ?? 0) / 50),
             Number(prev.vp ?? 0)
           );
-          const pCareer = Math.max(Number(u.plays ?? 0), Number(prev.plays ?? 0));
-          const wCareer = Math.max(Number(u.wins ?? 0), Number(prev.wins ?? 0));
+          const pCareer = Math.max(Number(u.careerPlays ?? u.totalPlays ?? u.plays ?? 0), Number(prev.careerPlays ?? prev.plays ?? 0));
+          const wCareer = Math.max(Number(u.careerWins ?? u.totalWins ?? u.wins ?? 0), Number(prev.careerWins ?? prev.wins ?? 0));
+          const computedGp = pCareer > 0
+            ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * Math.min(1, wCareer / pCareer) + 0.25 * Math.min(1, Math.log10(pCareer + 1) / 3)))))
+            : 0;
           playerMap.set(u.uid, {
             ...prev,
             ...u,
@@ -452,11 +459,13 @@ export default function AdminDashboardScreen({ navigation }) {
             email: u.email || prev.email,
             phoneNumber: u.phoneNumber || prev.phoneNumber,
             status: u.status || prev.status || 'active',
-            gp: pCareer > 0
-              ? Math.min(100, Math.max(0, Math.round(100 * (0.75 * Math.min(1, wCareer / pCareer) + 0.25 * Math.min(1, Math.log10(pCareer + 1) / 3)))))
-              : 0,
+            gp: (u.gp != null && Number(u.gp) >= 0) ? Number(u.gp) : computedGp,
             plays: pCareer,
             wins: wCareer,
+            careerPlays: pCareer,
+            careerWins: wCareer,
+            dailyPlays: Math.max(Number(u.dailyPlays ?? 0), Number(prev.dailyPlays ?? 0)),
+            dailyWins: Math.max(Number(u.dailyWins ?? 0), Number(prev.dailyWins ?? 0)),
             vp,
             valuePoints: vp,
             balanceNaira: Math.max(Number(u.balanceNaira ?? 0), vp * 50, Number(prev.balanceNaira ?? 0)),
@@ -1218,10 +1227,7 @@ export default function AdminDashboardScreen({ navigation }) {
       },
     ];
 
-    const liveDailyRows = Array.isArray(mirror.dailyLb) && mirror.dailyLb.length > 0
-      ? mirror.dailyLb
-      : (Array.isArray(dailyLbRes) ? dailyLbRes : []);
-    const leaderboardStandings = (liveDailyRows.length > 0 ? liveDailyRows : vList)
+    const leaderboardStandings = (Array.isArray(liveDailyLeaderboard) && liveDailyLeaderboard.length > 0 ? liveDailyLeaderboard : vList)
       .slice(0, 10);
 
     return (
