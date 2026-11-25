@@ -74,6 +74,7 @@ export default function GameResultScreen({ route, navigation }) {
   const [claimingStreak, setClaimingStreak] = useState(false);
   const [streakClaimMessage, setStreakClaimMessage] = useState(null);
   const [localGameStats, setLocalGameStats] = useState(null);
+  const [localTotalStats, setLocalTotalStats] = useState(null);
   const [winStreakModalTier, setWinStreakModalTier] = useState(null);
   const [dailyStreakModalMilestone, setDailyStreakModalMilestone] = useState(null);
 
@@ -96,7 +97,7 @@ export default function GameResultScreen({ route, navigation }) {
     // Immediately record match outcome to PostgreSQL so the leaderboard updates without delay
     const outcome = isWinner ? 'win' : (isDraw ? 'draw' : 'loss');
     invalidatePlatformPlayersCache();
-    leaderboardApi
+    const recordPromise = leaderboardApi
       .recordCompletion(statsKey, outcome, completionReason, matchId)
       .then(() => {
         invalidatePlatformPlayersCache();
@@ -214,6 +215,7 @@ export default function GameResultScreen({ route, navigation }) {
           const newWins = isWinner ? currentWins + 1 : currentWins;
           const newLosses = !isWinner && !isDraw ? currentLosses + 1 : currentLosses;
           const newPlayed = Math.max(currentPlayed + 1, newWins + newLosses);
+          setLocalTotalStats({ gamesPlayed: newPlayed, wins: newWins, losses: newLosses });
 
           const newGp = calculateGamePower(newPlayed, newWins, newLosses);
           const userBalance = Number(userProfile?.walletBalance ?? userProfile?.balance ?? 0);
@@ -255,14 +257,12 @@ export default function GameResultScreen({ route, navigation }) {
           }
           invalidatePlatformPlayersCache();
         }
+        await recordPromise;
+        await refreshProfile().catch(() => { });
       } catch (err) {
         console.log('Notice updating result stats:', err?.message || err);
       }
     })();
-
-    if (serverConfirmed) {
-      refreshProfile().catch(() => { });
-    }
   }, []);
 
   const effectiveProfileForStreak = localGameStats
@@ -363,9 +363,9 @@ export default function GameResultScreen({ route, navigation }) {
 
   // Total stats matching Profile, Admin, and Leaderboard
   const currentGameStats = localGameStats || userProfile?.gameStats?.[statsKey] || (isCheckers ? (userProfile?.gameStats?.draft || userProfile?.gameStats?.draughts) : {}) || {};
-  const thisGamePlayed = Math.max(Number(userProfile?.gamesPlayed ?? 0), Number(currentGameStats.gamesPlayed ?? 0));
-  const thisGameWins = Math.max(Number(userProfile?.wins ?? userProfile?.gamesWon ?? 0), Number(currentGameStats.wins ?? 0));
-  const thisGameLosses = Math.max(Number(userProfile?.losses ?? userProfile?.gamesLost ?? 0), Number(currentGameStats.losses ?? 0));
+  const thisGamePlayed = localTotalStats ? localTotalStats.gamesPlayed : Math.max(Number(userProfile?.gamesPlayed ?? 0), Number(currentGameStats.gamesPlayed ?? 0));
+  const thisGameWins = localTotalStats ? localTotalStats.wins : Math.max(Number(userProfile?.wins ?? userProfile?.gamesWon ?? 0), Number(currentGameStats.wins ?? 0));
+  const thisGameLosses = localTotalStats ? localTotalStats.losses : Math.max(Number(userProfile?.losses ?? userProfile?.gamesLost ?? 0), Number(currentGameStats.losses ?? 0));
   const winRate = thisGamePlayed > 0 ? Math.round((thisGameWins / thisGamePlayed) * 100) : 0;
 
   const streakCount = Number(userProfile?.streak ?? userProfile?.currentStreak ?? 0);
