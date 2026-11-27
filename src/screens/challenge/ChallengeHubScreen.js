@@ -31,7 +31,10 @@ export default function ChallengeHubScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
   const { userProfile } = useAuth();
 
-  const routeGameType = GAME_BY_TYPE[route.params?.gameType] ? route.params.gameType : 'whot';
+  // Set when the player arrives from a specific game's lobby: the hub then
+  // shows only that game instead of asking again.
+  const lockedGameType = GAME_BY_TYPE[route.params?.gameType] ? route.params.gameType : null;
+  const routeGameType = lockedGameType || 'whot';
 
   const [tab, setTab] = useState(['open', 'mine', 'create'].includes(route.params?.tab) ? route.params.tab : 'open'); // open | mine | create
   const [openList, setOpenList] = useState([]);
@@ -60,12 +63,15 @@ export default function ChallengeHubScreen({ route, navigation }) {
   };
 
   const loadAll = useCallback(async (showError = false) => {
-    const [openRes, mineRes] = await Promise.allSettled([challenges.list(), challenges.my()]);
+    const [openRes, mineRes] = await Promise.allSettled([challenges.list(lockedGameType), challenges.my()]);
 
     const openOk = openRes.status === 'fulfilled';
     const mineOk = mineRes.status === 'fulfilled';
     if (openOk) setOpenList(normalizeList(openRes.value));
-    if (mineOk) setMineList(normalizeList(mineRes.value));
+    if (mineOk) {
+      const mine = normalizeList(mineRes.value);
+      setMineList(lockedGameType ? mine.filter((c) => c.gameType === lockedGameType) : mine);
+    }
 
     if (!openOk || !mineOk) {
       const reason = !openOk
@@ -76,7 +82,14 @@ export default function ChallengeHubScreen({ route, navigation }) {
     } else {
       setLoadError(null);
     }
-  }, []);
+  }, [lockedGameType]);
+
+  // A notification tap while the hub is already open only changes params.
+  useEffect(() => {
+    const t = route.params?.tab;
+    if (['open', 'mine', 'create'].includes(t)) setTab(t);
+    if (route.params?.refresh) loadAll();
+  }, [route.params?.tab, route.params?.refresh, loadAll]);
 
   useEffect(() => {
     setLoading(true);
@@ -394,6 +407,11 @@ export default function ChallengeHubScreen({ route, navigation }) {
     return (
       <View>
         <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Game</Text>
+        {lockedGameType ? (
+          <Text style={[styles.gameChipText, { color: theme.accent, marginBottom: 16 }]}>
+            {GAME_BY_TYPE[lockedGameType].name}
+          </Text>
+        ) : (
         <View style={styles.tierGrid}>
           {Object.keys(GAME_BY_TYPE).map((gt) => {
             const selected = createGameType === gt;
@@ -416,6 +434,7 @@ export default function ChallengeHubScreen({ route, navigation }) {
             );
           })}
         </View>
+        )}
 
         <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Challenge a specific player (optional)</Text>
         <View style={[styles.amountRow, { borderColor: theme.inputBorder }]}>

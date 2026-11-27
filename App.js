@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Linking } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import {
   setupPushHandlers,
   onNotificationOpen,
   isPushAvailable,
+  consumePendingOpen,
 } from './src/services/pushNotifications';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 
@@ -55,13 +56,21 @@ function MainApp() {
   useEffect(() => {
     if (!isPushAvailable()) return undefined;
     const cleanup = setupPushHandlers({
-      onForegroundMessage: () => {
-        // A foreground push is also persisted in-app by the backend; the
-        // HomeScreen socket listener picks it up in real time.
+      onForegroundMessage: (info) => {
+        // FCM shows no system banner while the app is open, so surface
+        // challenge pushes ourselves. The in-app notification is also
+        // persisted by the backend and picked up by HomeScreen's socket.
+        if (!info || !String(info.type || '').startsWith('challenge_')) return;
+        Alert.alert(info.title || 'Challenge', info.body || '', [
+          { text: 'Later', style: 'cancel' },
+          { text: 'View', onPress: () => queueNotificationTarget(info, true) },
+        ]);
       },
     });
     const unsubOpen = onNotificationOpen((info) => {
       queueNotificationTarget(info, authed);
+      // Clear the stored tap so re-subscribing (auth change) does not replay it.
+      consumePendingOpen();
     });
     return () => {
       unsubOpen?.();

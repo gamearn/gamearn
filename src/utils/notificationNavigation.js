@@ -15,13 +15,20 @@ export const setNavigationRef = (ref) => { navigationRef = ref; };
  */
 export const resolveNotificationTarget = (info = {}) => {
   const type = String(info.type || '').toLowerCase();
-  // A match is ready — go straight to the room when we have one.
-  if ((type === 'match_found' || type === 'challenge_accepted' || type === 'your_turn') && info.roomId) {
-    return { name: 'GameLobby', params: { roomId: info.roomId } };
+  // `refresh` changes on every tap so an already-open hub re-reads its params.
+  const refresh = Date.now();
+  // Someone accepted my challenge: the Join Match button lives on the
+  // My Challenges tab. (GameLobby ignores a roomId param, so do not send it there.)
+  if (type === 'challenge_accepted') {
+    return { name: 'ChallengeHub', params: { tab: 'mine', refresh } };
   }
-  // Challenge requests / new open challenges → the challenge hub.
-  if (type === 'challenge_request' || type === 'challenge_created' || type === 'challenge_accepted') {
-    return { name: 'ChallengeHub', params: { tab: 'open' } };
+  // Challenge requests / new open challenges -> the Open tab.
+  if (type === 'challenge_request' || type === 'challenge_created') {
+    return { name: 'ChallengeHub', params: { tab: 'open', refresh } };
+  }
+  // A match is ready — go to the room when we have one.
+  if ((type === 'match_found' || type === 'your_turn') && info.roomId) {
+    return { name: 'GameLobby', params: { roomId: info.roomId } };
   }
   return null;
 };
@@ -34,33 +41,30 @@ export const resolveNotificationTarget = (info = {}) => {
 export const queueNotificationTarget = (info, ready = false) => {
   const target = resolveNotificationTarget(info);
   if (!target) return false;
-  if (ready && navigationRef?.current) {
-    try {
-      navigationRef.current.navigate(target.name, target.params);
-      return true;
-    } catch (e) {
-      // fall through to queue
-    }
-  }
   pendingTarget = target;
   awaitingAuth = !ready;
+  if (ready) consumeNotificationTarget();
   return true;
 };
 
-/** Consume and dispatch any queued target. Call once when auth becomes ready. */
-export const consumeNotificationTarget = () => {
+/** Consume and dispatch any queued target. Call once when auth becomes ready.
+ *  If the navigator is not mounted yet (cold start from a tap), keep the
+ *  target and retry a few times instead of dropping it. */
+export const consumeNotificationTarget = (attempt = 0) => {
   if (!pendingTarget) return false;
-  const target = pendingTarget;
-  pendingTarget = null;
-  awaitingAuth = false;
-  if (navigationRef?.current) {
+  const nav = navigationRef?.current;
+  if (nav && (typeof nav.isReady !== 'function' || nav.isReady())) {
+    const target = pendingTarget;
+    pendingTarget = null;
+    awaitingAuth = false;
     try {
-      navigationRef.current.navigate(target.name, target.params);
+      nav.navigate(target.name, target.params);
       return true;
     } catch (e) {
-      // ignore
+      return false;
     }
   }
+  if (attempt < 10) setTimeout(() => consumeNotificationTarget(attempt + 1), 300);
   return false;
 };
 
